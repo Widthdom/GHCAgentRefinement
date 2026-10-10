@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "powershell": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/load-copilot-instructions.ps1"
+      }
+    ]
+  }
+}
