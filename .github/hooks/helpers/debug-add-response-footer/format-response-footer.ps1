@@ -18,7 +18,7 @@ $hookLines = ($Hooks | ForEach-Object { "- $_" }) -join [Environment]::NewLine
 $skillLines = ($Skills | ForEach-Object { "- $_" }) -join [Environment]::NewLine
 $footerBoundary = [char]0x200B
 
-@"
+$footer = @"
 $footerBoundary
 ## ${hooksHeader}:
 $hookLines
@@ -27,3 +27,4 @@ $skillLines
 ## $timeHeader
 $CurrentJst
 "@
+$footer + ([Environment]::NewLine * 2)
