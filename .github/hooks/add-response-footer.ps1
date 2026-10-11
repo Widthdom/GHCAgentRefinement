@@ -53,13 +53,13 @@ if ([string]::IsNullOrWhiteSpace($lastAssistantResponse)) {
     exit 2
 }
 
-$currentJst = & "$PSScriptRoot\scripts\add-response-footer\get-current-jst.ps1"
-$usedSkills = @(& "$PSScriptRoot\scripts\add-response-footer\get-used-skills.ps1" -TranscriptPath $transcriptPath)
+$currentJst = & "$PSScriptRoot\helpers\add-response-footer\get-current-jst.ps1"
+$usedSkills = @(& "$PSScriptRoot\helpers\add-response-footer\get-used-skills.ps1" -TranscriptPath $transcriptPath)
 $expectedSkills = if ($usedSkills.Count -eq 0) { @('none') } else { $usedSkills }
-$requiredFooter = & "$PSScriptRoot\scripts\add-response-footer\format-response-footer.ps1" `
+$requiredFooter = & "$PSScriptRoot\helpers\add-response-footer\format-response-footer.ps1" `
     -Skills $expectedSkills `
     -CurrentJst $currentJst
-$footerIsValid = & "$PSScriptRoot\scripts\add-response-footer\test-response-footer.ps1" `
+$footerIsValid = & "$PSScriptRoot\helpers\add-response-footer\test-response-footer.ps1" `
     -Response $lastAssistantResponse `
     -ExpectedSkills $expectedSkills `
     -CurrentJst $currentJst
