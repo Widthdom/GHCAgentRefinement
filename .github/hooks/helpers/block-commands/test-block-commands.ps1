@@ -25,7 +25,7 @@ function Invoke-Hook {
 
     $output = $payload |
         ConvertTo-Json -Compress |
-        & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass `
+        & pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass `
             -File $hookPath `
             -DefinitionsPath $definitionsPath
 

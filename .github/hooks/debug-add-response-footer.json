@@ -4,7 +4,8 @@
     "agentStop": [
       {
         "type": "command",
-        "powershell": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/debug-add-response-footer.ps1"
+        "bash": "pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/debug-add-response-footer.ps1",
+        "powershell": "pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/debug-add-response-footer.ps1"
       }
     ]
   }

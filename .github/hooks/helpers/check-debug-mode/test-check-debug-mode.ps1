@@ -17,7 +17,7 @@ function Invoke-DebugModeHook {
         prompt = $Prompt
     } |
         ConvertTo-Json -Compress |
-        & powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $hookPath
+        & pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $hookPath
 
     if ($LASTEXITCODE -ne 0) {
         throw "Hook exited with code $LASTEXITCODE for prompt: $Prompt"

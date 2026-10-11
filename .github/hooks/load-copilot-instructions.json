@@ -4,7 +4,8 @@
     "sessionStart": [
       {
         "type": "command",
-        "powershell": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/load-copilot-instructions.ps1"
+        "bash": "pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/load-copilot-instructions.ps1",
+        "powershell": "pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/load-copilot-instructions.ps1"
       }
     ]
   }
