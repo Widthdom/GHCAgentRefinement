@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "powershell": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/check-development-tools.ps1",
+        "timeoutSec": 60
+      }
+    ]
+  }
+}
