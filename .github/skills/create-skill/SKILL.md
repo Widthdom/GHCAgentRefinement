@@ -1,8 +1,10 @@
 ---
 name: create-skill
-description: 'skillを新規作成するときに使う。用途に合ったskill名と最小限の指示を定める。'
+description: 'skillを新規作成するときに使う。'
 ---
 
-`.github/skills/<skill-name>/SKILL.md` を作成する。フォルダ名と frontmatter の `name` を一致させ、`description` に用途と使う場面を簡潔に書く。本文には依頼を満たすために必要な指示だけを記載する。
+`.github/skills/<skill-name>/SKILL.md` を作成する。フォルダ名と frontmatter の `name` を一致させ、`description` に用途と発動条件を簡潔に書く。本文は実行手順と判断基準に絞り、skill自体の発動条件は記載しない。
 
-skillの発動条件を継続監視する必要がある場合のみ、`.github/copilot-instructions.md` にskill名と実行条件を記載する。依頼内容から利用場面が明確なskillは列挙せず、`description` による選択に任せる。判定基準や手順はskill側に記載する。
+発動条件を継続監視する必要があるskillだけ、`.github/copilot-instructions.md` にskill名と、その `description` の発動条件を参照する監視指示を記載する。依頼内容から選べるskillは登録しない。
+
+仕上げに `description`・本文・共通指示を見直し、重複する条件や説明を削るか参照に置き換える。
