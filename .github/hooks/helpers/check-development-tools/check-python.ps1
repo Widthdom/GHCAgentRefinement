@@ -1,21 +1,30 @@
 param(
-    [string]$WingetCommand = 'winget'
+    [ValidateSet('Auto', 'Windows', 'MacOS', 'Linux')]
+    [string]$Platform = 'Auto',
+    [string]$WingetCommand = 'winget',
+    [string]$BrewCommand = 'brew',
+    [string]$AptCommand = 'apt-cache',
+    [string]$DnfCommand = 'dnf',
+    [string]$PacmanCommand = 'pacman'
 )
 
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\common.ps1"
 
 function Get-InstalledPython {
-    $installed = Get-ToolVersion `
-        -Command 'py' `
-        -Arguments @('-3', '--version') `
-        -Pattern 'Python (?<version>\d+(?:\.\d+){2,3})'
-    if ($null -ne $installed) {
-        return $installed
+    if ($resolvedPlatform -eq 'Windows') {
+        $installed = Get-ToolVersion `
+            -Command 'py' `
+            -Arguments @('-3', '--version') `
+            -Pattern 'Python (?<version>\d+(?:\.\d+){2,3})'
+        if ($null -ne $installed) {
+            return $installed
+        }
     }
 
+    $command = if ($resolvedPlatform -eq 'Windows') { 'python' } else { 'python3' }
     Get-ToolVersion `
-        -Command 'python' `
+        -Command $command `
         -Arguments @('--version') `
         -Pattern 'Python (?<version>\d+(?:\.\d+){2,3})'
 }
@@ -53,24 +62,37 @@ function Get-LatestPythonPackage {
         Select-Object -First 1
 }
 
+$resolvedPlatform = Get-DevelopmentPlatform -Platform $Platform
+$packageManager = Get-DevelopmentPackageManager @PSBoundParameters
 $installed = Get-InstalledPython
-$wingetAvailable = Test-WingetAvailable -Command $WingetCommand
+$packageId = switch ($resolvedPlatform) {
+    'MacOS' { 'python' }
+    'Linux' { 'python3' }
+}
 
-if (-not $wingetAvailable) {
+if ($null -eq $packageManager) {
     if ($null -eq $installed) {
-        '- Python: not installed. winget is unavailable, so no install command can be suggested.'
+        "- Python: not installed. No supported package manager is available for $resolvedPlatform, so no install command can be suggested."
     } else {
-        "- Python: installed ($($installed.Display)), but the latest version could not be checked because winget is unavailable."
+        "- Python: installed ($($installed.Display)), but the latest version could not be checked because no supported package manager is available for $resolvedPlatform."
     }
     return
 }
 
-$latest = Get-LatestPythonPackage
+$latest = if ($resolvedPlatform -eq 'Windows') {
+    Get-LatestPythonPackage
+} else {
+    Get-LatestPackageVersion -PackageManager $packageManager -PackageId $packageId
+}
 if ($null -eq $installed) {
     if ($null -eq $latest) {
-        '- Python: not installed, and the latest stable winget package could not be found.'
+        '- Python: not installed, and the latest stable package could not be found.'
     } else {
-        "- Python: not installed. Install: winget install --id $($latest.Id) --exact --source winget"
+        $latestPackageId = if ($resolvedPlatform -eq 'Windows') { $latest.Id } else { $packageId }
+        $command = Get-PackageInstallCommand `
+            -PackageManager $packageManager `
+            -PackageId $latestPackageId
+        "- Python: not installed. Install: $command"
     }
     return
 }
@@ -81,13 +103,19 @@ if ($null -eq $latest) {
 }
 
 if ($installed.Value -lt $latest.Value) {
+    $latestPackageId = if ($resolvedPlatform -eq 'Windows') {
+        $latest.Id
+    } else {
+        $packageId
+    }
+    $managed = Test-PackageManaged `
+        -PackageManager $packageManager `
+        -PackageId $latestPackageId
     $sameSeries = $installed.Value.Major -eq $latest.Value.Major -and
         $installed.Value.Minor -eq $latest.Value.Minor
-    $managed = Test-WingetPackageInstalled -WingetCommand $WingetCommand -PackageId $latest.Id
-    $command = if ($sameSeries -and $managed) {
-        "winget upgrade --id $($latest.Id) --exact --source winget"
-    } else {
-        "winget install --id $($latest.Id) --exact --source winget"
-    }
+    $command = Get-PackageInstallCommand `
+        -PackageManager $packageManager `
+        -PackageId $latestPackageId `
+        -Upgrade:($managed -and ($resolvedPlatform -ne 'Windows' -or $sameSeries))
     "- Python: update available ($($installed.Display) -> $($latest.Display)). Update: $command"
 }
