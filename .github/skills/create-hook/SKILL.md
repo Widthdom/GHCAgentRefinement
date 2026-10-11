@@ -11,6 +11,8 @@ VS CodeのSession Targetが `Local` の場合は別のhook実装を使うため�
 
 hook定義は `.github/hooks/<hook-name>.json`、実行スクリプトは `.github/hooks/<hook-name>.ps1`、補助スクリプトは `.github/hooks/helpers/<hook-name>/` に配置する。
 
+PowerShell hookで文字列をUnicode escapeで記述する場合は、escapeを復号した元の文字列を近くのコメントにそのまま記載する。
+
 デバッグモードでのみ動かすhookには `debug-` 接頭辞を付ける。状態の保存先とJSON形式は `check-debug-mode.ps1`、読み取り方は `debug-add-response-footer.ps1` を参照する。hook入力のセッションIDに対応する状態を読み、状態ファイルがない場合または `enabled` が `true` でない場合は、本来の処理を行わず正常終了する。
 
 実装後、JSON構文と、通常実行・実行条件を満たさない場合のスキップ・不正入力時の動作を検証する。実行を拒否するhookでは、許可と拒否の両方を検証する。
