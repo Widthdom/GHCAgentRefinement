@@ -39,17 +39,12 @@ try {
         throw 'Debug prompt did not enable footer debug mode.'
     }
 
-    Invoke-DebugModeHook -Prompt 'The final response footer is missing or incorrect. Continue the response.'
-    if ((Get-DebugMode) -ne $true) {
-        throw 'Footer correction prompt changed footer debug mode.'
-    }
-
-    Invoke-DebugModeHook -Prompt 'next regular prompt'
+    Invoke-DebugModeHook -Prompt 'next regular user prompt'
     if ((Get-DebugMode) -ne $false) {
-        throw 'Following regular prompt did not disable footer debug mode.'
+        throw 'The next regular user prompt did not disable footer debug mode.'
     }
 
-    Write-Output 'Passed 4 check-debug-mode tests.'
+    Write-Output 'Passed 3 check-debug-mode tests.'
 } finally {
     if (Test-Path -LiteralPath $statePath) {
         Remove-Item -LiteralPath $statePath -Force

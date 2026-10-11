@@ -103,7 +103,7 @@ if (-not $footerIsValid) {
     $output = @{
         decision = 'block'
         reason = @"
-The final response footer is missing or incorrect. Continue the response with the following exact footer block only once:
+The final response footer is missing or incorrect. Preserve the response body. Replace any existing footer blocks with the exact block below; if no footer exists, append it to the end. The corrected response must contain exactly one footer block:
 
 $requiredFooter
 "@

@@ -27,13 +27,6 @@ if ([string]::IsNullOrWhiteSpace($prompt)) {
     exit 2
 }
 
-if ($prompt.StartsWith(
-        'The final response footer is missing or incorrect.',
-        [System.StringComparison]::Ordinal
-    )) {
-    exit 0
-}
-
 $parsedSessionId = [guid]::Empty
 if (-not [guid]::TryParse($sessionId, [ref]$parsedSessionId)) {
     [Console]::Error.WriteLine("Invalid session ID: $sessionId")
