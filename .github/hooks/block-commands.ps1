@@ -30,8 +30,8 @@ $command = if ($toolArgs -is [string]) {
 } elseif ($null -ne $toolArgs -and $toolArgs.command -is [string]) {
     $toolArgs.command
 } else {
-    [Console]::Error.WriteLine('preToolUse hook input does not contain a command string.')
-    exit 2
+    '{}'
+    exit 0
 }
 
 if (-not (Test-Path -LiteralPath $DefinitionsPath -PathType Leaf)) {
