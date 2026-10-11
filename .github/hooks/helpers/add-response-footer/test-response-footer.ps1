@@ -3,6 +3,9 @@ param(
     [string]$Response,
 
     [Parameter(Mandatory)]
+    [string[]]$ExpectedHooks,
+
+    [Parameter(Mandatory)]
     [string[]]$ExpectedSkills,
 
     [Parameter(Mandatory)]
@@ -11,11 +14,19 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$footerPattern = '(?s)## \u4F7F\u7528\u3057\u305Fskill:\r?\n(?<skills>(?:- [^\r\n]+\r?\n)+)## \u73FE\u5728\u6642\u523B\r?\n(?<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) JST\s*$'
+$footerPattern = '(?s)## \u4F7F\u7528\u3057\u305Fhook:\r?\n(?<hooks>(?:- [^\r\n]+\r?\n)+)## \u4F7F\u7528\u3057\u305Fskill:\r?\n(?<skills>(?:- [^\r\n]+\r?\n)+)## \u73FE\u5728\u6642\u523B\r?\n(?<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) JST\s*$'
 $footerMatch = [regex]::Match($Response, $footerPattern)
 if (-not $footerMatch.Success) {
     return $false
 }
+
+$footerHooks = @(
+    [regex]::Matches($footerMatch.Groups['hooks'].Value, '(?m)^- (?<hook>[^\r\n]+)\r?$') |
+        ForEach-Object { $_.Groups['hook'].Value }
+)
+$hooksAreCorrect =
+    $footerHooks.Count -eq $ExpectedHooks.Count -and
+    $null -eq (Compare-Object -ReferenceObject $ExpectedHooks -DifferenceObject $footerHooks)
 
 $footerSkills = @(
     [regex]::Matches($footerMatch.Groups['skills'].Value, '(?m)^- (?<skill>[^\r\n]+)\r?$') |
@@ -41,4 +52,4 @@ $footerTimestamp = [DateTime]::ParseExact(
 $age = $currentTimestamp - $footerTimestamp
 $timestampIsCurrent = $age.TotalMinutes -ge -2 -and $age.TotalMinutes -le 10
 
-$skillsAreCorrect -and $timestampIsCurrent
+$hooksAreCorrect -and $skillsAreCorrect -and $timestampIsCurrent
