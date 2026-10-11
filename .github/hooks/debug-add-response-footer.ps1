@@ -28,6 +28,35 @@ if ([string]::IsNullOrWhiteSpace($transcriptPath) -or
     exit 2
 }
 
+$sessionId = if ($hookInput.sessionId) {
+    $hookInput.sessionId
+} else {
+    $hookInput.session_id
+}
+$parsedSessionId = [guid]::Empty
+if (-not [guid]::TryParse($sessionId, [ref]$parsedSessionId)) {
+    [Console]::Error.WriteLine("Invalid session ID: $sessionId")
+    exit 2
+}
+
+$statePath = Join-Path `
+    ([System.IO.Path]::GetTempPath()) `
+    "ghc-agent-refinement\debug-mode\$($parsedSessionId.ToString('D')).json"
+if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) {
+    exit 0
+}
+
+try {
+    $debugState = [System.IO.File]::ReadAllText($statePath) | ConvertFrom-Json
+} catch {
+    [Console]::Error.WriteLine("Failed to parse footer debug-mode state: $($_.Exception.Message)")
+    exit 2
+}
+
+if ($debugState.enabled -ne $true) {
+    exit 0
+}
+
 $lastAssistantResponse = $null
 foreach ($line in [System.IO.File]::ReadLines($transcriptPath)) {
     if ([string]::IsNullOrWhiteSpace($line)) {
@@ -53,18 +82,18 @@ if ([string]::IsNullOrWhiteSpace($lastAssistantResponse)) {
     exit 2
 }
 
-$currentJst = & "$PSScriptRoot\helpers\add-response-footer\get-current-jst.ps1"
-$usedHooks = @(& "$PSScriptRoot\helpers\add-response-footer\get-used-hooks.ps1" `
+$currentJst = & "$PSScriptRoot\helpers\debug-add-response-footer\get-current-jst.ps1"
+$usedHooks = @(& "$PSScriptRoot\helpers\debug-add-response-footer\get-used-hooks.ps1" `
     -TranscriptPath $transcriptPath `
     -HooksPath $PSScriptRoot)
-$usedSkills = @(& "$PSScriptRoot\helpers\add-response-footer\get-used-skills.ps1" -TranscriptPath $transcriptPath)
+$usedSkills = @(& "$PSScriptRoot\helpers\debug-add-response-footer\get-used-skills.ps1" -TranscriptPath $transcriptPath)
 $expectedHooks = if ($usedHooks.Count -eq 0) { @('none') } else { $usedHooks }
 $expectedSkills = if ($usedSkills.Count -eq 0) { @('none') } else { $usedSkills }
-$requiredFooter = & "$PSScriptRoot\helpers\add-response-footer\format-response-footer.ps1" `
+$requiredFooter = & "$PSScriptRoot\helpers\debug-add-response-footer\format-response-footer.ps1" `
     -Hooks $expectedHooks `
     -Skills $expectedSkills `
     -CurrentJst $currentJst
-$footerIsValid = & "$PSScriptRoot\helpers\add-response-footer\test-response-footer.ps1" `
+$footerIsValid = & "$PSScriptRoot\helpers\debug-add-response-footer\test-response-footer.ps1" `
     -Response $lastAssistantResponse `
     -ExpectedHooks $expectedHooks `
     -ExpectedSkills $expectedSkills `
