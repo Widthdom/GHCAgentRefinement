@@ -5,6 +5,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+. "$PSScriptRoot\common.ps1"
+
 if (-not (Test-Path -LiteralPath $TranscriptPath -PathType Leaf)) {
     throw "Transcript file not found: $TranscriptPath"
 }
@@ -18,7 +20,8 @@ foreach ($line in [System.IO.File]::ReadLines($TranscriptPath)) {
 
     $event = $line | ConvertFrom-Json
 
-    if ($event.type -eq 'user.message') {
+    if ($event.type -eq 'user.message' -and
+        -not (Test-ResponseFooterCorrectionMessage -Content $event.data.content)) {
         $usedSkills.Clear()
         continue
     }
