@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "powershell": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/check-debug-mode.ps1"
+      }
+    ]
+  }
+}
