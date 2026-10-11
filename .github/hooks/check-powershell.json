@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "bash .github/hooks/check-powershell.sh",
+        "powershell": "& ./.github/hooks/check-powershell.cmd",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}
