@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "matcher": "(?:functions\\.)?(?:bash|powershell)",
+        "powershell": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/block-commands.ps1",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}
