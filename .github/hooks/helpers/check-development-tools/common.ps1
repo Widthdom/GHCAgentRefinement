@@ -79,6 +79,28 @@ function Test-WingetAvailable {
     return $null -ne (Get-Command $Command -ErrorAction SilentlyContinue)
 }
 
+function Test-WingetOutputContainsPackage {
+    param(
+        [Parameter(Mandatory)]
+        [AllowEmptyCollection()]
+        [AllowEmptyString()]
+        [string[]]$Output,
+
+        [Parameter(Mandatory)]
+        [string]$PackageId
+    )
+
+    $escapedPackageId = [regex]::Escape($PackageId)
+    $matchingRows = @($Output | Where-Object {
+        $_ -match "(?:^|\s)$escapedPackageId(?:\s|$)"
+    })
+    if ($matchingRows.Count -eq 0) {
+        return $false
+    }
+
+    return $true
+}
+
 function Get-LatestWingetPackageVersion {
     param(
         [Parameter(Mandatory)]
@@ -133,7 +155,11 @@ function Test-WingetPackageInstalled {
         '--accept-source-agreements',
         '--disable-interactivity'
     )
-    return $result.ExitCode -eq 0
+    if ($result.ExitCode -ne 0) {
+        return $false
+    }
+
+    return Test-WingetOutputContainsPackage -Output $result.Output -PackageId $PackageId
 }
 
 function Test-WingetPackageUpdateAvailable {
@@ -154,5 +180,9 @@ function Test-WingetPackageUpdateAvailable {
         '--accept-source-agreements',
         '--disable-interactivity'
     )
-    return $result.ExitCode -eq 0
+    if ($result.ExitCode -ne 0) {
+        return $false
+    }
+
+    return Test-WingetOutputContainsPackage -Output $result.Output -PackageId $PackageId
 }
