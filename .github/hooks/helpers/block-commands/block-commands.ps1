@@ -67,11 +67,21 @@ if ([string]::IsNullOrWhiteSpace($inputJson)) {
     exit 2
 }
 
-# 読み取ったJSONを変換
+# 読み取ったJSONをPowerShellのオブジェクトに変換する。
+#   -NoEnumerate を指定することで最外側の配列を展開せず、そのまま保持する。
+#     [{"toolName":"bash", ...}]のように最外側が[]のものは拒否したいが、
+#     -NoEnumerate なしだと展開され拒否条件を満たさなくなってしまう。
 try {
-    $hookInput = $inputJson | ConvertFrom-Json
+    $hookInput = $inputJson | ConvertFrom-Json -NoEnumerate
 } catch {
     [System.Console]::Error.WriteLine("Failed to parse preToolUse hook input: $($_.Exception.Message)")
+    exit 2
+}
+
+# 変換結果がPSCustomObjectでなければ異常終了。
+#   文字列・数値・null・（最外側が[]である）配列などはここを通過させない。
+if ($hookInput -isnot [System.Management.Automation.PSCustomObject]) {
+    [System.Console]::Error.WriteLine('preToolUse hook input must be a JSON object.')
     exit 2
 }
 
