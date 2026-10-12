@@ -76,7 +76,19 @@ $testCases = @(
     @{ Command = 'git reset'; Expected = 'deny' },
     @{ Command = 'git reset --hard HEAD~1'; Expected = 'deny' },
     @{ Command = 'git -C repo reset --soft HEAD^'; Expected = 'deny' },
-    @{ Command = 'Write-Host start; git reset HEAD file.txt'; Expected = 'deny' }
+    @{ Command = 'Write-Host start; git reset HEAD file.txt'; Expected = 'deny' },
+    @{ Command = 'git commit -m "normal commit"'; Expected = $null },
+    @{ Command = 'git commit --no-edit'; Expected = $null },
+    @{ Command = 'git commit --amend'; Expected = 'deny' },
+    @{ Command = 'git commit --amend --no-edit'; Expected = 'deny' },
+    @{ Command = 'git commit --no-edit --amend'; Expected = 'deny' },
+    @{ Command = 'git commit -m "updated message" --amend'; Expected = 'deny' },
+    @{ Command = 'git -C "repo path" commit --amend'; Expected = 'deny' },
+    @{ Command = 'git.exe -c user.name=test commit --amend'; Expected = 'deny' },
+    @{ Command = 'Write-Host start; git commit --amend'; Expected = 'deny' },
+    @{ Command = 'git commit --amend; Write-Host done'; Expected = 'deny' },
+    @{ Command = 'git commit --amend-invalid'; Expected = $null },
+    @{ Command = 'git commit -m "normal"; Write-Host --amend'; Expected = $null }
 )
 
 foreach ($testCase in $testCases) {
