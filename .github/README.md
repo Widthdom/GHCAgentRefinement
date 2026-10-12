@@ -4,25 +4,22 @@
 
 このリポジトリのhookはCopilot SDK形式のみを対象とする。`.ps1` の実行にはPowerShell 7以降（`pwsh`）が必要。VS CodeのCopilot Chatで使う場合は、Session Targetを `Copilot` にする。`Copilot` targetはCLIと同じSDK hook実装を使うが、利用中のVS Codeが対象イベントに対応するか確認する。`Local`、`Claude`、`Codex`などSDK以外の実行環境は対象外とし、互換処理やフォールバックを実装せず、動作も検証しない。
 
-## Session Targetの確認
+## 主なhook
 
-Session Targetが `Copilot` の状態で使用できるよう支援する。詳細は[check-target-session hookのREADME](./hooks/helpers/check-target-session/README.md)を参照。
+### セッション開始時発動
 
-## PowerShell 7以降のインストールの案内
+|hook|概要|参考|
+|--|--|--|
+|Session Targetの確認|Session Targetが `Copilot` の状態で使用できるよう支援する。|[check-target-session hook README](./hooks/helpers/check-target-session/README.md)|
+|Powershellの確認|Powershell 7以降のインストールを支援する。|[check-powershell hook README](./hooks/helpers/check-powershell/README.md)|
+|開発ツールの確認|各種開発ツールのインストールとアップデートを支援する。|[check-development-tools hook README](./hooks/helpers/check-development-tools/README.md)|
+|Copilot Instructionsの読み込み|`copilot-instructions.md` を明に追加コンテキストとして渡す。|[load-copilot-instructions hook README](./hooks/helpers/load-copilot-instructions/README.md)|
 
-セッション開始時にPowerShell 7以降のインストール有無を確認し、無ければユーザにインストールコマンド実行を推奨する。詳細は[check-powershell hookのREADME](./hooks/helpers/check-powershell/README.md)を参照。
+### bashまたはpowershellツールの実行前に発動
 
-## 各種開発ツールのインストールと更新の案内
-
-セッション開始時に各種開発ツールのインストール有無とバージョンを確認し、必要であればユーザにコマンド実行を推奨する。詳細は[check-development-tools hookのREADME](./hooks/helpers/check-development-tools/README.md)を参照。
-
-## Copilot instructionsの読み込み
-
-セッション開始時に `copilot-instructions.md` を明に追加コンテキストとして渡す。詳細は[load-copilot-instructions hookのREADME](./hooks/helpers/load-copilot-instructions/README.md)を参照。
-
-## 危険コマンドの実行拒否
-
-[`blocked-command-patterns.json`](./hooks/helpers/block-commands/blocked-command-patterns.json)にて定義されたコマンドの実行を拒否する。詳細は[block-commands hookのREADME](./hooks/helpers/block-commands/README.md)を参照。
+|hook|概要|参考|
+|--|--|--|
+|危険コマンドの実行拒否|[`blocked-command-patterns.json`](./hooks/helpers/block-commands/blocked-command-patterns.json)にて定義されたコマンドの実行を拒否する。|[block-commands hook README](./hooks/helpers/block-commands/README.md)|
 
 ## デバッグモード
 
