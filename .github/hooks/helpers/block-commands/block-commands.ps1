@@ -1,73 +1,128 @@
 param(
+    # ブロック対象定義ファイルは引数として渡すことが可能
+    # デフォルトは同ディレクトリの 'blocked-command-patterns.json'
     [string]$DefinitionsPath = (Join-Path $PSScriptRoot 'blocked-command-patterns.json')
 )
 
-$ErrorActionPreference = 'Stop'
-
-[Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
-[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-
-$inputJson = [Console]::In.ReadToEnd()
-if ([string]::IsNullOrWhiteSpace($inputJson)) {
-    [Console]::Error.WriteLine('preToolUse hook input is empty.')
-    exit 2
+# ブロック対象定義ファイルが無ければ異常終了。
+#   -LiteralPath を指定することで引数をワイルドカードとして解釈せず、文字どおりのパスとして扱う。
+#   -PathType Leaf を指定することで、ファイルとして存在するかどうかを確認する。
+if (-not (Test-Path -LiteralPath $DefinitionsPath -PathType Leaf)) {
+    [System.Console]::Error.WriteLine("Blocked command definitions not found: $DefinitionsPath")
+    exit 1
 }
 
+# ブロック対象定義ファイルを読み込む。
+#   -Raw を指定することで、ファイルを行ごとに分けず、全体をひとつの文字列として読む。
+try {
+    $definitions = Get-Content -LiteralPath $DefinitionsPath -Raw -Encoding UTF8 | ConvertFrom-Json
+} catch {
+    [System.Console]::Error.WriteLine("Failed to parse blocked command definitions: $($_.Exception.Message)")
+    exit 1
+}
+
+# 各定義を検証する。
+foreach ($definition in $definitions) {
+    # 必須項目に欠落があれば異常終了。
+    if ([string]::IsNullOrWhiteSpace($definition.name) -or
+        [string]::IsNullOrWhiteSpace($definition.pattern) -or
+        [string]::IsNullOrWhiteSpace($definition.reason)) {
+        [System.Console]::Error.WriteLine('Each blocked command definition requires name, pattern, and reason.')
+        exit 1
+    }
+    # 正規表現が正しく書けているか検証する。
+    try {
+        # 正規表現オブジェクトのコンストラクタに渡し、例外発生有無を以て妥当性を検証するため、戻り値は使用しない。
+        #   CultureInvariantは正規表現の判定結果が実行環境の言語・地域設定の影響を抑制するオプションである。
+        $null = [System.Text.RegularExpressions.Regex]::new(
+            $definition.pattern,
+            [System.Text.RegularExpressions.RegexOptions]::CultureInvariant
+        )
+    } catch {
+        [System.Console]::Error.WriteLine(
+            "Invalid regular expression in blocked command definition '$($definition.name)': $($_.Exception.Message)"
+        )
+        exit 1
+    }
+}
+
+# PowerShellの自動設定変数ErrorActionPreferenceにStopを設定すると、
+# 以降のコマンドにおけるエラー処理が（既定処理に上書きで）「停止」になる。
+$ErrorActionPreference = 'Stop'
+
+# 標準入力をUTF-8として復号化し、JSON内の日本語などを正しく読み取る。
+#   左辺はSystem.Consoleクラスに属する静的メンバInputEncodingにアクセスしていることを意味する。
+[System.Console]::InputEncoding = [System.Text.UTF8Encoding]::new()
+
+# 標準出力をUTF-8に統一することで、先頭にBOMが含まれJSON解析を妨げることのないようにする。
+#   右辺はSystem.Text.UTF8Encodingクラスのインスタンス化。コンストラクタの引数にfalseを渡すとエンコーダによるBOMの出力を無効にする。
+[System.Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+
+# preToolUseのタイミングで本スクリプトの呼び出し元であるCopilotがPowerShellプロセスを起動し
+# 標準入力パイプにツール名や引数を含むイベント情報をJSON形式で書き込むので、それを読み込む。
+# このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
+$inputJson = [System.Console]::In.ReadToEnd()
+if ([string]::IsNullOrWhiteSpace($inputJson)) {
+    [System.Console]::Error.WriteLine('preToolUse hook input is empty.')
+    exit 1
+}
+
+# 読み取ったJSONを変換
 try {
     $hookInput = $inputJson | ConvertFrom-Json
 } catch {
-    [Console]::Error.WriteLine("Failed to parse preToolUse hook input: $($_.Exception.Message)")
-    exit 2
+    [System.Console]::Error.WriteLine("Failed to parse preToolUse hook input: $($_.Exception.Message)")
+    exit 1
 }
 
+# $null -ne $hookInput.toolArgs のようにYoda記法で書くのが慣用的。以下のようなPowershellの仕様があるためである。
+#   PowerShellでは、比較演算子は左辺が配列の場合に条件に合う要素を抽出する動きをする。
+#   ```powershell
+#   $items = @('a', $null, 'b')
+#   $items -eq 'a'    # 'a' が返る。$trueではない
+#   $items -ne $null  # 'a' と 'b' が返る
+#   ```
 $toolArgs = if ($null -ne $hookInput.toolArgs) {
     $hookInput.toolArgs
 } else {
+    # 本スクリプトの呼び出し元によってJSON内の項目名が異なる場合があるためFallbackを設けている。
+    # 本リポジトリが想定するのはGitHub Copilot SDKの形式であり、 `toolArgs` である。
+    # GitHub Copilot CLIや、VS CodeでSession TargetをCopilotにした場合はGitHub Copilot SDKの形式がとられる。
     $hookInput.tool_input
 }
+# 対象コマンドを取得する。
+#   toolArgsが文字列の場合はそのままコマンドとみなし、
+#   そうでない場合はtoolArgsのcommandプロパティをコマンドとみなす。
 $command = if ($toolArgs -is [string]) {
     $toolArgs
 } elseif ($null -ne $toolArgs -and $toolArgs.command -is [string]) {
     $toolArgs.command
 } else {
-    '{}'
-    exit 0
+    # コマンドが取得できない場合は終了する。
+    # TODO: macOSではコマンドが取得できずここに陥る挙動が多発するので原因究明と対処が必要である。
+    exit 1
 }
 
-if (-not (Test-Path -LiteralPath $DefinitionsPath -PathType Leaf)) {
-    [Console]::Error.WriteLine("Blocked command definitions not found: $DefinitionsPath")
-    exit 2
-}
-
-try {
-    $definitions = Get-Content -LiteralPath $DefinitionsPath -Raw -Encoding UTF8 | ConvertFrom-Json
-} catch {
-    [Console]::Error.WriteLine("Failed to parse blocked command definitions: $($_.Exception.Message)")
-    exit 2
-}
-
+# コマンドが各定義のパターンに一致するかを順に確認する。
 foreach ($definition in $definitions) {
-    if ([string]::IsNullOrWhiteSpace($definition.name) -or
-        [string]::IsNullOrWhiteSpace($definition.pattern) -or
-        [string]::IsNullOrWhiteSpace($definition.reason)) {
-        [Console]::Error.WriteLine('Each blocked command definition requires name, pattern, and reason.')
-        exit 2
-    }
-
     try {
-        $isMatch = [regex]::IsMatch(
+        $isMatch = [System.Text.RegularExpressions.Regex]::IsMatch(
             $command,
             $definition.pattern,
             [System.Text.RegularExpressions.RegexOptions]::CultureInvariant
         )
     } catch {
-        [Console]::Error.WriteLine(
-            "Invalid regular expression in blocked command definition '$($definition.name)': $($_.Exception.Message)"
+        # 極めて稀なケースではあるが、正規表現の評価中に例外が発生する可能性があるため、ここで捕捉する。
+        [System.Console]::Error.WriteLine(
+            "Failed to match command against regular expression in blocked command definition '$($definition.name)': $($_.Exception.Message)"
         )
-        exit 2
+        exit 1
     }
 
     if ($isMatch) {
+        # @はハッシュテーブルを作る構文。項目名と値を組にして保持する。
+        #   拒否とその理由をハッシュテーブルにまとめ、JSON形式に変換して返却する。
+        #     -Compress はJSONの余分な空白や改行を省き、1行のJSONにする指定
         @{
             permissionDecision = 'deny'
             permissionDecisionReason = $definition.reason
@@ -76,4 +131,5 @@ foreach ($definition in $definitions) {
     }
 }
 
+# 標準出力へ空のJSONオブジェクトを返すことで、「拒否する判断はない」ことを呼び出し元に伝える。
 '{}'
