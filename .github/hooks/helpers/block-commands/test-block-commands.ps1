@@ -3,37 +3,64 @@ $ErrorActionPreference = 'Stop'
 $hookPath = Join-Path $PSScriptRoot 'block-commands.ps1'
 $definitionsPath = Join-Path $PSScriptRoot 'blocked-command-patterns.json'
 
+function Invoke-HookInput {
+    param(
+        [AllowEmptyString()]
+        [string]$InputJson
+    )
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = (Get-Command pwsh -CommandType Application | Select-Object -First 1).Source
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardInput = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.StandardInputEncoding = [System.Text.UTF8Encoding]::new($false)
+    $startInfo.StandardOutputEncoding = [System.Text.UTF8Encoding]::new($false)
+    $startInfo.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
+    foreach ($argument in @(
+        '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+        '-File', $hookPath, '-DefinitionsPath', $definitionsPath
+    )) {
+        $startInfo.ArgumentList.Add($argument)
+    }
+
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    try {
+        $null = $process.Start()
+        $outputTask = $process.StandardOutput.ReadToEndAsync()
+        $errorTask = $process.StandardError.ReadToEndAsync()
+        $process.StandardInput.Write($InputJson)
+        $process.StandardInput.Close()
+        $process.WaitForExit()
+        [PSCustomObject]@{
+            ExitCode = $process.ExitCode
+            Output = $outputTask.GetAwaiter().GetResult()
+            Error = $errorTask.GetAwaiter().GetResult()
+        }
+    } finally {
+        $process.Dispose()
+    }
+}
+
 function Invoke-Hook {
     param(
         [Parameter(Mandatory)]
-        [string]$Command,
-
-        [switch]$UseVsCodePayload
+        [string]$Command
     )
 
-    $payload = if ($UseVsCodePayload) {
-        @{
-            tool_name = 'Bash'
-            tool_input = @{ command = $Command }
-        }
-    } else {
-        @{
-            toolName = 'powershell'
-            toolArgs = @{ command = $Command }
-        }
+    $payload = @{
+        toolName = 'powershell'
+        toolArgs = @{ command = $Command }
     }
 
-    $output = $payload |
-        ConvertTo-Json -Compress |
-        & pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass `
-            -File $hookPath `
-            -DefinitionsPath $definitionsPath
-
-    if ($LASTEXITCODE -ne 0) {
-        throw "Hook exited with code $LASTEXITCODE for command: $Command"
+    $result = Invoke-HookInput -InputJson ($payload | ConvertTo-Json -Compress -Depth 10)
+    if ($result.ExitCode -ne 0 -or $result.Error) {
+        throw "Hook failed for command '$Command': exit $($result.ExitCode), $($result.Error)"
     }
 
-    $output | ConvertFrom-Json
+    $result.Output | ConvertFrom-Json
 }
 
 $testCases = @(
@@ -59,9 +86,71 @@ foreach ($testCase in $testCases) {
     }
 }
 
-$vsCodeResult = Invoke-Hook -Command 'git rebase main' -UseVsCodePayload
-if ($vsCodeResult.permissionDecision -ne 'deny') {
-    throw 'VS Code-compatible payload was not denied.'
+$payloadCases = @(
+    @{ Name = 'SDK read'; Json = '{"toolName":"view","toolArgs":{"path":"README.md"}}' },
+    @{ Name = 'SDK search'; Json = '{"toolName":"rg","toolArgs":{"pattern":"git reset"}}' },
+    @{ Name = 'SDK edit string'; Json = '{"toolName":"apply_patch","toolArgs":"git reset"}' },
+    @{ Name = 'non-command without args'; Json = '{"toolName":"view"}' },
+    @{ Name = 'anchored tool name'; Json = '{"toolName":"not_bash","toolArgs":{"command":"git reset"}}' },
+    @{ Name = 'raw command'; Json = '{"toolName":"bash","toolArgs":"git reset"}'; Expected = 'deny' },
+    @{ Name = 'prefixed bash'; Json = '{"toolName":"functions.bash","toolArgs":{"command":"git reset"}}'; Expected = 'deny' },
+    @{ Name = 'prefixed PowerShell'; Json = '{"toolName":"functions.powershell","toolArgs":{"command":"git reset"}}'; Expected = 'deny' },
+    @{ Name = 'Japanese command'; Json = '{"toolName":"bash","toolArgs":{"command":"echo 日本語; git reset"}}'; Expected = 'deny' },
+    @{ Name = 'non-command batch'; Json = '{"toolCalls":[{"name":"view","args":{"path":"README.md"}},{"name":"apply_patch","args":"git reset"}]}' },
+    @{ Name = 'safe mixed batch'; Json = '{"toolCalls":[{"name":"view"},{"name":"bash","args":{"command":"git status"}},{"name":"powershell","args":"git push origin main"}]}' },
+    @{ Name = 'later denied command'; Json = '{"toolCalls":[{"name":"view"},{"name":"bash","args":{"command":"git status"}},{"name":"powershell","args":{"command":"git reset"}}]}'; Expected = 'deny' },
+    @{ Name = 'denied command before non-command'; Json = '{"toolCalls":[{"name":"bash","args":{"command":"git reset"}},{"name":"view"}]}'; Expected = 'deny' },
+    @{ Name = 'missing command'; Json = '{"toolName":"bash","toolArgs":{}}'; Error = 'requires a non-empty command string' },
+    @{ Name = 'missing args'; Json = '{"toolName":"powershell"}'; Error = 'requires a non-empty command string' },
+    @{ Name = 'null args'; Json = '{"toolName":"bash","toolArgs":null}'; Error = 'requires a non-empty command string' },
+    @{ Name = 'numeric command'; Json = '{"toolName":"bash","toolArgs":{"command":42}}'; Error = 'requires a non-empty command string' },
+    @{ Name = 'array command'; Json = '{"toolName":"bash","toolArgs":{"command":["git status"]}}'; Error = 'requires a non-empty command string' },
+    @{ Name = 'array args'; Json = '{"toolName":"bash","toolArgs":[{"command":"git reset"}]}'; Error = 'requires a non-empty command string' },
+    @{ Name = 'empty command'; Json = '{"toolName":"bash","toolArgs":{"command":""}}'; Error = 'requires a non-empty command string' },
+    @{ Name = 'blank raw command'; Json = '{"toolName":"bash","toolArgs":" \t\r\n"}'; Error = 'requires a non-empty command string' },
+    @{ Name = 'invalid later batch command'; Json = '{"toolCalls":[{"name":"bash","args":{"command":"git status"}},{"name":"powershell","args":{}}]}'; Error = 'requires a non-empty command string' },
+    @{ Name = 'missing tool name'; Json = '{"toolArgs":{"command":"git reset"}}'; Error = 'requires a tool name' },
+    @{ Name = 'empty tool name'; Json = '{"toolName":"","toolArgs":{}}'; Error = 'requires a tool name' },
+    @{ Name = 'numeric tool name'; Json = '{"toolName":42,"toolArgs":{}}'; Error = 'requires a tool name' },
+    @{ Name = 'array tool name'; Json = '{"toolName":["bash"],"toolArgs":{"command":"git status"}}'; Error = 'requires a tool name' },
+    @{ Name = 'missing batch name'; Json = '{"toolCalls":[{"args":{"command":"git reset"}}]}'; Error = 'requires a tool name' },
+    @{ Name = 'null batch entry'; Json = '{"toolCalls":[null]}'; Error = 'requires each tool call to be a JSON object' },
+    @{ Name = 'string batch entry'; Json = '{"toolCalls":["bash"]}'; Error = 'requires each tool call to be a JSON object' },
+    @{ Name = 'array batch entry'; Json = '{"toolCalls":[[{"name":"bash","args":{"command":"git status"}}]]}'; Error = 'requires each tool call to be a JSON object' },
+    @{ Name = 'object batch'; Json = '{"toolCalls":{"name":"bash","args":{"command":"git reset"}}}'; Error = 'must be a non-empty array' },
+    @{ Name = 'null batch'; Json = '{"toolCalls":null}'; Error = 'must be a non-empty array' },
+    @{ Name = 'empty batch'; Json = '{"toolCalls":[]}'; Error = 'must be a non-empty array' },
+    @{ Name = 'null input'; Json = 'null'; Error = 'must be a JSON object' },
+    @{ Name = 'array input'; Json = '[]'; Error = 'must be a JSON object' },
+    @{ Name = 'single-object array input'; Json = '[{"toolName":"bash","toolArgs":{"command":"git status"}}]'; Error = 'must be a JSON object' },
+    @{ Name = 'string input'; Json = '"git reset"'; Error = 'must be a JSON object' },
+    @{ Name = 'invalid JSON'; Json = '{'; Error = 'Failed to parse preToolUse hook input' },
+    @{ Name = 'empty input'; Json = ''; Error = 'hook input is empty' }
+)
+
+foreach ($testCase in $payloadCases) {
+    $result = Invoke-HookInput -InputJson $testCase.Json
+    if ($testCase.Error) {
+        if ($result.ExitCode -ne 2 -or $result.Output -or
+            -not $result.Error.Contains($testCase.Error)) {
+            throw "Unexpected failure for '$($testCase.Name)': $($result | ConvertTo-Json -Compress)"
+        }
+        continue
+    }
+
+    if ($result.ExitCode -ne 0 -or $result.Error) {
+        throw "Unexpected error for '$($testCase.Name)': $($result | ConvertTo-Json -Compress)"
+    }
+    $output = $result.Output | ConvertFrom-Json
+    $decision = $output
+    if ($testCase.Expected) {
+        if ($decision.permissionDecision -ne $testCase.Expected -or
+            [string]::IsNullOrWhiteSpace($decision.permissionDecisionReason)) {
+            throw "Unexpected decision for '$($testCase.Name)': $($result.Output)"
+        }
+    } elseif ($result.Output.Trim() -ne '{}') {
+        throw "Unexpected skip/allow output for '$($testCase.Name)': $($result.Output)"
+    }
 }
 
-Write-Output "Passed $($testCases.Count + 1) block-command hook tests."
+Write-Output "Passed $($testCases.Count + $payloadCases.Count) block-command hook tests."

@@ -85,59 +85,108 @@ if ($hookInput -isnot [System.Management.Automation.PSCustomObject]) {
     exit 2
 }
 
-# $null -ne $hookInput.toolArgs のようにYoda記法で書くのが慣用的。以下のようなPowershellの仕様があるためである。
+# `toolCalls` が存在する場合はその配列を、存在しない場合は単体入力を配列に変換したものを `$toolCalls` に格納する。
+# $null -ne $hookInput.PSObject.Properties['toolCalls'] のようにYoda記法で書くのが慣用的。以下のようなPowershellの仕様があるためである。
 #   PowerShellでは、比較演算子は左辺が配列の場合に条件に合う要素を抽出する動きをする。
 #   ```powershell
 #   $items = @('a', $null, 'b')
 #   $items -eq 'a'    # 'a' が返る。$trueではない
 #   $items -ne $null  # 'a' と 'b' が返る
 #   ```
-$toolArgs = if ($null -ne $hookInput.toolArgs) {
-    $hookInput.toolArgs
+if ($null -ne $hookInput.PSObject.Properties['toolCalls']) {
+    if ($hookInput.toolCalls -isnot [array] -or $hookInput.toolCalls.Count -eq 0) {
+        [System.Console]::Error.WriteLine('preToolUse hook toolCalls must be a non-empty array.')
+        exit 2
+    }
+    $toolCalls = $hookInput.toolCalls
 } else {
-    # 本スクリプトの呼び出し元によってJSON内の項目名が異なる場合があるためFallbackを設けている。
-    # 本リポジトリが想定するのはGitHub Copilot SDKの形式であり、 `toolArgs` である。
-    # GitHub Copilot CLIや、VS CodeでSession TargetをCopilotにした場合はGitHub Copilot SDKの形式がとられる。
-    $hookInput.tool_input
-}
-# 対象コマンドを取得する。
-#   toolArgsが文字列の場合はそのままコマンドとみなし、
-#   そうでない場合はtoolArgsのcommandプロパティをコマンドとみなす。
-$command = if ($toolArgs -is [string]) {
-    $toolArgs
-} elseif ($null -ne $toolArgs -and $toolArgs.command -is [string]) {
-    $toolArgs.command
-} else {
-    # コマンドが取得できない場合は終了する。
-    # TODO: macOSではコマンドが取得できずここに陥る挙動が多発するので原因究明と対処が必要である。
-    exit 2
+    # 外側の @() は配列部分式で、単体入力も1要素の配列として保持する。
+    # 内側の @{} はハッシュテーブルを作り、[PSCustomObject]でnameとargsを持つオブジェクトに変換する。
+    # ここで[System.Management.Automation.PSCustomObject]でなく、型アクセラレータ（型を短く書くための別名）でなければならない。
+    #   単なる型名の短縮のみならず、ハッシュテーブルを変換する特殊処理が行われる。
+    $toolCalls = @(
+        [PSCustomObject]@{
+            name = $hookInput.toolName
+            args = $hookInput.toolArgs
+        }
+    )
 }
 
-# コマンドが各定義のパターンに一致するかを順に確認する。
-foreach ($definition in $definitions) {
-    try {
-        $isMatch = [System.Text.RegularExpressions.Regex]::IsMatch(
-            $command,
-            $definition.pattern,
-            [System.Text.RegularExpressions.RegexOptions]::CultureInvariant
-        )
-    } catch {
-        # 極めて稀なケースではあるが、正規表現の評価中に例外が発生する可能性があるため、ここで捕捉する。
+# 空の配列として初期化
+$commands = @()
+# 複数のツール呼び出しをまとめて要求される場合があるため、ひとつずつ処理する。
+foreach ($toolCall in $toolCalls) {
+    # 各toolCallがPSCustomObjectでなければ異常終了。
+    if ($toolCall -isnot [System.Management.Automation.PSCustomObject]) {
+        [System.Console]::Error.WriteLine('preToolUse hook requires each tool call to be a JSON object.')
+        exit 2
+    }
+
+    # 各toolCallのnameが文字列でなければ異常終了。空白のみの文字列も許容しない。
+    if ($toolCall.name -isnot [string] -or
+        [string]::IsNullOrWhiteSpace($toolCall.name)) {
+        [System.Console]::Error.WriteLine('preToolUse hook requires a tool name for each tool call.')
+        exit 2
+    }
+
+    # 以下に一致しない場合はスキップする。
+    #   bash
+    #   powershell
+    #   functions.bash
+    #   functions.powershell
+    if ($toolCall.name -notmatch '^(?:functions\.)?(?:bash|powershell)$') {
+        continue
+    }
+
+    $toolArgs = $toolCall.args
+    $command = if ($toolArgs -is [string]) {
+        $toolArgs
+    } elseif ($toolArgs -is [System.Management.Automation.PSCustomObject] -and $toolArgs.command -is [string]) {
+        # PSCustomObjectの型チェックが実質的にnullチェックも兼ねている。
+        # ちなみにPowerShellの-andは短絡評価なので, 前半がfalseなら後半は評価されない。
+        $toolArgs.command
+    } else {
+        $null
+    }
+
+    if ([string]::IsNullOrWhiteSpace($command)) {
         [System.Console]::Error.WriteLine(
-            "Failed to match command against regular expression in blocked command definition '$($definition.name)': $($_.Exception.Message)"
+            "preToolUse hook input for tool '$($toolCall.name)' requires a non-empty command string."
         )
         exit 2
     }
 
-    if ($isMatch) {
-        # @はハッシュテーブルを作る構文。項目名と値を組にして保持する。
-        #   拒否とその理由をハッシュテーブルにまとめ、JSON形式に変換して返却する。
-        #     -Compress はJSONの余分な空白や改行を省き、1行のJSONにする指定
-        @{
-            permissionDecision = 'deny'
-            permissionDecisionReason = $definition.reason
-        } | ConvertTo-Json -Compress
-        exit 0
+    # $commandを末尾に追加した新しい配列を$commandsへ代入
+    $commands += $command
+}
+
+# コマンドが各定義のパターンに一致するかを順に確認する。
+foreach ($command in $commands) {
+    foreach ($definition in $definitions) {
+        try {
+            $isMatch = [System.Text.RegularExpressions.Regex]::IsMatch(
+                $command,
+                $definition.pattern,
+                [System.Text.RegularExpressions.RegexOptions]::CultureInvariant
+            )
+        } catch {
+            # 極めて稀なケースではあるが、正規表現の評価中に例外が発生する可能性があるため、ここで捕捉する。
+            [System.Console]::Error.WriteLine(
+                "Failed to match command against regular expression in blocked command definition '$($definition.name)': $($_.Exception.Message)"
+            )
+            exit 2
+        }
+
+        if ($isMatch) {
+            # @{}はハッシュテーブルを作る構文。項目名と値を組にして保持する。
+            #   拒否とその理由をハッシュテーブルにまとめ、JSON形式に変換して返却する。
+            #     -Compress はJSONの余分な空白や改行を省き、1行のJSONにする指定
+            @{
+                permissionDecision = 'deny'
+                permissionDecisionReason = $definition.reason
+            } | ConvertTo-Json -Compress
+            exit 0
+        }
     }
 }
 
