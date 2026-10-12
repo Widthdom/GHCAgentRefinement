@@ -2,7 +2,7 @@
 
 ## 前提条件
 
-`.ps1` の実行にはPowerShell 7以降（`pwsh`）が必要。このリポジトリのhookをVS CodeのCopilot Chatで使う場合は、Session Targetを `Copilot` にする。`Copilot` targetはCLIと同じSDK hook実装を使うが、利用中のVS Codeが対象イベントに対応するか確認する。`Local`、`Claude`、`Codex` targetではhookの実装やpayloadが異なるため、このリポジトリのhookは前提としていない。
+このリポジトリのhookはCopilot SDK形式のみを対象とする。`.ps1` の実行にはPowerShell 7以降（`pwsh`）が必要。VS CodeのCopilot Chatで使う場合は、Session Targetを `Copilot` にする。`Copilot` targetはCLIと同じSDK hook実装を使うが、利用中のVS Codeが対象イベントに対応するか確認する。`Local`、`Claude`、`Codex`などSDK以外の実行環境は対象外とし、互換処理やフォールバックを実装せず、動作も検証しない。
 
 ## 開発ツールの確認
 
