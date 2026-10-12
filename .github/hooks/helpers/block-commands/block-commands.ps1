@@ -9,7 +9,7 @@ param(
 #   -PathType Leaf を指定することで、ファイルとして存在するかどうかを確認する。
 if (-not (Test-Path -LiteralPath $DefinitionsPath -PathType Leaf)) {
     [System.Console]::Error.WriteLine("Blocked command definitions not found: $DefinitionsPath")
-    exit 1
+    exit 2
 }
 
 # ブロック対象定義ファイルを読み込む。
@@ -18,7 +18,7 @@ try {
     $definitions = Get-Content -LiteralPath $DefinitionsPath -Raw -Encoding UTF8 | ConvertFrom-Json
 } catch {
     [System.Console]::Error.WriteLine("Failed to parse blocked command definitions: $($_.Exception.Message)")
-    exit 1
+    exit 2
 }
 
 # 各定義を検証する。
@@ -28,7 +28,7 @@ foreach ($definition in $definitions) {
         [string]::IsNullOrWhiteSpace($definition.pattern) -or
         [string]::IsNullOrWhiteSpace($definition.reason)) {
         [System.Console]::Error.WriteLine('Each blocked command definition requires name, pattern, and reason.')
-        exit 1
+        exit 2
     }
     # 正規表現が正しく書けているか検証する。
     try {
@@ -42,7 +42,7 @@ foreach ($definition in $definitions) {
         [System.Console]::Error.WriteLine(
             "Invalid regular expression in blocked command definition '$($definition.name)': $($_.Exception.Message)"
         )
-        exit 1
+        exit 2
     }
 }
 
@@ -64,7 +64,7 @@ $ErrorActionPreference = 'Stop'
 $inputJson = [System.Console]::In.ReadToEnd()
 if ([string]::IsNullOrWhiteSpace($inputJson)) {
     [System.Console]::Error.WriteLine('preToolUse hook input is empty.')
-    exit 1
+    exit 2
 }
 
 # 読み取ったJSONを変換
@@ -72,7 +72,7 @@ try {
     $hookInput = $inputJson | ConvertFrom-Json
 } catch {
     [System.Console]::Error.WriteLine("Failed to parse preToolUse hook input: $($_.Exception.Message)")
-    exit 1
+    exit 2
 }
 
 # $null -ne $hookInput.toolArgs のようにYoda記法で書くのが慣用的。以下のようなPowershellの仕様があるためである。
@@ -100,7 +100,7 @@ $command = if ($toolArgs -is [string]) {
 } else {
     # コマンドが取得できない場合は終了する。
     # TODO: macOSではコマンドが取得できずここに陥る挙動が多発するので原因究明と対処が必要である。
-    exit 1
+    exit 2
 }
 
 # コマンドが各定義のパターンに一致するかを順に確認する。
@@ -116,7 +116,7 @@ foreach ($definition in $definitions) {
         [System.Console]::Error.WriteLine(
             "Failed to match command against regular expression in blocked command definition '$($definition.name)': $($_.Exception.Message)"
         )
-        exit 1
+        exit 2
     }
 
     if ($isMatch) {

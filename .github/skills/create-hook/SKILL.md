@@ -13,6 +13,8 @@ hook定義は `.github/hooks/<hook-name>.json`、実行スクリプトと補助�
 
 PowerShell hookで文字列をUnicode escapeで記述する場合は、escapeを復号した元の文字列を近くのコメントにそのまま記載する。
 
+PowerShell hookの異常終了はすべて `exit 2` に統一し、原因を標準エラーへ出力する。Copilot SDKを前提とする場合もこの方針に従う。SDK/CLIの `preToolUse` コマンドhookは非ゼロ終了を拒否扱いにするが、VS Code Localでは `exit 1` は非ブロッキング警告扱いとなり、`exit 2` がブロッキングエラーを表すためである。当然VS Code Localは前提としないが `exit 2` に統一することにする。正常終了や対象外のスキップには `exit 0` または正常なスクリプト終端を使い、終了コードを検証するテストも合わせて更新する。
+
 デバッグモードでのみ動かすhookには `debug-` 接頭辞を付ける。状態の保存先とJSON形式は `.github/hooks/helpers/check-debug-mode/check-debug-mode.ps1`、読み取り方は `.github/hooks/helpers/debug-add-response-footer/debug-add-response-footer.ps1` を参照する。hook入力のセッションIDに対応する状態を読み、状態ファイルがない場合または `enabled` が `true` でない場合は、本来の処理を行わず正常終了する。
 
 実装後、JSON構文と、通常実行・実行条件を満たさない場合のスキップ・不正入力時の動作を検証する。実行を拒否するhookでは、許可と拒否の両方を検証する。
