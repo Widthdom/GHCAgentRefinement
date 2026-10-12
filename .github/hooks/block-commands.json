@@ -5,8 +5,8 @@
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:bash|powershell)",
-        "bash": "pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/block-commands.ps1",
-        "powershell": "pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/block-commands.ps1",
+        "bash": "pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/helpers/block-commands/block-commands.ps1",
+        "powershell": "pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/helpers/block-commands/block-commands.ps1",
         "timeoutSec": 10
       }
     ]

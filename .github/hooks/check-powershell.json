@@ -4,8 +4,8 @@
     "sessionStart": [
       {
         "type": "command",
-        "bash": "bash .github/hooks/check-powershell.sh",
-        "powershell": "& ./.github/hooks/check-powershell.cmd",
+        "bash": "bash .github/hooks/helpers/check-powershell/check-powershell.sh",
+        "powershell": "& ./.github/hooks/helpers/check-powershell/check-powershell.cmd",
         "timeoutSec": 10
       }
     ]

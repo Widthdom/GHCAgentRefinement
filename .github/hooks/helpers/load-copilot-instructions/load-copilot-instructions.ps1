@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$instructionsPath = Join-Path $PSScriptRoot '..\copilot-instructions.md'
+$instructionsPath = Join-Path $PSScriptRoot '..\..\..\copilot-instructions.md'
 if (-not (Test-Path -LiteralPath $instructionsPath -PathType Leaf)) {
     [Console]::Error.WriteLine("Copilot instructions file not found: $instructionsPath")
     exit 1

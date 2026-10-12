@@ -1,5 +1,5 @@
 param(
-    [string]$DefinitionsPath = (Join-Path $PSScriptRoot 'helpers\block-commands\blocked-command-patterns.json')
+    [string]$DefinitionsPath = (Join-Path $PSScriptRoot 'blocked-command-patterns.json')
 )
 
 $ErrorActionPreference = 'Stop'

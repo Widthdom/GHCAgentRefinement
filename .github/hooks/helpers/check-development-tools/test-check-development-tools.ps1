@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 
 . "$PSScriptRoot\common.ps1"
 
-$hookPath = Join-Path $PSScriptRoot '..\..\check-development-tools.ps1'
+$hookPath = Join-Path $PSScriptRoot 'check-development-tools.ps1'
 $temporaryRoot = Join-Path `
     ([System.IO.Path]::GetTempPath()) `
     "ghc-agent-refinement\development-tools\$([guid]::NewGuid().ToString('D'))"

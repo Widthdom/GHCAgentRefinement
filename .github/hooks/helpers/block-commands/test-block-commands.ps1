@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$hookPath = Join-Path $PSScriptRoot '..\..\block-commands.ps1'
+$hookPath = Join-Path $PSScriptRoot 'block-commands.ps1'
 $definitionsPath = Join-Path $PSScriptRoot 'blocked-command-patterns.json'
 
 function Invoke-Hook {

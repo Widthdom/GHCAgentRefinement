@@ -13,7 +13,7 @@ $ErrorActionPreference = 'Stop'
 [Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 
-$helperRoot = Join-Path $PSScriptRoot 'helpers\check-development-tools'
+$helperRoot = $PSScriptRoot
 . (Join-Path $helperRoot 'common.ps1')
 $checkers = @('git', 'ripgrep', 'python')
 $issues = foreach ($checker in $checkers) {

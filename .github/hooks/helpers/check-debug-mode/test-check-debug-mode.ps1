@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 
-$hookPath = Join-Path $PSScriptRoot '..\..\check-debug-mode.ps1'
+$hookPath = Join-Path $PSScriptRoot 'check-debug-mode.ps1'
 $sessionId = [guid]::NewGuid().ToString('D')
 $statePath = Join-Path `
     ([System.IO.Path]::GetTempPath()) `

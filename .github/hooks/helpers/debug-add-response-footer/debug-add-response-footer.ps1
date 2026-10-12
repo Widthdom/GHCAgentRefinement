@@ -82,18 +82,18 @@ if ([string]::IsNullOrWhiteSpace($lastAssistantResponse)) {
     exit 2
 }
 
-$currentJst = & "$PSScriptRoot\helpers\debug-add-response-footer\get-current-jst.ps1"
-$usedHooks = @(& "$PSScriptRoot\helpers\debug-add-response-footer\get-used-hooks.ps1" `
+$currentJst = & "$PSScriptRoot\get-current-jst.ps1"
+$usedHooks = @(& "$PSScriptRoot\get-used-hooks.ps1" `
     -TranscriptPath $transcriptPath `
-    -HooksPath $PSScriptRoot)
-$usedSkills = @(& "$PSScriptRoot\helpers\debug-add-response-footer\get-used-skills.ps1" -TranscriptPath $transcriptPath)
+    -HooksPath (Join-Path $PSScriptRoot '..\..'))
+$usedSkills = @(& "$PSScriptRoot\get-used-skills.ps1" -TranscriptPath $transcriptPath)
 $expectedHooks = if ($usedHooks.Count -eq 0) { @('none') } else { $usedHooks }
 $expectedSkills = if ($usedSkills.Count -eq 0) { @('none') } else { $usedSkills }
-$requiredFooter = & "$PSScriptRoot\helpers\debug-add-response-footer\format-response-footer.ps1" `
+$requiredFooter = & "$PSScriptRoot\format-response-footer.ps1" `
     -Hooks $expectedHooks `
     -Skills $expectedSkills `
     -CurrentJst $currentJst
-$footerIsValid = & "$PSScriptRoot\helpers\debug-add-response-footer\test-response-footer.ps1" `
+$footerIsValid = & "$PSScriptRoot\test-response-footer.ps1" `
     -Response $lastAssistantResponse `
     -ExpectedHooks $expectedHooks `
     -ExpectedSkills $expectedSkills `
