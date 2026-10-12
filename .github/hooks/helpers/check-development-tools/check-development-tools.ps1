@@ -25,7 +25,7 @@ $helperRoot = $PSScriptRoot
 #   ドットなしで実行すると、スクリプトは新しいスコープで実行され、その中で定義された関数や変数は終了時に破棄される。
 . (Join-Path $helperRoot 'common.ps1')
 # @() は配列を表す。
-$checkers = @('git', 'ripgrep', 'python')
+$checkers = @('powershell', 'git', 'ripgrep', 'python')
 $issues = foreach ($checker in $checkers) {
     $scriptPath = Join-Path $helperRoot "check-$checker.ps1"
     # & は呼び出し演算子で、変数や文字列に入っているパスやコマンド名を、コマンドとして実行する。

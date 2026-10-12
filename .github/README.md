@@ -6,7 +6,7 @@
 
 ## 開発ツールの確認
 
-`check-development-tools` hookは、セッション開始時にGit、ripgrep、Pythonのインストール状況と更新候補を確認する。Windowsではwinget、macOSではHomebrew、Linuxではapt、dnf、pacmanの順に利用可能なパッケージマネージャーを選ぶ。インストールや更新は実行せず、対応が必要な場合に適用可能なコマンドだけを案内する。
+`check-development-tools` hookは、セッション開始時にまずPowerShell 7以降のバージョンを確認する。その後、Git、ripgrep、Pythonのインストール有無とバージョンを確認し、未インストールの場合はインストールコマンドを、更新が必要な場合は推奨バージョンと更新コマンドを案内する。Windowsではwinget、macOSではHomebrew、Linuxではapt、dnf、pacmanの順に利用可能なパッケージマネージャーを選ぶ。PowerShellはWindowsではwinget、macOSではHomebrew cask、Linuxでは選択したシステムパッケージマネージャーを使って最新版を確認する。インストールや更新は自動実行しない。
 
 ## デバッグモード
 

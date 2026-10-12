@@ -27,6 +27,19 @@ $Output
     return $path
 }
 
+function New-FakePowerShell {
+    param(
+        [Parameter(Mandatory)]
+        [string]$Version
+    )
+
+    $path = Join-Path $temporaryRoot "pwsh-$Version.ps1"
+    @"
+Write-Output '$Version'
+"@ | Set-Content -LiteralPath $path -Encoding UTF8
+    return $path
+}
+
 function Assert-Equal {
     param(
         [Parameter(Mandatory)]
@@ -120,6 +133,38 @@ Version         : 15.1.0-1
             -Message "The $kind update command was incorrect."
     }
 
+    $brewCask = New-FakePackageManager -Name 'brew-cask' -Output @'
+{"casks":[{"token":"powershell","version":"99.0.0"}]}
+'@
+    $oldPowerShell = New-FakePowerShell -Version '5.1.0'
+    $powershellOutput = & (Join-Path $PSScriptRoot 'check-powershell.ps1') `
+        -Platform MacOS `
+        -BrewCommand $brewCask `
+        -PowerShellCommand $oldPowerShell
+    if ($powershellOutput -notmatch
+        'PowerShell: PowerShell 7 or later is required; the available pwsh command does not meet this requirement\.') {
+        throw "The PowerShell minimum-version warning was incorrect: $powershellOutput"
+    }
+    if ($powershellOutput -match '5\.1|99\.0\.0|Recommended:|Update:') {
+        throw "The checker used or recommended an unsupported PowerShell version: $powershellOutput"
+    }
+
+    $newPowerShell = New-FakePowerShell -Version '7.5.0'
+    $oldCask = New-FakePackageManager -Name 'brew-cask-old' -Output @'
+{"casks":[{"token":"powershell","version":"5.1.0"}]}
+'@
+    $unsupportedLatestOutput = & (Join-Path $PSScriptRoot 'check-powershell.ps1') `
+        -Platform MacOS `
+        -BrewCommand $oldCask `
+        -PowerShellCommand $newPowerShell
+    if ($unsupportedLatestOutput -notmatch
+        'latest PowerShell 7 or later version could not be determined') {
+        throw "The checker did not reject an unsupported latest version: $unsupportedLatestOutput"
+    }
+    if ($unsupportedLatestOutput -match '5\.1|Update:') {
+        throw "The checker exposed an unsupported PowerShell version: $unsupportedLatestOutput"
+    }
+
     $hookOutput = & $hookPath `
         -Platform Linux `
         -AptCommand $apt `
@@ -133,8 +178,11 @@ Version         : 15.1.0-1
     if ($hookResult.additionalContext -notmatch 'sudo apt-get install') {
         throw 'The hook did not suggest an apt command on Linux.'
     }
+    if ($hookResult.additionalContext -notmatch 'PowerShell: update available .*apt-get install powershell') {
+        throw 'The hook did not include the PowerShell update recommendation.'
+    }
 
-    Write-Output "Passed $($cases.Count + $commands.Count + 3) development-tool tests."
+    Write-Output "Passed $($cases.Count + $commands.Count + 5) development-tool tests."
 } finally {
     if (Test-Path -LiteralPath $temporaryRoot) {
         Remove-Item -LiteralPath $temporaryRoot -Recurse -Force
