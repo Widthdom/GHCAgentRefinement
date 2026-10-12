@@ -1,11 +1,11 @@
 $ErrorActionPreference = 'Stop'
 
-. "$PSScriptRoot\common.ps1"
+. (Join-Path $PSScriptRoot 'common.ps1')
 
 $hookPath = Join-Path $PSScriptRoot 'check-development-tools.ps1'
-$temporaryRoot = Join-Path `
-    ([System.IO.Path]::GetTempPath()) `
-    "ghc-agent-refinement\development-tools\$([guid]::NewGuid().ToString('D'))"
+$temporaryRoot = Join-Path (Join-Path (Join-Path `
+    ([System.IO.Path]::GetTempPath()) 'ghc-agent-refinement') 'development-tools') `
+    ([guid]::NewGuid().ToString('D'))
 New-Item -ItemType Directory -Path $temporaryRoot -Force | Out-Null
 
 function New-FakePackageManager {

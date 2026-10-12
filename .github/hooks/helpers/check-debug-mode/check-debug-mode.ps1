@@ -33,7 +33,8 @@ if (-not [guid]::TryParse($sessionId, [ref]$parsedSessionId)) {
     exit 2
 }
 
-$stateDirectory = Join-Path ([System.IO.Path]::GetTempPath()) 'ghc-agent-refinement\debug-mode'
+# パス区切りはOS依存のため、Join-Pathで階層ごとに連結する。
+$stateDirectory = Join-Path (Join-Path ([System.IO.Path]::GetTempPath()) 'ghc-agent-refinement') 'debug-mode'
 [System.IO.Directory]::CreateDirectory($stateDirectory) | Out-Null
 $statePath = Join-Path $stateDirectory "$($parsedSessionId.ToString('D')).json"
 $state = @{

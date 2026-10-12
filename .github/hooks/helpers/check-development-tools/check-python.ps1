@@ -9,7 +9,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-. "$PSScriptRoot\common.ps1"
+. (Join-Path $PSScriptRoot 'common.ps1')
 
 function Get-InstalledPython {
     if ($resolvedPlatform -eq 'Windows') {

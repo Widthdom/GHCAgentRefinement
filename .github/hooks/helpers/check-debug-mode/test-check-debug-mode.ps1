@@ -2,9 +2,9 @@ $ErrorActionPreference = 'Stop'
 
 $hookPath = Join-Path $PSScriptRoot 'check-debug-mode.ps1'
 $sessionId = [guid]::NewGuid().ToString('D')
-$statePath = Join-Path `
-    ([System.IO.Path]::GetTempPath()) `
-    "ghc-agent-refinement\debug-mode\$sessionId.json"
+$statePath = Join-Path (Join-Path (Join-Path `
+    ([System.IO.Path]::GetTempPath()) 'ghc-agent-refinement') 'debug-mode') `
+    "$sessionId.json"
 
 function Invoke-DebugModeHook {
     param(

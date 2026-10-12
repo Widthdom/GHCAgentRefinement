@@ -9,7 +9,7 @@ GitHub Copilot CLIと、VS CodeでSession Targetに `Copilot` を選んだ場合
 
 VS CodeのSession Targetが `Local`、`Claude`、`Codex` などの場合は対象外とする。設定ファイルが読み込まれる場合でも、SDK以外の実行環境での動作は考慮しない。
 
-hook定義は `.github/hooks/<hook-name>.json`、実行スクリプトと補助スクリプトは `.github/hooks/helpers/<hook-name>/` にまとめて配置する。実行スクリプトは `.ps1`、`.sh`、`.cmd` などOSや実装に適した形式とし、hook名を基にしたファイル名にする。JSON定義の `bash` / `powershell` コマンドには、実行スクリプトのリポジトリルート相対パス（例: `.github/hooks/helpers/<hook-name>/<hook-name>.ps1`）を記述する。スクリプトから補助スクリプトや設定ファイルを参照するときは、呼び出し元の作業ディレクトリに依存しないよう `$PSScriptRoot` などを基準にする。実行スクリプトの場所を変更した場合は、JSON定義、スクリプト内の相対パス、およびテストの参照先も合わせて更新する。
+hook定義は `.github/hooks/<hook-name>.json`、実行スクリプトと補助スクリプトは `.github/hooks/helpers/<hook-name>/` にまとめて配置する。実行スクリプトは `.ps1`、`.sh`、`.cmd` などOSや実装に適した形式とし、hook名を基にしたファイル名にする。JSON定義の `bash` / `powershell` コマンドには、実行スクリプトのリポジトリルート相対パス（例: `.github/hooks/helpers/<hook-name>/<hook-name>.ps1`）を記述する。スクリプトから補助スクリプトや設定ファイルを参照するときは、呼び出し元の作業ディレクトリに依存しないよう `$PSScriptRoot` などを基準にする。PowerShellスクリプトのパス組み立てはWindows/macOS/Linuxで動作するよう、次に従う。パス区切りの `\` や `/` を文字列に直書きせず、`Join-Path` で階層ごとに連結する（例: `Join-Path $PSScriptRoot 'common.ps1'`、`Join-Path (Join-Path $base 'a') 'b'`）。`"$PSScriptRoot\x.ps1"` のような文字列連結や、`Join-Path` の引数に `a\b` を含める書き方は使わない。`'..'` による親ディレクトリ指定も避け、`Split-Path -Parent $PSScriptRoot` を使う。一時ファイルの基点は `[System.IO.Path]::GetTempPath()` を使う。実行スクリプトの場所を変更した場合は、JSON定義、スクリプト内の相対パス、およびテストの参照先も合わせて更新する。
 
 PowerShell hookで文字列をUnicode escapeで記述する場合は、escapeを復号した元の文字列を近くのコメントにそのまま記載する。
 

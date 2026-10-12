@@ -39,9 +39,9 @@ if (-not [guid]::TryParse($sessionId, [ref]$parsedSessionId)) {
     exit 2
 }
 
-$statePath = Join-Path `
-    ([System.IO.Path]::GetTempPath()) `
-    "ghc-agent-refinement\debug-mode\$($parsedSessionId.ToString('D')).json"
+$statePath = Join-Path (Join-Path (Join-Path `
+    ([System.IO.Path]::GetTempPath()) 'ghc-agent-refinement') 'debug-mode') `
+    "$($parsedSessionId.ToString('D')).json"
 if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) {
     exit 0
 }
@@ -82,18 +82,18 @@ if ([string]::IsNullOrWhiteSpace($lastAssistantResponse)) {
     exit 2
 }
 
-$currentJst = & "$PSScriptRoot\get-current-jst.ps1"
-$usedHooks = @(& "$PSScriptRoot\get-used-hooks.ps1" `
+$currentJst = & (Join-Path $PSScriptRoot 'get-current-jst.ps1')
+$usedHooks = @(& (Join-Path $PSScriptRoot 'get-used-hooks.ps1') `
     -TranscriptPath $transcriptPath `
-    -HooksPath (Join-Path $PSScriptRoot '..\..'))
-$usedSkills = @(& "$PSScriptRoot\get-used-skills.ps1" -TranscriptPath $transcriptPath)
+    -HooksPath (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)))
+$usedSkills = @(& (Join-Path $PSScriptRoot 'get-used-skills.ps1') -TranscriptPath $transcriptPath)
 $expectedHooks = if ($usedHooks.Count -eq 0) { @('none') } else { $usedHooks }
 $expectedSkills = if ($usedSkills.Count -eq 0) { @('none') } else { $usedSkills }
-$requiredFooter = & "$PSScriptRoot\format-response-footer.ps1" `
+$requiredFooter = & (Join-Path $PSScriptRoot 'format-response-footer.ps1') `
     -Hooks $expectedHooks `
     -Skills $expectedSkills `
     -CurrentJst $currentJst
-$footerIsValid = & "$PSScriptRoot\test-response-footer.ps1" `
+$footerIsValid = & (Join-Path $PSScriptRoot 'test-response-footer.ps1') `
     -Response $lastAssistantResponse `
     -ExpectedHooks $expectedHooks `
     -ExpectedSkills $expectedSkills `
