@@ -22,7 +22,7 @@ function New-FakePackageManager {
 `$OutputEncoding = [System.Text.UTF8Encoding]::new(`$false)
 @'
 $Output
-'@
+'@ -split '\r?\n'
 "@ | Set-Content -LiteralPath $path -Encoding UTF8
     return $path
 }
@@ -60,6 +60,20 @@ function Assert-Equal {
 }
 
 try {
+    $versionCases = @(
+        @{ Input = '7.6'; Expected = '7.6.0.0' }
+        @{ Input = '7.6.0'; Expected = '7.6.0.0' }
+        @{ Input = '7.6.6'; Expected = '7.6.6.0' }
+        @{ Input = '7.6.6.0'; Expected = '7.6.6.0' }
+        @{ Input = '7.6.6.1'; Expected = '7.6.6.1' }
+    )
+    foreach ($case in $versionCases) {
+        Assert-Equal `
+            -Actual (ConvertTo-Version -Value $case.Input).ToString() `
+            -Expected $case.Expected `
+            -Message 'Version normalization was incorrect.'
+    }
+
     $brew = New-FakePackageManager -Name 'brew' -Output @'
 {"formulae":[{"versions":{"stable":"15.2.0"}}]}
 '@
@@ -98,8 +112,8 @@ Version         : 15.1.0-1
             throw "Failed to parse the $($case.Kind) package version."
         }
         Assert-Equal `
-            -Actual $latest.Value.ToString() `
-            -Expected $case.Expected `
+            -Actual $latest.Value `
+            -Expected (ConvertTo-Version -Value $case.Expected) `
             -Message "Failed to parse the $($case.Kind) package version."
     }
 
@@ -150,6 +164,34 @@ Version         : 15.1.0-1
     }
 
     $newPowerShell = New-FakePowerShell -Version '7.5.0'
+    $installedPowerShell = New-FakePowerShell -Version '7.6.6'
+    $powerShellCases = @(
+        @{ Latest = '7.6.6'; Update = $false }
+        @{ Latest = '7.6.6.0'; Update = $false }
+        @{ Latest = '7.6.5.0'; Update = $false }
+        @{ Latest = '7.6.6.1'; Update = $true }
+        @{ Latest = '7.6.7.0'; Update = $true }
+    )
+    foreach ($case in $powerShellCases) {
+        $winget = New-FakePackageManager -Name "winget-$($case.Latest)" -Output @"
+Microsoft.PowerShell
+$($case.Latest)
+"@
+        $output = @(& (Join-Path $PSScriptRoot 'check-powershell.ps1') `
+            -Platform Windows `
+            -WingetCommand $winget `
+            -PowerShellCommand $installedPowerShell)
+        $expectedOutput = if ($case.Update) {
+            "- PowerShell: update available (7.6.6 -> $($case.Latest)). Update: winget upgrade --id Microsoft.PowerShell --exact --source winget"
+        } else {
+            ''
+        }
+        Assert-Equal `
+            -Actual ($output -join "`n") `
+            -Expected $expectedOutput `
+            -Message "The PowerShell update check for $($case.Latest) was incorrect."
+    }
+
     $oldCask = New-FakePackageManager -Name 'brew-cask-old' -Output @'
 {"casks":[{"token":"powershell","version":"5.1.0"}]}
 '@
@@ -182,7 +224,7 @@ Version         : 15.1.0-1
         throw 'The hook did not include the PowerShell update recommendation.'
     }
 
-    Write-Output "Passed $($cases.Count + $commands.Count + 5) development-tool tests."
+    Write-Output "Passed $($versionCases.Count + $powerShellCases.Count + $cases.Count + $commands.Count + 5) development-tool tests."
 } finally {
     if (Test-Path -LiteralPath $temporaryRoot) {
         Remove-Item -LiteralPath $temporaryRoot -Recurse -Force

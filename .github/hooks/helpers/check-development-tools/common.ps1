@@ -35,7 +35,13 @@ function ConvertTo-Version {
     }
 
     try {
-        return [version]$match.Value
+        $version = [version]$match.Value
+        return [version]::new(
+            $version.Major,
+            $version.Minor,
+            [Math]::Max(0, $version.Build),
+            [Math]::Max(0, $version.Revision)
+        )
     } catch {
         return $null
     }

@@ -11,4 +11,5 @@ sessionStart（セッション開始時）
 ## 備考
 - Windowsではwinget、macOSではHomebrew、Linuxではapt、dnf、pacmanの順に利用可能なパッケージマネージャーを選ぶ。
 - PowerShellはWindowsではwinget、macOSではHomebrew cask、Linuxでは選択したシステムパッケージマネージャーを使って最新版を確認する。
+- バージョン比較では省略された末尾の桁を0として扱う。例えば`7.6.6`と`7.6.6.0`は同じバージョンとみなし、更新を案内しない。
 - インストールや更新は自動実行しない。
