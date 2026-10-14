@@ -6,7 +6,10 @@ $definitionsPath = Join-Path $PSScriptRoot 'blocked-command-patterns.json'
 function Invoke-HookInput {
     param(
         [AllowEmptyString()]
-        [string]$InputJson
+        [string]$InputJson,
+        [ValidateSet('ps1', 'cmd', 'sh')]
+        [string]$EntryPoint = 'ps1',
+        [string]$SearchPath
     )
 
     $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
@@ -18,10 +21,22 @@ function Invoke-HookInput {
     $startInfo.StandardInputEncoding = [System.Text.UTF8Encoding]::new($false)
     $startInfo.StandardOutputEncoding = [System.Text.UTF8Encoding]::new($false)
     $startInfo.StandardErrorEncoding = [System.Text.UTF8Encoding]::new($false)
-    foreach ($argument in @(
+    $arguments = @(
         '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
         '-File', $hookPath, '-DefinitionsPath', $definitionsPath
-    )) {
+    )
+    if ($EntryPoint -eq 'cmd') {
+        $startInfo.FileName = $env:ComSpec
+        $startInfo.Arguments = "/d /s /c `"`"$(Join-Path $PSScriptRoot 'block-commands.cmd')`"`""
+        $arguments = @()
+    } elseif ($EntryPoint -eq 'sh') {
+        $startInfo.FileName = $bashPath
+        $arguments = @('--noprofile', '--norc', (Join-Path $PSScriptRoot 'block-commands.sh').Replace('\', '/'))
+    }
+    if ($PSBoundParameters.ContainsKey('SearchPath')) {
+        $startInfo.Environment['PATH'] = $SearchPath
+    }
+    foreach ($argument in $arguments) {
         $startInfo.ArgumentList.Add($argument)
     }
 
@@ -166,3 +181,50 @@ foreach ($testCase in $payloadCases) {
 }
 
 Write-Output "Passed $($testCases.Count + $payloadCases.Count) block-command hook tests."
+
+$entryPoints = @()
+if ($IsWindows) {
+    $entryPoints += 'cmd'
+}
+$bashCommand = Get-Command bash -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+$bashPath = if ($IsWindows) {
+    $gitCommand = Get-Command git -CommandType Application -ErrorAction Stop | Select-Object -First 1
+    Join-Path (Split-Path (Split-Path $gitCommand.Source)) 'bin\bash.exe'
+} elseif ($bashCommand) {
+    $bashCommand.Source
+}
+if ($bashPath -and (Test-Path -LiteralPath $bashPath -PathType Leaf)) {
+    $entryPoints += 'sh'
+} else {
+    Write-Output 'Skipping sh wrapper tests: a native bash executable was not found.'
+}
+
+foreach ($entryPoint in $entryPoints) {
+    foreach ($testCase in @(
+        @{ Json = '{"toolName":"bash","toolArgs":{"command":"git status"}}'; Expected = $null },
+        @{ Json = '{"toolName":"powershell","toolArgs":{"command":"echo 日本語; git reset"}}'; Expected = 'deny' }
+    )) {
+        $result = Invoke-HookInput -InputJson $testCase.Json -EntryPoint $entryPoint
+        if ($result.ExitCode -ne 0 -or $result.Error) {
+            throw "Unexpected $entryPoint wrapper execution: $($result | ConvertTo-Json -Compress)"
+        }
+        $output = $result.Output | ConvertFrom-Json
+        if ($result.ExitCode -ne 0 -or $result.Error -or $output.permissionDecision -ne $testCase.Expected) {
+            throw "Unexpected $entryPoint wrapper decision: $($result | ConvertTo-Json -Compress)"
+        }
+    }
+
+    $result = Invoke-HookInput -InputJson '{' -EntryPoint $entryPoint
+    if ($result.ExitCode -ne 2 -or $result.Output -or -not $result.Error.Contains('Failed to parse')) {
+        throw "Unexpected $entryPoint wrapper error forwarding: $($result | ConvertTo-Json -Compress)"
+    }
+
+    $result = Invoke-HookInput -InputJson '{}' -EntryPoint $entryPoint -SearchPath ''
+    $output = $result.Output | ConvertFrom-Json
+    if ($result.ExitCode -ne 2 -or $output.permissionDecision -ne 'deny' -or
+        [string]::IsNullOrWhiteSpace($output.permissionDecisionReason) -or
+        -not $result.Error.Contains('Tool execution denied.')) {
+        throw "Unexpected $entryPoint wrapper missing-pwsh result: $($result | ConvertTo-Json -Compress)"
+    }
+    Write-Output "Passed 4 $entryPoint wrapper tests."
+}
