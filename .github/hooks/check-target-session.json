@@ -4,8 +4,8 @@
     "sessionStart": [
       {
         "type": "command",
-        "bash": "pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/helpers/check-target-session/check-target-session.ps1",
-        "powershell": "pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/helpers/check-target-session/check-target-session.ps1",
+        "bash": "python3 .github/hooks/helpers/check-target-session/check-target-session.py",
+        "powershell": "python .github/hooks/helpers/check-target-session/check-target-session.py",
         "timeoutSec": 10
       }
     ]

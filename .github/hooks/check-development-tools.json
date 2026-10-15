@@ -4,8 +4,8 @@
     "sessionStart": [
       {
         "type": "command",
-        "bash": "pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/helpers/check-development-tools/check-development-tools.ps1",
-        "powershell": "pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File .github/hooks/helpers/check-development-tools/check-development-tools.ps1",
+        "bash": "python3 .github/hooks/helpers/check-development-tools/check-development-tools.py",
+        "powershell": "python .github/hooks/helpers/check-development-tools/check-development-tools.py",
         "timeoutSec": 60
       }
     ]
