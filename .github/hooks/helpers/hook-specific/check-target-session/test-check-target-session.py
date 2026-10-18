@@ -1,8 +1,11 @@
+import io
 import json
 import os
 import re
+import runpy
 import subprocess
 import sys
+from unittest.mock import patch
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
 hook_path = os.path.join(script_directory, 'check-target-session.py')
@@ -11,7 +14,7 @@ hook_path = os.path.join(script_directory, 'check-target-session.py')
 def invoke_hook_input(input_json):
     completed = subprocess.run(
         [sys.executable, hook_path],
-        input=input_json.encode('utf-8'),
+        input=input_json if isinstance(input_json, bytes) else input_json.encode('utf-8'),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
@@ -45,7 +48,35 @@ valid_cases = [
         'Json': '{"hook_event_name":"sessionstart"}',
         'ExpectMessage': False,
     },
+    {
+        'Name': 'Hook configuration event casing',
+        'Json': '{"hook_event_name":"sessionStart"}',
+        'ExpectMessage': False,
+    },
+    {
+        'Name': 'Empty object',
+        'Json': '{}',
+        'ExpectMessage': False,
+    },
+    {
+        'Name': 'Case-sensitive property mismatch',
+        'Json': '{"HOOK_EVENT_NAME":"SessionStart"}',
+        'ExpectMessage': False,
+    },
+    {
+        'Name': 'Unicode payload with surrounding whitespace',
+        'Json': ' \r\n{"hook_event_name":"SessionStart","cwd":"日本語"}\r\n ',
+        'ExpectMessage': True,
+    },
 ]
+
+for value in (None, True, False, 0, 1.5, '', ' SessionStart ', [], ['SessionStart'],
+              ['SessionStart', 'SessionStart'], {}, {'name': 'SessionStart'}):
+    valid_cases.append({
+        'Name': f'Non-matching event value {value!r}',
+        'Json': json.dumps({'hook_event_name': value}),
+        'ExpectMessage': False,
+    })
 
 invalid_cases = [
     {'Name': 'empty input', 'Json': '', 'Error': r'sessionStart hook input is empty\.'},
@@ -58,6 +89,12 @@ invalid_cases = [
     {'Name': 'string input', 'Json': '"SessionStart"', 'Error': r'sessionStart hook input must be a JSON object\.'},
     {'Name': 'number input', 'Json': '42', 'Error': r'sessionStart hook input must be a JSON object\.'},
     {'Name': 'boolean input', 'Json': 'true', 'Error': r'sessionStart hook input must be a JSON object\.'},
+    {'Name': 'invalid UTF-8', 'Json': b'{"hook_event_name":"SessionStart","value":"\xff"}',
+     'Error': 'Failed to parse sessionStart hook input:'},
+    {'Name': 'unescaped control character', 'Json': '{"hook_event_name":"SessionStart","value":"raw\nnewline"}',
+     'Error': 'Failed to parse sessionStart hook input:'},
+    {'Name': 'trailing content', 'Json': '{"hook_event_name":"SessionStart"} trailing',
+     'Error': 'Failed to parse sessionStart hook input:'},
 ]
 
 for case in valid_cases:
@@ -72,9 +109,11 @@ for case in valid_cases:
             parsed_output = json.loads(output)
         except ValueError:
             raise AssertionError(f"Failed to parse stdout as JSON for '{case['Name']}': {output}")
-        if parsed_output.get('systemMessage') != expected_system_message:
-            raise AssertionError(f"Unexpected systemMessage for '{case['Name']}': got '{parsed_output.get('systemMessage')}'")
-    elif output.strip():
+        if parsed_output != {'systemMessage': expected_system_message}:
+            raise AssertionError(f"Unexpected JSON output for '{case['Name']}': {parsed_output}")
+        if output.rstrip('\r\n') != json.dumps(parsed_output, ensure_ascii=False, separators=(',', ':')):
+            raise AssertionError(f"Expected compact single-line JSON for '{case['Name']}': {output!r}")
+    elif output:
         raise AssertionError(f"Expected empty output for '{case['Name']}', got: {output}")
 
 for case in invalid_cases:
@@ -86,4 +125,19 @@ for case in invalid_cases:
     if re.search(case['Error'], error, re.IGNORECASE) is None:
         raise AssertionError(f"Unexpected error message for '{case['Name']}': got '{error}', expected pattern '{case['Error']}'")
 
-print(f'Passed {len(valid_cases) + len(invalid_cases)} check-target-session tests.')
+hook_module = runpy.run_path(hook_path)
+with (
+    patch.object(sys, 'stdin') as stdin,
+    patch.object(sys, 'stdout') as stdout,
+    io.TextIOWrapper(io.BytesIO(), encoding='utf-8', newline='') as stderr,
+    patch.object(sys, 'stderr', stderr),
+):
+    stdin.buffer.read.side_effect = OSError('test read failure')
+    exit_code = hook_module['main']()
+    stderr.flush()
+    error = stderr.buffer.getvalue().decode('utf-8')
+    if exit_code != 2 or error != 'Failed to parse sessionStart hook input: test read failure\n':
+        raise AssertionError(f'Unexpected read error handling: exit {exit_code}, stderr: {error}')
+    stdout.write.assert_not_called()
+
+print(f'Passed {len(valid_cases) + len(invalid_cases) + 1} check-target-session tests.')
