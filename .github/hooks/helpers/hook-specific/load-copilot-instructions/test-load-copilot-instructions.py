@@ -13,13 +13,15 @@ github_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirna
 real_instructions_path = os.path.join(github_directory, 'copilot-instructions.md')
 
 
-def invoke_hook(script_path):
+def invoke_hook(script_path, *, cwd=None, env=None):
     # BOMの有無を検査できるよう、標準出力はバイト列のまま受け取る。
     completed = subprocess.run(
         [sys.executable, script_path],
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        cwd=cwd,
+        env=env,
     )
     return {
         'ExitCode': completed.returncode,
@@ -31,8 +33,8 @@ def invoke_hook(script_path):
 
 # 本物と同じ階層（.github/hooks/helpers/hook-specific/load-copilot-instructions）を一時領域に再現し、
 # 実ファイルに触れずに指示ファイルの有無や内容を差し替えて検証する。
-def new_hook_sandbox():
-    root = os.path.join(tempfile.gettempdir(), f'ghc-agent-refinement-test-{uuid.uuid4().hex}')
+def new_hook_sandbox(suffix=''):
+    root = os.path.join(tempfile.gettempdir(), f'ghc-agent-refinement-test-{uuid.uuid4().hex}{suffix}')
     hook_directory = os.path.join(root, '.github', 'hooks', 'helpers', 'hook-specific', 'load-copilot-instructions')
     os.makedirs(hook_directory, exist_ok=True)
     shutil.copy(hook_path, hook_directory)
@@ -48,10 +50,11 @@ def assert_valid_output(name, result, expected_context):
         raise AssertionError(f"Hook failed for '{name}': exit {result['ExitCode']}, stderr: {result['Error']}")
     if result['OutputBytes'][:3] == b'\xef\xbb\xbf':
         raise AssertionError(f"Output contains a UTF-8 BOM for '{name}'.")
-    lines = [line for line in re.split(r'\r?\n', result['Output']) if line != '']
-    if len(lines) != 1:
+    if re.fullmatch(r'[^\r\n]+\r?\n', result['Output']) is None:
         raise AssertionError(f"Output is not a single JSON line for '{name}': {result['Output']}")
-    output = json.loads(lines[0])
+    output = json.loads(result['Output'])
+    if not isinstance(output, dict):
+        raise AssertionError(f"Output is not a JSON object for '{name}': {result['Output']}")
     property_names = list(output.keys())
     if len(property_names) != 1 or property_names[0] != 'additionalContext':
         raise AssertionError(f"Unexpected output properties for '{name}': {', '.join(property_names)}")
@@ -72,6 +75,11 @@ try:
     valid_cases = [
         {'Name': 'Japanese text', 'Content': '# 指示\n- 応答は日本語を用いる。\n', 'Bytes': None},
         {'Name': 'CRLF line endings', 'Content': 'line1\r\nline2\r\n', 'Bytes': None},
+        {'Name': 'mixed line endings', 'Content': 'line1\rline2\r\nline3\n', 'Bytes': None},
+        {'Name': 'leading and trailing whitespace is preserved', 'Content': ' \t\n指示\r\n \t', 'Bytes': None},
+        {'Name': 'Unicode separators', 'Content': 'a\u0085b\u2028c\u2029d', 'Bytes': None},
+        {'Name': 'embedded control characters', 'Content': 'a\x00\x1cb', 'Bytes': None},
+        {'Name': 'embedded BOM is preserved', 'Content': 'a\ufeffb', 'Bytes': None},
         {'Name': 'JSON special characters', 'Content': "quote \" backslash \\ tab \t slash / <tag> & 'single'", 'Bytes': None},
         {'Name': 'emoji (surrogate pair)', 'Content': '絵文字 😀 を含む', 'Bytes': None},
         {'Name': 'UTF-8 BOM is not part of the content', 'Content': '# 指示\n',
@@ -90,6 +98,10 @@ try:
         {'Name': 'missing instructions file', 'Bytes': None, 'Error': 'instructions file not found'},
         {'Name': 'empty instructions file', 'Bytes': b'', 'Error': 'instructions file is empty'},
         {'Name': 'whitespace-only instructions file', 'Bytes': ' \t\r\n'.encode('utf-8'), 'Error': 'instructions file is empty'},
+        {'Name': 'Unicode whitespace-only instructions file',
+         'Bytes': '\u0085\u00a0\u2028\u2029\u3000'.encode('utf-8'), 'Error': 'instructions file is empty'},
+        {'Name': 'Python whitespace control characters',
+         'Bytes': b'\x1c\x1d\x1e\x1f', 'Error': 'instructions file is empty'},
         {'Name': 'BOM-only instructions file', 'Bytes': b'\xef\xbb\xbf', 'Error': 'instructions file is empty'},
     ]
     for case in invalid_cases:
@@ -114,6 +126,58 @@ try:
             re.search('instructions file not found', result['Error'], re.IGNORECASE) is None:
         raise AssertionError(
             f"Unexpected result for 'directory instead of file': exit {result['ExitCode']}, "
+            f"stdout: {result['Output']}, stderr: {result['Error']}")
+    tests_passed += 1
+
+    encoding_error_cases = [
+        ('invalid UTF-8', b'\xff'),
+        ('truncated UTF-8', b'\xe3\x81'),
+        ('UTF-8 encoded surrogate', b'\xed\xa0\x80'),
+        ('UTF-16 LE BOM', b'\xff\xfe' + '指示'.encode('utf-16-le')),
+        ('UTF-16 BE BOM', b'\xfe\xff' + '指示'.encode('utf-16-be')),
+        ('UTF-32 LE BOM', b'\xff\xfe\x00\x00' + '指示'.encode('utf-32-le')),
+        ('UTF-32 BE BOM', b'\x00\x00\xfe\xff' + '指示'.encode('utf-32-be')),
+    ]
+    for name, data in encoding_error_cases:
+        sandbox = new_hook_sandbox()
+        sandboxes.append(sandbox)
+        with open(sandbox['InstructionsPath'], 'wb') as file:
+            file.write(data)
+        result = invoke_hook(sandbox['ScriptPath'])
+        if result['ExitCode'] != 1 or result['Output'] or 'UnicodeDecodeError' not in result['Error']:
+            raise AssertionError(
+                f"Unexpected result for '{name}': exit {result['ExitCode']}, "
+                f"stdout: {result['Output']}, stderr: {result['Error']}")
+        tests_passed += 1
+
+    sandbox = new_hook_sandbox('-日本語 path')
+    sandboxes.append(sandbox)
+    content = '# 指示 😀\r\n'
+    with open(sandbox['InstructionsPath'], 'wb') as file:
+        file.write(content.encode('utf-8'))
+    ascii_env = os.environ.copy()
+    ascii_env['PYTHONIOENCODING'] = 'ascii:strict'
+    assert_valid_output(
+        'UTF-8 stdout with ASCII default and unrelated working directory',
+        invoke_hook(sandbox['ScriptPath'], cwd=tempfile.gettempdir(), env=ascii_env),
+        content,
+    )
+    tests_passed += 1
+
+    relative_script_path = os.path.relpath(sandbox['ScriptPath'], sandbox['Root'])
+    assert_valid_output(
+        'relative script path',
+        invoke_hook(relative_script_path, cwd=sandbox['Root']),
+        content,
+    )
+    tests_passed += 1
+
+    os.remove(sandbox['InstructionsPath'])
+    result = invoke_hook(sandbox['ScriptPath'], env=ascii_env)
+    expected_error = f"Copilot instructions file not found: {sandbox['InstructionsPath']}"
+    if result['ExitCode'] != 2 or result['Output'] or result['Error'].rstrip('\r\n') != expected_error:
+        raise AssertionError(
+            f"Unexpected UTF-8 stderr with ASCII default: exit {result['ExitCode']}, "
             f"stdout: {result['Output']}, stderr: {result['Error']}")
     tests_passed += 1
 

@@ -1,68 +1,48 @@
-import codecs
 import json
-import os
+import pathlib
 import sys
-import unicodedata
-
-
-def is_null_or_white_space(value):
-    # .NETの[string]::IsNullOrWhiteSpace相当。Pythonのstr.isspace()は\x1c-\x1fも空白とみなすため使わない。
-    return all(
-        char in '\t\n\v\f\r\x85\xa0' or unicodedata.category(char) in ('Zs', 'Zl', 'Zp')
-        for char in value
-    )
-
-
-def read_all_text(path):
-    # .NETのFile.ReadAllTextと同様にBOMから文字コードを判定し、BOMは内容に含めない。BOMがなければUTF-8として読む。
-    with open(path, 'rb') as file:
-        data = file.read()
-    for bom, encoding in (
-        (codecs.BOM_UTF32_LE, 'utf-32-le'),
-        (codecs.BOM_UTF32_BE, 'utf-32-be'),
-        (codecs.BOM_UTF8, 'utf-8'),
-        (codecs.BOM_UTF16_LE, 'utf-16-le'),
-        (codecs.BOM_UTF16_BE, 'utf-16-be'),
-    ):
-        if data.startswith(bom):
-            return data[len(bom):].decode(encoding, errors='replace')
-    return data.decode('utf-8', errors='replace')
-
-
-def to_compressed_json(value):
-    # ConvertTo-Json -Compressと同様に、非ASCII文字はエスケープせず1行のJSONにする。
-    # ConvertTo-Jsonがエスケープする\u0085、\u2028、\u2029も同様にエスケープする。
-    text = json.dumps(value, ensure_ascii=False, separators=(',', ':'))
-    return text.replace('\u0085', '\\u0085').replace('\u2028', '\\u2028').replace('\u2029', '\\u2029')
 
 
 def main():
-    script_directory = os.path.dirname(os.path.abspath(__file__))
-    instructions_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory)))),
-        'copilot-instructions.md',
-    )
-    # ファイルとして存在するかどうかを確認する。
-    if not os.path.isfile(instructions_path):
+    sys.stdout.reconfigure(encoding='utf-8')
+    # backslashreplace：変換できない文字があったら、例外を出さずに \uXXXX の形式で置き換える。
+    #   strict(既定)：UnicodeEncodeError を発生させる。
+    #   replace：? に置き換える。
+    #   ignore：その文字を捨てる。
+    sys.stderr.reconfigure(encoding='utf-8', errors='backslashreplace')
+
+    # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
+    # .absolute()：絶対パス化（シンボリックリンクは解決しない）
+    # .parents[4]：5階層上。ここでは .github ディレクトリ
+    # / 'copilot-instructions.md'：ファイル名を結合
+    instructions_path = pathlib.Path(__file__).absolute().parents[4] / 'copilot-instructions.md'
+    if not instructions_path.is_file():
         print(f'Copilot instructions file not found: {instructions_path}', file=sys.stderr)
         return 2
 
-    # copilot-instructions.md には日本語が含まれている可能性があるため、UTF-8で読み込む。
-    instructions = read_all_text(instructions_path)
-    if is_null_or_white_space(instructions):
+    # `utf-8-sig` を指定することで、BOMが存在する場合は取り除いて読むことができる。
+    # with：処理を抜けるときの後片付けを自動で行う構文（C#のusingに相当）。
+    with instructions_path.open(encoding='utf-8-sig', newline='') as instructions_file:
+        instructions = instructions_file.read()
+
+    # Pythonの not は、対象を真偽として評価してから反転する。
+    # strip() が返すのは文字列だが、真偽として判定されれば空文字列はFalse、それ以外はTrueとなる。
+    #   if not text:   # 文字列が空のとき
+    #   if not items:  # リストなどが空のとき
+    #   if not data:   # 辞書などが空のとき
+    if not instructions.strip():
         print(f'Copilot instructions file is empty: {instructions_path}', file=sys.stderr)
         return 2
 
-    # 標準出力をUTF-8に統一することで、JSON内の日本語などを正しく出力する。BOMは出力されない。
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    # ensure_ascii=False：日本語などを \uXXXX にせず、そのまま出力する。出力先はUTF-8に設定するため問題なし。
+    # separators=(',', ':')：項目間やキーと値の間に余分な空白を入れない。（出力をコンパクトにするための指定で、省略してもJSONとしては正しく伝わる。）
+    # 引用符・バックスラッシュ・改行など、JSONとして必要なエスケープは ensure_ascii=False で行われる
+    print(json.dumps({'additionalContext': instructions}, ensure_ascii=False, separators=(',', ':')))
 
-    # 1行のJSONにして出力する。
-    output = to_compressed_json({'additionalContext': instructions})
-
-    # 余計な出力を混ぜず、純粋な JSON 文字列を確実に渡すため、明示的に1行だけ出力する。
-    print(output)
     return 0
 
 
+# このファイルが直接実行されたときだけ main() を呼び出す。
+# import されただけでは main() は呼び出されない。
 if __name__ == '__main__':
     sys.exit(main())
