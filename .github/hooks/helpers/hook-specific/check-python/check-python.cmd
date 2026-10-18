@@ -3,7 +3,7 @@
 where python >nul 2>&1
 if errorlevel 1 goto :missing
 
-python "%~dp0..\common\check-python-version.py" >nul 2>&1
+python "%~dp0..\..\common\check-python-version.py" >nul 2>&1
 if not errorlevel 1 exit /b 0
 
 :missing

@@ -4,8 +4,8 @@
     "userPromptSubmitted": [
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/check-debug-mode/check-debug-mode.py",
-        "powershell": "python .github/hooks/helpers/check-debug-mode/check-debug-mode.py"
+        "bash": "python3 .github/hooks/helpers/hook-specific/check-debug-mode/check-debug-mode.py",
+        "powershell": "python .github/hooks/helpers/hook-specific/check-debug-mode/check-debug-mode.py"
       }
     ]
   }

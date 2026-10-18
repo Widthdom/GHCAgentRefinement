@@ -5,8 +5,8 @@
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:bash|powershell)",
-        "bash": "bash .github/hooks/helpers/block-commands/block-commands.sh",
-        "powershell": "& ./.github/hooks/helpers/block-commands/block-commands.cmd",
+        "bash": "bash .github/hooks/helpers/hook-specific/block-commands/block-commands.sh",
+        "powershell": "& ./.github/hooks/helpers/hook-specific/block-commands/block-commands.cmd",
         "timeoutSec": 10
       }
     ]

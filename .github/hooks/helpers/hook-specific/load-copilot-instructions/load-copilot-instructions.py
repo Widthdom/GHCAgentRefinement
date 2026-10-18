@@ -39,7 +39,7 @@ def to_compressed_json(value):
 def main():
     script_directory = os.path.dirname(os.path.abspath(__file__))
     instructions_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(script_directory))),
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory)))),
         'copilot-instructions.md',
     )
     # ファイルとして存在するかどうかを確認する。

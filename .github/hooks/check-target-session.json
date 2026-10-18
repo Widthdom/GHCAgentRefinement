@@ -4,8 +4,8 @@
     "sessionStart": [
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/check-target-session/check-target-session.py",
-        "powershell": "python .github/hooks/helpers/check-target-session/check-target-session.py",
+        "bash": "python3 .github/hooks/helpers/hook-specific/check-target-session/check-target-session.py",
+        "powershell": "python .github/hooks/helpers/hook-specific/check-target-session/check-target-session.py",
         "timeoutSec": 10
       }
     ]

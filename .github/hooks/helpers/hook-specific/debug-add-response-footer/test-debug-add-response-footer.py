@@ -182,6 +182,20 @@ try:
         raise AssertionError(f"Expected decision 'block' with non-empty reason. Got output: {output}")
     tests_passed += 1
 
+    hook_transcript = os.path.join(temp_dir, 'with-hook.jsonl')
+    write_all_text(hook_transcript, '\n'.join([
+        to_compressed_json({'type': 'hook.start', 'data': {'hookType': 'preToolUse'}}),
+        to_compressed_json({'type': 'assistant.message', 'data': {'content': 'Hello world'}}),
+    ]) + '\n')
+    hook_json = to_compressed_json({'sessionId': enabled_session_id, 'transcriptPath': hook_transcript})
+    exit_code, output, error = invoke_hook_input(hook_json)
+    if exit_code != 0 or error:
+        raise AssertionError(f'Expected exit 0 for transcript with hook event. Got exit {exit_code}, Error: {error}')
+    block_output = json.loads(output)
+    if block_output.get('decision') != 'block' or '- block-commands' not in block_output.get('reason', ''):
+        raise AssertionError(f'Expected repository hook definitions to identify block-commands. Got output: {output}')
+    tests_passed += 1
+
     # 9. デバッグモード有効時: 正しいフッターが既に存在する場合は何もしない (exit 0, 出力なし)
     current_jst = load_helper('get-current-jst').get_current_jst()
     formatted_footer = load_helper('format-response-footer').format_response_footer(

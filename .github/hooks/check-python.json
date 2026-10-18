@@ -4,8 +4,8 @@
     "sessionStart": [
       {
         "type": "command",
-        "bash": "bash .github/hooks/helpers/check-python/check-python.sh",
-        "powershell": "& ./.github/hooks/helpers/check-python/check-python.cmd",
+        "bash": "bash .github/hooks/helpers/hook-specific/check-python/check-python.sh",
+        "powershell": "& ./.github/hooks/helpers/hook-specific/check-python/check-python.cmd",
         "timeoutSec": 10
       }
     ]

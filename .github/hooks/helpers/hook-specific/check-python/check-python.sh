@@ -1,5 +1,5 @@
 if command -v python3 >/dev/null 2>&1 &&
-    python3 "${0%/*}/../common/check-python-version.py" >/dev/null 2>&1
+    python3 "${0%/*}/../../common/check-python-version.py" >/dev/null 2>&1
 then
     exit 0
 fi

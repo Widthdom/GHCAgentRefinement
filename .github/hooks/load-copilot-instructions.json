@@ -4,8 +4,8 @@
     "sessionStart": [
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/load-copilot-instructions/load-copilot-instructions.py",
-        "powershell": "python .github/hooks/helpers/load-copilot-instructions/load-copilot-instructions.py"
+        "bash": "python3 .github/hooks/helpers/hook-specific/load-copilot-instructions/load-copilot-instructions.py",
+        "powershell": "python .github/hooks/helpers/hook-specific/load-copilot-instructions/load-copilot-instructions.py"
       }
     ]
   }

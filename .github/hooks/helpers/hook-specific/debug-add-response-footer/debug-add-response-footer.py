@@ -140,7 +140,7 @@ def main():
     # エージェントが使用したhookを取得（長さ0の場合は 'none' に置き換える）
     used_hooks = load_helper('get-used-hooks').get_used_hooks(
         transcript_path,
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
     )
     resolved_used_hooks = ['none'] if len(used_hooks) == 0 else used_hooks
 

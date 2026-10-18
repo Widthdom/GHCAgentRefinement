@@ -10,17 +10,17 @@
 
 |hook|概要|参考|
 |--|--|--|
-|Session Targetの確認|Session Targetが `Copilot` の状態で使用できるよう支援する。|[check-target-session hook README](./hooks/helpers/check-target-session/README.md)|
-|Pythonの確認|Python 3.14以降（macOS/Linuxでは `python3`、Windowsでは `python`）のインストールを支援する。|[check-python hook README](./hooks/helpers/check-python/README.md)|
-|開発ツールの確認|各種開発ツールのインストールとアップデートを支援する。|[check-development-tools hook README](./hooks/helpers/check-development-tools/README.md)|
-|Copilot Instructionsの読み込み|`copilot-instructions.md` を明に追加コンテキストとして渡す。|[load-copilot-instructions hook README](./hooks/helpers/load-copilot-instructions/README.md)|
+|Session Targetの確認|Session Targetが `Copilot` の状態で使用できるよう支援する。|[check-target-session hook README](./hooks/helpers/hook-specific/check-target-session/README.md)|
+|Pythonの確認|Python 3.14以降（macOS/Linuxでは `python3`、Windowsでは `python`）のインストールを支援する。|[check-python hook README](./hooks/helpers/hook-specific/check-python/README.md)|
+|開発ツールの確認|各種開発ツールのインストールとアップデートを支援する。|[check-development-tools hook README](./hooks/helpers/hook-specific/check-development-tools/README.md)|
+|Copilot Instructionsの読み込み|`copilot-instructions.md` を明に追加コンテキストとして渡す。|[load-copilot-instructions hook README](./hooks/helpers/hook-specific/load-copilot-instructions/README.md)|
 
 ### bashまたはpowershellツールの実行前に発動
 
 |hook|概要|参考|
 |--|--|--|
-|危険コマンドの実行拒否|[`blocked-command-patterns.json`](./hooks/helpers/block-commands/blocked-command-patterns.json)にて定義されたコマンドの実行を拒否する。|[block-commands hook README](./hooks/helpers/block-commands/README.md)|
+|危険コマンドの実行拒否|[`blocked-command-patterns.json`](./hooks/helpers/hook-specific/block-commands/blocked-command-patterns.json)にて定義されたコマンドの実行を拒否する。|[block-commands hook README](./hooks/helpers/hook-specific/block-commands/README.md)|
 
 ## デバッグモード
 
-プロンプトの先頭に `??` を付与するとデバッグモードになり、 `debug-` 接頭辞付きのhookが発動するようになる。詳細は[check-debug-mode hook README](./hooks/helpers/check-debug-mode/README.md)を参照。
+プロンプトの先頭に `??` を付与するとデバッグモードになり、 `debug-` 接頭辞付きのhookが発動するようになる。詳細は[check-debug-mode hook README](./hooks/helpers/hook-specific/check-debug-mode/README.md)を参照。

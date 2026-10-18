@@ -4,8 +4,8 @@
     "agentStop": [
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/debug-add-response-footer/debug-add-response-footer.py",
-        "powershell": "python .github/hooks/helpers/debug-add-response-footer/debug-add-response-footer.py"
+        "bash": "python3 .github/hooks/helpers/hook-specific/debug-add-response-footer/debug-add-response-footer.py",
+        "powershell": "python .github/hooks/helpers/hook-specific/debug-add-response-footer/debug-add-response-footer.py"
       }
     ]
   }
