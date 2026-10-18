@@ -4,6 +4,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import uuid
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
@@ -180,6 +182,32 @@ try:
     block_output = json.loads(output)
     if block_output.get('decision') != 'block' or not str(block_output.get('reason') or '').strip():
         raise AssertionError(f"Expected decision 'block' with non-empty reason. Got output: {output}")
+    tests_passed += 1
+
+    # 8-2. 最終応答と本hookのhook.startが遅れて書き込まれる場合は、書き込みを待ってから判定する
+    delayed_transcript = os.path.join(temp_dir, 'delayed.jsonl')
+    write_all_text(delayed_transcript, to_compressed_json({
+        'type': 'assistant.message', 'data': {'content': ''},
+    }) + '\n')
+    hook_timestamp = 1792345182897
+
+    def append_delayed_events():
+        time.sleep(0.5)
+        with open(delayed_transcript, 'a', encoding='utf-8', newline='') as file:
+            file.write(to_compressed_json({'type': 'assistant.message', 'data': {'content': 'Delayed response'}}) + '\n')
+            file.write(to_compressed_json({
+                'type': 'hook.start',
+                'data': {'hookType': 'agentStop', 'input': {'timestamp': hook_timestamp}},
+            }) + '\n')
+
+    writer = threading.Thread(target=append_delayed_events)
+    writer.start()
+    exit_code, output, error = invoke_hook_input(to_compressed_json({
+        'sessionId': enabled_session_id, 'transcriptPath': delayed_transcript, 'timestamp': hook_timestamp,
+    }))
+    writer.join()
+    if exit_code != 0 or not output.strip() or json.loads(output).get('decision') != 'block':
+        raise AssertionError(f'Expected block after delayed transcript flush. Got exit {exit_code}, Output: {output}, Error: {error}')
     tests_passed += 1
 
     hook_transcript = os.path.join(temp_dir, 'with-hook.jsonl')

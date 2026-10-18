@@ -1,6 +1,7 @@
 import os
 import sys
 import tempfile
+import time
 
 from common import (
     equals_ignore_case,
@@ -19,6 +20,34 @@ from common import (
 
 def write_error(message):
     print(message, file=sys.stderr)
+
+
+def is_own_hook_start_written(transcript_path, hook_timestamp):
+    for line in read_lines(transcript_path):
+        try:
+            event = parse_json(line)
+        except Exception:
+            # 書き込み途中の行は読み飛ばす。
+            continue
+        data = get_property(event, 'data')
+        if (equals_ignore_case(get_property(event, 'type'), 'hook.start') and
+                equals_ignore_case(get_property(data, 'hookType'), 'agentStop') and
+                get_property(get_property(data, 'input'), 'timestamp') == hook_timestamp):
+            return True
+    return False
+
+
+def wait_for_transcript_flush(transcript_path, hook_timestamp, timeout_seconds=5.0, interval_seconds=0.05):
+    # Copilotはトランスクリプトへ非同期に追記するため、agentStop発動時点では最終応答が未書き込みのことがある。
+    # イベントは発生順に追記されるので、本hook自身のhook.startが書き込まれていれば最終応答も書き込み済みとみなせる。
+    #   入力にtimestampがない場合や期限切れの場合は、待たずにその時点の内容で処理を続ける。
+    if not isinstance(hook_timestamp, (int, float)) or isinstance(hook_timestamp, bool):
+        return
+    deadline = time.monotonic() + timeout_seconds
+    while not is_own_hook_start_written(transcript_path, hook_timestamp):
+        if time.monotonic() >= deadline:
+            return
+        time.sleep(interval_seconds)
 
 
 def main():
@@ -90,6 +119,8 @@ def main():
     # デバッグモードが有効でなければ、処理を終了
     if enabled is not True:
         return 0
+
+    wait_for_transcript_flush(transcript_path, get_property(hook_input, 'timestamp'))
 
     last_assistant_message = None
 
