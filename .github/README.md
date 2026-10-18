@@ -19,7 +19,7 @@
 
 |hook|概要|参考|
 |--|--|--|
-|危険コマンドの実行拒否|[`blocked-command-patterns.json`](./hooks/helpers/hook-specific/block-commands/blocked-command-patterns.json)にて定義されたコマンドの実行を拒否する。|[block-commands hook README](./hooks/helpers/hook-specific/block-commands/README.md)|
+|危険コマンドの実行拒否|[`blocked-command-definitions.json`](./hooks/helpers/hook-specific/block-commands/blocked-command-definitions.json)にて定義されたコマンドの実行を拒否する。|[block-commands hook README](./hooks/helpers/hook-specific/block-commands/README.md)|
 
 ## デバッグモード
 
