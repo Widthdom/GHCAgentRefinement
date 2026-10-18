@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'check-debug-mode.py')
+hook_path = os.path.join(script_directory, 'set-debug-mode.py')
 session_id = str(uuid.uuid4())
 state_path = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'debug-mode', f'{session_id}.json')
 other_session_id = str(uuid.uuid4())
@@ -202,7 +202,7 @@ try:
     if read_text(state_path) != state_before:
         raise AssertionError('Input read failure changed the state file.')
 
-    print(f'Passed {len(valid_cases) + len(invalid_cases) + 2} check-debug-mode tests.')
+    print(f'Passed {len(valid_cases) + len(invalid_cases) + 2} set-debug-mode tests.')
 finally:
     for path in (state_path, other_state_path):
         if os.path.exists(path):
