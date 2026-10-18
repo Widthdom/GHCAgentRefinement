@@ -6,10 +6,6 @@ import uuid
 from datetime import datetime, timezone
 
 
-def write_error(msg):
-    print(msg, file=sys.stderr)
-
-
 def main():
     # replace：変換できない文字があったら、例外を出さずに ? に置き換える。
     #   strict(既定)：UnicodeEncodeError を発生させる。
@@ -29,45 +25,45 @@ def main():
         #   if not items:  # リストなどが空のとき
         #   if not data:   # 辞書などが空のとき
         if not hook_input_json.strip():
-            write_error('userPromptSubmitted hook input is empty.')
+            print('userPromptSubmitted hook input is empty.', file=sys.stderr)
             return 2
         hook_input = json.loads(hook_input_json)
     except (OSError, UnicodeError, json.JSONDecodeError) as ex:
-        write_error(f'Failed to parse userPromptSubmitted hook input: {ex}')
+        print(f'Failed to parse userPromptSubmitted hook input: {ex}', file=sys.stderr)
         return 2
 
     # 変換結果がJSONオブジェクト（最外側が{}）でなければ異常終了。
     #   文字列・数値・null・（最外側が[]である）配列などはここを通過させない。
     if not isinstance(hook_input, dict):
-        write_error('userPromptSubmitted hook input must be a JSON object.')
+        print('userPromptSubmitted hook input must be a JSON object.', file=sys.stderr)
         return 2
 
     # getはキーが無くてもNoneを返す。
     prompt = hook_input.get('prompt')
 
     if not isinstance(prompt, str):
-        write_error('userPromptSubmitted hook prompt must be a string.')
+        print('userPromptSubmitted hook prompt must be a string.', file=sys.stderr)
         return 2
 
     if not prompt.strip():
-        write_error('userPromptSubmitted hook prompt must not be empty or whitespace.')
+        print('userPromptSubmitted hook prompt must not be empty or whitespace.', file=sys.stderr)
         return 2
 
     # getはキーが無くてもNoneを返す。
     session_id = hook_input.get('sessionId')
 
     if not isinstance(session_id, str):
-        write_error('userPromptSubmitted hook sessionId must be a string.')
+        print('userPromptSubmitted hook sessionId must be a string.', file=sys.stderr)
         return 2
 
     if not session_id.strip():
-        write_error('userPromptSubmitted hook sessionId must not be empty or whitespace.')
+        print('userPromptSubmitted hook sessionId must not be empty or whitespace.', file=sys.stderr)
         return 2
 
     try:
         parsed_session_id = uuid.UUID(session_id.strip())
     except ValueError:
-        write_error('userPromptSubmitted hook sessionId must be a valid UUID.')
+        print('userPromptSubmitted hook sessionId must be a valid UUID.', file=sys.stderr)
         return 2
 
     # tempfile.gettempdir() は、環境変数 TMPDIR・TEMP・TMP や OS 標準の候補から、利用可能な一時フォルダーを選んで返す。
