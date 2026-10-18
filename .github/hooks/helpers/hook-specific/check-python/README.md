@@ -12,3 +12,4 @@ sessionStart（セッション開始時）
 - Windowsでは [cmd](./check-python.cmd)、macOS/Linuxでは [sh](./check-python.sh) を呼び出す。
 - Python 3.14を最低対応・推奨バージョンとする。Windowsでは `winget install Python.Python.3.14 --source winget` で3.14系列を導入し、`python` から実行する。インストール後はPATHの更新をhookに反映するため、hookを起動するアプリケーションまたはターミナルを再起動する。
 - Linuxの場合はインストールガイドの案内となる。
+- macOS/Linuxでも、インストール後に `python3` が見つからない場合は、PATHの更新を反映するため、hookを起動するアプリケーションまたはターミナルを再起動する。
