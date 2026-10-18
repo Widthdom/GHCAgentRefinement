@@ -80,8 +80,8 @@ def main(definitions_path=None):
     # `utf-8-sig` を指定することで、BOMが存在する場合は取り除いて読むことができる。
     try:
         # with：処理を抜けるときの後片付けを自動で行う構文（C#のusingに相当）。
-        with open(parsed_args.defs_path, encoding='utf-8-sig') as defs_json:
-            definitions = json.load(defs_json)
+        with open(parsed_args.defs_path, encoding='utf-8-sig') as defs_json_array:
+            definitions = json.load(defs_json_array)
     except (OSError, UnicodeError, json.JSONDecodeError) as ex:
         write_stderr_msg_and_deny(f'Failed to parse blocked command definitions: {ex}')
         return 2
@@ -227,5 +227,7 @@ def main(definitions_path=None):
     return 0
 
 
+# このファイルが直接実行されたときだけ main() を呼び出す。
+# import されただけでは main() は呼び出されない。
 if __name__ == '__main__':
     sys.exit(main())
