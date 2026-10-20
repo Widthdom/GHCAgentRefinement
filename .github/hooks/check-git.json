@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/helpers/hook-specific/check-git/check-git.py",
+        "powershell": "python .github/hooks/helpers/hook-specific/check-git/check-git.py",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

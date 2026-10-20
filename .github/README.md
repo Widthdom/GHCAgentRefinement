@@ -12,7 +12,8 @@
 |--|--|--|
 |Session Targetの確認|Session Targetが `Copilot` の状態で使用できるよう支援する。|[check-target-session hook README](./hooks/helpers/hook-specific/check-target-session/README.md)|
 |Pythonの確認|Python 3.14以降（macOS/Linuxでは `python3`、Windowsでは `python`）のインストールを支援する。|[check-python hook README](./hooks/helpers/hook-specific/check-python/README.md)|
-|開発ツールの確認|各種開発ツールのインストールとアップデートを支援する。|[check-development-tools hook README](./hooks/helpers/hook-specific/check-development-tools/README.md)|
+|Gitの確認|Git 2.34.1以降のインストールを支援する。|[check-git hook README](./hooks/helpers/hook-specific/check-git/README.md)|
+|ripgrepの確認|ripgrep 13.0.0以降のインストールを支援する。|[check-ripgrep hook README](./hooks/helpers/hook-specific/check-ripgrep/README.md)|
 |Copilot Instructionsの読み込み|`copilot-instructions.md` を明に追加コンテキストとして渡す。|[load-copilot-instructions hook README](./hooks/helpers/hook-specific/load-copilot-instructions/README.md)|
 
 ### bashまたはpowershellツールの実行前に発動
