@@ -1,8 +1,8 @@
 import contextlib
-import importlib.util
 import io
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -13,10 +13,8 @@ hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(script_directo
 hook_path = os.path.join(script_directory, 'check-ripgrep.py')
 json_path = os.path.join(hooks_directory, 'check-ripgrep.json')
 
-# ファイル名にハイフンを含むため、importlibでhookをモジュールとして読み込む。
-spec = importlib.util.spec_from_file_location('check_ripgrep', hook_path)
-check_ripgrep = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(check_ripgrep)
+# ファイル名にハイフンを含みimport文で読み込めないため、runpyで実行して関数などを取り出す。
+check_ripgrep = runpy.run_path(hook_path)
 
 
 def assert_equal(actual, expected, message):
@@ -29,12 +27,12 @@ def run_main(platform, output=None, error=None):
     run = Mock(side_effect=error) if error else Mock(return_value=Mock(stdout=output))
     stderr = io.StringIO()
     with (
-        patch.object(check_ripgrep.subprocess, 'run', run),
-        patch.object(check_ripgrep.sys, 'platform', platform),
+        patch.object(check_ripgrep['subprocess'], 'run', run),
+        patch.object(check_ripgrep['sys'], 'platform', platform),
         patch.object(stderr, 'reconfigure', create=True),
         contextlib.redirect_stderr(stderr),
     ):
-        exit_code = check_ripgrep.main()
+        exit_code = check_ripgrep['main']()
     return exit_code, stderr.getvalue()
 
 
