@@ -1,23 +1,7 @@
 import os
+import runpy
 import sys
-
-from common import (
-    equals_ignore_case,
-    get_property,
-    is_null_or_white_space,
-    not_equals_ignore_case,
-    parse_json_enumerated,
-    read_lines,
-    test_response_footer_correction_message,
-    to_ps_string,
-)
-
-
-def _is_skill_tool(tool_name):
-    # PowerShellの-inと同様に、大文字小文字を区別せずに比較する。配列は一致しないものとして扱う。
-    if isinstance(tool_name, list):
-        return False
-    return to_ps_string(tool_name).lower() in ('skill', 'functions.skill')
+from pathlib import Path
 
 
 def get_used_skills(transcript_path):
@@ -26,24 +10,29 @@ def get_used_skills(transcript_path):
 
     used_skills = []
 
-    for line in read_lines(transcript_path):
-        if is_null_or_white_space(line):
-            continue
-
-        event = parse_json_enumerated(line)
-
-        if (equals_ignore_case(get_property(event, 'type'), 'user.message') and
-                not test_response_footer_correction_message(get_property(get_property(event, 'data'), 'content'))):
+    for event in runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / 'common' / 'read-jsonl-objects.py')
+    )['read_jsonl_objects'](transcript_path):
+        data = event.get('data', {})
+        if not isinstance(data, dict):
+            raise ValueError('Event data must be a JSON object.')
+        content = data.get('content')
+        if (event.get('type') == 'user.message' and
+                not (isinstance(content, str) and
+                     content.startswith('The final response footer is missing or incorrect.'))):
             used_skills.clear()
             continue
 
-        if (not_equals_ignore_case(get_property(event, 'type'), 'tool.execution_start') or
-                not _is_skill_tool(get_property(get_property(event, 'data'), 'toolName'))):
+        if (event.get('type') != 'tool.execution_start' or
+                data.get('toolName') not in ('skill', 'functions.skill')):
             continue
 
-        skill_name = get_property(get_property(get_property(event, 'data'), 'arguments'), 'skill')
-        if not is_null_or_white_space(skill_name) and to_ps_string(skill_name) not in used_skills:
-            used_skills.append(to_ps_string(skill_name))
+        arguments = data.get('arguments', {})
+        if not isinstance(arguments, dict):
+            raise ValueError('Skill tool arguments must be a JSON object.')
+        skill_name = arguments.get('skill')
+        if isinstance(skill_name, str) and skill_name.strip() and skill_name not in used_skills:
+            used_skills.append(skill_name)
 
     return used_skills
 

@@ -1,57 +1,115 @@
+import json
 import os
+import runpy
 import sys
-import tempfile
 import time
-
-from common import (
-    equals_ignore_case,
-    get_property,
-    is_null_or_white_space,
-    load_helper,
-    parse_json,
-    parse_json_enumerated,
-    read_all_text,
-    read_lines,
-    to_compressed_json,
-    to_ps_string,
-    try_parse_guid,
-)
+import uuid
+from pathlib import Path
 
 
-def write_error(message):
-    print(message, file=sys.stderr)
+def _is_agent_stop_event_recorded(transcript_path, hook_timestamp):
+    # トランスクリプトに、今回実行中のagentStop hookのhook.startイベントが書き込まれているかを返す。
+    #   過去のターンのagentStopと取り違えないよう、hook入力のtimestampが一致するものだけを対象とする。
 
+    # `utf-8-sig` を指定することで、BOMが存在する場合は取り除いて読むことができる。
+    # with：処理を抜けるときの後片付けを自動で行う構文（C#のusingに相当）。
+    with open(transcript_path, encoding='utf-8-sig') as file:
+        # enumerate(file, 1)：1始まりの行番号を付けながら1行ずつ読む。
+        for line_number, line in enumerate(file, 1):
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                # 空行や非同期追記中の不完全な行は読み飛ばし、待機後の本処理で改めて検証する。
+                continue
 
-def is_own_hook_start_written(transcript_path, hook_timestamp):
-    for line in read_lines(transcript_path):
-        try:
-            event = parse_json(line)
-        except Exception:
-            # 書き込み途中の行は読み飛ばす。
-            continue
-        data = get_property(event, 'data')
-        if (equals_ignore_case(get_property(event, 'type'), 'hook.start') and
-                equals_ignore_case(get_property(data, 'hookType'), 'agentStop') and
-                get_property(get_property(data, 'input'), 'timestamp') == hook_timestamp):
-            return True
+            # 変換結果がJSONオブジェクト（最外側が{}）でなければ異常とする。
+            if not isinstance(event, dict):
+                raise ValueError(f'Transcript event must be a JSON object at line {line_number}.')
+
+            if event.get('type') != 'hook.start':
+                continue
+
+            # getはキーが無ければ第2引数の既定値を返す。
+            data = event.get('data', {})
+            if not isinstance(data, dict):
+                raise ValueError(f'Event data must be a JSON object at line {line_number}.')
+
+            if data.get('hookType') != 'agentStop':
+                continue
+
+            # hook入力の形はCopilot側の仕様に依存するため、想定外の形でも異常とはせず対象外とする。
+            hook_input = data.get('input')
+            if not isinstance(hook_input, dict):
+                continue
+
+            if hook_input.get('timestamp') == hook_timestamp:
+                return True
+
     return False
 
 
-def wait_for_transcript_flush(transcript_path, hook_timestamp, timeout_seconds=5.0, interval_seconds=0.05):
-    # Copilotはトランスクリプトへ非同期に追記するため、agentStop発動時点では最終応答が未書き込みのことがある。
-    # イベントは発生順に追記されるので、本hook自身のhook.startが書き込まれていれば最終応答も書き込み済みとみなせる。
-    #   入力にtimestampがない場合や期限切れの場合は、待たずにその時点の内容で処理を続ける。
-    if not isinstance(hook_timestamp, (int, float)) or isinstance(hook_timestamp, bool):
-        return
-    deadline = time.monotonic() + timeout_seconds
-    while not is_own_hook_start_written(transcript_path, hook_timestamp):
-        if time.monotonic() >= deadline:
-            return
-        time.sleep(interval_seconds)
+def _get_last_assistant_msg(transcript_path):
+    last_assistant_msg = None
+    for event in runpy.run_path(
+        str(Path(__file__).resolve().parents[2] / 'common' / 'read-jsonl-objects.py')
+    )['read_jsonl_objects'](transcript_path):
+        if event.get('type') != 'assistant.message':
+            continue
+
+        # getはキーが無ければ第2引数の既定値を返す。
+        data = event.get('data', {})
+        if not isinstance(data, dict):
+            raise ValueError('Event data must be a JSON object.')
+
+        # getはキーが無くてもNoneを返す。
+        content = data.get('content')
+        if not isinstance(content, str):
+            continue
+
+        if not content.strip():
+            continue
+
+        last_assistant_msg = content
+    return last_assistant_msg
+
+
+def _get_footer_correction(transcript_path, last_assistant_msg):
+    # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
+    script_directory = Path(__file__).resolve().parent
+
+    current_jst = runpy.run_path(str(Path(__file__).resolve().parents[2] / 'common' / 'get-current-jst.py'))['current_jst']
+
+    used_hooks = runpy.run_path(str(script_directory / 'get-used-hooks.py'))['get_used_hooks'](
+        transcript_path,
+        # parents[3]：このスクリプトから4階層上の .github/hooks ディレクトリ。
+        str(Path(__file__).resolve().parents[3]),
+    ) or ['none']
+
+    used_skills = runpy.run_path(str(script_directory / 'get-used-skills.py'))['get_used_skills'](
+        transcript_path
+    ) or ['none']
+
+    formatted_footer = runpy.run_path(str(script_directory / 'format-response-footer.py'))['format_response_footer'](
+        used_hooks,
+        used_skills,
+        current_jst,
+    )
+
+    is_footer_valid = runpy.run_path(str(script_directory / 'test-response-footer.py'))['test_response_footer'](
+        last_assistant_msg,
+        used_hooks,
+        used_skills,
+        current_jst,
+    )
+
+    # フッターが有効であればNoneを返し、無効であれば整形済みフッターを返す。
+    return None if is_footer_valid else formatted_footer
 
 
 def main():
-    # 標準出力・標準エラーをUTF-8に統一することで、JSON内の日本語などを正しく出力する。BOMは出力されない。
+    # replace：変換できない文字があったら、例外を出さずに ? に置き換える。
+    #   strict(既定)：UnicodeEncodeError を発生させる。
+    #   ignore：その文字を捨てる。
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
@@ -59,157 +117,135 @@ def main():
     # 標準入力パイプにツール名や引数を含むイベント情報をJSON形式で書き込むので、それを読み込む。
     # このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
     #   改行コードを変換せずに扱うため、バイト列として読み取ってからUTF-8として復号化する。
-    input_json = sys.stdin.buffer.read().decode('utf-8', errors='replace')
-    if is_null_or_white_space(input_json):
-        write_error('agentStop hook input is empty.')
-        return 2
-
-    # 読み取ったJSONをPythonのオブジェクトに変換する。
-    #   最外側が[]のものは拒否したいので、配列は展開せずそのまま保持する。
     try:
-        hook_input = parse_json(input_json)
-    except Exception as exception:
-        write_error(f'Failed to parse agentStop hook input: {exception}')
+        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
+        # Pythonの not は、対象を真偽として評価してから反転する。
+        # strip() が返すのは文字列だが、真偽として判定されれば空文字列はFalse、それ以外はTrueとなる。
+        #   if not text:   # 文字列が空のとき
+        #   if not items:  # リストなどが空のとき
+        #   if not data:   # 辞書などが空のとき
+        if not hook_input_json.strip():
+            print('agentStop hook input is empty.', file=sys.stderr)
+            return 2
+        hook_input = json.loads(hook_input_json)
+    except (OSError, UnicodeError, json.JSONDecodeError) as ex:
+        print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
         return 2
 
-    # 変換結果がJSONオブジェクトでなければ異常終了。
+    # 変換結果がJSONオブジェクト（最外側が{}）でなければ異常終了。
     #   文字列・数値・null・（最外側が[]である）配列などはここを通過させない。
     if not isinstance(hook_input, dict):
-        write_error('agentStop hook input must be a JSON object.')
+        print('agentStop hook input must be a JSON object.', file=sys.stderr)
         return 2
 
-    # トランスクリプトファイル（セッション中の会話やイベントを記録したログファイル）の内容を取得する。
-    #   agentStop の入力内容そのままでは情報が不足している。
-    #   入力内容にはトランスクリプトファイルのパスが含まれているので、それを利用して追加情報を取得する。
-    transcript_path = to_ps_string(get_property(hook_input, 'transcriptPath'))
-
-    # トランスクリプトファイルの存在確認
-    if is_null_or_white_space(transcript_path) or not os.path.isfile(transcript_path):
-        write_error(f'Transcript file not found: {transcript_path}')
+    # getはキーが無くてもNoneを返す。
+    transcript_path = hook_input.get('transcriptPath')
+    if not isinstance(transcript_path, str):
+        print('agentStop hook transcriptPath must be a string.', file=sys.stderr)
         return 2
 
-    session_id = get_property(hook_input, 'sessionId')
-    parsed_session_id = try_parse_guid(session_id)
-    if parsed_session_id is None:
-        write_error(f'Invalid session ID: {to_ps_string(session_id)}')
+    if not transcript_path.strip():
+        print('agentStop hook transcriptPath must not be empty or whitespace.', file=sys.stderr)
         return 2
 
-    # パス区切りはOS依存のため、os.path.joinで階層ごとに連結する。
-    debug_state_file_path = os.path.join(
-        os.path.join(os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement'), 'debug-mode'),
-        f'{parsed_session_id}.json',
-    )
+    if not os.path.isfile(transcript_path):
+        print(f'Transcript path is not a file or could not be verified as a file: {transcript_path}', file=sys.stderr)
+        return 2
 
-    # デバッグモード用の状態ファイルが存在しない場合はデバッグモードでないものとみなし、処理を終了する。
-    if not os.path.isfile(debug_state_file_path):
+    # getはキーが無くてもNoneを返す。
+    session_id = hook_input.get('sessionId')
+
+    if not isinstance(session_id, str):
+        print('agentStop hook sessionId must be a string.', file=sys.stderr)
+        return 2
+
+    if not session_id.strip():
+        print('agentStop hook sessionId must not be empty or whitespace.', file=sys.stderr)
+        return 2
+
+    try:
+        parsed_session_id = uuid.UUID(session_id.strip())
+    except ValueError:
+        print('agentStop hook sessionId must be a valid UUID.', file=sys.stderr)
+        return 2
+
+    try:
+        # C# のdelegateのように、外部スクリプトから関数を取得する。
+        get_debug_mode = runpy.run_path(
+            # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
+            str(Path(__file__).resolve().parents[2] / 'common' / 'get-debug-mode.py')
+        )['get_debug_mode']
+    except (OSError, SyntaxError, KeyError) as ex:
+        # f'...' は formatted string literalのことでf-stringとも呼ばれる。文字列の中に {式} の値を埋め込める書き方。C#の $"..." に相当する。
+        # !r は repr() を使って値を文字列化する指定。例外オブジェクトの型とメッセージを含めて表示する。
+        #   print(f'{ex}')    # str(ex)：人が読むためのメッセージ
+        #   print(f'{ex!r}')  # repr(ex)：デバッグ向けの表現
+        print(f'Failed to load debug-mode helper: {ex!r}', file=sys.stderr)
+        return 2
+
+    # UnicodeDecodeErrorとJSONDecodeErrorはValueErrorの派生クラスなので、ValueErrorより先に捕捉する。
+    try:
+        # 前段で外部スクリプトから取得した関数を実行
+        is_debug_mode = get_debug_mode(parsed_session_id)
+    except OSError as ex:
+        print(f'Failed to read debug-mode state file: {ex}', file=sys.stderr)
+        return 2
+    except UnicodeDecodeError as ex:
+        print(f'Debug-mode state file is not valid UTF-8: {ex}', file=sys.stderr)
+        return 2
+    except json.JSONDecodeError as ex:
+        print(f'Debug-mode state file is not valid JSON: {ex}', file=sys.stderr)
+        return 2
+    except ValueError as ex:
+        print(f'Debug-mode state is invalid: {ex}', file=sys.stderr)
+        return 2
+
+    if not is_debug_mode:
         return 0
 
     try:
-        # 最外側が[]である配列であったとしても展開して扱う。
-        debug_state = parse_json_enumerated(read_all_text(debug_state_file_path))
-    except Exception as exception:
-        write_error(f'Failed to parse footer debug-mode state: {exception}')
-        return 2
+        # GitHub Copilot はトランスクリプトに非同期で追記するため、agentStop hookが起動した直後は、最終応答がまだ書き込まれていない可能性がある。
+        # イベントは発生順に追記されるので、自身のhook.startが追記されれば、それより前に発生した最終応答も書き込み済みとみなすことができる。
+        hook_timestamp = hook_input.get('timestamp')
+        # Pythonでは bool が int のサブクラスになっているので、その分を除外する必要がある。
+        if isinstance(hook_timestamp, (int, float)) and not isinstance(hook_timestamp, bool):
+            # monotonic：システムクロックに依存せず、単調増加する時刻を返す。タイムアウト判定に使用する。
+            deadline = time.monotonic() + 5.0
+            # _is_agent_stop_event_recorded() が True を返すまで、
+            # 5秒の間0.05秒ごとにhook.startの書き込みを確認するループを開始する。
+            while not _is_agent_stop_event_recorded(transcript_path, hook_timestamp):
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(0.05)
 
-    # enabled が真偽値（boolean）でない場合は想定外の値とみなし、通常対話を妨げないよう安全側に倒して処理を終了する。
-    enabled = get_property(debug_state, 'enabled')
-    if not isinstance(enabled, bool):
-        return 0
-
-    # デバッグモードが有効でなければ、処理を終了
-    if enabled is not True:
-        return 0
-
-    wait_for_transcript_flush(transcript_path, get_property(hook_input, 'timestamp'))
-
-    last_assistant_message = None
-
-    # トランスクリプトファイルに記録されているエージェントの発話（assistant.message）のうち、最後のものを取得する。
-    for line in read_lines(transcript_path):
-        if is_null_or_white_space(line):
-            continue
-
-        try:
-            # 最外側が[]である配列であったとしても展開して扱う。
-            event = parse_json_enumerated(line)
-        except Exception as exception:
-            write_error(f'Failed to parse transcript event: {exception}')
+        last_assistant_msg = _get_last_assistant_msg(transcript_path)
+        if last_assistant_msg is None:
+            print('No assistant response was found in the transcript.', file=sys.stderr)
             return 2
 
-        content = get_property(get_property(event, 'data'), 'content')
-        if (equals_ignore_case(get_property(event, 'type'), 'assistant.message') and
-                isinstance(content, str) and
-                not is_null_or_white_space(content)):
-            last_assistant_message = content
-
-    # この時点で last_assistant_message に何も記録されていないということは、
-    # トランスクリプトにアシスタントの応答が存在しなかったことを意味するが、
-    # これは異常扱いとする。
-    #   1. なぜ異常事態と言えるのか
-    #     発動タイミング:
-    #       このhookは agentStop で実行される。通常の会話ターンであれば、
-    #       エージェントは何かしらの発話（assistant.message）を行って停止するため、
-    #       ログにアシスタントメッセージが1件も存在しない状態は本来あり得ない.
-    #     hookの目的:
-    #       このhookの責務は「アシスタントの最終応答を取得し、
-    #       デバッグフッタが正しく付与されているかを検証・強制すること」にある。
-    #       対象となる応答がそもそも存在しない以上、検査自体が成立しないため
-    #       exit 2（処理不能な異常）として扱うのが適切である。
-    #   2. 例外的に起こり得るエッジケース
-    #     完全にあり得ないわけではなく、以下のような特殊なケースでは発生し得る。
-    #       - ユーザーがプロンプトを送信した直後にキャンセル操作を行った場合
-    #       - エージェントがメッセージを1文字も出力する前に, 内部エラーや致命的例外で中断した場合
-    #     ただし、これらはいずれも「正常に対話・応答が完了した状態」ではないため、
-    #     hook側としては例外・異常事態として exit 2 で終了させる設計になっている.
-    if is_null_or_white_space(last_assistant_message):
-        write_error('No assistant response was found in the transcript.')
+        footer_correction = _get_footer_correction(transcript_path, last_assistant_msg)
+    except (OSError, ValueError) as ex:
+        print(f'Failed to inspect response footer: {ex}', file=sys.stderr)
         return 2
 
-    # 現在のJSTを取得
-    current_jst = load_helper('get-current-jst').get_current_jst()
-
-    # エージェントが使用したhookを取得（長さ0の場合は 'none' に置き換える）
-    used_hooks = load_helper('get-used-hooks').get_used_hooks(
-        transcript_path,
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-    )
-    resolved_used_hooks = ['none'] if len(used_hooks) == 0 else used_hooks
-
-    # エージェントが使用したskillを取得（長さ0の場合は 'none' に置き換える）
-    used_skills = load_helper('get-used-skills').get_used_skills(transcript_path)
-    resolved_used_skills = ['none'] if len(used_skills) == 0 else used_skills
-
-    # フッタを整形して取得する。
-    formatted_footer = load_helper('format-response-footer').format_response_footer(
-        resolved_used_hooks,
-        resolved_used_skills,
-        current_jst,
-    )
-
-    # フッタが正しいかどうかを検証する。
-    is_footer_valid = load_helper('test-response-footer').test_response_footer(
-        last_assistant_message,
-        resolved_used_hooks,
-        resolved_used_skills,
-        current_jst,
-    )
-
-    if not is_footer_valid:
-        output = to_compressed_json({
+    if footer_correction is not None:
+        # ensure_ascii=False：日本語などを \uXXXX にせず、そのまま出力する。出力先はUTF-8に設定するため問題なし。
+        # separators=(',', ':')：項目間やキーと値の間に余分な空白を入れない。（出力をコンパクトにするための指定で、省略してもJSONとしては正しく伝わる。）
+        # 引用符・バックスラッシュ・改行など、JSONとして必要なエスケープは ensure_ascii=False で行われる
+        print(json.dumps({
             'decision': 'block',
             'reason': (
                 'The final response footer is missing or incorrect. Preserve the response body. '
                 'Replace any existing footer blocks with the exact block below; if no footer exists, '
                 'append it to the end. The corrected response must contain exactly one footer block:\n'
                 '\n'
-                f'{formatted_footer}'
+                f'{footer_correction}'
             ),
-        })
-
-        # 余計な出力を混ぜず、純粋な JSON 文字列を確実に渡すため、明示的に1行だけ出力する。
-        print(output)
+        }, ensure_ascii=False, separators=(',', ':')))
     return 0
 
 
+# このファイルが直接実行されたときだけ main() を呼び出す。
+# import されただけでは main() は呼び出されない。
 if __name__ == '__main__':
     sys.exit(main())

@@ -1,5 +1,3 @@
-import os
-
 # 使用したhook（イベント履歴から推定）
 HOOKS_HEADER = '\u4F7F\u7528\u3057\u305Fhook\uFF08\u30A4\u30D9\u30F3\u30C8\u5C65\u6B74\u304B\u3089\u63A8\u5B9A\uFF09'
 # 使用したskill（イベント履歴から推定）
@@ -10,9 +8,8 @@ FOOTER_BOUNDARY = '\u200B'
 
 
 def format_response_footer(hooks, skills, current_jst):
-    # 項目の連結と末尾の空行にはOS標準の改行を使い、見出しなどの固定部分の改行は\nとする。
-    hook_lines = os.linesep.join(f'- {hook}' for hook in hooks)
-    skill_lines = os.linesep.join(f'- {skill}' for skill in skills)
+    hook_lines = '\n'.join(f'- {hook}' for hook in hooks)
+    skill_lines = '\n'.join(f'- {skill}' for skill in skills)
 
     footer = (
         f'{FOOTER_BOUNDARY}\n'
@@ -23,7 +20,7 @@ def format_response_footer(hooks, skills, current_jst):
         f'## {TIME_HEADER}\n'
         f'{current_jst}'
     )
-    return footer + os.linesep * 2
+    return footer + '\n\n'
 
 
 if __name__ == '__main__':

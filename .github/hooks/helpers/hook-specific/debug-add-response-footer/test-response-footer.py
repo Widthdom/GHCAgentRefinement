@@ -1,5 +1,4 @@
 import re
-import sys
 from collections import Counter
 from datetime import datetime
 
@@ -14,21 +13,8 @@ FOOTER_PATTERN = (
 )
 
 
-def _parse_timestamp(value):
-    # .NETのDateTime.ParseExact(value, 'yyyy-MM-dd HH:mm:ss', InvariantCulture)と同様に、
-    # ASCII数字で書式どおりに書かれた実在する日時だけを受け付ける。
-    match = re.fullmatch(r'(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})', value, re.ASCII)
-    if not match:
-        raise ValueError(f"String '{value}' was not recognized as a valid DateTime.")
-    return datetime(*(int(group) for group in match.groups()))
-
-
 def _items_are_equal(expected, actual):
-    # Compare-Objectと同様に、大文字小文字を区別せず、順序を問わずに比較する。
-    return (
-        len(actual) == len(expected) and
-        Counter(item.lower() for item in expected) == Counter(item.lower() for item in actual)
-    )
+    return Counter(item.lower() for item in expected) == Counter(item.lower() for item in actual)
 
 
 def test_response_footer(response, expected_hooks, expected_skills, current_jst):
@@ -48,8 +34,11 @@ def test_response_footer(response, expected_hooks, expected_skills, current_jst)
     ]
     skills_are_correct = _items_are_equal(expected_skills, footer_skills)
 
-    current_timestamp = _parse_timestamp(re.sub(r' JST$', '', current_jst, flags=re.IGNORECASE))
-    footer_timestamp = _parse_timestamp(footer_match.group('timestamp'))
+    current_timestamp = datetime.strptime(current_jst, '%Y-%m-%d %H:%M:%S JST')
+    try:
+        footer_timestamp = datetime.strptime(footer_match.group('timestamp'), '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return False
     age_minutes = (current_timestamp - footer_timestamp).total_seconds() / 60
     timestamp_is_current = -2 <= age_minutes <= 10
 
