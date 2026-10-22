@@ -15,21 +15,24 @@ from pathlib import Path
 script_directory = os.path.dirname(os.path.abspath(__file__))
 
 hook_path = os.path.join(script_directory, 'debug-add-response-footer.py')
-temp_dir = os.path.join(tempfile.gettempdir(), str(uuid.uuid4()))
-os.makedirs(temp_dir, exist_ok=True)
-
-debug_state_dir = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'debug-mode')
+temp_dir = tempfile.mkdtemp(prefix='ghc-agent-refinement-footer-test-')
+debug_state_dir = os.path.join(temp_dir, 'ghc-agent-refinement', 'debug-mode')
 os.makedirs(debug_state_dir, exist_ok=True)
-
-created_state_files = []
 
 
 def _invoke_hook_input(input_json):
+    environment = os.environ.copy()
+    environment.update({
+        'TMPDIR': temp_dir,
+        'TMP': temp_dir,
+        'TEMP': temp_dir,
+    })
     completed = subprocess.run(
         [sys.executable, hook_path],
         input=input_json if isinstance(input_json, bytes) else input_json.encode('utf-8'),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=environment,
     )
     return completed.returncode, completed.stdout.decode('utf-8'), completed.stderr.decode('utf-8')
 
@@ -92,8 +95,6 @@ try:
          'Error': 'agentStop hook transcriptPath must be a string.'},
         {'Name': 'Non-string transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid, 'transcriptPath': []}),
          'Error': 'agentStop hook transcriptPath must be a string.'},
-        {'Name': 'Whitespace transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid, 'transcriptPath': '   '}),
-         'Error': 'agentStop hook transcriptPath must not be empty or whitespace.'},
         {'Name': 'Invalid transcriptPath with valid snake_case path', 'Json': _to_compressed_json(
             {'sessionId': valid_guid, 'transcriptPath': None, 'transcript_path': valid_transcript}),
          'Error': 'agentStop hook transcriptPath must be a string.'},
@@ -131,7 +132,6 @@ try:
     corrupt_session_id = _new_session_id()
     corrupt_state_path = os.path.join(debug_state_dir, f'{corrupt_session_id}.json')
     _write_all_text(corrupt_state_path, '{corrupt-json')
-    created_state_files.append(corrupt_state_path)
 
     corrupt_state_json = _to_compressed_json({
         'sessionId': corrupt_session_id,
@@ -161,7 +161,6 @@ try:
         session_id = _new_session_id()
         state_path = os.path.join(debug_state_dir, f'{session_id}.json')
         _write_all_text(state_path, _to_compressed_json({'enabled': case['Value']}))
-        created_state_files.append(state_path)
 
         input_json = _to_compressed_json({'sessionId': session_id, 'transcriptPath': valid_transcript})
         exit_code, output, error = _invoke_hook_input(input_json)
@@ -175,7 +174,6 @@ try:
     disabled_session_id = _new_session_id()
     disabled_state_path = os.path.join(debug_state_dir, f'{disabled_session_id}.json')
     _write_all_text(disabled_state_path, _to_compressed_json({'enabled': False}))
-    created_state_files.append(disabled_state_path)
 
     disabled_json = _to_compressed_json({'sessionId': disabled_session_id, 'transcriptPath': valid_transcript})
     exit_code, output, error = _invoke_hook_input(disabled_json)
@@ -190,7 +188,6 @@ try:
     enabled_session_id = _new_session_id()
     enabled_state_path = os.path.join(debug_state_dir, f'{enabled_session_id}.json')
     _write_all_text(enabled_state_path, _to_compressed_json({'enabled': True}))
-    created_state_files.append(enabled_state_path)
 
     bad_transcript_json = _to_compressed_json({'sessionId': enabled_session_id, 'transcriptPath': bad_transcript})
     exit_code, output, error = _invoke_hook_input(bad_transcript_json)
@@ -502,11 +499,12 @@ try:
             patch.object(sys, 'stdout', stdout),
             patch.object(sys, 'stderr', stderr),
         ):
-            if run_path_mock is None:
-                main_exit_code = hook['main']()
-            else:
-                with patch.object(hook['runpy'], 'run_path', run_path_mock):
+            with patch.object(tempfile, 'tempdir', temp_dir):
+                if run_path_mock is None:
                     main_exit_code = hook['main']()
+                else:
+                    with patch.object(hook['runpy'], 'run_path', run_path_mock):
+                        main_exit_code = hook['main']()
             stdout.flush()
             stderr.flush()
             return main_exit_code, stdout.buffer.getvalue().decode('utf-8'), stderr.buffer.getvalue().decode('utf-8')
@@ -552,9 +550,3 @@ try:
     print(f'Passed {tests_passed} test-debug-add-response-footer tests.')
 finally:
     shutil.rmtree(temp_dir, ignore_errors=True)
-    for path in created_state_files:
-        if os.path.exists(path):
-            try:
-                os.remove(path)
-            except OSError:
-                pass

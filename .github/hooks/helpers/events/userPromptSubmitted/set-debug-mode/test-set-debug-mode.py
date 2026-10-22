@@ -3,6 +3,7 @@ import json
 import os
 import re
 import runpy
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -12,18 +13,27 @@ from unittest.mock import patch
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
 hook_path = os.path.join(script_directory, 'set-debug-mode.py')
+test_temp_directory = tempfile.mkdtemp(prefix='ghc-agent-refinement-set-debug-test-')
+state_directory = os.path.join(test_temp_directory, 'ghc-agent-refinement', 'debug-mode')
 session_id = str(uuid.uuid4())
-state_path = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'debug-mode', f'{session_id}.json')
+state_path = os.path.join(state_directory, f'{session_id}.json')
 other_session_id = str(uuid.uuid4())
-other_state_path = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'debug-mode', f'{other_session_id}.json')
+other_state_path = os.path.join(state_directory, f'{other_session_id}.json')
 
 
 def invoke_hook_input(input_json):
+    environment = os.environ.copy()
+    environment.update({
+        'TMPDIR': test_temp_directory,
+        'TMP': test_temp_directory,
+        'TEMP': test_temp_directory,
+    })
     completed = subprocess.run(
         [sys.executable, hook_path],
         input=input_json if isinstance(input_json, bytes) else input_json.encode('utf-8'),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=environment,
     )
     return completed.returncode, completed.stdout.decode('utf-8'), completed.stderr.decode('utf-8')
 
@@ -204,6 +214,4 @@ try:
 
     print(f'Passed {len(valid_cases) + len(invalid_cases) + 2} set-debug-mode tests.')
 finally:
-    for path in (state_path, other_state_path):
-        if os.path.exists(path):
-            os.remove(path)
+    shutil.rmtree(test_temp_directory, ignore_errors=True)
