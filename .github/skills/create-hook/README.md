@@ -1,5 +1,15 @@
 # create-hook skill README
 
+## 作成と更新の分担
+
+[create-hook](./SKILL.md) は新規作成、[update-hook](../update-hook/SKILL.md) は既存hookの更新を担当する。スクリプトの移動時の参照更新や、変更の影響範囲を踏まえた回帰検証は更新側にまとめる。
+
+## 共通規約
+
+両方に必要な実装・検証規約は [共通規約](./references/hook-conventions.md) を参照し、二重管理しない。
+
+実行時に必要な制約は共通規約に残し、背景説明や具体例はこのREADMEにまとめる。README全体を毎回読み込む前提にはしない。
+
 ## 対象ランタイム
 
 VS CodeのSession Targetが `Copilot` の場合はCLIと同じSDK hook実装を使うため、SDKの仕様が両方に適用できる。一方、`Local`、`Claude`、`Codex`は異なる実行環境であり、同じ設定が読み込まれても互換性があるとは限らない。VS Codeのバージョンによってイベントの対応状況が異なることもある。
@@ -14,9 +24,13 @@ hookの実行スクリプトをPythonに統一すると、Windows、macOS、Linu
 
 サービスの制御やレジストリ、CIM/WMIなどのWindows管理機能は、Windows PowerShellのコマンドレット（`Get-Service`、`Restart-Service` など）から直接扱える。Pythonで同じことをするには外部コマンドの呼び出しや追加パッケージが必要になる。Windows PowerShell 5.1はWindowsに標準搭載されており、PowerShell 7のような追加インストールも不要なため、Windowsでしか意味を持たない処理は5.1で実装する。5.1ではPowerShell 7以降で追加された構文や機能を使えず、`Set-Content -Encoding UTF8` などはBOM付きで書き込むため、エンコーディングを明示する。
 
+5.1で使えない機能の例は `??`、`?.`、三項演算子、`$IsWindows`、`ConvertFrom-Json -AsHashtable`。BOMなしUTF-8のエンコーディング指定には `[System.Text.UTF8Encoding]::new($false)` を使える。
+
 ## スクリプト配置とパス
 
 hook定義とスクリプトをhook名ごとにまとめることで、関連ファイルの対応関係を保ちやすくなる。hookから起動するスクリプトは呼び出し元の作業ディレクトリを前提にできないため、補助ファイルはスクリプト自身の場所（`__file__`）を基準に参照する。`os.path.join` と標準パスAPIを使うことで、Windows、macOS、Linux間のパス区切りや親ディレクトリ表記の違いに依存しなくなる。一時ファイルにはOSが提供する一時ディレクトリを使う。
+
+`script_directory + '\\x.py'` のような区切りの直書きや、`os.path.join(base, 'a/b')` のような複数階層を含む引数は避け、`os.path.join(base, 'a', 'b')` とする。親ディレクトリには `'..'` ではなく `os.path.dirname` を使う。
 
 ## 入出力のエンコーディング
 
