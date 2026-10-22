@@ -1,0 +1,150 @@
+import os
+import runpy
+import shutil
+import subprocess
+import sys
+import tempfile
+from unittest.mock import patch
+
+script_directory = os.path.dirname(os.path.abspath(__file__))
+hook_path = os.path.join(script_directory, 'check-python.sh')
+version_check_path = os.path.abspath(
+    os.path.join(script_directory, '../../../utilities/check-python-version.py')
+)
+
+
+for version, expected_exit in (
+    ((3, 13, 99), 1),
+    ((3, 14, 0), 0),
+    ((3, 14, 1), 0),
+    ((3, 15, 0), 0),
+):
+    with patch.object(sys, 'version_info', version), patch.object(sys, 'exit') as exit_mock:
+        runpy.run_path(version_check_path)
+        exit_mock.assert_called_once_with(expected_exit)
+
+
+def write_executable(path, content):
+    with open(path, 'w', encoding='utf-8', newline='\n') as file:
+        file.write(content)
+    os.chmod(path, 0o755)
+
+
+def invoke_shell_hook(status=None, system='Linux'):
+    shell = shutil.which('sh')
+    if shell is None:
+        raise AssertionError('A POSIX shell is required to test check-python.sh.')
+
+    with tempfile.TemporaryDirectory() as directory:
+        write_executable(
+            os.path.join(directory, 'uname'),
+            '#!/bin/sh\nprintf "%s\\n" "$CHECK_PYTHON_SYSTEM"\n',
+        )
+        environment = {
+            **os.environ,
+            'PATH': directory,
+            'CHECK_PYTHON_SYSTEM': system,
+        }
+        if status is not None:
+            write_executable(
+                os.path.join(directory, 'python3'),
+                '#!/bin/sh\nprintf "%s\\n" "$@" > "$CHECK_PYTHON_ARGS"\n'
+                'printf "ignored stdout\\n"\nprintf "ignored stderr\\n" >&2\n'
+                'exit "$CHECK_PYTHON_STATUS"\n',
+            )
+            args_path = os.path.join(directory, 'args.txt')
+            environment['CHECK_PYTHON_ARGS'] = args_path
+            environment['CHECK_PYTHON_STATUS'] = str(status)
+
+        result = subprocess.run(
+            [shell, hook_path],
+            cwd=directory,
+            env=environment,
+            capture_output=True,
+            text=True,
+        )
+        args = None
+        if status is not None:
+            with open(args_path, encoding='utf-8') as file:
+                args = file.read()
+        return result.returncode, result.stdout, result.stderr, args
+
+
+failure_messages = {
+    'Darwin': (
+        'Python 3.14 or later is required, and it must be available as the python3 command.\n'
+        'Install it with: brew install python\n'
+        'If python3 is still unavailable after installation, restart the application or terminal running this hook to refresh PATH.\n'
+    ),
+    'Linux': (
+        'Python 3.14 or later is required, and it must be available as the python3 command.\n'
+        'Installation guide: https://docs.python.org/3/using/unix.html\n'
+        'If python3 is still unavailable after installation, restart the application or terminal running this hook to refresh PATH.\n'
+    ),
+}
+
+if os.name != 'nt':
+    return_code, output, error, args = invoke_shell_hook(0)
+    if (return_code, output, error) != (0, '', '') or os.path.abspath(args.rstrip('\n')) != version_check_path:
+        raise AssertionError(f'Unexpected successful check-python.sh result: {return_code}, {output!r}, {error!r}, {args!r}')
+
+    for system, expected_error in failure_messages.items():
+        return_code, output, error, args = invoke_shell_hook(1, system)
+        if ((return_code, output, error) != (2, '', expected_error) or
+                os.path.abspath(args.rstrip('\n')) != version_check_path):
+            raise AssertionError(f'Unexpected failed check-python.sh result on {system}: {return_code}, {output!r}, {error!r}, {args!r}')
+
+    return_code, output, error, args = invoke_shell_hook(None, 'Linux')
+    if (return_code, output, error, args) != (2, '', failure_messages['Linux'], None):
+        raise AssertionError(f'Unexpected missing-python3 result: {return_code}, {output!r}, {error!r}')
+    shell_tests = 4
+else:
+    command_processor = os.environ.get('ComSpec')
+    if not command_processor:
+        raise AssertionError('ComSpec is required to test check-python.cmd.')
+
+    cmd_hook_path = os.path.join(script_directory, 'check-python.cmd')
+    success_tests = 0
+    for status, expected_exit, expected_error in (
+        (0, 0, ''),
+        (
+            1,
+            2,
+            'Python 3.14 or later is required, and it must be available as the python command.\n'
+            'Install it with: winget install Python.Python.3.14 --source winget\n'
+            'After installation, restart the application or terminal running this hook to refresh PATH.\n',
+        ),
+    ):
+        with tempfile.TemporaryDirectory() as directory:
+            args_path = os.path.join(directory, 'args.txt')
+            with open(os.path.join(directory, 'python.cmd'), 'w', encoding='utf-8', newline='\r\n') as file:
+                file.write(
+                    '@echo off\r\n'
+                    '> "%CHECK_PYTHON_ARGS%" echo %*\r\n'
+                    'exit /b %CHECK_PYTHON_STATUS%\r\n'
+                )
+            environment = {
+                **os.environ,
+                'PATH': directory + os.pathsep + os.environ.get('PATH', ''),
+                'CHECK_PYTHON_ARGS': args_path,
+                'CHECK_PYTHON_STATUS': str(status),
+            }
+            result = subprocess.run(
+                [command_processor, '/d', '/s', '/c', f'""{cmd_hook_path}""'],
+                env=environment,
+                capture_output=True,
+                text=True,
+            )
+            with open(args_path, encoding='utf-8') as file:
+                args = file.read()
+            if (result.returncode, result.stdout, result.stderr) != (expected_exit, '', expected_error):
+                raise AssertionError(
+                    f'Unexpected check-python.cmd result: {result.returncode}, '
+                    f'{result.stdout!r}, {result.stderr!r}'
+                )
+            if 'check-python-version.py' not in args:
+                raise AssertionError(f'Unexpected command passed to python: {args!r}')
+            success_tests += 1
+    shell_tests = success_tests
+
+print(f'Passed {4 + shell_tests} check-python tests.')
