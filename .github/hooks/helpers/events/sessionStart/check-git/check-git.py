@@ -13,8 +13,10 @@ def is_requirement_satisfied():
         #   Trueに設定すると、subprocess.runの戻り値のstdoutおよびstderr属性に出力が格納される。末尾の.stdoutによってその標準出力を取得している。
         # text=True：標準出力と標準エラーが文字列として取得される。
         # errors='replace'：標準出力や標準エラーの文字エンコーディングエラーが発生した場合に、 ? に置き換える。
-        output = subprocess.run(['git', '--version'], capture_output=True, text=True, errors='replace').stdout
-    except OSError:
+        output = subprocess.run(
+            ['git', '--version'], capture_output=True, text=True, errors='replace', check=True
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
         return False
     # r'...' はPythonの raw文字列リテラルで、バックスラッシュがエスケープ文字として扱われない。C#の@""に相当する。
     match = re.match(r'git version (\d+)\.(\d+)\.(\d+)', output)
