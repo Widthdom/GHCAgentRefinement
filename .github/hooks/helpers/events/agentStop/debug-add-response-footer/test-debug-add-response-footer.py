@@ -263,7 +263,7 @@ try:
 
     # 9. デバッグモード有効時: 正しいフッターが既に存在する場合は何もしない (exit 0, 出力なし)
     current_jst = runpy.run_path(
-        str(Path(__file__).resolve().parents[2] / 'common' / 'get-current-jst.py')
+        str(Path(__file__).resolve().parents[3] / 'utilities' / 'get-current-jst.py')
     )['current_jst']
     formatted_footer = runpy.run_path(str(Path(script_directory) / 'format-response-footer.py'))['format_response_footer'](
         hooks=['none'],
@@ -282,6 +282,25 @@ try:
     if exit_code != 0 or output.strip():
         raise AssertionError(f'Expected exit 0 and empty output when valid footer exists. Got exit {exit_code}, Output: {output}')
     tests_passed += 1
+
+    for transcript in (valid_transcript, valid_with_footer_transcript):
+        for debug_session_id in (enabled_session_id, disabled_session_id):
+            exit_code, output, error = _invoke_hook_input(_to_compressed_json({
+                'sessionId': debug_session_id,
+                'transcriptPath': transcript,
+                'stopReason': 'end_turn',
+                'stop_hook_active': False,
+            }))
+            should_block = debug_session_id == enabled_session_id and transcript == valid_transcript
+            if exit_code != 0 or error:
+                raise AssertionError(f'Expected camelCase input to succeed: {exit_code}, {output}, {error}')
+            if should_block:
+                decision = json.loads(output)
+                if set(decision) != {'decision', 'reason'} or decision['decision'] != 'block' or not decision['reason']:
+                    raise AssertionError(f'Expected footer correction for camelCase input: {output}')
+            elif output:
+                raise AssertionError(f'Expected no correction for disabled mode or valid footer: {output}')
+            tests_passed += 1
 
     # Python標準のJSON処理では配列を展開せず、文字列以外の値を暗黙変換しない。
     for state in ([], [{'enabled': True}], None):
@@ -321,12 +340,20 @@ try:
 
     hooks_directory = os.path.join(temp_dir, 'hooks')
     os.makedirs(hooks_directory)
-    for name, definitions in (
-        ('z-last', {'agentStop': []}),
-        ('a-first', {'preToolUse': [], 'agentStop': []}),
-        ('unused', {'sessionStart': []}),
+    for event_name, hook_names in (
+        ('agentStop', ('z-last', 'a-first')),
+        ('preToolUse', ('a-first', 'z-last')),
     ):
-        _write_all_text(os.path.join(hooks_directory, f'{name}.json'), _to_compressed_json({'hooks': definitions}))
+        for hook_name in hook_names:
+            os.makedirs(os.path.join(hooks_directory, 'helpers', 'events', event_name, hook_name))
+        _write_all_text(
+            os.path.join(hooks_directory, f'{event_name}.json'),
+            _to_compressed_json({'hooks': {event_name: []}}),
+        )
+    _write_all_text(
+        os.path.join(hooks_directory, 'sessionStart.json'),
+        _to_compressed_json({'hooks': {'sessionStart': []}}),
+    )
 
     collection_transcript = os.path.join(temp_dir, 'collection.jsonl')
     correction = block_output['reason']
@@ -347,7 +374,7 @@ try:
     get_hooks = runpy.run_path(str(Path(script_directory) / 'get-used-hooks.py'))['get_used_hooks']
     get_skills = runpy.run_path(str(Path(script_directory) / 'get-used-skills.py'))['get_used_skills']
     if get_hooks(collection_transcript, hooks_directory) != ['a-first', 'z-last']:
-        raise AssertionError('Expected current-turn hooks in filename order, retaining correction history.')
+        raise AssertionError('Expected current-turn hooks in name order, retaining correction history.')
     if get_skills(collection_transcript) != ['first', 'second']:
         raise AssertionError('Expected distinct skill names in invocation order, retaining correction history.')
     tests_passed += 2

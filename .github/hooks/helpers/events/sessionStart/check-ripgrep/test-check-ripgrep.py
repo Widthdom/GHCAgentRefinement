@@ -9,9 +9,8 @@ import tempfile
 from unittest.mock import Mock, patch
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(script_directory)))
+hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
 hook_path = os.path.join(script_directory, 'check-ripgrep.py')
-json_path = os.path.join(hooks_directory, 'check-ripgrep.json')
 
 # ファイル名にハイフンを含みimport文で読み込めないため、runpyで実行して関数などを取り出す。
 check_ripgrep = runpy.run_path(hook_path)
@@ -38,11 +37,12 @@ def run_main(platform, output=None, error=None):
 
 tests_passed = 0
 
-with open(json_path, encoding='utf-8') as file:
-    hook = json.load(file)['hooks']['sessionStart'][0]
-assert_equal(hook['bash'], 'python3 .github/hooks/helpers/hook-specific/check-ripgrep/check-ripgrep.py',
+with open(os.path.join(hooks_directory, 'sessionStart.json'), encoding='utf-8') as file:
+    hooks = json.load(file)['hooks']['sessionStart']
+hook = next(hook for hook in hooks if hook['bash'].endswith('/check-ripgrep/check-ripgrep.py'))
+assert_equal(hook['bash'], 'python3 .github/hooks/helpers/events/sessionStart/check-ripgrep/check-ripgrep.py',
              'Unexpected bash command.')
-assert_equal(hook['powershell'], 'python .github/hooks/helpers/hook-specific/check-ripgrep/check-ripgrep.py',
+assert_equal(hook['powershell'], 'python .github/hooks/helpers/events/sessionStart/check-ripgrep/check-ripgrep.py',
              'Unexpected powershell command.')
 tests_passed += 1
 

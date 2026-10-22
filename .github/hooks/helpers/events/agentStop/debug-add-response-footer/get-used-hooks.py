@@ -15,7 +15,7 @@ def get_used_hooks(transcript_path, hooks_path):
     hook_types = set()
 
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[2] / 'common' / 'read-jsonl-objects.py')
+        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -31,7 +31,7 @@ def get_used_hooks(transcript_path, hooks_path):
         if event.get('type') == 'hook.start' and isinstance(hook_type, str) and hook_type.strip():
             hook_types.add(hook_type)
 
-    used_hooks = []
+    used_hooks = set()
     with os.scandir(hooks_path) as entries:
         hook_files = sorted(
             (entry for entry in entries if entry.is_file() and entry.name.endswith('.json')),
@@ -45,10 +45,14 @@ def get_used_hooks(transcript_path, hooks_path):
         configured_hooks = hook_definition.get('hooks', {})
         if not isinstance(configured_hooks, dict):
             raise ValueError(f'Hook definitions must contain a hooks object: {hook_file.path}')
-        if hook_types.intersection(configured_hooks):
-            used_hooks.append(os.path.splitext(hook_file.name)[0])
+        for hook_type in hook_types.intersection(configured_hooks):
+            event_hooks_directory = os.path.join(hooks_path, 'helpers', 'events', hook_type)
+            if not os.path.isdir(event_hooks_directory):
+                raise FileNotFoundError(f'Event hooks directory not found: {event_hooks_directory}')
+            with os.scandir(event_hooks_directory) as entries:
+                used_hooks.update(entry.name for entry in entries if entry.is_dir())
 
-    return used_hooks
+    return sorted(used_hooks)
 
 
 if __name__ == '__main__':

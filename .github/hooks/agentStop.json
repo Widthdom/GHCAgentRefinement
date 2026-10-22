@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "agentStop": [
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/agentStop/debug-add-response-footer/debug-add-response-footer.py",
+        "powershell": "python .github/hooks/helpers/events/agentStop/debug-add-response-footer/debug-add-response-footer.py"
+      }
+    ]
+  }
+}

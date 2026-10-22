@@ -9,7 +9,9 @@ import uuid
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
 hook_path = os.path.join(script_directory, 'load-copilot-instructions.py')
-github_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
+github_directory = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
+)
 real_instructions_path = os.path.join(github_directory, 'copilot-instructions.md')
 
 
@@ -31,11 +33,13 @@ def invoke_hook(script_path, *, cwd=None, env=None):
     }
 
 
-# 本物と同じ階層（.github/hooks/helpers/hook-specific/load-copilot-instructions）を一時領域に再現し、
+# 本物と同じ階層（.github/hooks/helpers/events/sessionStart/load-copilot-instructions）を一時領域に再現し、
 # 実ファイルに触れずに指示ファイルの有無や内容を差し替えて検証する。
 def new_hook_sandbox(suffix=''):
     root = os.path.join(tempfile.gettempdir(), f'ghc-agent-refinement-test-{uuid.uuid4().hex}{suffix}')
-    hook_directory = os.path.join(root, '.github', 'hooks', 'helpers', 'hook-specific', 'load-copilot-instructions')
+    hook_directory = os.path.join(
+        root, '.github', 'hooks', 'helpers', 'events', 'sessionStart', 'load-copilot-instructions'
+    )
     os.makedirs(hook_directory, exist_ok=True)
     shutil.copy(hook_path, hook_directory)
     return {

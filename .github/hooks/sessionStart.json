@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/sessionStart/check-git/check-git.py",
+        "powershell": "python .github/hooks/helpers/events/sessionStart/check-git/check-git.py",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "bash": "bash .github/hooks/helpers/events/sessionStart/check-python/check-python.sh",
+        "powershell": "& ./.github/hooks/helpers/events/sessionStart/check-python/check-python.cmd",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/sessionStart/check-ripgrep/check-ripgrep.py",
+        "powershell": "python .github/hooks/helpers/events/sessionStart/check-ripgrep/check-ripgrep.py",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/sessionStart/check-target-session/check-target-session.py",
+        "powershell": "python .github/hooks/helpers/events/sessionStart/check-target-session/check-target-session.py",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/sessionStart/load-copilot-instructions/load-copilot-instructions.py",
+        "powershell": "python .github/hooks/helpers/events/sessionStart/load-copilot-instructions/load-copilot-instructions.py"
+      }
+    ]
+  }
+}

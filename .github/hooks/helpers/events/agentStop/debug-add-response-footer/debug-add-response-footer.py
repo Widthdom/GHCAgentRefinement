@@ -51,7 +51,7 @@ def _is_agent_stop_event_recorded(transcript_path, hook_timestamp):
 def _get_last_assistant_msg(transcript_path):
     last_assistant_msg = None
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[2] / 'common' / 'read-jsonl-objects.py')
+        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         if event.get('type') != 'assistant.message':
             continue
@@ -77,12 +77,14 @@ def _get_footer_correction(transcript_path, last_assistant_msg):
     # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
     script_directory = Path(__file__).resolve().parent
 
-    current_jst = runpy.run_path(str(Path(__file__).resolve().parents[2] / 'common' / 'get-current-jst.py'))['current_jst']
+    current_jst = runpy.run_path(
+        str(Path(__file__).resolve().parents[3] / 'utilities' / 'get-current-jst.py')
+    )['current_jst']
 
     used_hooks = runpy.run_path(str(script_directory / 'get-used-hooks.py'))['get_used_hooks'](
         transcript_path,
-        # parents[3]：このスクリプトから4階層上の .github/hooks ディレクトリ。
-        str(Path(__file__).resolve().parents[3]),
+        # parents[4]：このスクリプトから5階層上の .github/hooks ディレクトリ。
+        str(Path(__file__).resolve().parents[4]),
     ) or ['none']
 
     used_skills = runpy.run_path(str(script_directory / 'get-used-skills.py'))['get_used_skills'](
@@ -173,7 +175,7 @@ def main():
         # C# のdelegateのように、外部スクリプトから関数を取得する。
         get_debug_mode = runpy.run_path(
             # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
-            str(Path(__file__).resolve().parents[2] / 'common' / 'get-debug-mode.py')
+            str(Path(__file__).resolve().parents[3] / 'utilities' / 'get-debug-mode.py')
         )['get_debug_mode']
     except (OSError, SyntaxError, KeyError) as ex:
         # f'...' は formatted string literalのことでf-stringとも呼ばれる。文字列の中に {式} の値を埋め込める書き方。C#の $"..." に相当する。

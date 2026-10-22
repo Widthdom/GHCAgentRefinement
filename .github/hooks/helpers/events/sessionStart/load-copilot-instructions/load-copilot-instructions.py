@@ -13,9 +13,9 @@ def main():
 
     # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
     # .absolute()：絶対パス化（シンボリックリンクは解決しない）
-    # .parents[4]：5階層上。ここでは .github ディレクトリ
+    # .parents[5]：6階層上。ここでは .github ディレクトリ
     # / 'copilot-instructions.md'：ファイル名を結合
-    instructions_path = pathlib.Path(__file__).absolute().parents[4] / 'copilot-instructions.md'
+    instructions_path = pathlib.Path(__file__).absolute().parents[5] / 'copilot-instructions.md'
     if not instructions_path.is_file():
         print(f'Copilot instructions file not found: {instructions_path}', file=sys.stderr)
         return 2

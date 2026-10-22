@@ -6,7 +6,7 @@ rem 1：標準出力
 rem 2：標準エラー出力
 
 rem 1>nul 2>&1：標準出力の出力先をnulにし、標準エラー出力も標準出力と同じ出力先（左記によりnul）にする
-python "%~dp0..\..\common\check-python-version.py" 1>nul 2>&1
+python "%~dp0..\..\..\utilities\check-python-version.py" 1>nul 2>&1
 if %errorlevel% geq 1 (
     echo Python 3.14 or later is required to enforce the repository command policy. Tool execution denied.>&2
     rem JSON 形式で標準出力することで、hook実行元に対して許可拒否とその理由を伝える

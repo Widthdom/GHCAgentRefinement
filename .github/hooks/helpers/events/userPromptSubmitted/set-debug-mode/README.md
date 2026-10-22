@@ -1,4 +1,4 @@
-# check-debug-mode hook README
+# set-debug-mode hook README
 
 ## 発動条件
 userPromptSubmitted（ユーザがプロンプトを投入する度）
