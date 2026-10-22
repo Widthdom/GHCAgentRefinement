@@ -410,7 +410,7 @@ try:
     tests_passed += 1
 
     format_footer = runpy.run_path(str(Path(script_directory) / 'format-response-footer.py'))['format_response_footer']
-    validate_footer = runpy.run_path(str(Path(script_directory) / 'test-response-footer.py'))['test_response_footer']
+    validate_footer = runpy.run_path(str(Path(script_directory) / 'check-response-footer.py'))['test_response_footer']
     current_jst = '2026-10-21 12:00:00 JST'
     for timestamp, expected in (
         ('2026-10-21 11:50:00 JST', True),

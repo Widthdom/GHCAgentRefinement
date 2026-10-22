@@ -97,7 +97,7 @@ def _get_footer_correction(transcript_path, last_assistant_msg):
         current_jst,
     )
 
-    is_footer_valid = runpy.run_path(str(script_directory / 'test-response-footer.py'))['test_response_footer'](
+    is_footer_valid = runpy.run_path(str(script_directory / 'check-response-footer.py'))['test_response_footer'](
         last_assistant_msg,
         used_hooks,
         used_skills,
