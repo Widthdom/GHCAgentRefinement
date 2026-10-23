@@ -6,6 +6,11 @@
         "type": "command",
         "bash": "python3 .github/hooks/helpers/events/agentStop/debug-add-response-footer/debug-add-response-footer.py",
         "powershell": "python .github/hooks/helpers/events/agentStop/debug-add-response-footer/debug-add-response-footer.py"
+      },
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/agentStop/request-adversarial-review/request-adversarial-review.py",
+        "powershell": "python .github/hooks/helpers/events/agentStop/request-adversarial-review/request-adversarial-review.py"
       }
     ]
   }

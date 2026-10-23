@@ -4,6 +4,11 @@
     "userPromptSubmitted": [
       {
         "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/userPromptSubmitted/set-adversarial-review-state/set-adversarial-review-state.py",
+        "powershell": "python .github/hooks/helpers/events/userPromptSubmitted/set-adversarial-review-state/set-adversarial-review-state.py"
+      },
+      {
+        "type": "command",
         "bash": "python3 .github/hooks/helpers/events/userPromptSubmitted/set-debug-mode/set-debug-mode.py",
         "powershell": "python .github/hooks/helpers/events/userPromptSubmitted/set-debug-mode/set-debug-mode.py"
       }
