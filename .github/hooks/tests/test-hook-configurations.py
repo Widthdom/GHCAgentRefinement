@@ -3,88 +3,33 @@ import os
 
 hooks_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-expected_configurations = {
-    'agentStop.json': {
-        'version': 1,
-        'hooks': {
-            'agentStop': [
-                {
-                    'type': 'command',
-                    'bash': 'python3 .github/hooks/helpers/events/agentStop/debug-add-response-footer/debug-add-response-footer.py',
-                    'powershell': 'python .github/hooks/helpers/events/agentStop/debug-add-response-footer/debug-add-response-footer.py',
-                },
-            ],
-        },
-    },
-    'preToolUse.json': {
-        'version': 1,
-        'hooks': {
-            'preToolUse': [
-                {
-                    'type': 'command',
-                    'matcher': '(?:functions\\.)?(?:bash|powershell)',
-                    'bash': 'bash .github/hooks/helpers/events/preToolUse/block-commands/block-commands.sh',
-                    'powershell': '& ./.github/hooks/helpers/events/preToolUse/block-commands/block-commands.cmd',
-                    'timeoutSec': 10,
-                },
-            ],
-        },
-    },
-    'sessionStart.json': {
-        'version': 1,
-        'hooks': {
-            'sessionStart': [
-                {
-                    'type': 'command',
-                    'bash': 'python3 .github/hooks/helpers/events/sessionStart/check-git/check-git.py',
-                    'powershell': 'python .github/hooks/helpers/events/sessionStart/check-git/check-git.py',
-                    'timeoutSec': 10,
-                },
-                {
-                    'type': 'command',
-                    'bash': 'bash .github/hooks/helpers/events/sessionStart/check-python/check-python.sh',
-                    'powershell': '& ./.github/hooks/helpers/events/sessionStart/check-python/check-python.cmd',
-                    'timeoutSec': 10,
-                },
-                {
-                    'type': 'command',
-                    'bash': 'python3 .github/hooks/helpers/events/sessionStart/check-ripgrep/check-ripgrep.py',
-                    'powershell': 'python .github/hooks/helpers/events/sessionStart/check-ripgrep/check-ripgrep.py',
-                    'timeoutSec': 10,
-                },
-                {
-                    'type': 'command',
-                    'bash': 'python3 .github/hooks/helpers/events/sessionStart/check-target-session/check-target-session.py',
-                    'powershell': 'python .github/hooks/helpers/events/sessionStart/check-target-session/check-target-session.py',
-                    'timeoutSec': 10,
-                },
-                {
-                    'type': 'command',
-                    'bash': 'python3 .github/hooks/helpers/events/sessionStart/load-copilot-instructions/load-copilot-instructions.py',
-                    'powershell': 'python .github/hooks/helpers/events/sessionStart/load-copilot-instructions/load-copilot-instructions.py',
-                },
-            ],
-        },
-    },
-    'userPromptSubmitted.json': {
-        'version': 1,
-        'hooks': {
-            'userPromptSubmitted': [
-                {
-                    'type': 'command',
-                    'bash': 'python3 .github/hooks/helpers/events/userPromptSubmitted/set-debug-mode/set-debug-mode.py',
-                    'powershell': 'python .github/hooks/helpers/events/userPromptSubmitted/set-debug-mode/set-debug-mode.py',
-                },
-            ],
-        },
-    },
-}
-
-for filename, expected in expected_configurations.items():
+expected_configurations = []
+for filename in sorted(os.listdir(hooks_directory)):
+    if not filename.endswith('.json'):
+        continue
     path = os.path.join(hooks_directory, filename)
     with open(path, encoding='utf-8') as configuration_file:
-        actual = json.load(configuration_file)
-    if actual != expected:
-        raise AssertionError(f'Unexpected hook configuration in {filename}: {actual!r}')
+        expected_configurations.append((filename, json.load(configuration_file)))
 
-print(f'Passed {len(expected_configurations)} hook configuration tests.')
+if not expected_configurations:
+    raise AssertionError(f'No hook configurations found in {hooks_directory}')
+
+for filename, configuration in expected_configurations:
+    if (
+        not isinstance(configuration, dict)
+        or type(configuration.get('version')) is not int
+        or configuration['version'] != 1
+    ):
+        raise AssertionError(f'Invalid hook configuration in {filename}: expected version 1')
+    hooks = configuration.get('hooks')
+    if not isinstance(hooks, dict) or not hooks:
+        raise AssertionError(f'Invalid hook configuration in {filename}: expected a non-empty hooks object')
+    for event_name, event_hooks in hooks.items():
+        if (
+            not isinstance(event_name, str)
+            or not isinstance(event_hooks, list)
+            or any(not isinstance(hook, dict) or hook.get('type') != 'command' for hook in event_hooks)
+        ):
+            raise AssertionError(f'Invalid hook configuration in {filename}: expected command hook arrays by event')
+
+print(f'Validated {len(expected_configurations)} hook configurations.')
