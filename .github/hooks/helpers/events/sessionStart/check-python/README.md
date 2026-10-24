@@ -16,3 +16,10 @@ sessionStart（セッション開始時）
 - Linuxでは、ディストリビューションごとにパッケージマネージャーが異なるため、インストールガイドを案内する。
 - Windowsでのインストール後はPATHの更新をhookに反映するため、hookを起動するアプリケーションまたはターミナルを再起動すること。
 - macOS/Linuxでのインストール後に `python3` が見つからない場合は、PATHの更新を反映するため、hookを起動するアプリケーションまたはターミナルを再起動すること。
+- Windows用バッチはコメントも含めASCIIで記述する。UTF-8の日本語コメントは、cmd.exeのコードページによってコメントの一部がコマンドとして解釈されるため、使用しない。
+
+### check_python_version.pyの呼び出しを `call python "%%check_python_version_path%%"` とする理由
+- Windowsでは、`python.exe` でなく `python.cmd` が使用される場合がある。
+  - 後者の場合、call無しで実行すると呼び出し元に戻らないため、callで実行する必要がある。
+- callは構文解析時（1度目）と実行時（2度目）の計2回、パーセント記号（%）の変数展開を行う仕様になっている。
+  - %%check_python_version_path%% のようにすることで、仮にcheck_python_version_pathの中に文字通り `%USERPROFILE%` のようなフォルダ名が含まれていても、callの2度の展開に耐える、pathの崩れを回避可能。

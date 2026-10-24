@@ -20,11 +20,24 @@ class HookResult:
         return json.dumps({'ExitCode': self.exit_code, 'Output': self.output, 'Error': self.error}, ensure_ascii=False)
 
 
-def invoke_hook_input(input_json, entry_point='py', search_path=None, definitions_file=None):
+def invoke_hook_input(input_json, entry_point='py', search_path=None, definitions_file=None, wrapper_path=None, code_page=None):
     environment = os.environ.copy()
     if entry_point == 'cmd':
-        options = f' --definitions-path "{definitions_file}"' if definitions_file is not None else ''
-        arguments = [os.environ['ComSpec'], '/d', '/s', '/c', f'""{os.path.join(script_directory, "block-commands.cmd")}"{options}"']
+        environment['BLOCK_COMMANDS_TEST_HOOK'] = wrapper_path or os.path.join(script_directory, 'block-commands.cmd')
+        environment['BLOCK_COMMANDS_TEST_PYTHON'] = sys.executable
+        environment['BLOCK_COMMANDS_TEST_TOKEN'] = 'unexpected-expansion'
+        options = ''
+        if definitions_file is not None:
+            environment['BLOCK_COMMANDS_TEST_DEFINITIONS'] = definitions_file
+            options = ' --definitions-path "%BLOCK_COMMANDS_TEST_DEFINITIONS%"'
+        code_page_command = (
+            f'"%SystemRoot%\\System32\\chcp.com" {code_page} >nul & '
+            if code_page is not None else ''
+        )
+        arguments = [
+            f'"{os.environ["ComSpec"]}"', '/d', '/v:off', '/s', '/c',
+            f'"{code_page_command}"%BLOCK_COMMANDS_TEST_HOOK%"{options}"',
+        ]
         environment['PATH'] = python_shim_path
     elif entry_point == 'sh':
         arguments = [bash_path, '--noprofile', '--norc', os.path.join(script_directory, 'block-commands.sh').replace('\\', '/')]
@@ -43,6 +56,7 @@ def invoke_hook_input(input_json, entry_point='py', search_path=None, definition
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=environment,
+        creationflags=subprocess.CREATE_NO_WINDOW if entry_point == 'cmd' and code_page is not None else 0,
     )
     return HookResult(
         completed.returncode,
@@ -314,3 +328,72 @@ with tempfile.TemporaryDirectory() as shim_directory:
                 'Tool execution denied.' not in result.error):
             raise AssertionError(f'Unexpected {entry_point} wrapper missing-python3 result: {result!r}')
         print(f'Passed 6 {entry_point} wrapper tests.')
+
+    if os.name == 'nt':
+        with tempfile.TemporaryDirectory() as directory:
+            helpers_directory = os.path.join(
+                directory, 'repo %BLOCK_COMMANDS_TEST_TOKEN% with spaces!',
+                'helpers',
+            )
+            copied_script_directory = os.path.join(
+                helpers_directory, 'events', 'preToolUse', 'block-commands',
+            )
+            copied_utilities_directory = os.path.join(helpers_directory, 'utilities')
+            os.makedirs(copied_script_directory)
+            os.makedirs(copied_utilities_directory)
+            for filename in ('block-commands.cmd', 'block-commands.py', 'blocked-command-definitions.json'):
+                shutil.copyfile(
+                    os.path.join(script_directory, filename),
+                    os.path.join(copied_script_directory, filename),
+                )
+            shutil.copyfile(
+                os.path.join(script_directory, '..', '..', '..', 'utilities', 'check-python-version.py'),
+                os.path.join(copied_utilities_directory, 'check-python-version.py'),
+            )
+            copied_wrapper_path = os.path.join(copied_script_directory, 'block-commands.cmd')
+            custom_definitions_path = os.path.join(
+                copied_script_directory, 'definitions %BLOCK_COMMANDS_TEST_TOKEN%!.json',
+            )
+            with open(custom_definitions_path, 'w', encoding='utf-8') as file:
+                json.dump([valid_definition], file)
+            cmd_shim_directory = os.path.join(directory, 'python cmd')
+            os.makedirs(cmd_shim_directory)
+            cmd_shim_path = os.path.join(cmd_shim_directory, 'python.cmd')
+            with open(cmd_shim_path, 'w', encoding='utf-8', newline='\n') as file:
+                file.write('@echo off\n"%BLOCK_COMMANDS_TEST_PYTHON%" %*\nexit /b %errorlevel%\n')
+
+            regression_tests = 0
+            for code_page, search_path in (
+                (932, python_shim_path),
+                (932, cmd_shim_directory),
+                (65001, python_shim_path),
+                (65001, cmd_shim_directory),
+            ):
+                for command, expected_output in (
+                    ('git status', {}),
+                    ('blocked', {
+                        'permissionDecision': 'deny',
+                        'permissionDecisionReason': valid_definition['reason'],
+                    }),
+                ):
+                    result = invoke_hook_input(
+                        json.dumps({'toolName': 'bash', 'toolArgs': command}),
+                        entry_point='cmd', search_path=search_path,
+                        definitions_file=custom_definitions_path,
+                        wrapper_path=copied_wrapper_path,
+                        code_page=code_page,
+                    )
+                    if result.exit_code != 0 or result.error or json.loads(result.output) != expected_output:
+                        raise AssertionError(f'Unexpected cmd path/shim result on CP{code_page}: {result!r}')
+                    regression_tests += 1
+
+            with open(cmd_shim_path, 'w', encoding='utf-8', newline='\n') as file:
+                file.write('@echo off\nexit /b 1\n')
+            for code_page in (932, 65001):
+                result = invoke_hook_input(
+                    '{}', entry_point='cmd', search_path=cmd_shim_directory,
+                    wrapper_path=copied_wrapper_path, code_page=code_page,
+                )
+                assert_error_denial(result, 'Python 3.14 or later is required')
+                regression_tests += 1
+            print(f'Passed {regression_tests} cmd path/shim regression tests.')

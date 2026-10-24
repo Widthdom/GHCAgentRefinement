@@ -105,22 +105,37 @@ else:
 
     cmd_hook_path = os.path.join(script_directory, 'check-python.cmd')
     success_tests = 0
-    for status, expected_exit, expected_error in (
-        (0, 0, ''),
-        (
-            1,
-            2,
+    for code_page, status in ((932, 0), (932, 1), (65001, 0), (65001, 1)):
+        expected_exit = 0 if status == 0 else 2
+        expected_error = '' if status == 0 else (
             'Python 3.14 or later is required, and it must be available as the python command.\n'
             'Install it with: winget install Python.Python.3.14 --source winget\n'
-            'After installation, restart the application or terminal running this hook to refresh PATH.\n',
-        ),
-    ):
+            'After installation, restart the application or terminal running this hook to refresh PATH.\n'
+        )
         with tempfile.TemporaryDirectory() as directory:
+            helpers_directory = os.path.join(
+                directory, 'repo %CHECK_PYTHON_PATH_TOKEN% with spaces!',
+                'helpers',
+            )
+            copied_script_directory = os.path.join(
+                helpers_directory, 'events', 'sessionStart', 'check-python',
+            )
+            copied_utilities_directory = os.path.join(helpers_directory, 'utilities')
+            os.makedirs(copied_script_directory)
+            os.makedirs(copied_utilities_directory)
+            copied_hook_path = os.path.join(copied_script_directory, 'check-python.cmd')
+            copied_version_check_path = os.path.join(
+                copied_utilities_directory, 'check-python-version.py',
+            )
+            shutil.copyfile(cmd_hook_path, copied_hook_path)
+            shutil.copyfile(version_check_path, copied_version_check_path)
             args_path = os.path.join(directory, 'args.txt')
-            with open(os.path.join(directory, 'python.cmd'), 'w', encoding='utf-8', newline='\r\n') as file:
+            with open(os.path.join(directory, 'python.cmd'), 'w', encoding='utf-8', newline='') as file:
                 file.write(
                     '@echo off\r\n'
                     '> "%CHECK_PYTHON_ARGS%" echo %*\r\n'
+                    'echo ignored stdout\r\n'
+                    'echo ignored stderr >&2\r\n'
                     'exit /b %CHECK_PYTHON_STATUS%\r\n'
                 )
             environment = {
@@ -128,21 +143,33 @@ else:
                 'PATH': directory + os.pathsep + os.environ.get('PATH', ''),
                 'CHECK_PYTHON_ARGS': args_path,
                 'CHECK_PYTHON_STATUS': str(status),
+                'CHECK_PYTHON_HOOK': copied_hook_path,
+                'CHECK_PYTHON_PATH_TOKEN': 'unexpected-expansion',
             }
             result = subprocess.run(
-                [command_processor, '/d', '/s', '/c', f'""{cmd_hook_path}""'],
+                f'"{command_processor}" /d /v:off /s /c '
+                f'""%SystemRoot%\\System32\\chcp.com" {code_page} >nul & "%CHECK_PYTHON_HOOK%""',
                 env=environment,
                 capture_output=True,
                 text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW,
             )
-            with open(args_path, encoding='utf-8') as file:
-                args = file.read()
             if (result.returncode, result.stdout, result.stderr) != (expected_exit, '', expected_error):
                 raise AssertionError(
-                    f'Unexpected check-python.cmd result: {result.returncode}, '
+                    f'Unexpected check-python.cmd result on CP{code_page}: {result.returncode}, '
                     f'{result.stdout!r}, {result.stderr!r}'
                 )
-            if 'check-python-version.py' not in args:
+            if not os.path.isfile(args_path):
+                raise AssertionError(
+                    f'The python stub was not invoked: {result.returncode}, '
+                    f'{result.stdout!r}, {result.stderr!r}'
+                )
+            with open(args_path, encoding='utf-8') as file:
+                args = file.read()
+            actual_version_check_path = os.path.normcase(
+                os.path.abspath(args.strip().strip('"')),
+            )
+            if actual_version_check_path != os.path.normcase(copied_version_check_path):
                 raise AssertionError(f'Unexpected command passed to python: {args!r}')
             success_tests += 1
     shell_tests = success_tests
