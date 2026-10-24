@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import unittest
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
 hook_path = os.path.join(script_directory, 'block-commands.py')
@@ -18,64 +19,6 @@ class HookResult:
 
     def __repr__(self):
         return json.dumps({'ExitCode': self.exit_code, 'Output': self.output, 'Error': self.error}, ensure_ascii=False)
-
-
-def invoke_hook_input(input_json, entry_point='py', search_path=None, definitions_file=None, wrapper_path=None, code_page=None):
-    environment = os.environ.copy()
-    if entry_point == 'cmd':
-        environment['BLOCK_COMMANDS_TEST_HOOK'] = wrapper_path or os.path.join(script_directory, 'block-commands.cmd')
-        environment['BLOCK_COMMANDS_TEST_PYTHON'] = sys.executable
-        environment['BLOCK_COMMANDS_TEST_TOKEN'] = 'unexpected-expansion'
-        options = ''
-        if definitions_file is not None:
-            environment['BLOCK_COMMANDS_TEST_DEFINITIONS'] = definitions_file
-            options = ' --definitions-path "%BLOCK_COMMANDS_TEST_DEFINITIONS%"'
-        code_page_command = (
-            f'"%SystemRoot%\\System32\\chcp.com" {code_page} >nul & '
-            if code_page is not None else ''
-        )
-        arguments = [
-            f'"{os.environ["ComSpec"]}"', '/d', '/v:off', '/s', '/c',
-            f'"{code_page_command}"%BLOCK_COMMANDS_TEST_HOOK%"{options}"',
-        ]
-        environment['PATH'] = python_shim_path
-    elif entry_point == 'sh':
-        arguments = [bash_path, '--noprofile', '--norc', os.path.join(script_directory, 'block-commands.sh').replace('\\', '/')]
-        if definitions_file is not None:
-            arguments.extend(['--definitions-path', definitions_file])
-        environment['PATH'] = python3_shim_path
-    else:
-        arguments = [sys.executable, hook_path, '--definitions-path', definitions_file or definitions_path]
-    if search_path is not None:
-        environment['PATH'] = search_path
-
-    completed = subprocess.run(
-        # cmd.exeの引数は独自の引用規則で解釈されるため、文字列のまま渡す。
-        ' '.join(arguments) if entry_point == 'cmd' else arguments,
-        input=input_json if isinstance(input_json, bytes) else input_json.encode('utf-8'),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=environment,
-        creationflags=subprocess.CREATE_NO_WINDOW if entry_point == 'cmd' and code_page is not None else 0,
-    )
-    return HookResult(
-        completed.returncode,
-        completed.stdout.decode('utf-8'),
-        completed.stderr.decode('utf-8'),
-    )
-
-
-def invoke_hook(command):
-    payload = {
-        'toolName': 'powershell',
-        'toolArgs': {'command': command},
-    }
-
-    result = invoke_hook_input(json.dumps(payload, ensure_ascii=False, separators=(',', ':')))
-    if result.exit_code != 0 or result.error:
-        raise AssertionError(f"Hook failed for command '{command}': exit {result.exit_code}, {result.error}")
-
-    return json.loads(result.output)
 
 
 def assert_error_denial(result, expected_error):
@@ -177,29 +120,6 @@ payload_cases = [
     {'Name': 'empty input', 'Json': '', 'Error': 'hook input is empty'},
 ]
 
-for test_case in test_cases:
-    result = invoke_hook(test_case['Command'])
-    if result.get('permissionDecision') != test_case['Expected']:
-        raise AssertionError(f"Unexpected decision for '{test_case['Command']}': '{result.get('permissionDecision')}'")
-
-for test_case in payload_cases:
-    result = invoke_hook_input(test_case['Json'])
-    if test_case.get('Error'):
-        assert_error_denial(result, test_case['Error'])
-        continue
-
-    if result.exit_code != 0 or result.error:
-        raise AssertionError(f"Unexpected error for '{test_case['Name']}': {result!r}")
-    decision = json.loads(result.output)
-    if test_case.get('Expected'):
-        if (decision.get('permissionDecision') != test_case['Expected'] or
-                not str(decision.get('permissionDecisionReason') or '').strip()):
-            raise AssertionError(f"Unexpected decision for '{test_case['Name']}': {result.output}")
-    elif result.output.strip() != '{}':
-        raise AssertionError(f"Unexpected skip/allow output for '{test_case['Name']}': {result.output}")
-
-print(f'Passed {len(test_cases) + len(payload_cases)} block-command hook tests.')
-
 valid_definition = {'name': 'test rule', 'pattern': 'blocked', 'reason': '拒否理由'}
 definition_cases = [
     {'Name': 'empty array', 'Text': '[]', 'Expected': None},
@@ -217,12 +137,14 @@ definition_cases = [
     {'Name': 'escaped error reason', 'Text': json.dumps([{**valid_definition, 'name': '日本語 "rule"\\path\nnext', 'pattern': '['}]), 'Error': 'Invalid regular expression'},
     {'Name': 'later invalid pattern', 'Text': json.dumps([valid_definition, {**valid_definition, 'pattern': '['}]), 'Error': 'Invalid regular expression'},
 ]
+
 for value in (None, True, 42, 'text', []):
     definition_cases.append({
         'Name': f'non-object definition {value!r}',
         'Text': json.dumps([value]),
         'Error': 'must be a JSON object',
     })
+
 for key in ('name', 'pattern', 'reason'):
     for value in (None, True, 42, 1.5, [], {}, '', ' \t\n'):
         definition_cases.append({
@@ -241,159 +163,254 @@ for key in ('name', 'pattern', 'reason'):
             'Error': 'requires non-empty strings',
         })
 
-with tempfile.TemporaryDirectory() as directory:
-    custom_definitions_path = os.path.join(directory, 'definitions.json')
-    for test_case in definition_cases:
-        data = test_case.get('Bytes')
-        if data is None:
-            data = test_case['Text'].encode(test_case.get('Encoding', 'utf-8'))
-        with open(custom_definitions_path, 'wb') as file:
-            file.write(data)
-        result = invoke_hook_input(
-            '{"toolName":"bash","toolArgs":"blocked"}',
-            definitions_file=custom_definitions_path,
-        )
-        if test_case.get('Error'):
-            assert_error_denial(result, test_case['Error'])
+hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
+sys.path.insert(0, os.path.join(hooks_directory, 'tests'))
+from hook_test_output import run_tests
+
+
+class BlockCommandsTests(unittest.TestCase):
+    def invoke_hook_input(self, input_json, entry_point='py', search_path=None, definitions_file=None, wrapper_path=None, code_page=None):
+        environment = os.environ.copy()
+        if entry_point == 'cmd':
+            environment['BLOCK_COMMANDS_TEST_HOOK'] = wrapper_path or os.path.join(script_directory, 'block-commands.cmd')
+            environment['BLOCK_COMMANDS_TEST_PYTHON'] = sys.executable
+            environment['BLOCK_COMMANDS_TEST_TOKEN'] = 'unexpected-expansion'
+            options = ''
+            if definitions_file is not None:
+                environment['BLOCK_COMMANDS_TEST_DEFINITIONS'] = definitions_file
+                options = ' --definitions-path "%BLOCK_COMMANDS_TEST_DEFINITIONS%"'
+            code_page_command = (
+                f'"%SystemRoot%\\System32\\chcp.com" {code_page} >nul & '
+                if code_page is not None else ''
+            )
+            arguments = [
+                f'"{os.environ["ComSpec"]}"', '/d', '/v:off', '/s', '/c',
+                f'"{code_page_command}"%BLOCK_COMMANDS_TEST_HOOK%"{options}"',
+            ]
+            environment['PATH'] = self.python_shim_path
+        elif entry_point == 'sh':
+            arguments = [self.bash_path, '--noprofile', '--norc', os.path.join(script_directory, 'block-commands.sh').replace('\\', '/')]
+            if definitions_file is not None:
+                arguments.extend(['--definitions-path', definitions_file])
+            environment['PATH'] = self.python3_shim_path
         else:
-            expected_output = (
-                {'permissionDecision': 'deny', 'permissionDecisionReason': valid_definition['reason']}
-                if test_case['Expected'] else {}
-            )
-            if result.exit_code != 0 or result.error or json.loads(result.output) != expected_output:
-                raise AssertionError(f"Unexpected definition result for '{test_case['Name']}': {result!r}")
-    missing_file = os.path.join(directory, 'missing.json')
-    result = invoke_hook_input('{}', definitions_file=missing_file)
-    assert_error_denial(result, 'definitions not found or existence could not be verified')
+            arguments = [sys.executable, hook_path, '--definitions-path', definitions_file or definitions_path]
+        if search_path is not None:
+            environment['PATH'] = search_path
 
-    result = invoke_hook_input('{}', definitions_file=directory)
-    assert_error_denial(result, 'path is not a file or could not be verified as a file')
+        completed = subprocess.run(
+            # cmd.exeの引数は独自の引用規則で解釈されるため、文字列のまま渡す。
+            ' '.join(arguments) if entry_point == 'cmd' else arguments,
+            input=input_json if isinstance(input_json, bytes) else input_json.encode('utf-8'),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=environment,
+            creationflags=subprocess.CREATE_NO_WINDOW if entry_point == 'cmd' and code_page is not None else 0,
+        )
+        return HookResult(
+            completed.returncode,
+            completed.stdout.decode('utf-8'),
+            completed.stderr.decode('utf-8'),
+        )
 
-print(f'Passed {len(definition_cases) + 2} definition tests.')
+    def invoke_hook(self, command):
+        payload = {
+            'toolName': 'powershell',
+            'toolArgs': {'command': command},
+        }
 
-entry_points = []
-if os.name == 'nt':
-    entry_points.append('cmd')
-if os.name == 'nt':
-    git_command = shutil.which('git')
-    if git_command is None:
-        raise AssertionError('git was not found.')
-    bash_path = os.path.join(os.path.dirname(os.path.dirname(git_command)), 'bin', 'bash.exe')
-else:
-    bash_path = shutil.which('bash')
-if bash_path and os.path.isfile(bash_path):
-    entry_points.append('sh')
-else:
-    print('Skipping sh wrapper tests: a native bash executable was not found.')
+        result = self.invoke_hook_input(json.dumps(payload, ensure_ascii=False, separators=(',', ':')))
+        if result.exit_code != 0 or result.error:
+            raise AssertionError(f"Hook failed for command '{command}': exit {result.exit_code}, {result.error}")
 
-with tempfile.TemporaryDirectory() as shim_directory:
-    create_python_shims(shim_directory)
-    python_shim_path = shim_directory + os.pathsep + os.environ.get('PATH', '')
-    python3_shim_path = shim_directory + os.pathsep + os.environ.get('PATH', '')
+        return json.loads(result.output)
 
-    for entry_point in entry_points:
-        for test_case in (
-            {'Json': '{"toolName":"bash","toolArgs":{"command":"git status"}}', 'Expected': None},
-            {'Json': '{"toolName":"powershell","toolArgs":{"command":"echo 日本語; git reset"}}', 'Expected': 'deny'},
-        ):
-            result = invoke_hook_input(test_case['Json'], entry_point=entry_point)
-            if result.exit_code != 0 or result.error:
-                raise AssertionError(f'Unexpected {entry_point} wrapper execution: {result!r}')
-            output = json.loads(result.output)
-            if output.get('permissionDecision') != test_case['Expected']:
-                raise AssertionError(f'Unexpected {entry_point} wrapper decision: {result!r}')
+    def test_commands(self):
+        for test_case in test_cases:
+            with self.subTest(test_case=test_case):
+                result = self.invoke_hook(test_case['Command'])
+                if result.get('permissionDecision') != test_case['Expected']:
+                    raise AssertionError(f"Unexpected decision for '{test_case['Command']}': '{result.get('permissionDecision')}'")
 
-        result = invoke_hook_input('{', entry_point=entry_point)
-        assert_error_denial(result, 'Failed to parse')
+    def test_payloads(self):
+        for test_case in payload_cases:
+            with self.subTest(test_case=test_case):
+                result = self.invoke_hook_input(test_case['Json'])
+                if test_case.get('Error'):
+                    assert_error_denial(result, test_case['Error'])
+                    continue
 
-        with tempfile.TemporaryDirectory(prefix='block commands ') as directory:
-            invalid_definitions = os.path.join(directory, 'invalid.json')
-            with open(invalid_definitions, 'w', encoding='utf-8') as defs_file:
-                json.dump([{**valid_definition, 'pattern': '['}], defs_file)
-            for path, expected_error in (
-                (invalid_definitions, 'Invalid regular expression'),
-                (os.path.join(directory, 'missing.json'), 'definitions not found'),
-            ):
-                result = invoke_hook_input(
-                    '{"toolName":"bash","toolArgs":"git status"}',
-                    entry_point=entry_point,
-                    definitions_file=path,
-                )
-                assert_error_denial(result, expected_error)
+                if result.exit_code != 0 or result.error:
+                    raise AssertionError(f"Unexpected error for '{test_case['Name']}': {result!r}")
+                decision = json.loads(result.output)
+                if test_case.get('Expected'):
+                    if (decision.get('permissionDecision') != test_case['Expected'] or
+                            not str(decision.get('permissionDecisionReason') or '').strip()):
+                        raise AssertionError(f"Unexpected decision for '{test_case['Name']}': {result.output}")
+                elif result.output.strip() != '{}':
+                    raise AssertionError(f"Unexpected skip/allow output for '{test_case['Name']}': {result.output}")
 
-        result = invoke_hook_input('{}', entry_point=entry_point, search_path='')
-        output = json.loads(result.output)
-        if (result.exit_code != 2 or output.get('permissionDecision') != 'deny' or
-                not str(output.get('permissionDecisionReason') or '').strip() or
-                'Tool execution denied.' not in result.error):
-            raise AssertionError(f'Unexpected {entry_point} wrapper missing-python3 result: {result!r}')
-        print(f'Passed 6 {entry_point} wrapper tests.')
-
-    if os.name == 'nt':
+    def test_definitions(self):
         with tempfile.TemporaryDirectory() as directory:
-            helpers_directory = os.path.join(
-                directory, 'repo %BLOCK_COMMANDS_TEST_TOKEN% with spaces!',
-                'helpers',
-            )
-            copied_script_directory = os.path.join(
-                helpers_directory, 'events', 'preToolUse', 'block-commands',
-            )
-            copied_utilities_directory = os.path.join(helpers_directory, 'utilities')
-            os.makedirs(copied_script_directory)
-            os.makedirs(copied_utilities_directory)
-            for filename in ('block-commands.cmd', 'block-commands.py', 'blocked-command-definitions.json'):
-                shutil.copyfile(
-                    os.path.join(script_directory, filename),
-                    os.path.join(copied_script_directory, filename),
-                )
-            shutil.copyfile(
-                os.path.join(script_directory, '..', '..', '..', 'utilities', 'check-python-version.py'),
-                os.path.join(copied_utilities_directory, 'check-python-version.py'),
-            )
-            copied_wrapper_path = os.path.join(copied_script_directory, 'block-commands.cmd')
-            custom_definitions_path = os.path.join(
-                copied_script_directory, 'definitions %BLOCK_COMMANDS_TEST_TOKEN%!.json',
-            )
-            with open(custom_definitions_path, 'w', encoding='utf-8') as file:
-                json.dump([valid_definition], file)
-            cmd_shim_directory = os.path.join(directory, 'python cmd')
-            os.makedirs(cmd_shim_directory)
-            cmd_shim_path = os.path.join(cmd_shim_directory, 'python.cmd')
-            with open(cmd_shim_path, 'w', encoding='utf-8', newline='\n') as file:
-                file.write('@echo off\n"%BLOCK_COMMANDS_TEST_PYTHON%" %*\nexit /b %errorlevel%\n')
-
-            regression_tests = 0
-            for code_page, search_path in (
-                (932, python_shim_path),
-                (932, cmd_shim_directory),
-                (65001, python_shim_path),
-                (65001, cmd_shim_directory),
-            ):
-                for command, expected_output in (
-                    ('git status', {}),
-                    ('blocked', {
-                        'permissionDecision': 'deny',
-                        'permissionDecisionReason': valid_definition['reason'],
-                    }),
-                ):
-                    result = invoke_hook_input(
-                        json.dumps({'toolName': 'bash', 'toolArgs': command}),
-                        entry_point='cmd', search_path=search_path,
+            custom_definitions_path = os.path.join(directory, 'definitions.json')
+            for test_case in definition_cases:
+                with self.subTest(test_case=test_case):
+                    data = test_case.get('Bytes')
+                    if data is None:
+                        data = test_case['Text'].encode(test_case.get('Encoding', 'utf-8'))
+                    with open(custom_definitions_path, 'wb') as file:
+                        file.write(data)
+                    result = self.invoke_hook_input(
+                        '{"toolName":"bash","toolArgs":"blocked"}',
                         definitions_file=custom_definitions_path,
-                        wrapper_path=copied_wrapper_path,
-                        code_page=code_page,
                     )
-                    if result.exit_code != 0 or result.error or json.loads(result.output) != expected_output:
-                        raise AssertionError(f'Unexpected cmd path/shim result on CP{code_page}: {result!r}')
-                    regression_tests += 1
+                    if test_case.get('Error'):
+                        assert_error_denial(result, test_case['Error'])
+                    else:
+                        expected_output = (
+                            {'permissionDecision': 'deny', 'permissionDecisionReason': valid_definition['reason']}
+                            if test_case['Expected'] else {}
+                        )
+                        if result.exit_code != 0 or result.error or json.loads(result.output) != expected_output:
+                            raise AssertionError(f"Unexpected definition result for '{test_case['Name']}': {result!r}")
+            missing_file = os.path.join(directory, 'missing.json')
+            result = self.invoke_hook_input('{}', definitions_file=missing_file)
+            assert_error_denial(result, 'definitions not found or existence could not be verified')
 
-            with open(cmd_shim_path, 'w', encoding='utf-8', newline='\n') as file:
-                file.write('@echo off\nexit /b 1\n')
-            for code_page in (932, 65001):
-                result = invoke_hook_input(
-                    '{}', entry_point='cmd', search_path=cmd_shim_directory,
-                    wrapper_path=copied_wrapper_path, code_page=code_page,
-                )
-                assert_error_denial(result, 'Python 3.14 or later is required')
-                regression_tests += 1
-            print(f'Passed {regression_tests} cmd path/shim regression tests.')
+            result = self.invoke_hook_input('{}', definitions_file=directory)
+            assert_error_denial(result, 'path is not a file or could not be verified as a file')
+
+    def test_wrappers_and_paths(self):
+        entry_points = []
+
+        if os.name == 'nt':
+            entry_points.append('cmd')
+
+        if os.name == 'nt':
+            git_command = shutil.which('git')
+            if git_command is None:
+                raise AssertionError('git was not found.')
+            self.bash_path = os.path.join(os.path.dirname(os.path.dirname(git_command)), 'bin', 'bash.exe')
+        else:
+            self.bash_path = shutil.which('bash')
+
+        if self.bash_path and os.path.isfile(self.bash_path):
+            entry_points.append('sh')
+        else:
+            with self.subTest(entry_point='sh'):
+                self.skipTest('A native bash executable was not found.')
+
+        with tempfile.TemporaryDirectory() as shim_directory:
+            create_python_shims(shim_directory)
+            self.python_shim_path = shim_directory + os.pathsep + os.environ.get('PATH', '')
+            self.python3_shim_path = shim_directory + os.pathsep + os.environ.get('PATH', '')
+
+            for entry_point in entry_points:
+                with self.subTest(entry_point=entry_point):
+                    for test_case in (
+                        {'Json': '{"toolName":"bash","toolArgs":{"command":"git status"}}', 'Expected': None},
+                        {'Json': '{"toolName":"powershell","toolArgs":{"command":"echo 日本語; git reset"}}', 'Expected': 'deny'},
+                    ):
+                        result = self.invoke_hook_input(test_case['Json'], entry_point=entry_point)
+                        if result.exit_code != 0 or result.error:
+                            raise AssertionError(f'Unexpected {entry_point} wrapper execution: {result!r}')
+                        output = json.loads(result.output)
+                        if output.get('permissionDecision') != test_case['Expected']:
+                            raise AssertionError(f'Unexpected {entry_point} wrapper decision: {result!r}')
+
+                    result = self.invoke_hook_input('{', entry_point=entry_point)
+                    assert_error_denial(result, 'Failed to parse')
+
+                    with tempfile.TemporaryDirectory(prefix='block commands ') as directory:
+                        invalid_definitions = os.path.join(directory, 'invalid.json')
+                        with open(invalid_definitions, 'w', encoding='utf-8') as defs_file:
+                            json.dump([{**valid_definition, 'pattern': '['}], defs_file)
+                        for path, expected_error in (
+                            (invalid_definitions, 'Invalid regular expression'),
+                            (os.path.join(directory, 'missing.json'), 'definitions not found'),
+                        ):
+                            result = self.invoke_hook_input(
+                                '{"toolName":"bash","toolArgs":"git status"}',
+                                entry_point=entry_point,
+                                definitions_file=path,
+                            )
+                            assert_error_denial(result, expected_error)
+
+                    result = self.invoke_hook_input('{}', entry_point=entry_point, search_path='')
+                    output = json.loads(result.output)
+                    if (result.exit_code != 2 or output.get('permissionDecision') != 'deny' or
+                            not str(output.get('permissionDecisionReason') or '').strip() or
+                            'Tool execution denied.' not in result.error):
+                        raise AssertionError(f'Unexpected {entry_point} wrapper missing-python3 result: {result!r}')
+
+            if os.name == 'nt':
+                with tempfile.TemporaryDirectory() as directory:
+                    helpers_directory = os.path.join(
+                        directory, 'repo %BLOCK_COMMANDS_TEST_TOKEN% with spaces!',
+                        'helpers',
+                    )
+                    copied_script_directory = os.path.join(
+                        helpers_directory, 'events', 'preToolUse', 'block-commands',
+                    )
+                    copied_utilities_directory = os.path.join(helpers_directory, 'utilities')
+                    os.makedirs(copied_script_directory)
+                    os.makedirs(copied_utilities_directory)
+                    for filename in ('block-commands.cmd', 'block-commands.py', 'blocked-command-definitions.json'):
+                        with self.subTest(filename=filename):
+                            shutil.copyfile(
+                                os.path.join(script_directory, filename),
+                                os.path.join(copied_script_directory, filename),
+                            )
+                    shutil.copyfile(
+                        os.path.join(script_directory, '..', '..', '..', 'utilities', 'check-python-version.py'),
+                        os.path.join(copied_utilities_directory, 'check-python-version.py'),
+                    )
+                    copied_wrapper_path = os.path.join(copied_script_directory, 'block-commands.cmd')
+                    custom_definitions_path = os.path.join(
+                        copied_script_directory, 'definitions %BLOCK_COMMANDS_TEST_TOKEN%!.json',
+                    )
+                    with open(custom_definitions_path, 'w', encoding='utf-8') as file:
+                        json.dump([valid_definition], file)
+                    cmd_shim_directory = os.path.join(directory, 'python cmd')
+                    os.makedirs(cmd_shim_directory)
+                    cmd_shim_path = os.path.join(cmd_shim_directory, 'python.cmd')
+                    with open(cmd_shim_path, 'w', encoding='utf-8', newline='\n') as file:
+                        file.write('@echo off\n"%BLOCK_COMMANDS_TEST_PYTHON%" %*\nexit /b %errorlevel%\n')
+
+                    for code_page, search_path in (
+                        (932, self.python_shim_path),
+                        (932, cmd_shim_directory),
+                        (65001, self.python_shim_path),
+                        (65001, cmd_shim_directory),
+                    ):
+                        with self.subTest(code_page=code_page, search_path=search_path):
+                            for command, expected_output in (
+                                ('git status', {}),
+                                ('blocked', {
+                                    'permissionDecision': 'deny',
+                                    'permissionDecisionReason': valid_definition['reason'],
+                                }),
+                            ):
+                                result = self.invoke_hook_input(
+                                    json.dumps({'toolName': 'bash', 'toolArgs': command}),
+                                    entry_point='cmd', search_path=search_path,
+                                    definitions_file=custom_definitions_path,
+                                    wrapper_path=copied_wrapper_path,
+                                    code_page=code_page,
+                                )
+                                if result.exit_code != 0 or result.error or json.loads(result.output) != expected_output:
+                                    raise AssertionError(f'Unexpected cmd path/shim result on CP{code_page}: {result!r}')
+
+                    with open(cmd_shim_path, 'w', encoding='utf-8', newline='\n') as file:
+                        file.write('@echo off\nexit /b 1\n')
+                    for code_page in (932, 65001):
+                        with self.subTest(code_page=code_page):
+                            result = self.invoke_hook_input(
+                                '{}', entry_point='cmd', search_path=cmd_shim_directory,
+                                wrapper_path=copied_wrapper_path, code_page=code_page,
+                            )
+                            assert_error_denial(result, 'Python 3.14 or later is required')
+
+
+if __name__ == '__main__':
+    run_tests()

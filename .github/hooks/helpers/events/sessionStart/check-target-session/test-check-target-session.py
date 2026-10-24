@@ -5,6 +5,7 @@ import re
 import runpy
 import subprocess
 import sys
+import unittest
 from unittest.mock import patch
 
 script_directory = os.path.dirname(os.path.abspath(__file__))
@@ -97,47 +98,61 @@ invalid_cases = [
      'Error': 'Failed to parse sessionStart hook input:'},
 ]
 
-for case in valid_cases:
-    exit_code, output, error = invoke_hook_input(case['Json'])
-    if exit_code != 0:
-        raise AssertionError(f"Unexpected exit code for '{case['Name']}': got {exit_code}, expected 0. stderr: {error}")
-    if error:
-        raise AssertionError(f"Unexpected stderr for '{case['Name']}': {error}")
+hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
+sys.path.insert(0, os.path.join(hooks_directory, 'tests'))
+from hook_test_output import run_tests
 
-    if case['ExpectMessage']:
-        try:
-            parsed_output = json.loads(output)
-        except ValueError:
-            raise AssertionError(f"Failed to parse stdout as JSON for '{case['Name']}': {output}")
-        if parsed_output != {'systemMessage': expected_system_message}:
-            raise AssertionError(f"Unexpected JSON output for '{case['Name']}': {parsed_output}")
-        if output.rstrip('\r\n') != json.dumps(parsed_output, ensure_ascii=False, separators=(',', ':')):
-            raise AssertionError(f"Expected compact single-line JSON for '{case['Name']}': {output!r}")
-    elif output:
-        raise AssertionError(f"Expected empty output for '{case['Name']}', got: {output}")
 
-for case in invalid_cases:
-    exit_code, output, error = invoke_hook_input(case['Json'])
-    if exit_code != 2:
-        raise AssertionError(f"Unexpected exit code for '{case['Name']}': got {exit_code}, expected 2. stdout: {output}")
-    if output:
-        raise AssertionError(f"Unexpected stdout for '{case['Name']}': {output}")
-    if re.search(case['Error'], error, re.IGNORECASE) is None:
-        raise AssertionError(f"Unexpected error message for '{case['Name']}': got '{error}', expected pattern '{case['Error']}'")
+class CheckTargetSessionTests(unittest.TestCase):
+    def test_valid_input(self):
+        for case in valid_cases:
+            with self.subTest(case=case):
+                exit_code, output, error = invoke_hook_input(case['Json'])
+                if exit_code != 0:
+                    raise AssertionError(f"Unexpected exit code for '{case['Name']}': got {exit_code}, expected 0. stderr: {error}")
+                if error:
+                    raise AssertionError(f"Unexpected stderr for '{case['Name']}': {error}")
 
-hook_module = runpy.run_path(hook_path)
-with (
-    patch.object(sys, 'stdin') as stdin,
-    patch.object(sys, 'stdout') as stdout,
-    io.TextIOWrapper(io.BytesIO(), encoding='utf-8', newline='') as stderr,
-    patch.object(sys, 'stderr', stderr),
-):
-    stdin.buffer.read.side_effect = OSError('test read failure')
-    exit_code = hook_module['main']()
-    stderr.flush()
-    error = stderr.buffer.getvalue().decode('utf-8')
-    if exit_code != 2 or error != 'Failed to parse sessionStart hook input: test read failure\n':
-        raise AssertionError(f'Unexpected read error handling: exit {exit_code}, stderr: {error}')
-    stdout.write.assert_not_called()
+                if case['ExpectMessage']:
+                    try:
+                        parsed_output = json.loads(output)
+                    except ValueError:
+                        raise AssertionError(f"Failed to parse stdout as JSON for '{case['Name']}': {output}")
+                    if parsed_output != {'systemMessage': expected_system_message}:
+                        raise AssertionError(f"Unexpected JSON output for '{case['Name']}': {parsed_output}")
+                    if output.rstrip('\r\n') != json.dumps(parsed_output, ensure_ascii=False, separators=(',', ':')):
+                        raise AssertionError(f"Expected compact single-line JSON for '{case['Name']}': {output!r}")
+                elif output:
+                    raise AssertionError(f"Expected empty output for '{case['Name']}', got: {output}")
 
-print(f'Passed {len(valid_cases) + len(invalid_cases) + 1} check-target-session tests.')
+    def test_invalid_input(self):
+        for case in invalid_cases:
+            with self.subTest(case=case):
+                exit_code, output, error = invoke_hook_input(case['Json'])
+                if exit_code != 2:
+                    raise AssertionError(f"Unexpected exit code for '{case['Name']}': got {exit_code}, expected 2. stdout: {output}")
+                if output:
+                    raise AssertionError(f"Unexpected stdout for '{case['Name']}': {output}")
+                if re.search(case['Error'], error, re.IGNORECASE) is None:
+                    raise AssertionError(f"Unexpected error message for '{case['Name']}': got '{error}', expected pattern '{case['Error']}'")
+
+    def test_input_read_failure(self):
+        hook_module = runpy.run_path(hook_path)
+
+        with (
+            patch.object(sys, 'stdin') as stdin,
+            patch.object(sys, 'stdout') as stdout,
+            io.TextIOWrapper(io.BytesIO(), encoding='utf-8', newline='') as stderr,
+            patch.object(sys, 'stderr', stderr),
+        ):
+            stdin.buffer.read.side_effect = OSError('test read failure')
+            exit_code = hook_module['main']()
+            stderr.flush()
+            error = stderr.buffer.getvalue().decode('utf-8')
+            if exit_code != 2 or error != 'Failed to parse sessionStart hook input: test read failure\n':
+                raise AssertionError(f'Unexpected read error handling: exit {exit_code}, stderr: {error}')
+            stdout.write.assert_not_called()
+
+
+if __name__ == '__main__':
+    run_tests()

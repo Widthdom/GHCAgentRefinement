@@ -17,6 +17,7 @@ for current_directory, _, filenames in os.walk(helpers_directory):
 test_paths.sort()
 if not test_paths:
     print(f'No hook tests found under {helpers_directory}.', file=sys.stderr)
+    print('NG', file=sys.stderr)
     sys.exit(2)
 
 failed_tests = []
@@ -34,9 +35,11 @@ for test_path in test_paths:
         failed_tests.append((relative_test_path, f'exited with code {result.returncode}'))
 
 if failed_tests:
-    print(f'\nFailed {len(failed_tests)} of {len(test_paths)} hook tests:', file=sys.stderr)
+    print(f'\nFailed {len(failed_tests)} of {len(test_paths)} hook test files:', file=sys.stderr)
     for test_path, reason in failed_tests:
         print(f'- {test_path}: {reason}', file=sys.stderr)
+    print('NG', file=sys.stderr)
     sys.exit(2)
 
-print(f'\nPassed all {len(test_paths)} hook tests.')
+print(f'\nPassed all {len(test_paths)} hook test files.')
+print('OK', flush=True)

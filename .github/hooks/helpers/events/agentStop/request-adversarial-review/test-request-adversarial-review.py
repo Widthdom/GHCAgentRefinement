@@ -251,4 +251,7 @@ class RequestReviewTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main()
+    sys.path.insert(0, os.path.join(hooks_directory, 'tests'))
+    from hook_test_output import run_tests
+
+    run_tests()
