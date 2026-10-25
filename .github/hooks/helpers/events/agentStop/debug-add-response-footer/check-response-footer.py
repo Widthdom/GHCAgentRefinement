@@ -2,13 +2,13 @@ import re
 from collections import Counter
 from datetime import datetime
 
-# 使用したhook（イベント履歴から推定）, 使用したskill（イベント履歴から推定）, 現在時刻, の各見出しに一致する。
+# Match the hooks, skills, and current time headings.
 FOOTER_PATTERN = (
-    r'(?s)## \u4F7F\u7528\u3057\u305Fhook\uFF08\u30A4\u30D9\u30F3\u30C8\u5C65\u6B74\u304B\u3089\u63A8\u5B9A\uFF09:\r?\n'
+    r'(?s)## Hooks used \(inferred from event history\):\r?\n'
     r'(?P<hooks>(?:- [^\r\n]+\r?\n)+)'
-    r'## \u4F7F\u7528\u3057\u305Fskill\uFF08\u30A4\u30D9\u30F3\u30C8\u5C65\u6B74\u304B\u3089\u63A8\u5B9A\uFF09:\r?\n'
+    r'## Skills used \(inferred from event history\):\r?\n'
     r'(?P<skills>(?:- [^\r\n]+\r?\n)+)'
-    r'## \u73FE\u5728\u6642\u523B\r?\n'
+    r'## Current time\r?\n'
     r'(?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) JST\r?\n\r?\n\Z'
 )
 
