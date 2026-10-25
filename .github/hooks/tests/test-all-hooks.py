@@ -30,16 +30,18 @@ for test_path in test_paths:
         print(f'Could not run {relative_test_path}: {ex}', file=sys.stderr)
         failed_tests.append((relative_test_path, 'could not start'))
         continue
+    finally:
+        print('\n', flush=True)
 
     if result.returncode != 0:
         failed_tests.append((relative_test_path, f'exited with code {result.returncode}'))
 
 if failed_tests:
-    print(f'\nFailed {len(failed_tests)} of {len(test_paths)} hook test files:', file=sys.stderr)
+    print(f'Failed {len(failed_tests)} of {len(test_paths)} hook test files:', file=sys.stderr)
     for test_path, reason in failed_tests:
         print(f'- {test_path}: {reason}', file=sys.stderr)
     print('NG', file=sys.stderr)
     sys.exit(2)
 
-print(f'\nPassed all {len(test_paths)} hook test files.')
+print(f'Passed all {len(test_paths)} hook test files.')
 print('OK', flush=True)
