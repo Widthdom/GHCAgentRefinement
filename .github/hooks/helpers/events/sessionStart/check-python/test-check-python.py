@@ -74,7 +74,7 @@ failure_messages = {
 }
 
 hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests'))
+sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 

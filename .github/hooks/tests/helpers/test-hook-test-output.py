@@ -7,10 +7,11 @@ import sys
 import unittest
 from unittest.mock import patch
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hook_test_output import HookTestRunner, run_tests
 
 
-tests_directory = os.path.dirname(os.path.abspath(__file__))
+tests_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class HookTestOutputTests(unittest.TestCase):
@@ -35,7 +36,7 @@ class HookTestOutputTests(unittest.TestCase):
     def invoke(self, body, *arguments):
         source = (
             'import sys\n'
-            f'sys.path.insert(0, {tests_directory!r})\n'
+            f'sys.path.insert(0, {os.path.join(tests_directory, "helpers")!r})\n'
             'import unittest\n'
             'from hook_test_output import run_tests\n'
             f'sys.argv = ["test-example.py", *{list(arguments)!r}]\n'
