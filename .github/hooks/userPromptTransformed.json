@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "userPromptTransformed": [
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/debug-log-transformed-prompt.py",
+        "powershell": "python .github/hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/debug-log-transformed-prompt.py"
+      }
+    ]
+  }
+}
