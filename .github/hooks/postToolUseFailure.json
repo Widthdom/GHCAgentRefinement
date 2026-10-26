@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "hooks": {
+    "postToolUseFailure": [
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/postToolUseFailure/detect-repeated-failures/detect-repeated-failures.py",
+        "powershell": "python .github/hooks/helpers/events/postToolUseFailure/detect-repeated-failures/detect-repeated-failures.py"
+      }
+    ]
+  }
+}

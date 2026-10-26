@@ -22,6 +22,10 @@
 |--|--|--|
 |危険コマンドの実行拒否|[`blocked-command-definitions.json`](./hooks/helpers/events/preToolUse/block-commands/blocked-command-definitions.json)にて定義されたコマンドの実行を拒否する。|[block-commands hook README](./hooks/helpers/events/preToolUse/block-commands/README.md)|
 
+### ツール実行３回失敗で方針転換
+
+同じツール・引数・エラーで5分以内に3回失敗した場合、原因の整理と方針転換を促す。詳細は[detect-repeated-failures hook README](./hooks/helpers/events/postToolUseFailure/detect-repeated-failures/README.md)を参照。
+
 ## デバッグモード
 
 プロンプトの先頭に `??` を付与するとデバッグモードになり、 `debug-` 接頭辞付きのhookが発動するようになる。詳細は[set-debug-mode hook README](./hooks/helpers/events/userPromptSubmitted/set-debug-mode/README.md)を参照。
