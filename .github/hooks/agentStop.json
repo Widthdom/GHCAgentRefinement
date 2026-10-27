@@ -14,6 +14,11 @@
       },
       {
         "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/agentStop/detect-phantom-references/detect-phantom-references.py",
+        "powershell": "python .github/hooks/helpers/events/agentStop/detect-phantom-references/detect-phantom-references.py"
+      },
+      {
+        "type": "command",
         "bash": "python3 .github/hooks/helpers/events/agentStop/request-adversarial-review/request-adversarial-review.py",
         "powershell": "python .github/hooks/helpers/events/agentStop/request-adversarial-review/request-adversarial-review.py"
       },
