@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "hooks": {
+    "postToolUse": [
+      {
+        "type": "command",
+        "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
+        "bash": "python3 .github/hooks/helpers/events/postToolUse/detect-edit-oscillation/detect-edit-oscillation.py",
+        "powershell": "python .github/hooks/helpers/events/postToolUse/detect-edit-oscillation/detect-edit-oscillation.py",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}
