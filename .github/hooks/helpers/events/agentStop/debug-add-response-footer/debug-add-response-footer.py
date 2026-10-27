@@ -2,50 +2,8 @@ import json
 import os
 import runpy
 import sys
-import time
 import uuid
 from pathlib import Path
-
-
-def _is_agent_stop_event_recorded(transcript_path, hook_timestamp):
-    # トランスクリプトに、今回実行中のagentStop hookのhook.startイベントが書き込まれているかを返す。
-    #   過去のターンのagentStopと取り違えないよう、hook入力のtimestampが一致するものだけを対象とする。
-
-    # `utf-8-sig` を指定することで、BOMが存在する場合は取り除いて読むことができる。
-    # with：処理を抜けるときの後片付けを自動で行う構文（C#のusingに相当）。
-    with open(transcript_path, encoding='utf-8-sig') as file:
-        # enumerate(file, 1)：1始まりの行番号を付けながら1行ずつ読む。
-        for line_number, line in enumerate(file, 1):
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError:
-                # 空行や非同期追記中の不完全な行は読み飛ばし、待機後の本処理で改めて検証する。
-                continue
-
-            # 変換結果がJSONオブジェクト（最外側が{}）でなければ異常とする。
-            if not isinstance(event, dict):
-                raise ValueError(f'Transcript event must be a JSON object at line {line_number}.')
-
-            if event.get('type') != 'hook.start':
-                continue
-
-            # getはキーが無ければ第2引数の既定値を返す。
-            data = event.get('data', {})
-            if not isinstance(data, dict):
-                raise ValueError(f'Event data must be a JSON object at line {line_number}.')
-
-            if data.get('hookType') != 'agentStop':
-                continue
-
-            # hook入力の形はCopilot側の仕様に依存するため、想定外の形でも異常とはせず対象外とする。
-            hook_input = data.get('input')
-            if not isinstance(hook_input, dict):
-                continue
-
-            if hook_input.get('timestamp') == hook_timestamp:
-                return True
-
-    return False
 
 
 def _get_last_assistant_msg(transcript_path):
@@ -207,18 +165,10 @@ def main():
 
     try:
         # GitHub Copilot はトランスクリプトに非同期で追記するため、agentStop hookが起動した直後は、最終応答がまだ書き込まれていない可能性がある。
-        # イベントは発生順に追記されるので、自身のhook.startが追記されれば、それより前に発生した最終応答も書き込み済みとみなすことができる。
-        hook_timestamp = hook_input.get('timestamp')
-        # Pythonでは bool が int のサブクラスになっているので、その分を除外する必要がある。
-        if isinstance(hook_timestamp, (int, float)) and not isinstance(hook_timestamp, bool):
-            # monotonic：システムクロックに依存せず、単調増加する時刻を返す。タイムアウト判定に使用する。
-            deadline = time.monotonic() + 5.0
-            # _is_agent_stop_event_recorded() が True を返すまで、
-            # 5秒の間0.05秒ごとにhook.startの書き込みを確認するループを開始する。
-            while not _is_agent_stop_event_recorded(transcript_path, hook_timestamp):
-                if time.monotonic() >= deadline:
-                    break
-                time.sleep(0.05)
+        # 自身のhook.startが書き込まれるまで最大5秒待ち、それより前に発生した最終応答を書き込み済みにする。
+        runpy.run_path(
+            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event.py')
+        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg = _get_last_assistant_msg(transcript_path)
         if last_assistant_msg is None:

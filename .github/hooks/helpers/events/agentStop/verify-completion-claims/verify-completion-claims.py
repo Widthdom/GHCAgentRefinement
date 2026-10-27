@@ -3,7 +3,6 @@ import os
 import re
 import runpy
 import sys
-import time
 from pathlib import Path
 
 
@@ -32,27 +31,6 @@ EVIDENCE_REQUEST = (
     'Do not claim success without evidence.'
 )
 MAX_COMMAND_LENGTH = 200
-
-
-def _is_agent_stop_event_recorded(transcript_path, hook_timestamp):
-    # トランスクリプトに、今回実行中のagentStop hookのhook.startイベントが書き込まれているかを返す。
-    #   過去のターンのagentStopと取り違えないよう、hook入力のtimestampが一致するものだけを対象とする。
-    with open(transcript_path, encoding='utf-8-sig') as file:
-        for line in file:
-            try:
-                event = json.loads(line)
-            except json.JSONDecodeError:
-                # 空行や非同期追記中の不完全な行は読み飛ばし、待機後の本処理で改めて検証する。
-                continue
-            if not isinstance(event, dict) or event.get('type') != 'hook.start':
-                continue
-            data = event.get('data')
-            if not isinstance(data, dict) or data.get('hookType') != 'agentStop':
-                continue
-            hook_input = data.get('input')
-            if isinstance(hook_input, dict) and hook_input.get('timestamp') == hook_timestamp:
-                return True
-    return False
 
 
 def get_turn_summary(transcript_path):
@@ -174,15 +152,10 @@ def main():
         return 2
 
     try:
-        # GitHub Copilot はトランスクリプトに非同期で追記するため、自身のhook.startが書き込まれるまで最大5秒待つ。
-        # イベントは発生順に追記されるので、hook.startがあれば最終応答とシェル実行の結果も書き込み済みとみなせる。
-        hook_timestamp = hook_input.get('timestamp')
-        if isinstance(hook_timestamp, (int, float)) and not isinstance(hook_timestamp, bool):
-            deadline = time.monotonic() + 5.0
-            while not _is_agent_stop_event_recorded(transcript_path, hook_timestamp):
-                if time.monotonic() >= deadline:
-                    break
-                time.sleep(0.05)
+        # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答とシェル実行の結果を書き込み済みにする。
+        runpy.run_path(
+            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event.py')
+        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, shell_runs, already_requested = get_turn_summary(transcript_path)
     except (OSError, ValueError) as ex:

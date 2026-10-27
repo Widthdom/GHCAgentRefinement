@@ -539,14 +539,16 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         _write_all_text(flush_transcript, '\n' + _to_compressed_json(start_event) + '\n{"type":')
 
-        if not hook['_is_agent_stop_event_recorded'](flush_transcript, 123):
+        waiter = runpy.run_path(str(Path(script_directory).parents[2] / 'utilities' / 'wait-for-agent-stop-event.py'))
+        is_event_recorded = waiter['_is_agent_stop_event_recorded']
+        wait_for_event = waiter['wait_for_agent_stop_event']
+
+        if not is_event_recorded(flush_transcript, 123):
             raise AssertionError('Expected own hook.start to end polling.')
 
-        if hook['_is_agent_stop_event_recorded'](flush_transcript, 456):
+        if is_event_recorded(flush_transcript, 456):
             raise AssertionError('Expected other hook timestamps and partial lines not to end polling.')
 
-
-        is_event_recorded = hook['_is_agent_stop_event_recorded']
 
         for events in (
             [{'type': 'hook.start', 'data': {'hookType': 'preToolUse', 'input': {'timestamp': 123}}}],
@@ -603,12 +605,10 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         check_start = Mock(return_value=False)
 
-        with patch.dict(hook['main'].__globals__, _is_agent_stop_event_recorded=check_start):
-            with patch.object(hook['time'], 'monotonic', side_effect=[0, 0, 5]):
-                with patch.object(hook['time'], 'sleep') as sleep:
-                    exit_code, output, error = _run_main(_timestamped_input(123))
-                    if exit_code != 0 or error or json.loads(output).get('decision') != 'block':
-                        raise AssertionError(f'Expected footer check after polling deadline: {exit_code}, {output}, {error}')
+        with patch.dict(wait_for_event.__globals__, _is_agent_stop_event_recorded=check_start):
+            with patch.object(waiter['time'], 'monotonic', side_effect=[0, 0, 5]):
+                with patch.object(waiter['time'], 'sleep') as sleep:
+                    wait_for_event(flush_transcript, 123)
                     if check_start.call_count != 2:
                         raise AssertionError('Expected bounded polling until the deadline.')
                     sleep.assert_called_once_with(0.05)
@@ -616,11 +616,22 @@ class DebugResponseFooterTests(unittest.TestCase):
         for timestamp in (None, True, '123'):
             with self.subTest(timestamp=timestamp):
                 check_start = Mock()
-                with patch.dict(hook['main'].__globals__, _is_agent_stop_event_recorded=check_start):
-                    exit_code, output, error = _run_main(_timestamped_input(timestamp))
-                    if exit_code != 0 or error or json.loads(output).get('decision') != 'block':
-                        raise AssertionError(f'Expected footer check without polling: {timestamp!r}, {exit_code}, {output}, {error}')
+                with patch.dict(wait_for_event.__globals__, _is_agent_stop_event_recorded=check_start):
+                    wait_for_event(flush_transcript, timestamp)
                     check_start.assert_not_called()
+
+        real_run_path = runpy.run_path
+        wait_mock = Mock()
+
+        def _run_path_with_wait_mock(path, *args, **kwargs):
+            if str(path).endswith('wait-for-agent-stop-event.py'):
+                return {'wait_for_agent_stop_event': wait_mock}
+            return real_run_path(path, *args, **kwargs)
+
+        exit_code, output, error = _run_main(_timestamped_input(123), Mock(side_effect=_run_path_with_wait_mock))
+        if exit_code != 0 or error or json.loads(output).get('decision') != 'block':
+            raise AssertionError(f'Expected footer check after waiting for hook.start: {exit_code}, {output}, {error}')
+        wait_mock.assert_called_once_with(self.valid_transcript, 123)
 
         for run_path_mock, expected_error in (
             (Mock(side_effect=OSError('helper missing')), 'Failed to load debug-mode helper: OSError'),
