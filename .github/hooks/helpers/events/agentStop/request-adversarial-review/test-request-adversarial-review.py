@@ -229,8 +229,10 @@ class RequestReviewTests(unittest.TestCase):
         with open(os.path.join(hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
             commands = json.load(file)['hooks']['agentStop']
         self.assertIn('debug-add-response-footer.py', commands[0]['bash'])
+        review_commands = [command for command in commands if 'request-adversarial-review.py' in command['bash']]
+        self.assertEqual(len(review_commands), 1)
         for key, interpreter in (('bash', 'python3'), ('powershell', 'python')):
-            self.assertEqual(commands[-1][key], (
+            self.assertEqual(review_commands[0][key], (
                 f'{interpreter} .github/hooks/helpers/events/agentStop/'
                 'request-adversarial-review/request-adversarial-review.py'
             ))
