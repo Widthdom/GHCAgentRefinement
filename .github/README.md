@@ -4,9 +4,9 @@
 
 このリポジトリのhookはCopilot SDK形式のみを対象とする。`.py` の実行にはPython 3.14以降が必要で、起動コマンドはmacOS/Linuxでは `python3`、Windowsでは `python` を使う。VS CodeのCopilot Chatで使う場合は、Session Targetを `Copilot` にする。`Copilot` targetはCLIと同じSDK hook実装を使うが、利用中のVS Codeが対象イベントに対応するか確認する。`Local`、`Claude`、`Codex`などSDK以外の実行環境は対象外とし、互換処理やフォールバックを実装せず、動作も検証しない。
 
-## Codexでの利用
+## Codex・Claudeでの利用
 
-[AGENTS.md](../AGENTS.md) と [.agents/skills](../.agents/skills) を通じて、Codexでも共通指示とskillを利用できる。hookは共有対象外。
+Codexは [AGENTS.md](../AGENTS.md) と [.agents/skills](../.agents/skills)、Claudeは [CLAUDE.md](../CLAUDE.md) と [.claude/skills](../.claude/skills) を通じて、共通指示とskillを利用できる。hookは共有対象外。
 
 指示と手順の正本は `.github/copilot-instructions.md` と `.github/skills`。ラッパーの作成・同期ルールは [skillの共通規約](./skills/create-skill/references/skill-conventions.md) を参照。
 
