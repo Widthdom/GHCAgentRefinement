@@ -5,6 +5,13 @@
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
+        "bash": "python3 .github/hooks/helpers/events/postToolUse/check-cross-agent-skill-wrappers/check-cross-agent-skill-wrappers.py",
+        "powershell": "python .github/hooks/helpers/events/postToolUse/check-cross-agent-skill-wrappers/check-cross-agent-skill-wrappers.py",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
         "bash": "python3 .github/hooks/helpers/events/postToolUse/detect-edit-oscillation/detect-edit-oscillation.py",
         "powershell": "python .github/hooks/helpers/events/postToolUse/detect-edit-oscillation/detect-edit-oscillation.py",
         "timeoutSec": 10
