@@ -39,3 +39,7 @@ Codexは [AGENTS.md](../AGENTS.md) と [.agents/skills](../.agents/skills)、Cla
 ## 敵対的レビュー
 
 末尾 `;;` であるプロンプトに対する処理終了時、変更差分に対するレビューを[敵対的レビューエージェント](./agents/adversarial-review.agent.md)に依頼する。詳細は[request-adversarial-review hook README](./hooks/helpers/events/agentStop/request-adversarial-review/README.md)を参照。
+
+## hookの一時ファイルの削除
+
+hookの状態ファイルとデバッグログは、一時フォルダー配下の `ghc-agent-refinement/hook-states/` と `ghc-agent-refinement/debug-logs/` に作られ、hook自身では削除しない。`/clean-hook-temp-files` で、48時間を超えて更新されていないファイルを確認したうえで削除できる。該当するファイルが500件以上になると、セッション開始時に削除を案内する。詳細は[clean-hook-temp-files skill](./skills/clean-hook-temp-files/SKILL.md)と[check-hook-temp-files hook README](./hooks/helpers/events/sessionStart/check-hook-temp-files/README.md)を参照。
