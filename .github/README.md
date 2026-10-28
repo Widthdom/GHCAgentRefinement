@@ -21,6 +21,7 @@ Codexは [AGENTS.md](../AGENTS.md) と [.agents/skills](../.agents/skills)、Cla
 |Gitの確認|Git 2.34.1以降のインストールを支援する。|[check-git hook README](./hooks/helpers/events/sessionStart/check-git/README.md)|
 |ripgrepの確認|ripgrep 13.0.0以降のインストールを支援する。|[check-ripgrep hook README](./hooks/helpers/events/sessionStart/check-ripgrep/README.md)|
 |ast-grepの確認|ast-grepのインストールを支援する。|[check-ast-grep hook README](./hooks/helpers/events/sessionStart/check-ast-grep/README.md)|
+|jqの確認|jq 1.6以降のインストールを支援する。|[check-jq hook README](./hooks/helpers/events/sessionStart/check-jq/README.md)|
 |Copilot Instructionsの読み込み|`copilot-instructions.md` を明に追加コンテキストとして渡す。|[load-copilot-instructions hook README](./hooks/helpers/events/sessionStart/load-copilot-instructions/README.md)|
 
 ### bashまたはpowershellツールの実行前に発動

@@ -22,6 +22,12 @@
       },
       {
         "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/sessionStart/check-jq/check-jq.py",
+        "powershell": "python .github/hooks/helpers/events/sessionStart/check-jq/check-jq.py",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
         "bash": "bash .github/hooks/helpers/events/sessionStart/check-python/check-python.sh",
         "powershell": "& ./.github/hooks/helpers/events/sessionStart/check-python/check-python.cmd",
         "timeoutSec": 10
