@@ -222,6 +222,19 @@ class SetDebugModeTests(unittest.TestCase):
         if json.loads(read_text(self.other_state_path))['enabled'] is not False or read_text(self.state_path) != state_before:
             raise AssertionError('Updating another session changed the original session state.')
 
+    def test_subagent_prompt_preserves_state(self):
+        # サブエージェントへの依頼は親と同じsessionIdで届くため、親が有効にしたデバッグモードを解除しない。
+        state_before = read_text(self.state_path)
+        exit_code, output, error = self.invoke_hook_input(to_compressed_json({
+            'sessionId': self.session_id, 'prompt': 'regular subagent prompt',
+            'agentId': 'ff218530-a3e9-491e-a532-25b960bf6e9b', 'agentType': 'explore',
+        }))
+
+        if exit_code != 0 or output or error:
+            raise AssertionError(f'Subagent prompt failed: exit {exit_code}, stdout: {output}, stderr: {error}')
+        if read_text(self.state_path) != state_before or json.loads(state_before)['enabled'] is not True:
+            raise AssertionError('Subagent prompt changed the parent debug mode state.')
+
     def test_input_read_failure(self):
         state_before = read_text(self.state_path)
         hook_module = runpy.run_path(hook_path)

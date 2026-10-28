@@ -66,6 +66,12 @@ def main():
         print('userPromptSubmitted hook sessionId must be a valid UUID.', file=sys.stderr)
         return 2
 
+    # agentIdが存在する場合は、サブエージェントのコンテキストで動作していることを示すので、
+    # 状態の上書きを避けるために終了する。
+    #   サブエージェントへの依頼でもsessionIdは親と同じため、上書きすると親のデバッグモードが途中で解除される。
+    if hook_input.get('agentId'):
+        return 0
+
     # tempfile.gettempdir() は、環境変数 TMPDIR・TEMP・TMP や OS 標準の候補から、利用可能な一時フォルダーを選んで返す。
     state_directory = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'debug-mode')
 
