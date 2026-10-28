@@ -149,11 +149,10 @@ class DetectEditOscillationTests(unittest.TestCase):
         self.assert_silent(self.edit('B', payload, outside))
         self.assert_notification(self.edit('A', payload, outside), os.path.normcase(outside))
 
-    def test_skips_non_edit_tools_subagents_and_missing_paths(self):
+    def test_skips_non_edit_tools_and_missing_paths(self):
         cases = (
             {'toolName': 'bash', 'toolArgs': {'command': 'echo A > 対象.py'}},
             {'toolName': 'view', 'toolArgs': {'path': '対象.py'}},
-            {'agentId': 'child-agent'},
             {'toolArgs': {}},
             {'toolArgs': {'path': ' '}},
             {'toolArgs': None},

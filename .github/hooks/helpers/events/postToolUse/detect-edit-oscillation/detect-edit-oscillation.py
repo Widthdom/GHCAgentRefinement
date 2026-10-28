@@ -149,10 +149,6 @@ def main():
         except ValueError:
             raise ValueError('sessionId must be a valid UUID.') from None
 
-        # サブエージェントの編集を親の編集として数えない。
-        if hook_input.get('agentId'):
-            return 0
-
         for field in ('cwd', 'toolName'):
             value = hook_input.get(field)
             if not isinstance(value, str) or not value.strip():
