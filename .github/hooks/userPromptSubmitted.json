@@ -4,6 +4,11 @@
     "userPromptSubmitted": [
       {
         "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/userPromptSubmitted/give-subagents-instructions/give-subagents-instructions.py",
+        "powershell": "python .github/hooks/helpers/events/userPromptSubmitted/give-subagents-instructions/give-subagents-instructions.py"
+      },
+      {
+        "type": "command",
         "bash": "python3 .github/hooks/helpers/events/userPromptSubmitted/set-adversarial-review-state/set-adversarial-review-state.py",
         "powershell": "python .github/hooks/helpers/events/userPromptSubmitted/set-adversarial-review-state/set-adversarial-review-state.py"
       },

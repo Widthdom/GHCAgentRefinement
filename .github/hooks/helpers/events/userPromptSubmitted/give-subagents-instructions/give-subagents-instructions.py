@@ -1,0 +1,49 @@
+import json
+import pathlib
+import sys
+
+
+def main():
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8', errors='backslashreplace')
+
+    try:
+        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
+        if not hook_input_json.strip():
+            raise ValueError('hook input is empty.')
+        hook_input = json.loads(hook_input_json)
+        if not isinstance(hook_input, dict):
+            raise ValueError('hook input must be a JSON object.')
+        # サブエージェントへの依頼のときだけ、入力にagentIdが含まれる。
+        # 親のセッションにはsessionStartのload-copilot-instructions hookが指示を渡すため、ここでは何もしない。
+        agent_id = hook_input.get('agentId')
+        if agent_id is None:
+            return 0
+        if not isinstance(agent_id, str) or not agent_id.strip():
+            raise ValueError('agentId must be a non-empty string.')
+    except (OSError, UnicodeError, ValueError) as ex:
+        print(f'Failed to parse userPromptSubmitted hook input: {ex}', file=sys.stderr)
+        return 2
+
+    # サブエージェントではsessionStartが発火しないため、親と同じ指示ファイルを依頼文に添えて渡す。
+    # .parents[5]：6階層上。ここでは .github ディレクトリ
+    instructions_path = pathlib.Path(__file__).absolute().parents[5] / 'copilot-instructions.md'
+    if not instructions_path.is_file():
+        print(f'Copilot instructions file not found: {instructions_path}', file=sys.stderr)
+        return 2
+
+    # `utf-8-sig` を指定することで、BOMが存在する場合は取り除いて読むことができる。
+    with instructions_path.open(encoding='utf-8-sig', newline='') as instructions_file:
+        instructions = instructions_file.read()
+
+    if not instructions.strip():
+        print(f'Copilot instructions file is empty: {instructions_path}', file=sys.stderr)
+        return 2
+
+    # SDK形式のトップレベルadditionalContext。依頼文に添えてサブエージェントへ渡される。
+    print(json.dumps({'additionalContext': instructions}, ensure_ascii=False, separators=(',', ':')))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
