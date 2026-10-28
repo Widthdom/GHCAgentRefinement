@@ -77,11 +77,11 @@ class DetectEditOscillationTests(unittest.TestCase):
             configuration = json.load(file)
         self.assertEqual(configuration['version'], 1)
         self.assertEqual(set(configuration['hooks']), {'postToolUse'})
-        entries = configuration['hooks']['postToolUse']
-        self.assertEqual(len(entries), 1)
         relative_path = '.github/hooks/helpers/events/postToolUse/detect-edit-oscillation/detect-edit-oscillation.py'
+        # 同じイベントの他のhookが増えても、配列の位置ではなくパスで自身の設定を探す。
+        entries = [entry for entry in configuration['hooks']['postToolUse'] if entry.get('bash') == f'python3 {relative_path}']
+        self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['bash'], f'python3 {relative_path}')
         self.assertEqual(entries[0]['powershell'], f'python {relative_path}')
         for tool_name in ('edit', 'functions.create', 'insert', 'str_replace_editor', 'apply_patch'):
             with self.subTest(tool_name=tool_name):
