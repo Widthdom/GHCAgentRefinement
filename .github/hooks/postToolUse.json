@@ -15,6 +15,13 @@
         "bash": "python3 .github/hooks/helpers/events/postToolUse/preserve-line-endings/preserve-line-endings.py",
         "powershell": "python .github/hooks/helpers/events/postToolUse/preserve-line-endings/preserve-line-endings.py",
         "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "(?:functions\\.)?(?:view|edit|create|insert|str_replace_editor|apply_patch)",
+        "bash": "python3 .github/hooks/helpers/events/postToolUse/record-seen-files/record-seen-files.py",
+        "powershell": "python .github/hooks/helpers/events/postToolUse/record-seen-files/record-seen-files.py",
+        "timeoutSec": 10
       }
     ]
   }

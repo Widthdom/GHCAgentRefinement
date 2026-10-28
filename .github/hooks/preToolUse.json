@@ -8,6 +8,13 @@
         "bash": "bash .github/hooks/helpers/events/preToolUse/block-commands/block-commands.sh",
         "powershell": "& ./.github/hooks/helpers/events/preToolUse/block-commands/block-commands.cmd",
         "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
+        "bash": "python3 .github/hooks/helpers/events/preToolUse/require-read-before-edit/require-read-before-edit.py",
+        "powershell": "python .github/hooks/helpers/events/preToolUse/require-read-before-edit/require-read-before-edit.py",
+        "timeoutSec": 10
       }
     ]
   }
