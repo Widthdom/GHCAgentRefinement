@@ -4,6 +4,12 @@
     "sessionStart": [
       {
         "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/sessionStart/check-ast-grep/check-ast-grep.py",
+        "powershell": "python .github/hooks/helpers/events/sessionStart/check-ast-grep/check-ast-grep.py",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
         "bash": "python3 .github/hooks/helpers/events/sessionStart/check-git/check-git.py",
         "powershell": "python .github/hooks/helpers/events/sessionStart/check-git/check-git.py",
         "timeoutSec": 10
