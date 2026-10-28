@@ -25,8 +25,8 @@ class DebugLogTransformedPromptTests(unittest.TestCase):
         self.environment = os.environ.copy()
         self.environment.update({'TMPDIR': self.root, 'TEMP': self.root, 'TMP': self.root})
         self.session_id = str(uuid.uuid4())
-        self.debug_directory = os.path.join(self.root, 'ghc-agent-refinement', 'debug-mode')
-        self.log_root = os.path.join(self.root, 'ghc-agent-refinement', 'prompt-transformations')
+        self.debug_directory = os.path.join(self.root, 'ghc-agent-refinement', 'hook-states', 'debug-mode')
+        self.log_root = os.path.join(self.root, 'ghc-agent-refinement', 'debug-logs', 'prompt-transformations')
         self.log_directory = os.path.join(self.log_root, self.session_id)
         self.known_paths = set()
         self.payload = {
@@ -221,6 +221,7 @@ class DebugLogTransformedPromptTests(unittest.TestCase):
                 self.assertFalse(os.path.exists(self.log_root))
 
     def test_log_location_conflict_reports_error(self):
+        os.makedirs(os.path.dirname(self.log_root), exist_ok=True)
         with open(self.log_root, 'w', encoding='utf-8') as file:
             file.write('A file occupies the log directory')
         result = self.invoke()

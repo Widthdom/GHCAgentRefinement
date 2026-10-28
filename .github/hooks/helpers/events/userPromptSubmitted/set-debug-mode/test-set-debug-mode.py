@@ -54,7 +54,7 @@ class SetDebugModeTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix='ghc-agent-refinement-set-debug-test-')
         self.addCleanup(self.temporary.cleanup)
         self.test_temp_directory = self.temporary.name
-        self.state_directory = os.path.join(self.test_temp_directory, 'ghc-agent-refinement', 'debug-mode')
+        self.state_directory = os.path.join(self.test_temp_directory, 'ghc-agent-refinement', 'hook-states', 'debug-mode')
 
         self.session_id = str(uuid.uuid4())
 

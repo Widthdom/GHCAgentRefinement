@@ -31,7 +31,7 @@ class PreserveLineEndingsTests(unittest.TestCase):
             'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_CONFIG_NOSYSTEM': '1',
         })
         self.session_id = str(uuid.uuid4())
-        self.state_directory = os.path.join(self.root, 'ghc-agent-refinement', 'preserve-line-endings')
+        self.state_directory = os.path.join(self.root, 'ghc-agent-refinement', 'hook-states', 'preserve-line-endings')
         self.state_path = os.path.join(self.state_directory, f'{self.session_id}.sqlite3')
         self.workspace = os.path.join(self.root, 'workspace')
         os.makedirs(self.workspace)

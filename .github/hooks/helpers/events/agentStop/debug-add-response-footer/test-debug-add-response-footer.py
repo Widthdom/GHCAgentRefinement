@@ -39,7 +39,7 @@ class DebugResponseFooterTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory(prefix='ghc-agent-refinement-footer-test-')
         self.addCleanup(self.temporary.cleanup)
         self.temp_dir = self.temporary.name
-        self.debug_state_dir = os.path.join(self.temp_dir, 'ghc-agent-refinement', 'debug-mode')
+        self.debug_state_dir = os.path.join(self.temp_dir, 'ghc-agent-refinement', 'hook-states', 'debug-mode')
         os.makedirs(self.debug_state_dir)
         self.enabled_session_id = _new_session_id()
         self.enabled_state_path = os.path.join(self.debug_state_dir, f'{self.enabled_session_id}.json')

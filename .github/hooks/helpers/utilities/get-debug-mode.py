@@ -5,7 +5,7 @@ import tempfile
 
 def get_debug_mode(session_id):
     debug_state_file_path = os.path.join(
-        tempfile.gettempdir(), 'ghc-agent-refinement', 'debug-mode', f'{session_id}.json',
+        tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'debug-mode', f'{session_id}.json',
     )
     if not os.path.isfile(debug_state_file_path):
         return False

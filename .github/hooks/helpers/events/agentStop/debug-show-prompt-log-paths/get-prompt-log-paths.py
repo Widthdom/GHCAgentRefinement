@@ -44,7 +44,7 @@ def get_prompt_log_paths(transcript_path, session_id):
                 timestamps.add(timestamp)
 
     log_directory = os.path.join(
-        tempfile.gettempdir(), 'ghc-agent-refinement', 'prompt-transformations', str(session_id),
+        tempfile.gettempdir(), 'ghc-agent-refinement', 'debug-logs', 'prompt-transformations', str(session_id),
     )
     paths = []
     for timestamp in sorted(timestamps):

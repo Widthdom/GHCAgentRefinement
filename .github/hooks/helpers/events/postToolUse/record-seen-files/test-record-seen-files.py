@@ -25,7 +25,7 @@ class RecordSeenFilesTests(unittest.TestCase):
         self.environment = os.environ.copy()
         self.environment.update({'TMPDIR': self.root, 'TEMP': self.root, 'TMP': self.root})
         self.session_id = str(uuid.uuid4())
-        self.state_directory = os.path.join(self.root, 'ghc-agent-refinement', 'known-files')
+        self.state_directory = os.path.join(self.root, 'ghc-agent-refinement', 'hook-states', 'known-files')
         self.state_path = os.path.join(self.state_directory, f'{self.session_id}.sqlite3')
         self.workspace = os.path.join(self.root, 'workspace')
         os.makedirs(os.path.join(self.workspace, 'sub'))

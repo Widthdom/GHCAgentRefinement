@@ -46,7 +46,7 @@ def get_state_path(session_id):
     except ValueError:
         raise ValueError('sessionId must be a valid UUID.') from None
     return os.path.join(
-        tempfile.gettempdir(), 'ghc-agent-refinement', 'known-files', f'{parsed_session_id}.sqlite3',
+        tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'known-files', f'{parsed_session_id}.sqlite3',
     )
 
 

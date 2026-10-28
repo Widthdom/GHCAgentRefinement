@@ -73,7 +73,7 @@ def main():
         return 0
 
     # tempfile.gettempdir() は、環境変数 TMPDIR・TEMP・TMP や OS 標準の候補から、利用可能な一時フォルダーを選んで返す。
-    state_directory = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'debug-mode')
+    state_directory = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'debug-mode')
 
     # 状態ファイルのパスを決定。
     state_path = os.path.join(state_directory, f'{parsed_session_id}.json')

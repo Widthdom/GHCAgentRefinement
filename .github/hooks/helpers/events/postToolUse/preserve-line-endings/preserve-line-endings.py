@@ -202,7 +202,7 @@ def main():
         # hookは呼び出しごとに別プロセスなので、通知済みの変更をセッションUUID別に保存する。
         # DBファイル自体は自動削除しない。
         state_directory = os.path.join(
-            tempfile.gettempdir(), 'ghc-agent-refinement', 'preserve-line-endings',
+            tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'preserve-line-endings',
         )
         state_path = os.path.join(state_directory, f'{parsed_session_id}.sqlite3')
         notifications = []

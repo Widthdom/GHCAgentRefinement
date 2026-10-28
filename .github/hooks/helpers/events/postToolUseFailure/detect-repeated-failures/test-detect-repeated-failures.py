@@ -27,7 +27,7 @@ class DetectRepeatedFailuresTests(unittest.TestCase):
         self.environment = os.environ.copy()
         self.environment.update({'TMPDIR': self.root, 'TEMP': self.root, 'TMP': self.root})
         self.session_id = str(uuid.uuid4())
-        self.state_directory = os.path.join(self.root, 'ghc-agent-refinement', 'repeated-failures')
+        self.state_directory = os.path.join(self.root, 'ghc-agent-refinement', 'hook-states', 'repeated-failures')
         self.state_path = os.path.join(self.state_directory, f'{self.session_id}.sqlite3')
         self.payload = {
             'sessionId': self.session_id,

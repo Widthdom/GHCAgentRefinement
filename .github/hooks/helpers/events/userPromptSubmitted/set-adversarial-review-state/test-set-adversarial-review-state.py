@@ -23,7 +23,7 @@ class ReviewModeTests(unittest.TestCase):
         self.environment = os.environ.copy()
         self.environment.update(dict.fromkeys(('TMPDIR', 'TMP', 'TEMP'), self.temporary.name))
         self.state_directory = os.path.join(
-            self.temporary.name, 'ghc-agent-refinement', 'adversarial-review',
+            self.temporary.name, 'ghc-agent-refinement', 'hook-states', 'adversarial-review',
         )
 
     def invoke(self, payload):
@@ -71,7 +71,7 @@ class ReviewModeTests(unittest.TestCase):
         self.assertEqual(self.invoke({'sessionId': self.session_id, 'prompt': 'rearm;;'}).returncode, 0)
         self.assertTrue(self.state()['pending'])
         self.assertFalse(os.path.exists(os.path.join(
-            self.temporary.name, 'ghc-agent-refinement', 'debug-mode',
+            self.temporary.name, 'ghc-agent-refinement', 'hook-states', 'debug-mode',
         )))
 
     def test_subagent_does_not_overwrite_parent_mode(self):
@@ -89,7 +89,7 @@ class ReviewModeTests(unittest.TestCase):
             'set-debug-mode.py',
         )
         debug_path = os.path.join(
-            self.temporary.name, 'ghc-agent-refinement', 'debug-mode',
+            self.temporary.name, 'ghc-agent-refinement', 'hook-states', 'debug-mode',
             f'{self.session_id}.json',
         )
         for prompt, debug_enabled, review_enabled in (
@@ -125,8 +125,8 @@ class ReviewModeTests(unittest.TestCase):
                 self.assertTrue(result.stderr)
 
     def test_write_failure_exit_code(self):
-        os.mkdir(os.path.join(self.temporary.name, 'ghc-agent-refinement'))
-        with open(os.path.join(self.temporary.name, 'ghc-agent-refinement', 'adversarial-review'), 'w'):
+        os.makedirs(os.path.join(self.temporary.name, 'ghc-agent-refinement', 'hook-states'))
+        with open(os.path.join(self.temporary.name, 'ghc-agent-refinement', 'hook-states', 'adversarial-review'), 'w'):
             pass
         result = self.invoke({'sessionId': self.session_id, 'prompt': ';;'})
         self.assertEqual(result.returncode, 2)

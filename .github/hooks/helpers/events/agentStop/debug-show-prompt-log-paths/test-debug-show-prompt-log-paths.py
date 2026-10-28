@@ -25,11 +25,11 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
         self.environment = os.environ.copy()
         self.environment.update({'TMPDIR': self.root, 'TEMP': self.root, 'TMP': self.root})
         self.session_id = str(uuid.uuid4())
-        self.debug_path = os.path.join(self.root, 'ghc-agent-refinement', 'debug-mode', f'{self.session_id}.json')
+        self.debug_path = os.path.join(self.root, 'ghc-agent-refinement', 'hook-states', 'debug-mode', f'{self.session_id}.json')
         os.makedirs(os.path.dirname(self.debug_path))
         self.write_debug_state({'enabled': True})
         self.log_directory = os.path.join(
-            self.root, 'ghc-agent-refinement', 'prompt-transformations', self.session_id,
+            self.root, 'ghc-agent-refinement', 'debug-logs', 'prompt-transformations', self.session_id,
         )
         os.makedirs(self.log_directory)
         self.log_path = self.write_log('100-user.md')

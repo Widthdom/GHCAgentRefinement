@@ -12,6 +12,6 @@ userPromptTransformed（モデルへ渡すプロンプトの変換直後）
 
 ## 備考
 
-- 保存先は一時フォルダー配下の `ghc-agent-refinement/prompt-transformations/<session-uuid>/`。イベントごとにファイルを作成する。
+- 保存先は一時フォルダー配下の `ghc-agent-refinement/debug-logs/prompt-transformations/<session-uuid>/`。イベントごとにファイルを作成する。
 - プロンプト全文を保存する。差分がない場合も記録する。
 - 差分は `diff` コードブロックで表示する（`+` が追加行、`-` が削除行）。

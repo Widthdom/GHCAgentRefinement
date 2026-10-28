@@ -36,7 +36,7 @@ class RequestReviewTests(unittest.TestCase):
         })
         self.session_id = str(uuid.uuid4())
         self.state_path = os.path.join(
-            self.temporary.name, 'ghc-agent-refinement', 'adversarial-review',
+            self.temporary.name, 'ghc-agent-refinement', 'hook-states', 'adversarial-review',
             f'{self.session_id}.json',
         )
         self.git('init', '-q')

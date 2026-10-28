@@ -47,7 +47,7 @@ def format_log(hook_input, session_id):
 
 def save_log(content, session_id, timestamp):
     log_directory = os.path.join(
-        tempfile.gettempdir(), 'ghc-agent-refinement', 'prompt-transformations', str(session_id),
+        tempfile.gettempdir(), 'ghc-agent-refinement', 'debug-logs', 'prompt-transformations', str(session_id),
     )
     os.makedirs(log_directory, exist_ok=True)
     temporary_path = None

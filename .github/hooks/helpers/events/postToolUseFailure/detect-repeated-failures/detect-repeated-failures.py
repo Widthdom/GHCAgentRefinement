@@ -104,7 +104,7 @@ def main():
         # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
         # 期限切れレコードは次回失敗時に削除する。DBファイル自体は自動削除しない。
         state_directory = os.path.join(
-            tempfile.gettempdir(), 'ghc-agent-refinement', 'repeated-failures',
+            tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'repeated-failures',
         )
         os.makedirs(state_directory, exist_ok=True)
         state_path = os.path.join(state_directory, f'{parsed_session_id}.sqlite3')
