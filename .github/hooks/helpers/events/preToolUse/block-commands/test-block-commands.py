@@ -175,6 +175,7 @@ class BlockCommandsTests(unittest.TestCase):
             environment['BLOCK_COMMANDS_TEST_HOOK'] = wrapper_path or os.path.join(script_directory, 'block-commands.cmd')
             environment['BLOCK_COMMANDS_TEST_PYTHON'] = sys.executable
             environment['BLOCK_COMMANDS_TEST_TOKEN'] = 'unexpected-expansion'
+            environment['PYTHON_HOME'] = sys.base_prefix
             options = ''
             if definitions_file is not None:
                 environment['BLOCK_COMMANDS_TEST_DEFINITIONS'] = definitions_file
