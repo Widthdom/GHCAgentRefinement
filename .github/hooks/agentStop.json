@@ -24,6 +24,11 @@
       },
       {
         "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/agentStop/require-hook-tests/require-hook-tests.py",
+        "powershell": "python .github/hooks/helpers/events/agentStop/require-hook-tests/require-hook-tests.py"
+      },
+      {
+        "type": "command",
         "bash": "python3 .github/hooks/helpers/events/agentStop/verify-completion-claims/verify-completion-claims.py",
         "powershell": "python .github/hooks/helpers/events/agentStop/verify-completion-claims/verify-completion-claims.py"
       }
