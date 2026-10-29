@@ -1,0 +1,222 @@
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+
+
+script_directory = os.path.dirname(os.path.abspath(__file__))
+hook_path = os.path.join(script_directory, 'block-shell-file-edits.py')
+hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
+sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests
+
+
+class BlockShellFileEditsTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-shell-file-edits-test-')
+        self.addCleanup(temporary.cleanup)
+        self.root = os.path.realpath(temporary.name)
+        self.workspace = os.path.join(self.root, 'workspace')
+        os.makedirs(os.path.join(self.workspace, 'sub'))
+        for path in ('対象.txt', 'other.txt', 'untracked.txt', os.path.join('sub', 'nested.txt')):
+            with open(os.path.join(self.workspace, path), 'w', encoding='utf-8') as file:
+                file.write('a\n')
+        subprocess.run(['git', 'init', '-q', self.workspace], check=True)
+        subprocess.run(
+            ['git', '-C', self.workspace, 'add', '--', '対象.txt', 'other.txt', 'sub/nested.txt'], check=True,
+        )
+        self.outside = os.path.join(self.root, 'outside.txt')
+        with open(self.outside, 'w', encoding='utf-8') as file:
+            file.write('a\n')
+
+    def payload(self, *tool_calls):
+        return {
+            'sessionId': 'test-session',
+            'cwd': self.workspace,
+            'toolCalls': [
+                {'id': f'call_{index}', 'name': name, 'args': args} for index, (name, args) in enumerate(tool_calls)
+            ],
+        }
+
+    def run_hook(self, payload=None, raw=None):
+        if raw is None:
+            raw = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+        return subprocess.run(
+            [sys.executable, hook_path], input=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
+        )
+
+    def invoke(self, *tool_calls):
+        return self.run_hook(self.payload(*tool_calls))
+
+    def assert_allowed(self, result):
+        self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
+
+    def assert_denied(self, result, files):
+        self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
+        self.assertEqual(result.stderr, b'')
+        self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
+        output = json.loads(result.stdout.decode('utf-8'))
+        self.assertEqual(set(output), {'permissionDecision', 'permissionDecisionReason'})
+        self.assertEqual(output['permissionDecision'], 'deny')
+        self.assertIn(f'writes to the following git-tracked files: {files}.', output['permissionDecisionReason'])
+
+    def test_configuration(self):
+        with open(os.path.join(hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
+            configuration = json.load(file)
+        relative_path = '.github/hooks/helpers/events/preToolUse/block-shell-file-edits/block-shell-file-edits.py'
+        entries = [
+            entry for entry in configuration['hooks']['preToolUse']
+            if entry.get('bash') == f'python3 {relative_path}'
+        ]
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]['type'], 'command')
+        self.assertEqual(entries[0]['powershell'], f'python {relative_path}')
+        for tool_name in ('bash', 'powershell', 'functions.bash', 'functions.powershell'):
+            with self.subTest(tool_name=tool_name):
+                self.assertRegex(tool_name, f'^(?:{entries[0]["matcher"]})$')
+        for tool_name in ('edit', 'view', 'apply_patch'):
+            with self.subTest(tool_name=tool_name):
+                self.assertNotRegex(tool_name, f'^(?:{entries[0]["matcher"]})$')
+
+    def test_denies_bash_writes_to_tracked_files(self):
+        commands = (
+            "sed -i 's/a/b/' 対象.txt",
+            'sed -i.bak -e s/a/b/ 対象.txt',
+            "sed -i '' 's/a/b/' 対象.txt",
+            'sed --in-place=.bak s/a/b/ 対象.txt',
+            'sed -Ei s/a/b/ ./sub/../対象.txt',
+            "perl -pi -e 's/a/b/' 対象.txt",
+            'echo x > 対象.txt',
+            'echo x>>対象.txt',
+            'make 2> 対象.txt',
+            'make &>対象.txt',
+            'make >| 対象.txt',
+            'printf x | tee -a 対象.txt',
+            'FOO=1 sudo -n sed -i s/a/b/ 対象.txt',
+            '/usr/bin/sed -i s/a/b/ 対象.txt',
+            'sed -i s/a/b/ 対象.*',
+            "cat > 対象.txt <<'EOF'\nbody\nEOF",
+            'echo hi # comment\nsed -i s/a/b/ 対象.txt',
+            'echo "multi\nline" \\\n  > 対象.txt',
+            f"echo x > '{os.path.join(self.workspace, '対象.txt')}'",
+        )
+        for command in commands:
+            with self.subTest(command=command):
+                self.assert_denied(self.invoke(('bash', {'command': command})), '対象.txt')
+
+    def test_denies_powershell_writes_to_tracked_files(self):
+        commands = (
+            'Set-Content -Path 対象.txt -Value x',
+            "'x' | Out-File 対象.txt -Encoding utf8",
+            'Add-Content 対象.txt x',
+            'sc 対象.txt x',
+            "set-content -LiteralPath:'対象.txt' x",
+            'echo x > 対象.txt',
+            'echo x 2>&1 >> "対象.txt"',
+            "[System.IO.File]::WriteAllText('対象.txt', 'x')",
+            '[IO.File]::AppendAllLines("対象.txt", $lines)',
+            'Get-Content untracked.txt | Set-Content `\n  対象.txt',
+            "Clear-Content .\\対象.txt",
+            "Out-File -FilePath untracked.txt,対象.txt -InputObject x",
+            "sed -i 's/a/b/' 対象.txt",
+            # PowerShellのteeはTee-Objectの別名で、最初の引数に書き込む。
+            'Get-Date | tee 対象.txt',
+        )
+        for command in commands:
+            with self.subTest(command=command):
+                self.assert_denied(self.invoke(('powershell', {'command': command})), '対象.txt')
+
+    def test_follows_directory_changes(self):
+        nested = os.path.join('sub', 'nested.txt')
+        cases = (
+            ('bash', 'cd sub && echo x > nested.txt'),
+            ('bash', 'cd sub; cd ..; echo x > sub/nested.txt'),
+            ('powershell', "Set-Location sub; 'x' | Tee-Object -FilePath nested.txt"),
+        )
+        for tool_name, command in cases:
+            with self.subTest(command=command):
+                self.assert_denied(self.invoke((tool_name, {'command': command})), nested)
+        # 移動先がわからない場合は基準を移さない。
+        self.assert_allowed(self.invoke(('bash', {'command': 'cd "$DIR" && echo x > nested.txt'})))
+
+    def test_lists_multiple_files_and_tool_formats(self):
+        result = self.invoke(
+            ('functions.bash', json.dumps({'command': 'echo x > other.txt'})),
+            ('view', {'path': '対象.txt'}),
+            ('PowerShell', {'command': "Set-Content 対象.txt x; Set-Content 'other.txt' y"}),
+            ('bash', {'command': 'echo x | tee sub/nested.txt untracked.txt'}),
+        )
+        self.assert_denied(result, ', '.join(sorted(['other.txt', os.path.join('sub', 'nested.txt'), '対象.txt'])))
+
+    def test_allows_commands_that_do_not_write_tracked_files(self):
+        cases = (
+            ('bash', 'echo x > untracked.txt'),
+            ('bash', 'echo x > new.txt'),
+            ('bash', f"echo x > '{self.outside}'"),
+            ('bash', 'make > /dev/null 2>&1'),
+            ('bash', 'make 2>&1 | tail'),
+            ('bash', 'cat 対象.txt; grep a < 対象.txt'),
+            ('bash', "sed 's/a/b/' 対象.txt"),
+            ('bash', "sed -n 's/a/b/p' 対象.txt > untracked.txt"),
+            ('bash', 'sed -i s/a/b/ untracked.txt'),
+            ('bash', 'echo "a > 対象.txt"'),
+            ('bash', "cat <<EOF > untracked.txt\n> 対象.txt\nEOF"),
+            ('bash', 'cat <<< "x" > untracked.txt'),
+            ('bash', 'echo x > "$TARGET"'),
+            ('bash', 'echo x > `name`'),
+            ('bash', "echo 'unclosed > 対象.txt"),
+            ('bash', 'tee'),
+            ('bash', 'Set-Content 対象.txt x'),
+            ('powershell', 'Get-Content 対象.txt'),
+            ('powershell', 'Write-Output x > $null'),
+            ('powershell', "Write-Output 'a > 対象.txt'"),
+            ('powershell', '# echo x > 対象.txt\nGet-Date'),
+            ('powershell', '<# echo x > 対象.txt #> Get-Date'),
+            ("powershell", "$s = @'\necho x > 対象.txt\n'@\nSet-Content untracked.txt $s"),
+            ('powershell', 'Write-Output 1 2>&1'),
+            ('powershell', 'Set-Content $path x'),
+        )
+        for tool_name, command in cases:
+            with self.subTest(command=command):
+                self.assert_allowed(self.invoke((tool_name, {'command': command})))
+
+    def test_allows_other_tools_and_missing_commands(self):
+        cases = (
+            [('edit', {'path': '対象.txt'})],
+            [('bash', {})],
+            [('bash', None)],
+            [('bash', 'not json')],
+            [('bash', {'command': 3})],
+        )
+        for tool_calls in cases:
+            with self.subTest(tool_calls=tool_calls):
+                self.assert_allowed(self.invoke(*tool_calls))
+
+    def test_allows_outside_git_repository(self):
+        payload = self.payload(('bash', {'command': 'echo x > outside.txt'}))
+        payload['cwd'] = self.root
+        self.assert_allowed(self.run_hook(payload))
+
+    def test_invalid_input_reports_error(self):
+        base = self.payload(('bash', {'command': 'echo x'}))
+        invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'true', b'{"cwd":"\xff"}']
+        for field in ('cwd', 'toolCalls'):
+            payload = base.copy()
+            del payload[field]
+            invalid.append(json.dumps(payload).encode('utf-8'))
+        for value in ('', ' \t', None, 3, False, [], {}, 'relative'):
+            invalid.append(json.dumps({**base, 'cwd': value}).encode('utf-8'))
+        for value in (None, [], {}, 'bash', [None], ['bash'], [{'args': {}}], [{'name': ' '}], [{'name': 3}]):
+            invalid.append(json.dumps({**base, 'toolCalls': value}).encode('utf-8'))
+        for raw in invalid:
+            with self.subTest(raw=raw):
+                result = self.run_hook(raw=raw)
+                self.assertEqual(result.returncode, 2)
+                self.assertEqual(result.stdout, b'')
+                self.assertIn(b'Failed to check shell file edits:', result.stderr)
+
+
+if __name__ == '__main__':
+    run_tests()

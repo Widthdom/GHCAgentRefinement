@@ -29,6 +29,7 @@ Codexは [AGENTS.md](../AGENTS.md) と [.agents/skills](../.agents/skills)、Cla
 |hook|概要|参考|
 |--|--|--|
 |危険コマンドの実行拒否|[`blocked-command-definitions.json`](./hooks/helpers/events/preToolUse/block-commands/blocked-command-definitions.json)にて定義されたコマンドの実行を拒否する。|[block-commands hook README](./hooks/helpers/events/preToolUse/block-commands/README.md)|
+|シェルでのファイル書き換えの拒否|git管理ファイルへのリダイレクトや `sed -i`・`Set-Content` などでの書き込みを拒否し、ファイル編集ツールを使わせる。|[block-shell-file-edits hook README](./hooks/helpers/events/preToolUse/block-shell-file-edits/README.md)|
 
 ### ツール実行３回失敗で方針転換
 

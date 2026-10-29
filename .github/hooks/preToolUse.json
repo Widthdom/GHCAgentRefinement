@@ -11,6 +11,13 @@
       },
       {
         "type": "command",
+        "matcher": "(?:functions\\.)?(?:bash|powershell)",
+        "bash": "python3 .github/hooks/helpers/events/preToolUse/block-shell-file-edits/block-shell-file-edits.py",
+        "powershell": "python .github/hooks/helpers/events/preToolUse/block-shell-file-edits/block-shell-file-edits.py",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
         "bash": "python3 .github/hooks/helpers/events/preToolUse/require-read-before-edit/require-read-before-edit.py",
         "powershell": "python .github/hooks/helpers/events/preToolUse/require-read-before-edit/require-read-before-edit.py",
