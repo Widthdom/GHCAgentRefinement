@@ -1,3 +1,4 @@
+import json
 import os
 import runpy
 import shutil
@@ -73,6 +74,16 @@ failure_messages = {
     ),
 }
 
+
+def get_expected_output(failure_message):
+    # 標準エラーと同じ案内を、エージェントへの指示とともにadditionalContextとして渡すこと。
+    return json.dumps({
+        'additionalContext': (
+            f'{failure_message}At the start of your first response, tell the user about this in the language you '
+            'respond in, including how to install it. Do not install it yourself.'
+        ),
+    }, ensure_ascii=False, separators=(',', ':')) + '\n'
+
 hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
 sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
@@ -100,12 +111,14 @@ class CheckPythonTests(unittest.TestCase):
             for system, expected_error in failure_messages.items():
                 with self.subTest(system=system, expected_error=expected_error):
                     return_code, output, error, args = invoke_shell_hook(1, system)
-                    if ((return_code, output, error) != (2, '', expected_error) or
+                    if ((return_code, output, error) != (0, get_expected_output(expected_error), expected_error) or
                             os.path.abspath(args.rstrip('\n')) != version_check_path):
                         raise AssertionError(f'Unexpected failed check-python.sh result on {system}: {return_code}, {output!r}, {error!r}, {args!r}')
 
             return_code, output, error, args = invoke_shell_hook(None, 'Linux')
-            if (return_code, output, error, args) != (2, '', failure_messages['Linux'], None):
+            if (return_code, output, error, args) != (
+                0, get_expected_output(failure_messages['Linux']), failure_messages['Linux'], None,
+            ):
                 raise AssertionError(f'Unexpected missing-python3 result: {return_code}, {output!r}, {error!r}')
         else:
             command_processor = os.environ.get('ComSpec')
@@ -115,7 +128,6 @@ class CheckPythonTests(unittest.TestCase):
             cmd_hook_path = os.path.join(script_directory, 'check-python.cmd')
             for code_page, status in ((932, 0), (932, 1), (65001, 0), (65001, 1)):
                 with self.subTest(code_page=code_page, status=status):
-                    expected_exit = 0 if status == 0 else 2
                     expected_error = '' if status == 0 else (
                         'Python 3.14 or later is required, and it must be available as the python command.\n'
                         'Install it with: winget install Python.Python.3.14 --source winget\n'
@@ -163,7 +175,8 @@ class CheckPythonTests(unittest.TestCase):
                             text=True,
                             creationflags=subprocess.CREATE_NO_WINDOW,
                         )
-                        if (result.returncode, result.stdout, result.stderr) != (expected_exit, '', expected_error):
+                        expected_output = '' if status == 0 else get_expected_output(expected_error)
+                        if (result.returncode, result.stdout, result.stderr) != (0, expected_output, expected_error):
                             raise AssertionError(
                                 f'Unexpected check-python.cmd result on CP{code_page}: {result.returncode}, '
                                 f'{result.stdout!r}, {result.stderr!r}'

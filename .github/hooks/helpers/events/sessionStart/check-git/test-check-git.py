@@ -1,5 +1,6 @@
 import contextlib
 import io
+import json
 import os
 import runpy
 import subprocess
@@ -21,18 +22,37 @@ def assert_equal(actual, expected, message):
 def run_main(platform, output=None, error=None):
     # outputは `git --version` の標準出力、errorは起動時に送出する例外。
     run = Mock(side_effect=error) if error else Mock(return_value=Mock(stdout=output))
+    stdout = io.StringIO()
     stderr = io.StringIO()
     with (
         patch.object(check_git['subprocess'], 'run', run),
         patch.object(check_git['sys'], 'platform', platform),
+        patch.object(stdout, 'reconfigure', create=True),
         patch.object(stderr, 'reconfigure', create=True),
+        contextlib.redirect_stdout(stdout),
         contextlib.redirect_stderr(stderr),
     ):
         exit_code = check_git['main']()
     run.assert_called_once_with(
         ['git', '--version'], capture_output=True, text=True, errors='replace', check=True
     )
-    return exit_code, stderr.getvalue()
+    return exit_code, stderr.getvalue(), stdout.getvalue()
+
+
+def assert_notified(result, install_message, message):
+    # 案内を標準エラーに出し、同じ案内をadditionalContextでエージェントに渡して正常終了すること。
+    exit_code, stderr, stdout = result
+    expected = (
+        'Git 2.34.1 or later is required, and it must be available as the git command.\n'
+        f'{install_message}\n'
+        'After installation, restart the application or terminal running this hook to refresh PATH.'
+    )
+    assert_equal(exit_code, 0, f'{message} The hook must not fail.')
+    assert_equal(stderr, f'{expected}\n', f'{message} Unexpected stderr.')
+    assert_equal(
+        json.loads(stdout), {'additionalContext': check_git['ADDITIONAL_CONTEXT'].format(message=expected)},
+        f'{message} Unexpected stdout.',
+    )
 
 
 satisfied_outputs = [
@@ -63,14 +83,12 @@ class CheckGitTests(unittest.TestCase):
     def test_supported_versions(self):
         for output in satisfied_outputs:
             with self.subTest(output=output):
-                assert_equal(run_main('linux', output), (0, ''), f"'{output.strip()}' must satisfy the requirement.")
+                assert_equal(run_main('linux', output), (0, '', ''), f"'{output.strip()}' must satisfy the requirement.")
 
     def test_command_failure(self):
-        assert_equal(
+        assert_notified(
             run_main('linux', 'git version 2.47.1\n', subprocess.CalledProcessError(1, ['git', '--version'])),
-            (2, 'Git 2.34.1 or later is required, and it must be available as the git command.\n'
-                'Installation guide: https://git-scm.com/install/linux\n'
-                'After installation, restart the application or terminal running this hook to refresh PATH.\n'),
+            install_messages['linux'],
             'A failed git --version command must not satisfy the requirement.',
         )
 
@@ -78,15 +96,7 @@ class CheckGitTests(unittest.TestCase):
         for platform, install_message in install_messages.items():
             with self.subTest(platform=platform, install_message=install_message):
                 for name, arguments in unsatisfied_cases:
-                    exit_code, stderr = run_main(platform, **arguments)
-                    assert_equal(exit_code, 2, f"Case '{name}' on {platform} must fail.")
-                    assert_equal(
-                        stderr,
-                        'Git 2.34.1 or later is required, and it must be available as the git command.\n'
-                        f'{install_message}\n'
-                        'After installation, restart the application or terminal running this hook to refresh PATH.\n',
-                        f"Case '{name}' on {platform} had an unexpected message.",
-                    )
+                    assert_notified(run_main(platform, **arguments), install_message, f"Case '{name}' on {platform}:")
 
     def test_missing_command_process(self):
         with tempfile.TemporaryDirectory() as empty_directory:
@@ -94,10 +104,12 @@ class CheckGitTests(unittest.TestCase):
                 [sys.executable, hook_path], input=b'{"sessionId":"test"}', capture_output=True,
                 cwd=empty_directory, env={**os.environ, 'PATH': empty_directory},
             )
-            assert_equal(missing.returncode, 2, 'The hook must fail when Git is not found.')
-            assert_equal(missing.stdout, b'', 'The hook must not write to stdout.')
-            if missing.stderr.startswith(b'\xef\xbb\xbf') or b'Git 2.34.1 or later' not in missing.stderr:
-                raise AssertionError(f'Unexpected stderr: {missing.stderr!r}')
+            assert_equal(missing.returncode, 0, 'The hook must not fail when Git is not found.')
+            for name, output in (('stdout', missing.stdout), ('stderr', missing.stderr)):
+                if output.startswith(b'\xef\xbb\xbf') or b'Git 2.34.1 or later' not in output:
+                    raise AssertionError(f'Unexpected {name}: {output!r}')
+            if 'additionalContext' not in json.loads(missing.stdout.decode('utf-8')):
+                raise AssertionError(f'Unexpected stdout: {missing.stdout!r}')
 
 
 if __name__ == '__main__':

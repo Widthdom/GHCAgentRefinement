@@ -1,8 +1,15 @@
 import io
+import json
 import re
 import subprocess
 import sys
 from typing import cast
+
+ADDITIONAL_CONTEXT = (
+    '{message}\n'
+    'At the start of your first response, tell the user about this in the language you respond in, '
+    'including how to install it. Do not install it yourself.'
+)
 
 
 def is_requirement_satisfied():
@@ -22,20 +29,29 @@ def is_requirement_satisfied():
 
 
 def main():
-    # 型定義上の `sys.stderr` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8')
     if is_requirement_satisfied():
         return 0
 
-    print('ast-grep is required, and it must be available as the ast-grep command.', file=sys.stderr)
+    lines = ['ast-grep is required, and it must be available as the ast-grep command.']
     if sys.platform == 'win32':
-        print('Install it with: winget install --id ast-grep.ast-grep --exact --source winget', file=sys.stderr)
+        lines.append('Install it with: winget install --id ast-grep.ast-grep --exact --source winget')
     elif sys.platform == 'darwin':
-        print('Install it with: brew install ast-grep', file=sys.stderr)
+        lines.append('Install it with: brew install ast-grep')
     else:
-        print('Installation guide: https://github.com/ast-grep/ast-grep#installation', file=sys.stderr)
-    print('After installation, restart the application or terminal running this hook to refresh PATH.', file=sys.stderr)
-    return 2
+        lines.append('Installation guide: https://github.com/ast-grep/ast-grep#installation')
+    lines.append('After installation, restart the application or terminal running this hook to refresh PATH.')
+    message = '\n'.join(lines)
+    print(message, file=sys.stderr)
+    # 標準エラーはユーザーに表示されないことがある。sessionStartで解釈される出力はadditionalContextだけで、
+    # 標準出力は終了コード0のときだけ読まれるため、エージェントに渡してユーザーへ伝えさせ、正常終了する。
+    print(json.dumps(
+        {'additionalContext': ADDITIONAL_CONTEXT.format(message=message)},
+        ensure_ascii=False, separators=(',', ':'),
+    ))
+    return 0
 
 
 # このファイルが直接実行されたときだけ main() を呼び出す。
