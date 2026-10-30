@@ -32,8 +32,7 @@ def assert_error_denial(result, expected_error):
 
 
 def create_python_shims(directory):
-    # WindowsとUnix系ラッパーが呼び出すPythonを、このテストを実行しているPythonに差し替える。
-    shutil.copy2(sys.executable, os.path.join(directory, 'python.exe'))
+    # Unix系ラッパーが呼び出すpython3を、このテストを実行しているPythonに差し替える。
     with open(os.path.join(directory, 'python3.cmd'), 'w', encoding='utf-8', newline='\r\n') as file:
         file.write(f'@"{sys.executable}" %*\n')
     shell_path = os.path.join(directory, 'python3')
@@ -175,7 +174,6 @@ class BlockCommandsTests(unittest.TestCase):
             environment['BLOCK_COMMANDS_TEST_HOOK'] = wrapper_path or os.path.join(script_directory, 'block-commands.cmd')
             environment['BLOCK_COMMANDS_TEST_PYTHON'] = sys.executable
             environment['BLOCK_COMMANDS_TEST_TOKEN'] = 'unexpected-expansion'
-            environment['PYTHON_HOME'] = sys.base_prefix
             options = ''
             if definitions_file is not None:
                 environment['BLOCK_COMMANDS_TEST_DEFINITIONS'] = definitions_file
@@ -303,7 +301,9 @@ class BlockCommandsTests(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as shim_directory:
             create_python_shims(shim_directory)
-            self.python_shim_path = shim_directory + os.pathsep + os.environ.get('PATH', '')
+            # Windowsラッパーが呼び出すpythonは、このテストを実行しているPythonの実行ファイルを元の場所で見つけさせる。
+            # 実行ファイルを別の場所へコピーすると、標準ライブラリの場所を解決できないため。
+            self.python_shim_path = os.path.dirname(sys.executable) + os.pathsep + os.environ.get('PATH', '')
             self.python3_shim_path = shim_directory + os.pathsep + os.environ.get('PATH', '')
 
             for entry_point in entry_points:
