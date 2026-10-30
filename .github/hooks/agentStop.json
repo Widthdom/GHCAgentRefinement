@@ -19,6 +19,11 @@
       },
       {
         "type": "command",
+        "bash": "python3 .github/hooks/helpers/events/agentStop/detect-sycophantic-reversal/detect-sycophantic-reversal.py",
+        "powershell": "python .github/hooks/helpers/events/agentStop/detect-sycophantic-reversal/detect-sycophantic-reversal.py"
+      },
+      {
+        "type": "command",
         "bash": "python3 .github/hooks/helpers/events/agentStop/request-adversarial-review/request-adversarial-review.py",
         "powershell": "python .github/hooks/helpers/events/agentStop/request-adversarial-review/request-adversarial-review.py"
       },

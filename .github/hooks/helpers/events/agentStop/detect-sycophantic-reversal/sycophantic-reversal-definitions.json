@@ -1,0 +1,25 @@
+{
+  "evidenceToolNames": [
+    "view",
+    "rg",
+    "grep",
+    "glob",
+    "bash",
+    "powershell",
+    "web_fetch",
+    "web_search",
+    "problems",
+    "runTests",
+    "task",
+    "read_agent"
+  ],
+  "pushbackPatterns": [
+    "違(?:うのでは|う|くない|わない|いませんか|いますよ)|間違(?:い|っ|え)|勘違い|誤り|正しくない|おかし(?:い|くない)",
+    "本当に|ほんと(?:う)?[？?]|(?:では|じゃ)(?:ない)?(?:の|か)?[？?]|はず(?:では|じゃ)",
+    "(?i)\\b(?:are\\s+you\\s+sure|that'?s\\s+(?:wrong|incorrect|not\\s+(?:right|true))|you'?re\\s+wrong|i\\s+(?:don'?t\\s+)?think\\s+(?:that'?s|you'?re|it'?s)\\s+(?:wrong|incorrect|not))\\b"
+  ],
+  "reversalPatterns": [
+    "(?:ご指摘|指摘|おっしゃる)(?:の)?(?:通り|とおり|どおり)|(?:誤り|間違い)(?:だった|でした)|間違(?:って|えて)い(?:た|ました)|勘違いして|訂正(?:する|します)|撤回(?:する|します)|前言",
+    "(?i)\\b(?:you'?re|you\\s+are)\\s+(?:absolutely\\s+|completely\\s+)?(?:right|correct)\\b|\\b(?:my\\s+(?:mistake|apologies|bad)|i\\s+was\\s+wrong|i\\s+stand\\s+corrected|good\\s+catch)\\b"
+  ]
+}
