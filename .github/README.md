@@ -46,3 +46,7 @@ Codexは [AGENTS.md](../AGENTS.md) と [.agents/skills](../.agents/skills)、Cla
 ## hookの一時ファイルの削除
 
 hookの状態ファイルとデバッグログは、一時フォルダー配下の `ghc-agent-refinement/hook-states/` と `ghc-agent-refinement/debug-logs/` に作られ、hook自身では削除しない。`/clean-hook-temp-files` で、48時間を超えて更新されていないファイルを確認したうえで削除できる。該当するファイルが500件以上になると、セッション開始時に削除を案内する。詳細は[clean-hook-temp-files skill](./skills/clean-hook-temp-files/SKILL.md)と[check-hook-temp-files hook README](./hooks/helpers/events/sessionStart/check-hook-temp-files/README.md)を参照。
+
+## Pylanceの設定
+
+hookのテストは、実行時に `sys.path` へ `.github/hooks/tests/helpers` を追加して共通処理を読み込む。Pylanceがこの読み込みを解決できるよう、リポジトリ直下の [pyrightconfig.json](../pyrightconfig.json) で同じパスを `extraPaths` に指定している。このファイルがあると、Pylanceは `python.analysis.*` の設定（`typeCheckingMode` など）よりこのファイルを優先するため、ユーザー設定で変えている項目はこのファイルにも記載する。
