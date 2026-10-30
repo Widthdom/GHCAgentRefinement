@@ -1,0 +1,14 @@
+[
+  {
+    "name": "ellipsis-only comment",
+    "pattern": "(?im)^[ \\t]*(?://+|#+|/\\*+|<!--|--|;+)[ \\t]*(?:\\.{3,}|…+)[ \\t]*(?:\\*/|-->)?[ \\t]*$"
+  },
+  {
+    "name": "elision comment",
+    "pattern": "(?im)^[ \\t]*(?://+|#+|/\\*+|<!--|--|;+|\\*)[ \\t]*(?:\\.{3}|…)?[ \\t]*[\\[(]?[ \\t]*(?:\\.{3}|…)?[ \\t]*(?:(?:the )?rest of (?:the )?(?:file|code|class|module|function|method|implementation|component|content)|(?:existing|remaining|other|previous|original|unchanged) (?:code|content|implementation|logic|methods|functions|imports|tests|properties|fields|lines|sections)|(?:code|content|implementation) (?:remains? )?unchanged|same as (?:before|above|original)|(?:omitted|truncated) for brevity)\\b.*$"
+  },
+  {
+    "name": "Japanese elision comment",
+    "pattern": "(?m)^[ \\t]*(?://+|#+|/\\*+|<!--|--|;+|\\*)[ \\t]*(?:\\.{3}|…)?[ \\t]*[\\[(（]?[ \\t]*(?:既存の?(?:コード|処理|実装|内容)|(?:以下|以降|残り|その他)(?:は|も)?(?:同じ|同様|省略|変更なし|そのまま)|(?:省略|中略|変更なし)(?=[)）\\]\\s]|$)).*$"
+  }
+]
