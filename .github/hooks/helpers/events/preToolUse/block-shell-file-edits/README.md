@@ -38,4 +38,5 @@ preToolUse（bashまたはpowershellツールの実行前）
 - 特別なプロンプト指定は不要。
 - シェルでファイルを書き換えると、ファイル編集ツールを対象にした [require-read-before-edit](../require-read-before-edit/README.md)・[preserve-line-endings](../../postToolUse/preserve-line-endings/README.md)・[check-cross-agent-skill-wrappers](../../postToolUse/check-cross-agent-skill-wrappers/README.md) などのhookが働かない。それらの前提を保つためのhook。
 - 拒否は毎回行う。編集ツールで変更できない事情（バイナリファイルなど）があれば、ユーザーに理由を説明して判断を仰ぐよう理由に書いている。
+- 拒否を受けて作業を止めてしまうエージェントがいるため、拒否理由で [edit-files-with-policy](../../../../../skills/edit-files-with-policy/SKILL.md) skillを示し、編集ツールでのやり直し方へ導く。
 - 不正な入力では異常終了する。Copilotはhookの異常終了をツール実行の拒否として扱う。

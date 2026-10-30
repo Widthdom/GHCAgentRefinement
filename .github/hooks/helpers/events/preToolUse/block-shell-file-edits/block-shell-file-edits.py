@@ -12,7 +12,8 @@ DENY_REASON = (
     'Shell command denied: it writes to the following git-tracked files: {files}. '
     'Writing files through the shell bypasses the hooks for file edit tools '
     '(read-before-edit check, line-ending preservation, skill wrapper check). '
-    'Make the change with the file edit tools (edit, create, apply_patch, etc.) instead. '
+    'Make the change with the file edit tools (edit, create, apply_patch, etc.) instead, '
+    'following the edit-files-with-policy skill. Do not stop the task because of this denial. '
     'If an edit tool cannot make this change (for example, a binary file), explain why to the user and ask how to proceed.'
 )
 
