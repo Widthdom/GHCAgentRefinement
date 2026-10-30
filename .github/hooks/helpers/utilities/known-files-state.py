@@ -8,7 +8,8 @@ from contextlib import closing, contextmanager
 
 
 # エージェントが内容を把握したファイル（known files）の状態。
-# 記録するpostToolUse hook（record-seen-files）と、把握せずに編集するのを拒否するpreToolUse hook（require-read-before-edit）が共有する。
+# 記録するpostToolUse hook（record-seen-files）と、把握せずに編集するのを拒否するpreToolUse hook（require-read-before-edit）、
+# 把握せずに中身を推測で語る応答を差し戻すagentStop hook（detect-unread-speculation）が共有する。
 # 各ファイルの状態は次のいずれか。行がないファイルは、まだ読んでいない。
 #   seen：閲覧または編集に成功したことがある。
 #   denied：読まずに編集しようとして1回拒否した。

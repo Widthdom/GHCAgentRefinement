@@ -1,0 +1,6 @@
+{
+  "speculationPatterns": [
+    "おそらく|恐らく|たぶん|多分|はず(?:だ|です|で|の|が|。|$)|と思(?:う|われ|います)|かもしれ|推測(?:する|します|され|だ|です)|ようだ|ようです|みたい(?:だ|です)",
+    "(?i)\\b(?:probably|presumably|likely|perhaps|maybe|i\\s+(?:think|believe|assume|guess|suspect)|should\\s+(?:be|contain|have|return|handle)|might\\s+(?:be|contain|have|return|handle))\\b"
+  ]
+}

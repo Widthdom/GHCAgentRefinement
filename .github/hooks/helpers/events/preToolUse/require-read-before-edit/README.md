@@ -28,5 +28,5 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
   - サブエージェントが閲覧したファイルは、親が内容を直接見ていなくても既読とみなし、親の編集を許可する（判定が甘くなる）。
   - 逆に、親が閲覧したファイルはサブエージェントでも既読とみなす。サブエージェントの編集も同じ判定を受ける。
 - hookの異常終了（不正な入力や状態ファイルの破損）は、Copilotが編集の拒否として扱う。
-- 状態は [known-files-state.py](../../../utilities/known-files-state.py) でrecord-seen-files hookと共有し、ファイルパスは保存せず照合用のSHA-256だけを保存する。
+- 状態は [known-files-state.py](../../../utilities/known-files-state.py) でrecord-seen-files hook・detect-unread-speculation hookと共有し、ファイルパスは保存せず照合用のSHA-256だけを保存する。
 - Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
