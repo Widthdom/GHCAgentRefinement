@@ -28,7 +28,7 @@ flowchart TD
 
     LoopStart[/作業開始\]
 
-    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・shellによるファイル編集抑止<br/>・未読ファイル編集抑止</div>"]
+    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・秘密情報書き込み抑止<br/>・shellによるファイル編集抑止<br/>・未読ファイル編集抑止</div>"]
 
     runTool["ツール実行"]
 
@@ -104,10 +104,14 @@ flowchart TD
       <td><a href="./hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/README.md">debug-log-transformed-prompt</a></td>
     </tr>
     <tr>
-      <td rowspan="3">preToolUse</td>
-      <td rowspan="3"></td>
+      <td rowspan="4">preToolUse</td>
+      <td rowspan="4"></td>
       <td>危険コマンド実行抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-commands/README.md">block-commands</a></td>
+    </tr>
+    <tr>
+      <td>秘密情報書き込み抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-secret-writes/README.md">block-secret-writes</a></td>
     </tr>
     <tr>
       <td>shellによるファイル編集抑止</td>
