@@ -1,4 +1,5 @@
 import hashlib
+import io
 import json
 import os
 import sqlite3
@@ -7,6 +8,7 @@ import tempfile
 import time
 import uuid
 from contextlib import closing
+from typing import cast
 
 
 FAILURE_THRESHOLD = 3
@@ -60,8 +62,9 @@ def record_failure(state_path, fingerprint):
 
 
 def main():
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
 
     try:
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')

@@ -1,9 +1,11 @@
 import argparse
 import collections
+import io
 import os
 import runpy
 import sys
 import time
+from typing import cast
 
 
 def format_size(size):
@@ -14,8 +16,9 @@ def format_size(size):
 
 
 def main(arguments=None):
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
 
     parser = argparse.ArgumentParser(
         description='Delete hook states and debug logs that have not been updated for more than 48 hours.',

@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import re
@@ -6,6 +7,7 @@ import sys
 import tempfile
 import uuid
 from contextlib import closing
+from typing import cast
 
 
 # SDKがファイル書き込みとして扱う組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
@@ -173,8 +175,9 @@ def record_notifications(state_path, results):
 
 
 def main():
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
 
     try:
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')

@@ -1,6 +1,8 @@
+import io
 import re
 import subprocess
 import sys
+from typing import cast
 
 # Ubuntu 22.04 LTSの標準パッケージ（1.6）を基準にする。
 MINIMUM_VERSION = (1, 6, 0)
@@ -24,7 +26,8 @@ def is_requirement_satisfied():
 
 
 def main():
-    sys.stderr.reconfigure(encoding='utf-8')
+    # 型定義上の `sys.stderr` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8')
     if is_requirement_satisfied():
         return 0
 

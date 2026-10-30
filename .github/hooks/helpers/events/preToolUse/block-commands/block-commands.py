@@ -1,8 +1,10 @@
 import argparse
+import io
 import json
 import os
 import re
 import sys
+from typing import cast
 
 
 def is_non_empty_string(value):
@@ -43,8 +45,9 @@ def main(definitions_path=None):
     # replace：変換できない文字があったら、例外を出さずに ? に置き換える。
     #   strict(既定)：UnicodeEncodeError を発生させる。
     #   ignore：その文字を捨てる。
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
 
     # モジュールargparseのArgumentParserクラスのコンストラクタ呼び出し
     parser = argparse.ArgumentParser()

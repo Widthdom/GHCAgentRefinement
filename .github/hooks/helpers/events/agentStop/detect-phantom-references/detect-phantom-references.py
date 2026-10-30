@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import re
@@ -5,6 +6,7 @@ import runpy
 import subprocess
 import sys
 from pathlib import Path
+from typing import cast
 
 
 FENCED_CODE_PATTERN = re.compile(r'^(```|~~~).*?^\1', re.MULTILINE | re.DOTALL)
@@ -216,8 +218,9 @@ def get_phantom_references(response, user_request, cwd):
 
 
 def main():
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
 
     try:
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')

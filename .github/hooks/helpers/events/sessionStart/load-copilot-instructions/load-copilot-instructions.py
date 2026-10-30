@@ -1,15 +1,18 @@
+import io
 import json
 import pathlib
 import sys
+from typing import cast
 
 
 def main():
-    sys.stdout.reconfigure(encoding='utf-8')
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')
     # backslashreplace：変換できない文字があったら、例外を出さずに \uXXXX の形式で置き換える。
     #   strict(既定)：UnicodeEncodeError を発生させる。
     #   replace：? に置き換える。
     #   ignore：その文字を捨てる。
-    sys.stderr.reconfigure(encoding='utf-8', errors='backslashreplace')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='backslashreplace')
 
     # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
     # .absolute()：絶対パス化（シンボリックリンクは解決しない）

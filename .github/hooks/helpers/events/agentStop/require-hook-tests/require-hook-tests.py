@@ -1,9 +1,11 @@
+import io
 import json
 import os
 import re
 import runpy
 import sys
 from pathlib import Path
+from typing import cast
 
 
 EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
@@ -224,8 +226,9 @@ def get_block_reason(unverified, unchanged_readmes, cwd):
 
 
 def main():
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
 
     try:
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')

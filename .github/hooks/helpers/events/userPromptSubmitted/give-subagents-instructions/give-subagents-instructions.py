@@ -1,11 +1,14 @@
+import io
 import json
 import pathlib
 import sys
+from typing import cast
 
 
 def main():
-    sys.stdout.reconfigure(encoding='utf-8')
-    sys.stderr.reconfigure(encoding='utf-8', errors='backslashreplace')
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='backslashreplace')
 
     try:
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')

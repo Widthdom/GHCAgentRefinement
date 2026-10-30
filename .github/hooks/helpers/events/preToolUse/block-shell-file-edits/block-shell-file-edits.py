@@ -1,10 +1,12 @@
 import glob
+import io
 import json
 import os
 import re
 import shlex
 import subprocess
 import sys
+from typing import cast
 
 
 SHELL_TOOL_PATTERN = re.compile(r'^(?:functions\.)?(bash|powershell)$', re.IGNORECASE)
@@ -359,8 +361,9 @@ def get_tool_args(raw_tool_args):
 
 
 def main():
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
 
     try:
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')

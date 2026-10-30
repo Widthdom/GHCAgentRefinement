@@ -1,6 +1,8 @@
+import io
 import re
 import subprocess
 import sys
+from typing import cast
 
 
 def is_requirement_satisfied():
@@ -20,7 +22,8 @@ def is_requirement_satisfied():
 
 
 def main():
-    sys.stderr.reconfigure(encoding='utf-8')
+    # 型定義上の `sys.stderr` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8')
     if is_requirement_satisfied():
         return 0
 

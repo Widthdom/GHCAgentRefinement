@@ -1,8 +1,10 @@
+import io
 import json
 import os
 import runpy
 import sys
 from pathlib import Path
+from typing import cast
 
 
 def get_used_hooks(transcript_path, hooks_path):
@@ -62,6 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('--transcript-path', required=True)
     parser.add_argument('--hooks-path', required=True)
     arguments = parser.parse_args()
-    sys.stdout.reconfigure(encoding='utf-8')
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')
     for used_hook in get_used_hooks(arguments.transcript_path, arguments.hooks_path):
         print(used_hook)

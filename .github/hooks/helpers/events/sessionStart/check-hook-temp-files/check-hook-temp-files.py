@@ -1,8 +1,10 @@
+import io
 import json
 import os
 import runpy
 import sys
 import time
+from typing import cast
 
 
 WARNING_THRESHOLD = 500
@@ -14,8 +16,9 @@ WARNING_MESSAGE = (
 
 
 def main():
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
-    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
 
     # 削除用のclean-hook-temp-files skillと、対象の分類と保持期間を共有する。
     temp_files = runpy.run_path(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hook-temp-files.py'))
