@@ -118,7 +118,7 @@ class BlockShellFileEditsTests(unittest.TestCase):
             "[System.IO.File]::WriteAllText('対象.txt', 'x')",
             '[IO.File]::AppendAllLines("対象.txt", $lines)',
             'Get-Content untracked.txt | Set-Content `\n  対象.txt',
-            "Clear-Content .\\対象.txt",
+            'Clear-Content 対象.txt',
             "Out-File -FilePath untracked.txt,対象.txt -InputObject x",
             "sed -i 's/a/b/' 対象.txt",
             # PowerShellのteeはTee-Objectの別名で、最初の引数に書き込む。
@@ -127,6 +127,10 @@ class BlockShellFileEditsTests(unittest.TestCase):
         for command in commands:
             with self.subTest(command=command):
                 self.assert_denied(self.invoke(('powershell', {'command': command})), '対象.txt')
+
+    @unittest.skipUnless(os.name == 'nt', 'powershellツールはWindowsで使われ、`\\` をパスの区切りとするのはWindowsだけのため。')
+    def test_denies_powershell_writes_with_backslash_paths(self):
+        self.assert_denied(self.invoke(('powershell', {'command': 'Clear-Content .\\対象.txt'})), '対象.txt')
 
     def test_follows_directory_changes(self):
         nested = os.path.join('sub', 'nested.txt')
