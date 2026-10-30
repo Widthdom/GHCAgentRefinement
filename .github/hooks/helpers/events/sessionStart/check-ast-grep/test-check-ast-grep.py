@@ -99,9 +99,17 @@ class CheckAstGrepTests(unittest.TestCase):
 
     def test_missing_command_process(self):
         with tempfile.TemporaryDirectory() as empty_directory:
+            environment = {**os.environ, 'PATH': empty_directory}
+            # WindowsはPATHのほかにSystem32なども探すため、そこにast-grepがあると見つからない状態を作れない。
+            try:
+                subprocess.run(['ast-grep', '--version'], capture_output=True, cwd=empty_directory, env=environment)
+            except OSError:
+                pass
+            else:
+                self.skipTest('ast-grep is found outside PATH, for example in System32.')
             missing = subprocess.run(
                 [sys.executable, hook_path], input=b'{"sessionId":"test"}', capture_output=True,
-                cwd=empty_directory, env={**os.environ, 'PATH': empty_directory},
+                cwd=empty_directory, env=environment,
             )
             assert_equal(missing.returncode, 0, 'The hook must not fail when ast-grep is not found.')
             for name, output in (('stdout', missing.stdout), ('stderr', missing.stderr)):

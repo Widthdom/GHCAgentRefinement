@@ -100,9 +100,17 @@ class CheckGitTests(unittest.TestCase):
 
     def test_missing_command_process(self):
         with tempfile.TemporaryDirectory() as empty_directory:
+            environment = {**os.environ, 'PATH': empty_directory}
+            # WindowsはPATHのほかにSystem32なども探すため、そこにgitがあると見つからない状態を作れない。
+            try:
+                subprocess.run(['git', '--version'], capture_output=True, cwd=empty_directory, env=environment)
+            except OSError:
+                pass
+            else:
+                self.skipTest('git is found outside PATH, for example in System32.')
             missing = subprocess.run(
                 [sys.executable, hook_path], input=b'{"sessionId":"test"}', capture_output=True,
-                cwd=empty_directory, env={**os.environ, 'PATH': empty_directory},
+                cwd=empty_directory, env=environment,
             )
             assert_equal(missing.returncode, 0, 'The hook must not fail when Git is not found.')
             for name, output in (('stdout', missing.stdout), ('stderr', missing.stderr)):
