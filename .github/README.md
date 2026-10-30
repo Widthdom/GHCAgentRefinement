@@ -20,7 +20,7 @@
 ```mermaid
 flowchart TD
 
-    sessionStart["<b><i><u>sessionStart</u></i></b><br/><div style='text-align: left'>・copilot-instructions.md読込<br/>・ターゲットセッション確認<br/>・各種ツール導入状況確認<br/>・一時ファイル蓄積状況確認</div>"]
+    sessionStart["<b><i><u>sessionStart</u></i></b><br/><div style='text-align: left'>・copilot-instructions.md読込<br/>・ターゲットセッション確認<br/>・各種ツール導入状況確認<br/>・一時ファイル蓄積状況確認<br/>・gitの途中操作確認</div>"]
 
     userPromptSubmitted["<b><i><u>userPromptSubmitted</u></i></b><br/><div style='text-align: left'>■メインエージェントへの依頼時<br/>・デバッグモード設定<br/>・敵対的レビューモード設定<br/>■サブエージェントへの依頼時<br/>・copilot-instructions.md連携</div>"]
 
@@ -57,8 +57,8 @@ flowchart TD
   </thead>
   <tbody>
     <tr>
-      <td rowspan="8">sessionStart</td>
-      <td rowspan="8"></td>
+      <td rowspan="9">sessionStart</td>
+      <td rowspan="9"></td>
       <td>copilot-instructions.md読込</td>
       <td><a href="./hooks/helpers/events/sessionStart/load-copilot-instructions/README.md">load-copilot-instructions</a></td>
     </tr>
@@ -77,6 +77,10 @@ flowchart TD
     <tr>
       <td>一時ファイル蓄積状況確認</td>
       <td><a href="./hooks/helpers/events/sessionStart/check-hook-temp-files/README.md">check-hook-temp-files</a></td>
+    </tr>
+    <tr>
+      <td>gitの途中操作確認</td>
+      <td><a href="./hooks/helpers/events/sessionStart/check-git-state/README.md">check-git-state</a></td>
     </tr>
     <tr>
       <td rowspan="3">userPromptSubmitted</td>
