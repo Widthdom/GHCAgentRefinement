@@ -49,4 +49,4 @@ hookの状態ファイルとデバッグログは、一時フォルダー配下�
 
 ## Pylanceの設定
 
-hookのテストは、実行時に `sys.path` へ `.github/hooks/tests/helpers` を追加して共通処理を読み込む。Pylanceがこの読み込みを解決できるよう、リポジトリ直下の [pyrightconfig.json](../pyrightconfig.json) で同じパスを `extraPaths` に指定している。このファイルがあると、Pylanceは `python.analysis.*` の設定（`typeCheckingMode` など）よりこのファイルを優先するため、ユーザー設定で変えている項目はこのファイルにも記載する。
+hookのテストは、実行時に `sys.path` へ `.github/hooks/tests/helpers` を追加して共通処理を読み込む。Pylanceがこの読み込みを解決できるよう、リポジトリ直下の [pyrightconfig.json](../pyrightconfig.json) で同じパスを `extraPaths` に指定している。また、hookはWindows・macOS・Linuxのすべてを対象にし、`os.name == 'nt'` などでOSごとに分岐するため、`pythonPlatform` を `All` にして、実行中のOS以外向けの分岐も解析させる。このファイルがあると、Pylanceは `python.analysis.*` の設定（`typeCheckingMode` など）よりこのファイルを優先するため、ユーザー設定で変えている項目はこのファイルにも記載する。
