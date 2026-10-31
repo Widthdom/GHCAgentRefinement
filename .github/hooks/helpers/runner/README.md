@@ -37,7 +37,7 @@ Copilotは `timeoutSec` を超えたhookのプロセスを終了させる。hook
 |案|採用しなかった理由|
 |--|--|
 |子プロセスとして起動し、ランナー側で `subprocess.run(timeout=...)` により `timeoutSec` より先に止める|JSONの `timeoutSec` と同じ値をランナーの引数にも書く二重管理になる。`timeoutSec` を省略したhookでは、Copilotの既定のタイムアウトも知る必要がある。|
-|子プロセスとして起動し、OSの機能で親の終了時に子も止める（WindowsのJob Object、LinuxのPR_SET_PDEATHSIG）|macOSに同等の仕組みがなく、OS固有の処理（ctypesなど）が増える。共通規約の「同じ `.py` を使い、OS固有の処理に依存させない」に合わない。|
+|子プロセスとして起動し、OSの機能で親の終了時に子も止める（WindowsのJob Object、LinuxのPR_SET_PDEATHSIG）|macOSに同等の仕組みがなく、OS固有の処理（ctypesなど）が増える。[共通規約](../../../skills/create-hook/references/hook-conventions.md)の「Windows、macOS、Linuxのすべてを対象にする」に合わない。|
 
 ### 未確認の事項
 Copilotはhookのコマンドを `bash`/`powershell` 経由で起動する。タイムアウト時にCopilotが終了させるのがシェルだけの場合、その先の `python` はランナーの方式によらず取り残される可能性がある。実際に `timeoutSec` を超えるhookでの確認は未実施。

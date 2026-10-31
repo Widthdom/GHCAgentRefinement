@@ -16,21 +16,21 @@ agentStop（エージェントの応答終了時）
 ### 必要なテスト
 |変更したファイル|必要なテスト（いずれかの成功で可）|
 |--|--|
-|`helpers/events/<event>/<hook>/` 配下のファイル|`test-<hook>.py`、`test-all-hooks.py`|
+|`helpers/events/<event>/<hook>/` 配下のファイル|`test-<hook>.py`、[test-all-hooks.py](../../../../tests/test-all-hooks.py)|
 |`helpers/utilities/` 配下のファイル|`test-all-hooks.py`|
-|`helpers/runner/` 配下のファイル|`test-run-hook.py`、`test-all-hooks.py`|
-|`.github/hooks/<event>.json`|`test-hook-configurations.py`、`test-all-hooks.py`|
-|`tests/helpers/` 配下のファイル|`test-hook-test-output.py`（一括実行の探索対象外のため）|
+|`helpers/runner/` 配下のファイル|[test-run-hook.py](../../../runner/test-run-hook.py)、[test-all-hooks.py](../../../../tests/test-all-hooks.py)|
+|`.github/hooks/<event>.json`|[test-hook-configurations.py](../../../../tests/test-hook-configurations.py)、[test-all-hooks.py](../../../../tests/test-all-hooks.py)|
+|`tests/helpers/` 配下のファイル|[test-hook-test-output.py](../../../../tests/helpers/test-hook-test-output.py)（一括実行の探索対象外のため）|
 |`tests/test-all-hooks.py`・`tests/test-hook-configurations.py`|そのファイル自体|
 
-- パスは `.github/hooks/` からの相対で示す。`test-<hook>.py` がないhookは、作成してから実行するよう求める。
+- パスは [.github/hooks/](../../../../../hooks/) からの相対で示す。`test-<hook>.py` がないhookは、作成してから実行するよう求める。
 - コマンドにテストファイル名が含まれていれば実行とみなす。`cd` で移動してから実行した場合や、`-v` などを付けた場合も含む。
 
 ### 対象外とする変更
 - `.md` ファイルの変更（説明だけの変更）
 - 削除したhook（フォルダーが残っていないもの）
 - 失敗した編集、`view` などの閲覧
-- `.github/hooks/` 以外のファイル
+- [.github/hooks/](../../../../../hooks/) 以外のファイル
 
 ### 検出できない変更
 - シェルで作成・変更したファイル。git管理ファイルへの書き込みは [block-shell-file-edits](../../preToolUse/block-shell-file-edits/README.md) hookが拒否するため、主に未追跡の新規ファイルが該当する。

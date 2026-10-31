@@ -35,7 +35,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - unittest・pytest・Rustの出力は期待値の側が決まらないため、どちらの向きの書き換えも拒否の候補にする。テストファイルの中だけを対象にするため、実装の修正は拒否しない。
 - 期待値を別の行の変数や定数に移すなど、行の形が変わる書き換えは見逃す。
 - テストファイルの判定はblock-test-weakening hookと定義を共有し、二重管理しない。
-- 状態は [assertion-failure-values-state.py](../../../utilities/assertion-failure-values-state.py) でrecord-test-failure-values hookと共有する。値とファイルパスは保存せず、照合用のSHA-256と拒否済みのファイルだけを保存する。テストの失敗が記録されていなければ状態ファイルを作らない。
+- 状態は [assertion-failure-values-state.py](../../../utilities/assertion-failure-values-state.py) で [record-test-failure-values hook](../../postToolUse/record-test-failure-values/README.md) ・ [block-hardcoding-for-tests hook](../../preToolUse/block-hardcoding-for-tests/README.md) と共有する。値とファイルパスは保存せず、照合用のSHA-256と拒否済みのファイルだけを保存する。テストの失敗が記録されていなければ状態ファイルを作らない。
 - シェルによる書き込みは対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../block-shell-file-edits/README.md) hookが拒否する。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。
 - Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。

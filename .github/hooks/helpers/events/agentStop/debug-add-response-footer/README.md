@@ -11,13 +11,13 @@ agentStop（エージェントの応答終了時）
 
 ## 前提条件
 - 「Hooks fired」には、agentStopで動くhookの結果を含めない。agentStop hookは本hookと同時に動くため、同じ応答終了時の結果をフッターの作成時点では確定できない。フッターの見出しにも `excluding agentStop hooks` と明記する。
-- 「Hooks fired」は [hookランナー](../../../runner/README.md) を通して起動したhookだけが対象。ランナーを通さない `check-python` と `block-commands` は含まれない。
+- 「Hooks fired」は [hookランナー](../../../runner/README.md) を通して起動したhookだけが対象。ランナーを通さない [check-python](../../sessionStart/check-python/README.md) と [block-commands](../../preToolUse/block-commands/README.md) は含まれない。
 
 ## フッターの項目
 |見出し|内容|
 |--|--|
 |`Hooks used (inferred from event history)`|トランスクリプトに記録されたイベント種別から推定した、起動した可能性のあるhook|
-|`Hooks fired (recorded by hook runner, excluding agentStop hooks)`|hookランナーの記録で、終了コードが0以外か、空でない出力を返したhook|
+|`Hooks fired (recorded by hook runner, excluding agentStop hooks)`|hookランナーの記録で、終了コードが0以外か、空・空白だけ・空のJSONオブジェクト（`{}`）以外の出力を返したhook|
 |`Skills used (inferred from event history)`|トランスクリプトに記録されたskillツールの呼び出し|
 |`Current time`|フッター作成時の現在時刻（JST）|
 

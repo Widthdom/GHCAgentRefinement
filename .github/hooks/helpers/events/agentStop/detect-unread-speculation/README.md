@@ -4,7 +4,7 @@
 agentStop（エージェントの応答終了時）
 
 ## 処理詳細
-1. `unread-speculation-definitions.json` から、推測とみなす表現の正規表現（`speculationPatterns`）を読み込む。ファイルがない場合、形式に違反する場合、不正な正規表現を含む場合は標準エラーに原因を出力して異常終了する。
+1. [unread-speculation-definitions.json](./unread-speculation-definitions.json) から、推測とみなす表現の正規表現（`speculationPatterns`）を読み込む。ファイルがない場合、形式に違反する場合、不正な正規表現を含む場合は標準エラーに原因を出力して異常終了する。
 2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（Copilotはトランスクリプトへ非同期に追記するため、発動直後は最終応答が未書き込みのことがある）。
 3. ユーザーの最新の依頼以降の最終応答を文に分け、推測の表現（「おそらく」「〜のはず」「と思われる」「probably」など）を含む文から、コードスパン・Markdownリンク・地の文のパスを抽出する（コードブロックは除く）。末尾の `:12`・`#L12-L34` は行番号として除く。
 4. 各パスをcwdとリポジトリルートを基準に解決し、実在するファイルのうち、このセッションで読んでいないものを探す。次のいずれかに当たるファイルは読んだとみなす。
@@ -24,4 +24,4 @@ agentStop（エージェントの応答終了時）
 - hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
 - 同じ依頼で差し戻すのは1回だけ。読めない場合でも停止できるよう、2回目以降の応答は検査しない。
 - サブエージェントの閲覧も親と同じ記録に含まれるため、サブエージェントが読んだファイルは親が読んだとみなす（[record-seen-files](../../postToolUse/record-seen-files/README.md) の備考を参照）。
-- 状態は [known-files-state.py](../../../utilities/known-files-state.py) でrecord-seen-files hook・require-read-before-edit hookと共有し、読み取りだけを行う。
+- 状態は [known-files-state.py](../../../utilities/known-files-state.py) でrecord-seen-files hook・[require-read-before-edit](../../preToolUse/require-read-before-edit/README.md) hookと共有し、読み取りだけを行う。

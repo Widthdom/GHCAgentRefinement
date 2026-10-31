@@ -6,15 +6,15 @@ preToolUse（bashまたはpowershellツールの実行前）
 ## 処理詳細
 1. Windowsでは `python`、macOS/Linuxでは `python3` が見つからない場合、またはPython 3.14未満の場合、標準エラーにその旨を出力したうえでツール実行拒否JSONを標準出力する。
 2. 1.以外の場合、標準入力を引き継いで[py](./block-commands.py)を実行する。
-3. `blocked-command-definitions.json` が存在しない場合、フォーマット違反の場合、不正な正規表現がひとつでも含まれていた場合は異常終了し、標準エラーにその旨を出力したうえでツール実行拒否JSONを標準出力する。
-4. ツール呼び出しのコマンドが、`blocked-command-definitions.json` に定義された正規表現に一致した場合は正常終了し、標準エラーにその旨を出力したうえでツール実行拒否JSONを標準出力する。
+3. [blocked-command-definitions.json](./blocked-command-definitions.json) が存在しない場合、フォーマット違反の場合、不正な正規表現がひとつでも含まれていた場合は異常終了し、標準エラーにその旨を出力したうえでツール実行拒否JSONを標準出力する。
+4. ツール呼び出しのコマンドが、`blocked-command-definitions.json` に定義された正規表現に一致した場合は、定義の `reason` を拒否理由とするツール実行拒否JSONを標準出力し、正常終了する。標準エラーには出力しない。
 
 ## 備考
 - bashとpowershell以外のツール呼び出しは処理対象外。
 - Python未インストール時であっても機能するように、Windowsでは[cmd](./block-commands.cmd)、macOS/Linuxでは[sh](./block-commands.sh)を呼び出す。
 - Windows用バッチはコメントも含めASCIIで記述する。UTF-8の日本語コメントは、cmd.exeのコードページによってコメントの一部がコマンドとして解釈されるため、使用しない。
 
-### check_python_version.pyの呼び出しを `call python "%%check_python_version_path%%"` とする理由
+### check-python-version.pyの呼び出しを `call python "%%check_python_version_path%%"` とする理由
 - Windowsでは、`python.exe` でなく `python.cmd` が使用される場合がある。
   - 後者の場合、call無しで実行すると呼び出し元に戻らないため、callで実行する必要がある。
 - `call` は構文解析時（1度目）と実行時（2度目）の計2回、パーセント記号（%）の変数展開を行う仕様になっている。

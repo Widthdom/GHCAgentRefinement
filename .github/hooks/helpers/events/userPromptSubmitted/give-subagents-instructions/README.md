@@ -5,7 +5,7 @@ userPromptSubmitted（ユーザがプロンプトを投入する度）
 
 ## 処理詳細
 1. 入力に `agentId` がなければ、親のセッションへの依頼とみなして何もしない。
-2. `agentId` があれば、リポジトリルートの `.github/copilot-instructions.md` を読み込み、`additionalContext` として依頼文に添える。
+2. `agentId` があれば、リポジトリルートの [.github/copilot-instructions.md](../../../../../copilot-instructions.md) を読み込み、`additionalContext` として依頼文に添える。
 
 ## 備考
 - サブエージェントではsessionStartが発火しないため、親のセッションに指示を渡す [load-copilot-instructions](../../sessionStart/load-copilot-instructions/README.md) hookの指示が届かない。サブエージェントの報告が口調や `(planned)` の目印などの共通指示に従うよう、同じ指示ファイルを渡す。

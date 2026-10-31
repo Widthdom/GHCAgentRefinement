@@ -24,7 +24,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |コマンドの失敗の無視|`make || true`・`rm -rf out || :`・`set +e`|
 |PowerShellのエラーの無視|`-ErrorAction SilentlyContinue`・`$ErrorActionPreference = 'Ignore'`|
 |診断の抑止|`# type: ignore`・`# noqa`・`# pylint: disable`・`// @ts-ignore`・`eslint-disable`・`#pragma warning disable`・`@SuppressWarnings`・`//nolint`・`#[allow(`|
-|対象外のファイル|`*.md`・`*.rst`・`*.txt`・`*.adoc`|
+|対象外のファイル|`*.md`・`*.markdown`・`*.rst`・`*.txt`・`*.adoc`|
 
 ## 備考
 - 特別なプロンプト指定は不要。
