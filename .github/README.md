@@ -44,16 +44,20 @@ flowchart LR
 
     agentStopResult{"判定"}
 
-    responseToUser(["ユーザーへ応答"])
+    finalResponse["最終応答の生成"]
+
+    stopAttempt["停止を試みる"]
+
+    stopped(["停止（ユーザーの入力待ち）"])
 
     work[["作業"]]
 
     subgraph mainFlow[" "]
         direction TB
-        sessionStart --> userPromptSubmitted --> userPromptTransformed --> work --> agentStop --> agentStopResult
-        agentStopResult -- "問題あり" --> work
-        agentStopResult -- "問題なし" --> responseToUser
-        responseToUser -. "ユーザーが次のプロンプトを入力" .-> userPromptSubmitted
+        sessionStart --> userPromptSubmitted --> userPromptTransformed --> work --> finalResponse --> stopAttempt --> agentStop --> agentStopResult
+        agentStopResult -- "差し戻し" --> work
+        agentStopResult -- "差し戻しなし" --> stopped
+        stopped -. "ユーザーが次のプロンプトを入力" .-> userPromptSubmitted
     end
 
     subgraph workDetail["作業"]
