@@ -40,6 +40,13 @@
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-hardcoding-for-tests/block-hardcoding-for-tests.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-hardcoding-for-tests/block-hardcoding-for-tests.py",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
         "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-secret-writes/block-secret-writes.py",
         "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-secret-writes/block-secret-writes.py",
         "timeoutSec": 10

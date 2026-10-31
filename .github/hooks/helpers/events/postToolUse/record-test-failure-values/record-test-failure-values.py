@@ -117,12 +117,14 @@ def main():
 
         tool_result = hook_input.get('toolResult')
         output = tool_result.get('textResultForLlm') if isinstance(tool_result, dict) else None
-        keys = set()
+        pairs = set()
         for expected, actual in parse_failure_values(output if isinstance(output, str) else ''):
             expected, actual = state['normalize_value'](expected), state['normalize_value'](actual)
             if expected is not None and actual is not None and expected != actual:
-                keys.add(state['get_pair_key'](expected, actual))
-        keys = sorted(keys)[:MAX_PAIRS]
+                pairs.add((expected, actual))
+        pairs = sorted(pairs)[:MAX_PAIRS]
+        keys = [state['get_pair_key'](expected, actual) for expected, actual in pairs]
+        expected_keys = {state['get_value_key'](expected) for expected, _ in pairs}
 
         # 記録がなく、消す記録もなければ状態ファイルを作らない。
         if not keys and not os.path.isfile(state_path):
@@ -130,7 +132,11 @@ def main():
         # 最新のテスト実行の結果だけを残す。成功した実行や読み取れない出力では、前の失敗の記録を消す。
         with state['open_state'](state_path) as connection:
             connection.execute('DELETE FROM pairs')
+            connection.execute('DELETE FROM expected_values')
             connection.executemany('INSERT OR IGNORE INTO pairs (pair) VALUES (?)', [(key,) for key in keys])
+            connection.executemany(
+                'INSERT OR IGNORE INTO expected_values (value) VALUES (?)', [(key,) for key in expected_keys],
+            )
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to record test failure values: {ex}', file=sys.stderr)
         return 2

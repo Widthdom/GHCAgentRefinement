@@ -22,6 +22,10 @@ def pair_key(expected, actual):
     return hashlib.sha256(json.dumps([expected, actual], ensure_ascii=False, separators=(',', ':')).encode('utf-8')).hexdigest()
 
 
+def value_key(value):
+    return hashlib.sha256(value.encode('utf-8')).hexdigest()
+
+
 class RecordTestFailureValuesTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-record-test-failure-values-test-')
@@ -63,6 +67,12 @@ class RecordTestFailureValuesTests(unittest.TestCase):
         with closing(sqlite3.connect(self.state_path)) as connection:
             return {row[0] for row in connection.execute('SELECT pair FROM pairs')}
 
+    def read_expected_values(self):
+        if not os.path.exists(self.state_path):
+            return None
+        with closing(sqlite3.connect(self.state_path)) as connection:
+            return {row[0] for row in connection.execute('SELECT value FROM expected_values')}
+
     def test_configuration(self):
         with open(os.path.join(hooks_directory, 'postToolUse.json'), encoding='utf-8') as file:
             configuration = json.load(file)
@@ -96,6 +106,7 @@ class RecordTestFailureValuesTests(unittest.TestCase):
                 pairs = self.read_pairs()
                 self.assertIn(pair_key(expected, actual), pairs, name)
                 self.assertNotIn(pair_key(actual, expected), pairs, name)
+                self.assertEqual(self.read_expected_values(), {value_key(expected)}, name)
 
     def test_symmetric_formats_are_recorded_in_both_directions(self):
         cases = [
@@ -109,6 +120,7 @@ class RecordTestFailureValuesTests(unittest.TestCase):
                 self.new_session()
                 self.assert_silent(self.invoke(output))
                 self.assertEqual(self.read_pairs(), {pair_key(first, second), pair_key(second, first)}, name)
+                self.assertEqual(self.read_expected_values(), {value_key(first), value_key(second)}, name)
 
     def test_latest_run_replaces_previous_failures(self):
         self.assert_silent(self.invoke('Expected: 4\nReceived: 3\n'))
@@ -116,6 +128,7 @@ class RecordTestFailureValuesTests(unittest.TestCase):
         self.assertEqual(self.read_pairs(), {pair_key('5', '6')})
         self.assert_silent(self.invoke('1 passed in 0.01s\n', command='pytest tests'))
         self.assertEqual(self.read_pairs(), set(), 'A passing run must clear the previous failures.')
+        self.assertEqual(self.read_expected_values(), set(), 'A passing run must clear the previous expected values.')
 
     def test_skips_without_state_changes(self):
         cases = [
@@ -159,6 +172,7 @@ class RecordTestFailureValuesTests(unittest.TestCase):
         self.assertNotIn(b'secret-expected', content)
         self.assertNotIn(b'secret-actual', content)
         self.assertTrue(all(re.fullmatch('[0-9a-f]{64}', pair) for pair in self.read_pairs()))
+        self.assertTrue(all(re.fullmatch('[0-9a-f]{64}', value) for value in self.read_expected_values()))
 
     def test_invalid_input(self):
         for name, raw in [
