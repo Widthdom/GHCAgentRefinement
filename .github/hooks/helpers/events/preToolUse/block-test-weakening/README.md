@@ -33,6 +33,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - 新規のテストファイルでも、スキップや限定実行の行は骨抜きとして扱う。
 - 状態にはファイルパスを保存せず、照合用のSHA-256と拒否の種類だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block-test-weakening/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
 - シェルによる書き込みは対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../block-shell-file-edits/README.md) hookが拒否する。
-- 正規表現で検出するため、定義にない形式（条件分岐による早期の `return` や、期待値をテスト対象の出力に合わせる書き換えなど）は見逃す。
+- 正規表現で検出するため、定義にない形式（条件分岐による早期の `return` など）は見逃す。期待値をテスト対象の出力に合わせる書き換えは [block-goalpost-moving](../block-goalpost-moving/README.md) hookが拒否する。
+- `testFilePatterns` はblock-goalpost-moving hookもテストファイルの判定に使う。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。
 - Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。

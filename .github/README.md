@@ -28,11 +28,11 @@ flowchart TD
 
     LoopStart[/作業開始\]
 
-    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・省略記号による内容消失抑止<br/>・生成ファイル直接編集抑止<br/>・秘密情報書き込み抑止<br/>・shellによるファイル編集抑止<br/>・テストの骨抜き抑止<br/>・未読ファイル編集抑止</div>"]
+    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・省略記号による内容消失抑止<br/>・生成ファイル直接編集抑止<br/>・秘密情報書き込み抑止<br/>・shellによるファイル編集抑止<br/>・テストの骨抜き抑止<br/>・テスト期待値の後付け抑止<br/>・未読ファイル編集抑止</div>"]
 
     runTool["ツール実行"]
 
-    postToolUse["<b><i><u>postToolUse</u></i></b><br/><div style='text-align: left'>・既読ファイルの記録<br/>・改行コード不変確認<br/>・振り子編集検知<br/>・skillのcross agent対応確認</div>"]
+    postToolUse["<b><i><u>postToolUse</u></i></b><br/><div style='text-align: left'>・既読ファイルの記録<br/>・テスト失敗値の記録<br/>・改行コード不変確認<br/>・振り子編集検知<br/>・skillのcross agent対応確認</div>"]
 
     postToolUseFailure["<b><i><u>postToolUseFailure</u></i></b><br/><div style='text-align: left'>・失敗の繰り返し検知</div>"]
 
@@ -104,8 +104,8 @@ flowchart TD
       <td><a href="./hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/README.md">debug-log-transformed-prompt</a></td>
     </tr>
     <tr>
-      <td rowspan="7">preToolUse</td>
-      <td rowspan="7"></td>
+      <td rowspan="8">preToolUse</td>
+      <td rowspan="8"></td>
       <td>危険コマンド実行抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-commands/README.md">block-commands</a></td>
     </tr>
@@ -130,14 +130,22 @@ flowchart TD
       <td><a href="./hooks/helpers/events/preToolUse/block-test-weakening/README.md">block-test-weakening</a></td>
     </tr>
     <tr>
+      <td>テスト期待値の後付け抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-goalpost-moving/README.md">block-goalpost-moving</a></td>
+    </tr>
+    <tr>
       <td>未読ファイル編集抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/require-read-before-edit/README.md">require-read-before-edit</a></td>
     </tr>
     <tr>
-      <td rowspan="4">postToolUse</td>
-      <td rowspan="4"></td>
+      <td rowspan="5">postToolUse</td>
+      <td rowspan="5"></td>
       <td>既読ファイルの記録</td>
       <td><a href="./hooks/helpers/events/postToolUse/record-seen-files/README.md">record-seen-files</a></td>
+    </tr>
+    <tr>
+      <td>テスト失敗値の記録</td>
+      <td><a href="./hooks/helpers/events/postToolUse/record-test-failure-values/README.md">record-test-failure-values</a></td>
     </tr>
     <tr>
       <td>改行コード不変確認</td>

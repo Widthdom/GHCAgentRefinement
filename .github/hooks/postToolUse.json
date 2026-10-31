@@ -29,6 +29,13 @@
         "bash": "python3 .github/hooks/helpers/events/postToolUse/record-seen-files/record-seen-files.py",
         "powershell": "python .github/hooks/helpers/events/postToolUse/record-seen-files/record-seen-files.py",
         "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "(?:functions\\.)?(?:bash|powershell)",
+        "bash": "python3 .github/hooks/helpers/events/postToolUse/record-test-failure-values/record-test-failure-values.py",
+        "powershell": "python .github/hooks/helpers/events/postToolUse/record-test-failure-values/record-test-failure-values.py",
+        "timeoutSec": 10
       }
     ]
   }
