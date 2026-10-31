@@ -19,6 +19,13 @@
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
+        "bash": "python3 .github/hooks/helpers/events/preToolUse/block-error-swallowing/block-error-swallowing.py",
+        "powershell": "python .github/hooks/helpers/events/preToolUse/block-error-swallowing/block-error-swallowing.py",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
         "bash": "python3 .github/hooks/helpers/events/preToolUse/block-generated-file-edits/block-generated-file-edits.py",
         "powershell": "python .github/hooks/helpers/events/preToolUse/block-generated-file-edits/block-generated-file-edits.py",
         "timeoutSec": 10

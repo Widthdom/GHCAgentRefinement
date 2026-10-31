@@ -1,0 +1,39 @@
+{
+  "excludedFilePatterns": [
+    "(?i)\\.(?:md|markdown|rst|txt|adoc)$"
+  ],
+  "swallowingPatterns": [
+    {
+      "name": "empty Python exception handler",
+      "pattern": "^[ \\t]*except\\b[^:\\n]*:[ \\t]*(?:#[^\\n]*)?(?:\\n[ \\t]*)?(?:pass|\\.\\.\\.)[ \\t]*(?:#[^\\n]*)?$"
+    },
+    {
+      "name": "suppressed Python exception",
+      "pattern": "\\bsuppress\\(\\s*(?:Base)?Exception\\s*\\)"
+    },
+    {
+      "name": "empty catch block",
+      "pattern": "\\bcatch\\s*(?:\\([^)\\n]*\\)\\s*)?\\{\\s*(?://[^\\n]*\\s*|/\\*.*?\\*/\\s*)*\\}"
+    },
+    {
+      "name": "empty promise catch",
+      "pattern": "\\.catch\\(\\s*(?:\\(\\s*\\w*\\s*\\)|\\w+)\\s*=>\\s*(?:\\{\\s*\\}|undefined|null|void\\s+0)\\s*\\)"
+    },
+    {
+      "name": "discarded Go error",
+      "pattern": "^\\s*_\\s*=\\s*err\\b|\\bif\\s+err\\s*!=\\s*nil\\s*\\{\\s*\\}"
+    },
+    {
+      "name": "ignored command failure",
+      "pattern": "\\|\\|\\s*(?:true|:)\\s*(?:[;)]|$)|^\\s*set\\s+\\+e\\b"
+    },
+    {
+      "name": "ignored PowerShell error",
+      "pattern": "(?i)-ErrorAction\\s+(?:SilentlyContinue|Ignore)\\b|\\$ErrorActionPreference\\s*=\\s*['\"](?:SilentlyContinue|Ignore)['\"]"
+    },
+    {
+      "name": "suppressed diagnostic",
+      "pattern": "#\\s*type:\\s*ignore\\b|#\\s*(?:noqa|pyright:\\s*ignore|pylint:\\s*disable)\\b|//\\s*@ts-(?:ignore|nocheck)\\b|\\beslint-disable\\b|#pragma\\s+warning\\s+disable\\b|@SuppressWarnings\\b|//\\s*nolint\\b|#!?\\[allow\\("
+    }
+  ]
+}
