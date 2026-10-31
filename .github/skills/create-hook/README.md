@@ -2,33 +2,25 @@
 
 ## 作成と更新の分担
 
-[create-hook](./SKILL.md) は新規作成、[update-hook](../update-hook/SKILL.md) は既存hookの更新を担当する。スクリプトの移動時の参照更新や、変更の影響範囲を踏まえた回帰検証は更新側にまとめる。
-
-## 共通規約
-
-両方に必要な実装・検証規約は [共通規約](./references/hook-conventions.md) を参照し、二重管理しない。
-
-実行時に必要な制約は共通規約に残し、背景説明や具体例はこのREADMEにまとめる。README全体を毎回読み込む前提にはしない。
+[create-hook](./SKILL.md) は新規作成、[update-hook](../update-hook/SKILL.md) は既存hookの更新・削除を担当する。スクリプトの移動時の参照更新や、変更の影響範囲を踏まえた回帰検証は更新側にまとめる。両方が従う実装・検証規約は [共通規約](./references/hook-conventions.md) にまとめ、二重管理しない。
 
 ## 対象ランタイム
 
-VS CodeのSession Targetが `Copilot` の場合はCLIと同じSDK hook実装を使うため、SDKの仕様が両方に適用できる。一方、`Local`、`Claude`、`Codex`は異なる実行環境であり、同じ設定が読み込まれても互換性があるとは限らない。VS Codeのバージョンによってイベントの対応状況が異なることもある。
-
-Windows、macOS、Linuxではコマンドやパスの扱いが異なる。
+VS CodeのSession Targetが `Copilot` の場合はCLIと同じSDK hook実装を使うため、SDKの仕様に従えば両方で動く。一方、`Local`、`Claude`、`Codex` は異なる実行環境であり、同じ設定が読み込まれても互換性があるとは限らない。そのため、SDK以外の形式向けの互換処理は加えない。VS Codeのバージョンによってイベントの対応状況が異なるため、対象バージョンでイベントを確認する。
 
 ## 実装言語
 
-hookの実行スクリプトをPythonに統一すると、Windows、macOS、Linuxで同じスクリプトを `python3` から起動でき、OSごとにシェルスクリプトを書き分ける必要がなくなる。JSON・正規表現・パス操作・一時ディレクトリなど、hookで必要な処理は標準ライブラリだけで扱える。
+hookの実行スクリプトをPythonに統一すると、Windows、macOS、Linuxで同じスクリプトを起動でき、OSごとにシェルスクリプトを書き分ける必要がなくなる。JSON・正規表現・パス操作・一時ディレクトリなど、hookで必要な処理は標準ライブラリだけで扱える。
 
 ## Windows特有の制御
 
-サービスの制御やレジストリ、CIM/WMIなどのWindows管理機能は、Windows PowerShellのコマンドレット（`Get-Service`、`Restart-Service` など）から直接扱える。Pythonで同じことをするには外部コマンドの呼び出しや追加パッケージが必要になる。Windows PowerShell 5.1はWindowsに標準搭載されており、PowerShell 7のような追加インストールも不要なため、Windowsでしか意味を持たない処理は5.1で実装する。5.1ではPowerShell 7以降で追加された構文や機能を使えず、`Set-Content -Encoding UTF8` などはBOM付きで書き込むため、エンコーディングを明示する。
+サービスの制御やレジストリ、CIM/WMIなどのWindows管理機能は、Windows PowerShellのコマンドレット（`Get-Service`、`Restart-Service` など）から直接扱える。Pythonで同じことをするには外部コマンドの呼び出しや追加パッケージが必要になる。Windows PowerShell 5.1はWindowsに標準搭載されており追加インストールが不要なため、Windowsでしか意味を持たない処理は5.1で実装する。
 
-5.1で使えない機能の例は `??`、`?.`、三項演算子、`$IsWindows`、`ConvertFrom-Json -AsHashtable`。BOMなしUTF-8のエンコーディング指定には `[System.Text.UTF8Encoding]::new($false)` を使える。
+5.1ではPowerShell 7以降の構文や機能（`??`、`?.`、三項演算子、`$IsWindows`、`ConvertFrom-Json -AsHashtable` など）を使えない。また、`Set-Content -Encoding UTF8` などはBOM付きで書き込むため、BOMなしUTF-8は `[System.Text.UTF8Encoding]::new($false)` で明示する。
 
 ## スクリプト配置とパス
 
-hook定義とスクリプトをhook名ごとにまとめることで、関連ファイルの対応関係を保ちやすくなる。hookから起動するスクリプトは呼び出し元の作業ディレクトリを前提にできないため、補助ファイルはスクリプト自身の場所（`__file__`）を基準に参照する。`os.path.join` と標準パスAPIを使うことで、Windows、macOS、Linux間のパス区切りや親ディレクトリ表記の違いに依存しなくなる。一時ファイルにはOSが提供する一時ディレクトリを使う。
+スクリプト、README、テストをhook名ごとのフォルダーにまとめることで、関連ファイルの対応関係を保ちやすくなる。hookから起動するスクリプトは呼び出し元の作業ディレクトリを前提にできないため、補助ファイルはスクリプト自身の場所（`__file__`）を基準に参照する。`os.path.join` と標準パスAPIを使うことで、OS間のパス区切りや親ディレクトリ表記の違いに依存しなくなる。
 
 `script_directory + '\\x.py'` のような区切りの直書きや、`os.path.join(base, 'a/b')` のような複数階層を含む引数は避け、`os.path.join(base, 'a', 'b')` とする。親ディレクトリには `'..'` ではなく `os.path.dirname` を使う。
 
