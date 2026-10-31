@@ -233,7 +233,7 @@ class RequestReviewTests(unittest.TestCase):
         self.assertEqual(len(review_commands), 1)
         for key, interpreter in (('bash', 'python3'), ('powershell', 'python')):
             self.assertEqual(review_commands[0][key], (
-                f'{interpreter} .github/hooks/helpers/events/agentStop/'
+                f'{interpreter} .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/'
                 'request-adversarial-review/request-adversarial-review.py'
             ))
         with open(os.path.join(

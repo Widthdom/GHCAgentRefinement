@@ -5,36 +5,36 @@
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/events/postToolUse/check-cross-agent-skill-wrappers/check-cross-agent-skill-wrappers.py",
-        "powershell": "python .github/hooks/helpers/events/postToolUse/check-cross-agent-skill-wrappers/check-cross-agent-skill-wrappers.py",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/check-cross-agent-skill-wrappers/check-cross-agent-skill-wrappers.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/check-cross-agent-skill-wrappers/check-cross-agent-skill-wrappers.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/events/postToolUse/detect-edit-oscillation/detect-edit-oscillation.py",
-        "powershell": "python .github/hooks/helpers/events/postToolUse/detect-edit-oscillation/detect-edit-oscillation.py",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/detect-edit-oscillation/detect-edit-oscillation.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/detect-edit-oscillation/detect-edit-oscillation.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/events/postToolUse/preserve-line-endings/preserve-line-endings.py",
-        "powershell": "python .github/hooks/helpers/events/postToolUse/preserve-line-endings/preserve-line-endings.py",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/preserve-line-endings/preserve-line-endings.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/preserve-line-endings/preserve-line-endings.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:view|edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/events/postToolUse/record-seen-files/record-seen-files.py",
-        "powershell": "python .github/hooks/helpers/events/postToolUse/record-seen-files/record-seen-files.py",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-seen-files/record-seen-files.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-seen-files/record-seen-files.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:bash|powershell)",
-        "bash": "python3 .github/hooks/helpers/events/postToolUse/record-test-failure-values/record-test-failure-values.py",
-        "powershell": "python .github/hooks/helpers/events/postToolUse/record-test-failure-values/record-test-failure-values.py",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-test-failure-values/record-test-failure-values.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-test-failure-values/record-test-failure-values.py",
         "timeoutSec": 10
       }
     ]

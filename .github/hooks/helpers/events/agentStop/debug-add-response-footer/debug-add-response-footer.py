@@ -2,6 +2,7 @@ import io
 import json
 import os
 import runpy
+import sqlite3
 import sys
 import uuid
 from pathlib import Path
@@ -33,7 +34,7 @@ def _get_last_assistant_msg(transcript_path):
     return last_assistant_msg
 
 
-def _get_footer_correction(transcript_path, last_assistant_msg):
+def _get_footer_correction(transcript_path, session_id, last_assistant_msg):
     # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
     script_directory = Path(__file__).resolve().parent
 
@@ -47,12 +48,19 @@ def _get_footer_correction(transcript_path, last_assistant_msg):
         str(Path(__file__).resolve().parents[4]),
     ) or ['none']
 
+    # hookランナーが記録した、実際に機能したhook。同時に動くagentStop hookは含めない。
+    fired_hooks = runpy.run_path(str(script_directory / 'get-fired-hooks.py'))['get_fired_hooks'](
+        transcript_path,
+        session_id,
+    ) or ['none']
+
     used_skills = runpy.run_path(str(script_directory / 'get-used-skills.py'))['get_used_skills'](
         transcript_path
     ) or ['none']
 
     formatted_footer = runpy.run_path(str(script_directory / 'format-response-footer.py'))['format_response_footer'](
         used_hooks,
+        fired_hooks,
         used_skills,
         current_jst,
     )
@@ -60,6 +68,7 @@ def _get_footer_correction(transcript_path, last_assistant_msg):
     is_footer_valid = runpy.run_path(str(script_directory / 'check-response-footer.py'))['test_response_footer'](
         last_assistant_msg,
         used_hooks,
+        fired_hooks,
         used_skills,
         current_jst,
     )
@@ -178,8 +187,8 @@ def main():
             print('No assistant response was found in the transcript.', file=sys.stderr)
             return 2
 
-        footer_correction = _get_footer_correction(transcript_path, last_assistant_msg)
-    except (OSError, ValueError) as ex:
+        footer_correction = _get_footer_correction(transcript_path, str(parsed_session_id), last_assistant_msg)
+    except (OSError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to inspect response footer: {ex}', file=sys.stderr)
         return 2
 

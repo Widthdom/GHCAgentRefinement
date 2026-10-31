@@ -84,7 +84,7 @@ class DebugLogTransformedPromptTests(unittest.TestCase):
         entries = configuration['hooks']['userPromptTransformed']
         relative_path = '.github/hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/debug-log-transformed-prompt.py'
         self.assertEqual(entries, [{
-            'type': 'command', 'bash': f'python3 {relative_path}', 'powershell': f'python {relative_path}',
+            'type': 'command', 'bash': f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}', 'powershell': f'python .github/hooks/helpers/runner/run-hook.py {relative_path}',
         }])
 
     def test_records_prompts_and_added_runtime_context(self):

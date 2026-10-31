@@ -61,11 +61,11 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
         relative_path = f'.github/hooks/helpers/events/userPromptSubmitted/{hook_name}/{hook_name}.py'
         entries = [
             entry for entry in configuration['hooks']['userPromptSubmitted']
-            if entry.get('bash') == f'python3 {relative_path}'
+            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
         ]
         self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['powershell'], f'python {relative_path}')
+        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
 
     def test_passes_real_instructions_to_subagent(self):
         with open(real_instructions_path, 'rb') as file:

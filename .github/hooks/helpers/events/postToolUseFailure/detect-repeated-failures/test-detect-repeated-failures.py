@@ -72,8 +72,8 @@ class DetectRepeatedFailuresTests(unittest.TestCase):
         self.assertEqual(len(entries), 1)
         relative_path = '.github/hooks/helpers/events/postToolUseFailure/detect-repeated-failures/detect-repeated-failures.py'
         self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['bash'], f'python3 {relative_path}')
-        self.assertEqual(entries[0]['powershell'], f'python {relative_path}')
+        self.assertEqual(entries[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
+        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
 
     def test_notifies_only_on_third_failure(self):
         self.assert_silent(self.invoke())

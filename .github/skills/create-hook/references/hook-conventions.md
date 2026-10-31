@@ -1,9 +1,9 @@
 # hookの共通規約
 
 1. Copilot SDKのイベント、設定、入出力仕様を使い、SDK以外の形式向けの互換処理、フォールバック、専用の実装・検証は加えない。Windows、macOS、Linuxのすべてを対象にし（Windows特有の制御を行うhookを除く）、対象VS Codeバージョンでイベントを確認する。
-2. hook定義はイベントごとに `.github/hooks/<event-name>.json` にまとめ、同じイベントの複数hookを配列に記述する（配列要素順は実行スクリプトパスの昇順）。実行・補助スクリプトは `.github/hooks/helpers/events/<event-name>/<hook-name>/` に配置する。複数hookで共有する補助スクリプトは `.github/hooks/helpers/utilities/` に配置する。ファイル名にはhook名を使い、実行スクリプトはPython（`.py`）で作成する。JSONの `bash` / `powershell` コマンドには実行スクリプトのリポジトリルート相対パスを指定する。
+2. hook定義はイベントごとに `.github/hooks/<event-name>.json` にまとめ、同じイベントの複数hookを配列に記述する（配列要素順は実行スクリプトパスの昇順）。実行・補助スクリプトは `.github/hooks/helpers/events/<event-name>/<hook-name>/` に配置する。複数hookで共有する補助スクリプトは `.github/hooks/helpers/utilities/` に配置する。ファイル名にはhook名を使い、実行スクリプトはPython（`.py`）で作成する。JSONの `bash` / `powershell` コマンドでは、[hookランナー](../../../hooks/helpers/runner/README.md)（`.github/hooks/helpers/runner/run-hook.py`）に実行スクリプトのリポジトリルート相対パスを渡して起動する。Pythonが無い環境でも動く必要があるhook（`check-python`、`block-commands`）だけはランナーを通さない。
 3. すべてのhookに `.github/hooks/helpers/events/<event-name>/<hook-name>/README.md` を作成し、発動条件と処理詳細を記載する。設計背景を補足する必要がある場合はこれも記載する。
-4. macOS/Linuxは `bash` に `python3`、Windowsは `powershell` に `python` での起動を記述する。同じ `.py` を使い、OS固有のシェル構文に依存させない。
+4. macOS/Linuxは `bash` に `python3 .github/hooks/helpers/runner/run-hook.py <実行スクリプト>`、Windowsは `powershell` に `python .github/hooks/helpers/runner/run-hook.py <実行スクリプト>` での起動を記述する。同じ `.py` を使い、OS固有のシェル構文に依存させない。
 5. Python 3.14対応の構文・標準ライブラリAPIを使う。最低対応・推奨は3.14とし、新規インストールには同系列の最新パッチ版を案内する。基準の明示的な更新までは推奨系列を変えない。
 6. 補助ファイルは `os.path.dirname(os.path.abspath(__file__))` を基準に参照する。パスは `os.path.join` で階層ごとに連結し、親は `os.path.dirname`、一時ファイルの基点は `tempfile.gettempdir()` を使う。hookが実行をまたいで保持する状態は `<一時フォルダー>/ghc-agent-refinement/hook-states/<状態名>/`、デバッグ専用hookのログは `<一時フォルダー>/ghc-agent-refinement/debug-logs/<ログ名>/` に置き、`ghc-agent-refinement/` の直下には置かない。
 7. 標準入力はバイト列として読み、UTF-8で復号する。標準出力・標準エラーはBOMなしのUTF-8で出力する。異常終了は原因を標準エラーに出力して `sys.exit(2)`、正常終了とスキップは `sys.exit(0)` または正常なスクリプト終端にする。Unicode escapeを使う場合は、復号した文字列を近くのコメントに記載する。

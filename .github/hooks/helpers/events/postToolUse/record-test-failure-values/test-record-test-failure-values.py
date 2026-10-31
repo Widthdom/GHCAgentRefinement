@@ -69,11 +69,11 @@ class RecordTestFailureValuesTests(unittest.TestCase):
         relative_path = '.github/hooks/helpers/events/postToolUse/record-test-failure-values/record-test-failure-values.py'
         entries = [
             entry for entry in configuration['hooks']['postToolUse']
-            if entry.get('bash') == f'python3 {relative_path}'
+            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
         ]
         self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['powershell'], f'python {relative_path}')
+        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
         for tool_name in ('bash', 'powershell', 'functions.bash'):
             self.assertRegex(tool_name, f'^(?:{entries[0]["matcher"]})$')
         for tool_name in ('edit', 'view'):

@@ -68,11 +68,11 @@ class BlockShellFileEditsTests(unittest.TestCase):
         relative_path = '.github/hooks/helpers/events/preToolUse/block-shell-file-edits/block-shell-file-edits.py'
         entries = [
             entry for entry in configuration['hooks']['preToolUse']
-            if entry.get('bash') == f'python3 {relative_path}'
+            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
         ]
         self.assertEqual(len(entries), 1)
         self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['powershell'], f'python {relative_path}')
+        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
         for tool_name in ('bash', 'powershell', 'functions.bash', 'functions.powershell'):
             with self.subTest(tool_name=tool_name):
                 self.assertRegex(tool_name, f'^(?:{entries[0]["matcher"]})$')

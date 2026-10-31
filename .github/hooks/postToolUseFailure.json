@@ -4,8 +4,8 @@
     "postToolUseFailure": [
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/events/postToolUseFailure/detect-repeated-failures/detect-repeated-failures.py",
-        "powershell": "python .github/hooks/helpers/events/postToolUseFailure/detect-repeated-failures/detect-repeated-failures.py"
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUseFailure/detect-repeated-failures/detect-repeated-failures.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUseFailure/detect-repeated-failures/detect-repeated-failures.py"
       }
     ]
   }

@@ -60,6 +60,9 @@ class RequireHookTestsTests(unittest.TestCase):
                 self.touch(os.path.join(directory, filename))
         for path in (
             ('helpers', 'utilities', 'shared.py'),
+            ('helpers', 'runner', 'run-hook.py'),
+            ('helpers', 'runner', 'test-run-hook.py'),
+            ('helpers', 'runner', 'README.md'),
             ('tests', 'test-all-hooks.py'),
             ('tests', 'test-hook-configurations.py'),
             ('tests', 'README.md'),
@@ -119,8 +122,8 @@ class RequireHookTestsTests(unittest.TestCase):
         matching = [entry for entry in entries if relative_path in entry['bash']]
         self.assertEqual(len(matching), 1)
         self.assertEqual(matching[0]['type'], 'command')
-        self.assertEqual(matching[0]['bash'], f'python3 {relative_path}')
-        self.assertEqual(matching[0]['powershell'], f'python {relative_path}')
+        self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
+        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
         self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
 
     def test_blocks_hook_change_without_passing_test(self):
@@ -157,6 +160,9 @@ class RequireHookTestsTests(unittest.TestCase):
             [*edit('e1', alpha), *shell('s1', 'cd .github/hooks/helpers/events/preToolUse/alpha && python3 test-alpha.py -v', 0)],
             [*edit('e1', '.github/hooks/preToolUse.json'), *shell('s1', 'python3 .github/hooks/tests/test-hook-configurations.py', 0)],
             [*edit('e1', '.github/hooks/helpers/utilities/shared.py'), *shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
+            [*edit('e1', '.github/hooks/helpers/runner/run-hook.py'),
+             *shell('s1', 'python3 .github/hooks/helpers/runner/test-run-hook.py', 0)],
+            [*edit('e1', '.github/hooks/helpers/runner/run-hook.py'), *shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
             [*edit('e1', '.github/hooks/tests/helpers/hook_test_output.py'),
              *shell('s1', 'python3 .github/hooks/tests/helpers/test-hook-test-output.py', 0)],
         )
@@ -169,6 +175,7 @@ class RequireHookTestsTests(unittest.TestCase):
             [*edit('e1', self.hook_file('preToolUse', 'alpha', 'README.md'))],
             [*edit('e1', '.github/hooks/tests/README.md')],
             [*edit('e1', '.github/README.md')],
+            [*edit('e1', '.github/hooks/helpers/runner/README.md')],
             [*edit('e1', 'src/app.py')],
             [*edit('e1', self.hook_file('preToolUse', 'deleted', 'deleted.py'))],
             [*edit('e1', self.hook_file('preToolUse', 'alpha', 'alpha.py'), success=False)],
@@ -229,6 +236,13 @@ class RequireHookTestsTests(unittest.TestCase):
         # テストだけを変えたhookと、READMEも変えたhookは、READMEの確認を促さない。
         self.assertNotIn('beta/README.md', reason)
         self.assertNotIn('no-test/README.md', reason)
+
+    def test_requires_runner_test(self):
+        reason = self.assert_block(
+            self.invoke([user('直して'), *edit('e1', '.github/hooks/helpers/runner/run-hook.py')]),
+            f'- hook runner (helpers/runner) (not run): run `{PYTHON_COMMAND} .github/hooks/helpers/runner/test-run-hook.py`',
+        )
+        self.assertTrue(reason.endswith('.github/hooks/helpers/runner/README.md'))
 
     def test_skips_subagent(self):
         events = [user('直して'), *edit('e1', self.hook_file('preToolUse', 'alpha', 'alpha.py'))]

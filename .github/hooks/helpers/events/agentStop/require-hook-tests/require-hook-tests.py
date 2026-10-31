@@ -17,6 +17,7 @@ HOOKS_PATH_PATTERN = re.compile(r'^(.*?)/\.github/hooks/(.+)$', re.IGNORECASE)
 ALL_HOOKS_TEST = 'test-all-hooks.py'
 CONFIGURATION_TEST = 'test-hook-configurations.py'
 TEST_OUTPUT_TEST = 'test-hook-test-output.py'
+RUNNER_TEST = 'test-run-hook.py'
 REASON_PREFIX = 'Hook files were changed'
 PYTHON_COMMAND = 'python' if sys.platform == 'win32' else 'python3'
 
@@ -127,6 +128,15 @@ def get_requirement(path, cwd):
             'test': os.path.join(hooks_directory, 'tests', ALL_HOOKS_TEST),
             'accepted': (ALL_HOOKS_TEST,),
             'readme': None,
+        })
+    if len(parts) == 3 and parts[:2] == ['helpers', 'runner'] and not parts[2].lower().endswith('.md'):
+        runner_directory = os.path.join(hooks_directory, 'helpers', 'runner')
+        readme = os.path.join(runner_directory, 'README.md')
+        return (os.path.normcase(runner_directory), {
+            'label': 'hook runner (helpers/runner)',
+            'test': os.path.join(runner_directory, RUNNER_TEST),
+            'accepted': (RUNNER_TEST, ALL_HOOKS_TEST),
+            'readme': readme if not parts[2].startswith('test-') and os.path.isfile(readme) else None,
         })
     if len(parts) == 1 and parts[0].lower().endswith('.json'):
         return (os.path.normcase(os.path.join(hooks_directory, 'configurations')), {

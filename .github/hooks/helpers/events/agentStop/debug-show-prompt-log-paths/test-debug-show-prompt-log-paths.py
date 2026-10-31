@@ -98,7 +98,7 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
         commands = [entry['bash'] for entry in entries]
         self.assertEqual(commands, sorted(commands))
         relative = '.github/hooks/helpers/events/agentStop/debug-show-prompt-log-paths/debug-show-prompt-log-paths.py'
-        self.assertIn({'type': 'command', 'bash': f'python3 {relative}', 'powershell': f'python {relative}'}, entries)
+        self.assertIn({'type': 'command', 'bash': f'python3 .github/hooks/helpers/runner/run-hook.py {relative}', 'powershell': f'python .github/hooks/helpers/runner/run-hook.py {relative}'}, entries)
 
     def test_displays_current_log_as_progress(self):
         self.assertEqual(self.displayed_paths(self.invoke()), [self.log_path])

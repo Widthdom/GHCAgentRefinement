@@ -140,7 +140,7 @@ class ReviewModeTests(unittest.TestCase):
             for hook_name in ('set-debug-mode', 'set-adversarial-review-state'):
                 with self.subTest(key=key, hook_name=hook_name):
                     self.assertIn(
-                        f'{interpreter} .github/hooks/helpers/events/userPromptSubmitted/'
+                        f'{interpreter} .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/userPromptSubmitted/'
                         f'{hook_name}/{hook_name}.py',
                         [command[key] for command in commands],
                     )

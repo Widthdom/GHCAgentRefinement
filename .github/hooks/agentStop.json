@@ -4,43 +4,43 @@
     "agentStop": [
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/events/agentStop/debug-add-response-footer/debug-add-response-footer.py",
-        "powershell": "python .github/hooks/helpers/events/agentStop/debug-add-response-footer/debug-add-response-footer.py"
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/debug-add-response-footer/debug-add-response-footer.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/debug-add-response-footer/debug-add-response-footer.py"
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/events/agentStop/debug-show-prompt-log-paths/debug-show-prompt-log-paths.py",
-        "powershell": "python .github/hooks/helpers/events/agentStop/debug-show-prompt-log-paths/debug-show-prompt-log-paths.py"
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/debug-show-prompt-log-paths/debug-show-prompt-log-paths.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/debug-show-prompt-log-paths/debug-show-prompt-log-paths.py"
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/events/agentStop/detect-phantom-references/detect-phantom-references.py",
-        "powershell": "python .github/hooks/helpers/events/agentStop/detect-phantom-references/detect-phantom-references.py"
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-phantom-references/detect-phantom-references.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-phantom-references/detect-phantom-references.py"
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/events/agentStop/detect-sycophantic-reversal/detect-sycophantic-reversal.py",
-        "powershell": "python .github/hooks/helpers/events/agentStop/detect-sycophantic-reversal/detect-sycophantic-reversal.py"
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-sycophantic-reversal/detect-sycophantic-reversal.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-sycophantic-reversal/detect-sycophantic-reversal.py"
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/events/agentStop/detect-unread-speculation/detect-unread-speculation.py",
-        "powershell": "python .github/hooks/helpers/events/agentStop/detect-unread-speculation/detect-unread-speculation.py"
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-unread-speculation/detect-unread-speculation.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-unread-speculation/detect-unread-speculation.py"
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/events/agentStop/request-adversarial-review/request-adversarial-review.py",
-        "powershell": "python .github/hooks/helpers/events/agentStop/request-adversarial-review/request-adversarial-review.py"
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/request-adversarial-review/request-adversarial-review.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/request-adversarial-review/request-adversarial-review.py"
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/events/agentStop/require-hook-tests/require-hook-tests.py",
-        "powershell": "python .github/hooks/helpers/events/agentStop/require-hook-tests/require-hook-tests.py"
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/require-hook-tests/require-hook-tests.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/require-hook-tests/require-hook-tests.py"
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/events/agentStop/verify-completion-claims/verify-completion-claims.py",
-        "powershell": "python .github/hooks/helpers/events/agentStop/verify-completion-claims/verify-completion-claims.py"
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/verify-completion-claims/verify-completion-claims.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/verify-completion-claims/verify-completion-claims.py"
       }
     ]
   }

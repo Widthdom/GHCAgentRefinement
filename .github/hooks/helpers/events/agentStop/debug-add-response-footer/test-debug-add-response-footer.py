@@ -9,6 +9,7 @@ import unittest
 import threading
 import time
 import uuid
+from datetime import datetime
 from unittest.mock import Mock, patch
 from pathlib import Path
 
@@ -309,6 +310,7 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         formatted_footer = runpy.run_path(str(Path(script_directory) / 'format-response-footer.py'))['format_response_footer'](
             hooks=['none'],
+            fired_hooks=['none'],
             skills=['none'],
             current_jst=current_jst,
         )
@@ -411,17 +413,36 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         correction = block_output['reason']
 
+        def _epoch_ms(timestamp):
+            return int(datetime.fromisoformat(timestamp).timestamp() * 1000)
+
+        # userPromptSubmittedのhook.startはuser.messageより前に記録されるため、そこからを今回のターンとする。
+        record_hook_run = runpy.run_path(
+            str(Path(script_directory).parents[2] / 'utilities' / 'hook-activity-state.py')
+        )['record_hook_run']
+        with patch.object(tempfile, 'tempdir', self.temp_dir):
+            for timestamp, event_name, hook_name, fired in (
+                ('2026-10-21T02:59:58.000Z', 'preToolUse', 'previous-turn', True),
+                ('2026-10-21T02:59:59.500Z', 'userPromptSubmitted', 'prompt-hook', True),
+                ('2026-10-21T03:00:05.000Z', 'preToolUse', 'deny-hook', True),
+                ('2026-10-21T03:00:05.000Z', 'preToolUse', 'quiet-hook', False),
+                ('2026-10-21T03:00:06.000Z', 'agentStop', 'stop-hook', True),
+            ):
+                record_hook_run(self.enabled_session_id, event_name, hook_name, _epoch_ms(timestamp), fired)
+
         events = [
             {'type': 'hook.start', 'data': {'hookType': 'sessionStart'}},
             {'type': 'tool.execution_start', 'data': {'toolName': 'skill', 'arguments': {'skill': 'previous'}}},
-            {'type': 'user.message', 'data': {'content': 'New turn'}},
+            {'type': 'hook.start', 'timestamp': '2026-10-21T02:59:59.000Z', 'data': {'hookType': 'userPromptSubmitted'}},
+            {'type': 'user.message', 'timestamp': '2026-10-21T03:00:00.000Z', 'data': {'content': 'New turn'}},
             {'type': 'hook.start', 'data': {'hookType': 'agentStop'}},
             {'type': 'tool.execution_start', 'data': {'toolName': 'skill', 'arguments': {'skill': 'first'}}},
             {'type': 'tool.execution_start', 'data': {'toolName': 'functions.skill', 'arguments': {'skill': 'second'}}},
             {'type': 'tool.execution_start', 'data': {'toolName': 'skill', 'arguments': {'skill': 'first'}}},
             {'type': 'tool.execution_start', 'data': {'toolName': 'other', 'arguments': {'skill': 'ignored'}}},
             {'type': 'tool.execution_start', 'data': {'toolName': 'skill', 'arguments': {'skill': ['not-a-string']}}},
-            {'type': 'user.message', 'data': {'content': correction}},
+            {'type': 'hook.start', 'timestamp': '2026-10-21T03:00:09.000Z', 'data': {'hookType': 'userPromptSubmitted'}},
+            {'type': 'user.message', 'timestamp': '2026-10-21T03:00:10.000Z', 'data': {'content': correction}},
             {'type': 'hook.start', 'data': {'hookType': 'preToolUse'}},
         ]
 
@@ -436,6 +457,12 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         if get_skills(collection_transcript) != ['first', 'second']:
             raise AssertionError('Expected distinct skill names in invocation order, retaining correction history.')
+
+        get_fired_hooks = runpy.run_path(str(Path(script_directory) / 'get-fired-hooks.py'))['get_fired_hooks']
+
+        with patch.object(tempfile, 'tempdir', self.temp_dir):
+            if get_fired_hooks(collection_transcript, self.enabled_session_id) != ['deny-hook', 'prompt-hook']:
+                raise AssertionError('Expected fired current-turn hooks in name order, excluding agentStop hooks.')
 
 
         events.append({'type': 'assistant.message', 'data': {'content': 'Response body'}})
@@ -458,11 +485,12 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         corrected_footer = decision['reason'].split('\n\n', 1)[1]
 
-        if '- block-commands\n' not in corrected_footer or '- first\n- second\n' not in corrected_footer:
-            raise AssertionError(f'Expected hooks and skills in correction request: {corrected_footer}')
+        if ('- block-commands\n' not in corrected_footer or '- first\n- second\n' not in corrected_footer
+                or 'excluding agentStop hooks):\n- deny-hook\n- prompt-hook\n' not in corrected_footer):
+            raise AssertionError(f'Expected hooks, fired hooks, and skills in correction request: {corrected_footer}')
 
         events.extend([
-            {'type': 'user.message', 'data': {'content': decision['reason']}},
+            {'type': 'user.message', 'timestamp': '2026-10-21T03:00:20.000Z', 'data': {'content': decision['reason']}},
             {'type': 'assistant.message', 'data': {'content': 'Response body\n\n' + corrected_footer}},
         ])
 
@@ -475,10 +503,23 @@ class DebugResponseFooterTests(unittest.TestCase):
 
 
         with open(collection_transcript, 'a', encoding='utf-8') as file:
-            file.write(_to_compressed_json({'type': 'user.message', 'data': {'content': 'Next turn'}}) + '\n')
+            file.write(_to_compressed_json({
+                'type': 'user.message', 'timestamp': '2026-10-21T03:01:00.000Z', 'data': {'content': 'Next turn'},
+            }) + '\n')
 
         if get_hooks(collection_transcript, hooks_directory) or get_skills(collection_transcript):
             raise AssertionError('Expected a new user turn to reset hooks and skills.')
+
+        with patch.object(tempfile, 'tempdir', self.temp_dir):
+            if get_fired_hooks(collection_transcript, self.enabled_session_id):
+                raise AssertionError('Expected a new user turn to reset fired hooks.')
+            for timestamp in (None, 123, 'not-a-time'):
+                with self.subTest(timestamp=timestamp):
+                    _write_all_text(collection_transcript, _to_compressed_json({
+                        'type': 'user.message', 'timestamp': timestamp, 'data': {'content': 'Turn'},
+                    }) + '\n')
+                    with self.assertRaisesRegex(ValueError, 'Transcript event timestamp'):
+                        get_fired_hooks(collection_transcript, self.enabled_session_id)
 
     def test_footer_validation(self):
         format_footer = runpy.run_path(str(Path(script_directory) / 'format-response-footer.py'))['format_response_footer']
@@ -495,24 +536,30 @@ class DebugResponseFooterTests(unittest.TestCase):
             ('2026-02-30 12:00:00 JST', False),
         ):
             with self.subTest(timestamp=timestamp, expected=expected):
-                footer = format_footer(['a', 'b'], ['one'], timestamp)
+                footer = format_footer(['a', 'b'], ['fired'], ['one'], timestamp)
                 if '\r' in footer or not footer.endswith('\n\n'):
                     raise AssertionError('Expected LF-only footer with a trailing blank line.')
                 for newline in ('\n', '\r\n'):
-                    actual = validate_footer(footer.replace('\n', newline), ['B', 'A'], ['ONE'], current_jst)
+                    actual = validate_footer(footer.replace('\n', newline), ['B', 'A'], ['FIRED'], ['ONE'], current_jst)
                     if actual != expected:
                         raise AssertionError(f'Unexpected timestamp validation: {timestamp}, {newline!r}, {actual}')
 
-        footer = format_footer(['a', 'a'], ['one'], current_jst)
+        footer = format_footer(['a', 'a'], ['fired'], ['one'], current_jst)
 
-        if validate_footer(footer, ['a', 'b'], ['one'], current_jst):
+        if validate_footer(footer, ['a', 'b'], ['fired'], ['one'], current_jst):
             raise AssertionError('Expected duplicate/missing hooks to invalidate the footer.')
 
-        if validate_footer(footer + 'extra', ['a', 'a'], ['one'], current_jst):
+        if validate_footer(footer + 'extra', ['a', 'a'], ['fired'], ['one'], current_jst):
             raise AssertionError('Expected footer to be at the end of the response.')
 
-        if validate_footer(footer, ['a', 'a'], ['different'], current_jst):
+        if validate_footer(footer, ['a', 'a'], ['fired'], ['different'], current_jst):
             raise AssertionError('Expected mismatching skills to invalidate the footer.')
+
+        if validate_footer(footer, ['a', 'a'], ['other'], ['one'], current_jst):
+            raise AssertionError('Expected mismatching fired hooks to invalidate the footer.')
+
+        if '## Hooks fired (recorded by hook runner, excluding agentStop hooks):\n- fired\n' not in footer:
+            raise AssertionError('Expected the fired hooks section to state that agentStop hooks are excluded.')
 
     def test_transcript_and_polling_helpers(self):
         hook = runpy.run_path(str(Path(script_directory) / 'debug-add-response-footer.py'))

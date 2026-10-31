@@ -18,6 +18,7 @@ agentStop（エージェントの応答終了時）
 |--|--|
 |`helpers/events/<event>/<hook>/` 配下のファイル|`test-<hook>.py`、`test-all-hooks.py`|
 |`helpers/utilities/` 配下のファイル|`test-all-hooks.py`|
+|`helpers/runner/` 配下のファイル|`test-run-hook.py`、`test-all-hooks.py`|
 |`.github/hooks/<event>.json`|`test-hook-configurations.py`、`test-all-hooks.py`|
 |`tests/helpers/` 配下のファイル|`test-hook-test-output.py`（一括実行の探索対象外のため）|
 |`tests/test-all-hooks.py`・`tests/test-hook-configurations.py`|そのファイル自体|
