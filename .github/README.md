@@ -3,7 +3,7 @@
 ## Codex・Claudeでの利用
 
 - Codexは [AGENTS.md](../AGENTS.md) と [.agents/skills](../.agents/skills)、Claudeは [CLAUDE.md](../CLAUDE.md) と [.claude/skills](../.claude/skills) を通じて、共通指示とskillを利用できる。hookは共有対象外。
-- 指示と手順の正本は `.github/copilot-instructions.md` と `.github/skills`。ラッパーの作成・同期ルールは [skillの共通規約](./skills/create-skill/references/skill-conventions.md) を参照。
+- 指示と手順の正本は [.github/copilot-instructions.md](./copilot-instructions.md) と [.github/skills](./skills) 。ラッパーの作成・同期ルールは [skillの共通規約](./skills/create-skill/references/skill-conventions.md) を参照。
 
 ## hookについて
 
@@ -249,7 +249,7 @@ flowchart LR
 
 #### Pylanceの設定
 
-- hookのテストは、実行時に `sys.path` へ `.github/hooks/tests/helpers` を追加して共通処理を読み込む。
+- hookのテストは、実行時に `sys.path` へ [.github/hooks/tests/helpers](./hooks/tests/helpers) を追加して共通処理を読み込む。
 - Pylanceがこの読み込みを解決できるよう、リポジトリ直下の [pyrightconfig.json](../pyrightconfig.json) で同じパスを `extraPaths` に指定している。
 - hookはWindows・macOS・Linuxのすべてを対象にし、`os.name == 'nt'` などでOSごとに分岐するため、`pythonPlatform` を `All` にして、実行中のOS以外向けの分岐も解析させる。
 - このファイルがあると、Pylanceは `python.analysis.*` の設定（`typeCheckingMode` など）よりこのファイルを優先するため、ユーザー設定で変えている項目はこのファイルにも記載する。
