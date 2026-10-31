@@ -1,0 +1,39 @@
+{
+  "excludedFilePatterns": [
+    "(?i)\\.(?:md|markdown|rst|txt|adoc|json)$"
+  ],
+  "placeholderPatterns": [
+    {
+      "name": "NotImplementedException",
+      "pattern": "\\bthrow\\s+new\\s+(?:System\\.)?NotImplementedException\\b"
+    },
+    {
+      "name": "NotImplementedError",
+      "pattern": "\\braise\\s+NotImplementedError\\b"
+    },
+    {
+      "name": "not-implemented error",
+      "pattern": "\\bthrow\\s+new\\s+(?:Error|UnsupportedOperationException)\\s*\\(\\s*[\"'`](?i:not\\s+(?:yet\\s+)?implemented|todo|unimplemented)\\b"
+    },
+    {
+      "name": "not-implemented panic",
+      "pattern": "\\bpanic\\(\\s*\"(?i:not\\s+(?:yet\\s+)?implemented|todo|unimplemented)\\b"
+    },
+    {
+      "name": "todo macro",
+      "pattern": "\\b(?:todo|unimplemented)!\\s*\\(|\\bTODO\\(\\s*(?:\"[^\"\\n]*\")?\\s*\\)"
+    },
+    {
+      "name": "TODO comment",
+      "pattern": "(?://|#|/\\*|--)\\s*(?:TODO|TBD)\\b"
+    },
+    {
+      "name": "deferred implementation comment",
+      "pattern": "(?://|#|/\\*|--)[^\\n]*(?:後で実装|あとで実装|未実装|仮実装|(?i:\\bimplement(?:ation)?\\s+(?:later|here)\\b|\\bplaceholder\\s+implementation\\b|\\bstub(?:bed)?\\s+(?:out|implementation)\\b))"
+    }
+  ],
+  "disclosurePatterns": [
+    "未実装|仮実装|スタブ|後で実装|あとで実装|残作業|TODO",
+    "(?i)\\bnot\\s+(?:yet\\s+)?implemented\\b|\\bunimplemented\\b|\\bplaceholders?\\b|\\bstubs?\\b|\\bstubbed\\b|NotImplemented|todo!"
+  ]
+}
