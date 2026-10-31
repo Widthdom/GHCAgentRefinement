@@ -1,0 +1,42 @@
+{
+  "testFilePatterns": [
+    "(?i)(?:^|/)(?:tests?|__tests__|specs?)/",
+    "(?i)(?:^|/)[^/]*\\.(?:unit|integration)?tests?/",
+    "(?:^|/)[^/]*Tests?\\.(?:cs|fs|vb|java|kt)$",
+    "(?i)(?:^|/)test[_-][^/]*\\.(?:py|ps1)$",
+    "(?i)_test\\.(?:py|go|rs)$",
+    "(?i)\\.(?:test|spec)\\.[cm]?[jt]sx?$"
+  ],
+  "assertionPatterns": [
+    "\\bAssert(?:That)?\\.\\w+\\s*[(<]",
+    "\\bCollectionAssert\\.\\w+\\s*\\(|\\bStringAssert\\.\\w+\\s*\\(",
+    "\\.Should(?:\\(\\)|Be\\w*\\s*\\()",
+    "\\bassert\\w*\\s*\\(|^\\s*assert\\b",
+    "\\bassert(?:_eq|_ne)?!\\s*\\(",
+    "\\bexpect\\s*\\(",
+    "\\bt\\.(?:Error|Fatal)f?\\s*\\(",
+    "\\bpytest\\.raises\\s*\\("
+  ],
+  "weakeningPatterns": [
+    {
+      "name": "skip attribute",
+      "pattern": "\\[\\s*(?:Fact|Theory|Test|TestCase|TestMethod)\\s*\\([^)\\]]*\\bSkip\\s*=|\\[\\s*Ignore(?:Attribute)?\\s*[\\](]|^\\s*@(?:Disabled|Ignore)\\b|^\\s*#\\[ignore\\b"
+    },
+    {
+      "name": "skip decorator",
+      "pattern": "^\\s*@(?:pytest\\.mark\\.(?:skip|skipif|xfail)|unittest\\.(?:skip|skipIf|skipUnless|expectedFailure))\\b"
+    },
+    {
+      "name": "skip call",
+      "pattern": "\\b(?:pytest\\.skip|self\\.skipTest|t\\.Skip(?:Now|f)?|Skip\\.(?:If|IfNot)|Assert\\.(?:Inconclusive|Ignore))\\s*\\("
+    },
+    {
+      "name": "skipped or focused JavaScript test",
+      "pattern": "\\b(?:(?:it|test|describe|context|suite)\\.(?:skip|only|todo)|x(?:it|test|describe|context)|f(?:it|describe))\\s*\\("
+    },
+    {
+      "name": "always-passing assertion",
+      "pattern": "\\bAssert\\.(?:True|IsTrue)\\s*\\(\\s*true\\s*\\)|\\bAssert\\.(?:False|IsFalse)\\s*\\(\\s*false\\s*\\)|\\bAssert\\.Pass\\s*\\(|\\bassert(?:True)?\\s*\\(?\\s*True\\s*\\)?\\s*$|\\bexpect\\s*\\(\\s*true\\s*\\)\\.toBe(?:Truthy)?\\s*\\(\\s*(?:true)?\\s*\\)"
+    }
+  ]
+}
