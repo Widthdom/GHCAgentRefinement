@@ -18,7 +18,7 @@
 ### 発動フロー
 
 ```mermaid
-flowchart TD
+flowchart LR
 
     sessionStart["<b><i><u>sessionStart</u></i></b><br/><div style='text-align: left'>・copilot-instructions.md読込<br/>・ターゲットセッション確認<br/>・各種ツール導入状況確認<br/>・一時ファイル蓄積状況確認<br/>・gitの途中操作確認</div>"]
 
@@ -32,6 +32,8 @@ flowchart TD
 
     runTool["ツール実行"]
 
+    runToolResult{"判定"}
+
     postToolUse["<b><i><u>postToolUse</u></i></b><br/><div style='text-align: left'>・既読ファイルの記録<br/>・テスト失敗値の記録<br/>・改行コード不変確認<br/>・振り子編集検知<br/>・skillのcross agent対応確認</div>"]
 
     postToolUseFailure["<b><i><u>postToolUseFailure</u></i></b><br/><div style='text-align: left'>・失敗の繰り返し検知</div>"]
@@ -40,15 +42,32 @@ flowchart TD
 
     agentStop["<b><i><u>agentStop</u></i></b><br/><div style='text-align: left'>・hookのテスト実行催促<br/>・存在しないファイル参照検知<br/>・未読ファイルに対する推測検知<br/>・完了報告の真偽判定<br/>・ユーザへの迎合検知<br/>■デバッグモード有効時<br/>・プロンプト変換ログ保存先表示<br/>・回答にデバッグ情報を付与<br/>■敵対的レビューモード有効時<br/>・敵対的レビュー要請<br/></div>"]
 
+    agentStopResult{"判定"}
+
     responseToUser(["ユーザーへ応答"])
 
-    sessionStart --> userPromptSubmitted --> userPromptTransformed --> LoopStart --> preToolUse --> runTool
-    runTool -- "成功" --> postToolUse --> LoopEnd
-    runTool -- "失敗" --> postToolUseFailure --> LoopEnd
-    LoopEnd --> agentStop
-    agentStop -- "問題あり" --> LoopStart
-    agentStop -- "問題なし" --> responseToUser
-    responseToUser -. "ユーザーが次のプロンプトを入力" .-> userPromptSubmitted
+    work[["作業"]]
+
+    subgraph mainFlow[" "]
+        direction TB
+        sessionStart --> userPromptSubmitted --> userPromptTransformed --> work --> agentStop --> agentStopResult
+        agentStopResult -- "問題あり" --> work
+        agentStopResult -- "問題なし" --> responseToUser
+        responseToUser -. "ユーザーが次のプロンプトを入力" .-> userPromptSubmitted
+    end
+
+    subgraph workDetail["作業"]
+        direction TB
+        LoopStart --> preToolUse --> runTool --> runToolResult
+        runToolResult -- "成功" --> postToolUse --> LoopEnd
+        runToolResult -- "失敗" --> postToolUseFailure --> LoopEnd
+    end
+
+    mainFlow ~~~ workDetail
+
+    style mainFlow fill:none,stroke:none
+    style work stroke:#e5534b
+    style workDetail stroke:#e5534b
 ```
 
 <table>
