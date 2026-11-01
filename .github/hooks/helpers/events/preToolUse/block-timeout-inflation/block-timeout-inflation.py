@@ -1,0 +1,306 @@
+import argparse
+import hashlib
+import io
+import json
+import os
+import re
+import sqlite3
+import sys
+import tempfile
+import uuid
+from collections import Counter
+from contextlib import closing
+from typing import cast
+
+
+# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
+EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
+# 置換前の内容を表す引数。書き込む内容ではないため、書き換え前の行として照合に使う。
+REMOVED_TEXT_KEYS = {'old_str', 'old_string'}
+# 書き込む内容ではない引数。
+IGNORED_KEYS = {'path', 'command'}
+# 内容を丸ごと書き込む引数。上書きではファイルの現在の内容と比べる。
+FULL_CONTENT_KEYS = ('file_text', 'content')
+PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
+EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
+TIMING_PATTERNS_KEY = 'timingPatterns'
+# 数値リテラル。`100ms`・`5000L`・`0.5f` のような単位や型の接尾辞は数値に含めず、行の形の側に残す。
+# 単位が変わる書き換え（`5m` から `300s`）は行の形が一致しないため、大小を比べない。
+NUMBER_PATTERN = re.compile(r'(?<![\w.])\d[\d_]*(?:\.\d+)?(?:[eE][+-]?\d+)?(?=[A-Za-z]*\b)')
+NUMBER_PLACEHOLDER = '\0'
+# 空行とコメントだけの行は、ロジックの変更とみなさない。
+NEUTRAL_LINE_PATTERN = re.compile(r'^(?:$|//|#|/\*|\*|--|<!--)')
+MAX_SNIPPETS = 3
+MAX_SNIPPET_LENGTH = 80
+FINDING = '{file} would only raise timing values ({snippets})'
+DENY_REASON = (
+    'Edit denied: {findings}. This edit raises timeouts, delays, sleeps, or retry counts without changing any logic. '
+    'Waiting longer hides why an operation is slow or flaky instead of fixing it. Find the cause, such as a race, a '
+    'missing await, a wrong wait condition, or real slowness, and fix that. If the larger value is genuinely needed, '
+    'for example when the user asked for it or the operation is known to take that long, retry the same edit; this '
+    'check denies it only once per file.'
+)
+
+
+def compile_patterns(patterns, key):
+    try:
+        return [re.compile(pattern) for pattern in patterns]
+    except re.PatternError as ex:
+        raise ValueError(f'invalid regular expression in {key}: {ex}') from None
+
+
+def load_definitions(path):
+    # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
+    with open(path, encoding='utf-8-sig') as definitions_file:
+        definitions = json.load(definitions_file)
+    if not isinstance(definitions, dict):
+        raise ValueError('timeout inflation definitions must be a JSON object.')
+    loaded = []
+    for key, allow_empty in ((EXCLUDED_FILE_PATTERNS_KEY, True), (TIMING_PATTERNS_KEY, False)):
+        patterns = definitions.get(key)
+        if not isinstance(patterns, list) or (not allow_empty and not patterns) or not all(
+            isinstance(pattern, str) and pattern.strip() for pattern in patterns
+        ):
+            raise ValueError(f'timeout inflation definitions require an array of non-empty strings for {key}.')
+        loaded.append(compile_patterns(patterns, key))
+    return loaded[0], loaded[1]
+
+
+def get_tool_args(raw_tool_args):
+    # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
+    if isinstance(raw_tool_args, str):
+        try:
+            return json.loads(raw_tool_args)
+        except ValueError:
+            return raw_tool_args
+    return raw_tool_args
+
+
+def collect_strings(value, ignored_keys=frozenset()):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            if key not in ignored_keys:
+                yield from collect_strings(item, ignored_keys)
+    elif isinstance(value, list):
+        for item in value:
+            yield from collect_strings(item, ignored_keys)
+
+
+def get_patch_writes(text):
+    # パッチをファイルごとに分け、追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。
+    # 削除するファイルは書き換えではないため対象外とする。
+    writes = []
+    for line in text.splitlines():
+        match = PATCH_FILE_PATTERN.match(line)
+        if match:
+            writes.append({'path': match.group(2), 'written': [], 'removed': [], 'deleted': match.group(1) == 'Delete'})
+        elif writes and line.startswith('+'):
+            writes[-1]['written'].append(line[1:])
+        elif writes and line.startswith('-'):
+            writes[-1]['removed'].append(line[1:])
+    return [
+        {'path': write['path'], 'written': '\n'.join(write['written']), 'removed': '\n'.join(write['removed']),
+         'full_content': None}
+        for write in writes if not write['deleted']
+    ]
+
+
+def get_writes(tool_name, tool_args):
+    # 戻り値は {path, written（書き込む内容）, removed（置換前の内容）, full_content（丸ごと書き込む内容）} のリスト。
+    if tool_name == 'apply_patch':
+        return [write for text in collect_strings(tool_args) for write in get_patch_writes(text)]
+    if not isinstance(tool_args, dict):
+        return []
+    # str_replace_editorのviewは閲覧なので対象外とする。
+    if tool_name == 'str_replace_editor' and tool_args.get('command') == 'view':
+        return []
+    path = tool_args.get('path')
+    if not isinstance(path, str) or not path.strip():
+        return []
+    full_content = None
+    if tool_name == 'create' or (tool_name == 'str_replace_editor' and tool_args.get('command') == 'create'):
+        full_content = next((tool_args[key] for key in FULL_CONTENT_KEYS if isinstance(tool_args.get(key), str)), None)
+    return [{
+        'path': path,
+        'written': '\n'.join(collect_strings(tool_args, IGNORED_KEYS | REMOVED_TEXT_KEYS)),
+        'removed': '\n'.join(text for key in REMOVED_TEXT_KEYS for text in collect_strings(tool_args.get(key))),
+        'full_content': full_content,
+    }]
+
+
+def read_existing(path):
+    try:
+        with open(path, encoding='utf-8', errors='replace') as file:
+            return file.read()
+    except OSError:
+        return None
+
+
+def get_display_path(path, cwd):
+    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
+    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
+    try:
+        if os.path.commonpath([cwd, path]) == cwd:
+            return os.path.relpath(path, cwd).replace(os.sep, '/')
+    except ValueError:
+        pass
+    return path
+
+
+def get_changed_lines(text, other):
+    # textにあってotherにない行を、重複を含めて返す。前後の空白と、空行・コメントだけの行は除く。
+    changed = Counter(line.strip() for line in text.splitlines()) - Counter(line.strip() for line in other.splitlines())
+    return [line for line in changed.elements() if not NEUTRAL_LINE_PATTERN.match(line)]
+
+
+def split_numbers(line):
+    return NUMBER_PATTERN.sub(NUMBER_PLACEHOLDER, line), [
+        float(number.replace('_', '')) for number in NUMBER_PATTERN.findall(line)
+    ]
+
+
+def is_inflated(old_numbers, new_numbers):
+    # 同じ位置の数値が1つ以上増え、減ったものがない。
+    return any(new > old for old, new in zip(old_numbers, new_numbers)) and all(
+        new >= old for old, new in zip(old_numbers, new_numbers)
+    )
+
+
+def find_inflation(timing_patterns, removed, written):
+    # 書き換えた行がすべて、待ち時間・再試行の数値を増やすだけの書き換えなら、(書き換え前, 書き換え後) の行の組を返す。
+    # ほかの変更（ロジックの変更、行の追加・削除）を1つでも含む場合は空のリストを返す。
+    old_lines = get_changed_lines(removed, written)
+    new_lines = get_changed_lines(written, removed)
+    if not new_lines or len(old_lines) != len(new_lines):
+        return []
+    pairs = []
+    for new_line in new_lines:
+        if not any(pattern.search(new_line) for pattern in timing_patterns):
+            return []
+        new_skeleton, new_numbers = split_numbers(new_line)
+        match = next((
+            old_line for old_line in old_lines
+            if split_numbers(old_line)[0] == new_skeleton and is_inflated(split_numbers(old_line)[1], new_numbers)
+        ), None)
+        if match is None:
+            return []
+        old_lines.remove(match)
+        pairs.append((match, new_line))
+    return pairs
+
+
+def shorten(line):
+    return line if len(line) <= MAX_SNIPPET_LENGTH else line[:MAX_SNIPPET_LENGTH] + '...'
+
+
+def record_denials(state_path, candidates):
+    # candidates：(ファイルキー, 理由) のリスト。戻り値は、今回初めて拒否する理由のリスト。
+    # 同じファイルの拒否は1回だけにし、意図した編集なら再実行で通す。
+    # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
+    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
+    os.makedirs(os.path.dirname(state_path), exist_ok=True)
+    reasons = []
+    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
+        connection.execute('CREATE TABLE IF NOT EXISTS denials (file TEXT PRIMARY KEY)')
+        with connection:
+            connection.execute('BEGIN IMMEDIATE')
+            for file_key, reason in candidates:
+                if connection.execute('INSERT OR IGNORE INTO denials (file) VALUES (?)', (file_key,)).rowcount:
+                    reasons.append(reason)
+    return reasons
+
+
+def main(arguments=None):
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
+
+    # テスト用に定義ファイルを差し替えられるようにする。
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--definitions-path',
+        default=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'timeout-inflation-definitions.json'),
+    )
+    parsed_arguments = parser.parse_args(arguments)
+
+    try:
+        excluded_file_patterns, timing_patterns = load_definitions(parsed_arguments.definitions_path)
+
+        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
+        if not hook_input_json.strip():
+            raise ValueError('hook input is empty.')
+        hook_input = json.loads(hook_input_json)
+        if not isinstance(hook_input, dict):
+            raise ValueError('hook input must be a JSON object.')
+        session_id = hook_input.get('sessionId')
+        if not isinstance(session_id, str) or not session_id.strip():
+            raise ValueError('sessionId must be a non-empty UUID string.')
+        try:
+            parsed_session_id = uuid.UUID(session_id.strip())
+        except ValueError:
+            raise ValueError('sessionId must be a valid UUID.') from None
+        cwd = hook_input.get('cwd')
+        if not isinstance(cwd, str) or not cwd.strip():
+            raise ValueError('cwd must be a non-empty string.')
+        if not os.path.isabs(cwd):
+            raise ValueError('cwd must be an absolute path.')
+        # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
+        tool_name = hook_input.get('toolName')
+        if not isinstance(tool_name, str) or not tool_name.strip():
+            raise ValueError('toolName must be a non-empty string.')
+        if 'toolArgs' not in hook_input:
+            raise ValueError('toolArgs is required.')
+
+        real_cwd = os.path.realpath(cwd)
+        candidates = []
+        tool_name = tool_name.removeprefix('functions.')
+        if tool_name in EDIT_TOOL_NAMES:
+            for write in get_writes(tool_name, get_tool_args(hook_input['toolArgs'])):
+                path = os.path.realpath(os.path.join(cwd, write['path']))
+                display_path = get_display_path(path, real_cwd)
+                # パターンはOSによらず `/` 区切りのパスに対して照合する。
+                if any(pattern.search(display_path.replace(os.sep, '/')) for pattern in excluded_file_patterns):
+                    continue
+                # 上書きではファイル全体、それ以外では置換前の内容と比べる。
+                current = (read_existing(path) if os.path.isfile(path) else None) or ''
+                if write['full_content'] is not None and current:
+                    removed, written = current, write['full_content']
+                else:
+                    removed, written = write['removed'], write['written']
+                pairs = find_inflation(timing_patterns, removed, written)
+                if pairs:
+                    # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
+                    file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
+                    candidates.append((file_key, FINDING.format(file=display_path, snippets=', '.join(
+                        f'"{shorten(old)}" -> "{shorten(new)}"' for old, new in pairs[:MAX_SNIPPETS]
+                    ))))
+
+        reasons = []
+        if candidates:
+            # hookは呼び出しごとに別プロセスなので、拒否済みのファイルをセッションUUID別に保存する。
+            # DBファイル自体は自動削除しない。
+            state_path = os.path.join(
+                tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-timeout-inflation',
+                f'{parsed_session_id}.sqlite3',
+            )
+            reasons = record_denials(state_path, candidates)
+    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
+        print(f'Failed to check timeout inflation: {ex}', file=sys.stderr)
+        return 2
+
+    if reasons:
+        reason = DENY_REASON.format(findings='; '.join(reasons))
+        print(reason, file=sys.stderr)
+        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
+        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
+        print(json.dumps({
+            'permissionDecision': 'deny',
+            'permissionDecisionReason': reason,
+        }, ensure_ascii=False))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

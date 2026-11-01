@@ -1,0 +1,16 @@
+{
+  "excludedFilePatterns": [
+    "(?i)\\.(?:md|markdown|rst|txt|adoc)$"
+  ],
+  "timingPatterns": [
+    "(?i)time[-_]?out",
+    "(?i)delay",
+    "(?i)sleep",
+    "(?<![a-z])wait|Wait|WAIT",
+    "(?i)retr(?:y|ies)",
+    "(?i)attempt",
+    "(?i)interval",
+    "(?i)back[-_]?off",
+    "(?i)deadline"
+  ]
+}
