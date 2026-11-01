@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/-repo-events/preToolUse/block-native-path-separators/block-native-path-separators.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/-repo-events/preToolUse/block-native-path-separators/block-native-path-separators.py",
+        "timeoutSec": 10
+      }
+    ]
+  }
+}

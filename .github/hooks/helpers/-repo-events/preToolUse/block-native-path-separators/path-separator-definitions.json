@@ -1,0 +1,38 @@
+{
+  "excludedFilePatterns": [
+    "(?i)\\.(?:md|markdown|rst|txt|adoc)$"
+  ],
+  "nativePathPatterns": [
+    {
+      "name": "Python relative path",
+      "pattern": "\\bos\\.path\\.relpath\\s*\\(|\\.relative_to\\s*\\("
+    },
+    {
+      "name": "Node.js relative path",
+      "pattern": "\\bpath\\.relative\\s*\\("
+    },
+    {
+      "name": ".NET relative path",
+      "pattern": "\\bPath(?:\\.|\\]::)GetRelativePath\\s*\\("
+    },
+    {
+      "name": "Go relative path",
+      "pattern": "\\bfilepath\\.Rel\\s*\\("
+    },
+    {
+      "name": "Java relative path",
+      "pattern": "\\.relativize\\s*\\("
+    },
+    {
+      "name": "PowerShell relative path",
+      "pattern": "(?i)\\bResolve-Path\\b.*\\s-Relative\\b"
+    }
+  ],
+  "normalizationPatterns": [
+    "(?i)\\breplace(?:all)?\\(\\s*(?:os\\.(?:path\\.)?sep|path\\.sep|Path\\.DirectorySeparatorChar|File\\.separator(?:Char)?)\\s*,\\s*['\"]/['\"]",
+    "(?i)\\breplace(?:all)?\\(\\s*(?:'\\\\\\\\'|\"\\\\\\\\\"|/\\\\\\\\/g)\\s*,\\s*['\"]/['\"]",
+    "\\.split\\(\\s*(?:path\\.sep|os\\.sep|'\\\\\\\\'|\"\\\\\\\\\")\\s*\\)\\.join\\(\\s*['\"]/['\"]",
+    "(?i)-replace\\s*['\"]\\\\\\\\['\"]\\s*,\\s*['\"]/['\"]",
+    "\\.as_posix\\(\\)|\\bPurePosixPath\\b|\\bposixpath\\.|\\bpath\\.posix\\b|\\bfilepath\\.ToSlash\\(|\\bseparatorsToUnix\\("
+  ]
+}
