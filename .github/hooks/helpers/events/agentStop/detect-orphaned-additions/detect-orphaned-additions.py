@@ -1,0 +1,402 @@
+import argparse
+import io
+import json
+import os
+import re
+import runpy
+import subprocess
+import sys
+from pathlib import Path
+from typing import cast
+
+
+# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
+EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
+# 置換前の内容を表す引数。書き込む内容ではないため検査せず、既存の内容として照合に使う。
+REMOVED_TEXT_KEYS = {'old_str', 'old_string'}
+# 書き込む内容ではない引数。
+IGNORED_KEYS = {'path', 'command'}
+PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
+IGNORED_REFERENCE_FILE_PATTERNS_KEY = 'ignoredReferenceFilePatterns'
+EXCLUDED_NAME_PATTERNS_KEY = 'excludedNamePatterns'
+LANGUAGES_KEY = 'languages'
+TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
+GIT_TIMEOUT_SECONDS = 10
+REASON_PREFIX = 'The changes in this request add definitions that nothing uses'
+MAX_FINDINGS = 10
+NO_REFERENCES = 'no references'
+TEST_REFERENCES_ONLY = 'referenced only from tests'
+BLOCK_REASON = (
+    REASON_PREFIX + ':\n{findings}\n'
+    'A definition that is never called is dead weight: it must still be read and maintained, and it often means the '
+    'feature was not wired up. Call it from where it is needed, or remove it. If it is meant to be used from outside '
+    'this repository (for example, a public API or an entry point a framework invokes by name), keep it and say so in '
+    'the response.'
+)
+
+
+def compile_patterns(patterns, key, flags=0):
+    try:
+        return [re.compile(pattern, flags) for pattern in patterns]
+    except re.PatternError as ex:
+        raise ValueError(f'invalid regular expression in {key}: {ex}') from None
+
+
+def is_string_list(value, allow_empty=True):
+    return (
+        isinstance(value, list) and (allow_empty or bool(value))
+        and all(isinstance(item, str) and item.strip() for item in value)
+    )
+
+
+def load_language(definition):
+    # 戻り値は (ファイルのパスの正規表現, 注釈の正規表現またはNone, 定義の正規表現のリスト)。
+    if not isinstance(definition, dict) or not all(
+        isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'filePattern')
+    ):
+        raise ValueError(f'each item of {LANGUAGES_KEY} requires non-empty strings for name and filePattern.')
+    key = f'{LANGUAGES_KEY}[{definition["name"]}]'
+    annotation = definition.get('annotationPattern')
+    if annotation is not None and not (isinstance(annotation, str) and annotation.strip()):
+        raise ValueError(f'annotationPattern in {key} must be a non-empty string when present.')
+    definition_patterns = definition.get('definitionPatterns')
+    if not is_string_list(definition_patterns, allow_empty=False):
+        raise ValueError(f'definitionPatterns in {key} must be a non-empty array of non-empty strings.')
+    # 定義は行頭から照合するため、行頭は各行に一致させる。
+    compiled = compile_patterns(definition_patterns, key, re.MULTILINE)
+    if any('name' not in pattern.groupindex for pattern in compiled):
+        raise ValueError(f'each definitionPattern in {key} requires a named group "name".')
+    return (
+        compile_patterns([definition['filePattern']], key)[0],
+        None if annotation is None else compile_patterns([annotation], key)[0],
+        compiled,
+    )
+
+
+def load_definitions(path):
+    # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
+    with open(path, encoding='utf-8-sig') as definitions_file:
+        definitions = json.load(definitions_file)
+    if not isinstance(definitions, dict):
+        raise ValueError('orphaned addition definitions must be a JSON object.')
+    for key in (IGNORED_REFERENCE_FILE_PATTERNS_KEY, EXCLUDED_NAME_PATTERNS_KEY):
+        if not is_string_list(definitions.get(key)):
+            raise ValueError(f'orphaned addition definitions require an array of non-empty strings for {key}.')
+    languages = definitions.get(LANGUAGES_KEY)
+    if not isinstance(languages, list) or not languages:
+        raise ValueError(f'orphaned addition definitions require a non-empty array for {LANGUAGES_KEY}.')
+    return (
+        compile_patterns(definitions[IGNORED_REFERENCE_FILE_PATTERNS_KEY], IGNORED_REFERENCE_FILE_PATTERNS_KEY),
+        compile_patterns(definitions[EXCLUDED_NAME_PATTERNS_KEY], EXCLUDED_NAME_PATTERNS_KEY),
+        [load_language(language) for language in languages],
+    )
+
+
+def load_test_file_patterns(path):
+    # テストファイルの判定は block-test-weakening hookの定義を共有する。
+    with open(path, encoding='utf-8-sig') as definitions_file:
+        definitions = json.load(definitions_file)
+    if not isinstance(definitions, dict) or not is_string_list(definitions.get(TEST_FILE_PATTERNS_KEY), False):
+        raise ValueError(f'test file definitions require a non-empty array of non-empty strings for '
+                         f'{TEST_FILE_PATTERNS_KEY}.')
+    return compile_patterns(definitions[TEST_FILE_PATTERNS_KEY], TEST_FILE_PATTERNS_KEY)
+
+
+def collect_strings(value, ignored_keys=frozenset()):
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            if key not in ignored_keys:
+                yield from collect_strings(item, ignored_keys)
+    elif isinstance(value, list):
+        for item in value:
+            yield from collect_strings(item, ignored_keys)
+
+
+def get_patch_writes(text):
+    # パッチをファイルごとに分け、追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。
+    writes = []
+    for line in text.splitlines():
+        match = PATCH_FILE_PATTERN.match(line)
+        if match:
+            writes.append({'path': match.group(2), 'written': [], 'removed': [], 'deleted': match.group(1) == 'Delete'})
+        elif writes and line.startswith('+'):
+            writes[-1]['written'].append(line[1:])
+        elif writes and line.startswith('-'):
+            writes[-1]['removed'].append(line[1:])
+    return [
+        (write['path'], '\n'.join(write['written']), '\n'.join(write['removed']))
+        for write in writes if not write['deleted']
+    ]
+
+
+def get_writes(tool_name, arguments):
+    # 戻り値は (パス, 書き込む内容, 置換前の内容) のリスト。
+    if tool_name == 'apply_patch':
+        return [write for text in collect_strings(arguments) for write in get_patch_writes(text)]
+    if not isinstance(arguments, dict):
+        return []
+    # str_replace_editorのviewは閲覧なので対象外とする。
+    if tool_name == 'str_replace_editor' and arguments.get('command') == 'view':
+        return []
+    path = arguments.get('path')
+    if not isinstance(path, str) or not path.strip():
+        return []
+    return [(
+        path,
+        '\n'.join(collect_strings(arguments, IGNORED_KEYS | REMOVED_TEXT_KEYS)),
+        '\n'.join(text for key in REMOVED_TEXT_KEYS for text in collect_strings(arguments.get(key))),
+    )]
+
+
+def get_arguments(raw_arguments):
+    # argumentsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で記録される場合もある。
+    if isinstance(raw_arguments, str):
+        try:
+            return json.loads(raw_arguments)
+        except ValueError:
+            return raw_arguments
+    return raw_arguments
+
+
+def get_turn_summary(transcript_path):
+    # ユーザーの最新の依頼以降の、最終応答・編集・本hookによる差し戻し済みかを集める。
+    # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
+    last_assistant_msg = None
+    writes = []
+    already_requested = False
+    for event in runpy.run_path(
+        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects.py')
+    )['read_jsonl_objects'](transcript_path):
+        data = event.get('data', {})
+        if not isinstance(data, dict):
+            raise ValueError('Event data must be a JSON object.')
+        event_type = event.get('type')
+
+        if event_type == 'user.message':
+            content = data.get('content')
+            if data.get('delivery') != 'queued':
+                last_assistant_msg = None
+                writes.clear()
+                already_requested = False
+            elif isinstance(content, str) and content.startswith(REASON_PREFIX):
+                already_requested = True
+        elif event_type == 'assistant.message':
+            content = data.get('content')
+            if isinstance(content, str) and content.strip():
+                last_assistant_msg = content
+        elif event_type == 'tool.execution_start':
+            tool_name = data.get('toolName')
+            if isinstance(tool_name, str) and tool_name.removeprefix('functions.') in EDIT_TOOL_NAMES:
+                writes.extend(get_writes(tool_name.removeprefix('functions.'), get_arguments(data.get('arguments'))))
+    return last_assistant_msg, writes, already_requested
+
+
+def run_git(cwd, arguments, allowed_return_codes=(0,)):
+    # gitがない、リポジトリ外、または検索に失敗した場合はNoneを返す。参照を数えられないだけなので異常終了にはしない。
+    try:
+        result = subprocess.run(
+            ['git', *arguments], cwd=cwd,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=GIT_TIMEOUT_SECONDS, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if result.returncode not in allowed_return_codes:
+        return None
+    return result.stdout.decode('utf-8', errors='replace')
+
+
+def read_file_lines(path):
+    # gitの行番号と揃えるため、`\n` だけで分ける（splitlinesは `\r` や `\x0c` でも分けてしまう）。
+    try:
+        with open(path, encoding='utf-8', errors='replace', newline='') as file:
+            return file.read().split('\n')
+    except OSError:
+        return None
+
+
+def get_language(languages, path):
+    for language in languages:
+        if language[0].search(path):
+            return language
+    return None
+
+
+def find_line_number(lines, line):
+    # 前後の空白を除いて一致する最初の行の番号（1始まり）を返す。
+    for index, current in enumerate(lines):
+        if current.strip() == line:
+            return index + 1
+    return None
+
+
+def is_annotated(lines, line_number, annotation_pattern):
+    # 直前の空行でない行が属性・デコレーターなら、フレームワークが名前で呼ぶ定義とみなす。
+    if annotation_pattern is None:
+        return False
+    for current in reversed(lines[:line_number - 1]):
+        if current.strip():
+            return bool(annotation_pattern.search(current))
+    return False
+
+
+def find_candidates(writes, cwd, repository_root, excluded_name_patterns, languages, test_file_patterns):
+    # 戻り値は (リポジトリルートからの相対パス, 行番号, 名前) のリスト。
+    # 置換前の内容に同じ行があるもの（元からあるもの）と、最終的にファイルから消えたものは除く。
+    candidates = []
+    file_lines = {}
+    for path, written, removed in writes:
+        full_path = os.path.realpath(os.path.join(cwd, path))
+        try:
+            if os.path.commonpath([repository_root, full_path]) != repository_root:
+                continue
+        except ValueError:
+            # Windowsでドライブが異なる場合、commonpathはValueErrorになる。
+            continue
+        # パターンの照合と理由での表示は、OSによらず `/` 区切りのパスで行う。
+        relative_path = os.path.relpath(full_path, repository_root).replace(os.sep, '/')
+        language = get_language(languages, relative_path)
+        if language is None or any(pattern.search(relative_path) for pattern in test_file_patterns):
+            continue
+        removed_lines = {line.strip() for line in removed.splitlines()}
+        for pattern in language[2]:
+            for match in pattern.finditer(written):
+                name = match.group('name')
+                if any(pattern.search(name) for pattern in excluded_name_patterns):
+                    continue
+                if any(candidate[0] == relative_path and candidate[2] == name for candidate in candidates):
+                    continue
+                start = written.rfind('\n', 0, match.start()) + 1
+                end = written.find('\n', match.start())
+                line = written[start:None if end < 0 else end].strip()
+                if line in removed_lines:
+                    continue
+                if full_path not in file_lines:
+                    file_lines[full_path] = read_file_lines(full_path) if os.path.isfile(full_path) else None
+                lines = file_lines[full_path]
+                line_number = None if lines is None else find_line_number(lines, line)
+                if line_number is None or is_annotated(lines, line_number, language[1]):
+                    continue
+                candidates.append((relative_path, line_number, name))
+    return candidates
+
+
+def find_orphans(candidates, repository_root, ignored_reference_file_patterns, test_file_patterns):
+    # 戻り値は (相対パス, 行番号, 名前, 種類) のリスト。gitで検索できなければNoneを返す。
+    names = sorted({candidate[2] for candidate in candidates})
+    arguments = ['grep', '--untracked', '-I', '-n', '-w', '-F', '--null']
+    for name in names:
+        arguments.extend(['-e', name])
+    # 一致がない場合、git grepは終了コード1を返す。
+    output = run_git(repository_root, arguments, allowed_return_codes=(0, 1))
+    if output is None:
+        return None
+    name_patterns = {name: re.compile(r'(?<![\w$])' + re.escape(name) + r'(?![\w$])') for name in names}
+    references = {name: set() for name in names}
+    for record in output.splitlines():
+        parts = record.split('\0', 2)
+        if len(parts) != 3 or not parts[1].isdigit():
+            continue
+        path, line_number, content = parts[0], int(parts[1]), parts[2]
+        if any(pattern.search(path) for pattern in ignored_reference_file_patterns):
+            continue
+        is_test = any(pattern.search(path) for pattern in test_file_patterns)
+        for name, pattern in name_patterns.items():
+            if pattern.search(content):
+                references[name].add((path, line_number, is_test))
+    orphans = []
+    for path, line_number, name in candidates:
+        # 定義した行そのものは参照に数えない。
+        found = [reference for reference in references[name] if reference[:2] != (path, line_number)]
+        if not found:
+            orphans.append((path, line_number, name, NO_REFERENCES))
+        elif all(reference[2] for reference in found):
+            orphans.append((path, line_number, name, TEST_REFERENCES_ONLY))
+    return orphans
+
+
+def main(arguments=None):
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
+
+    # テスト用に定義ファイルを差し替えられるようにする。
+    script_directory = os.path.dirname(os.path.abspath(__file__))
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--definitions-path', default=os.path.join(script_directory, 'orphaned-addition-definitions.json'),
+    )
+    parser.add_argument(
+        '--test-definitions-path',
+        default=os.path.join(
+            os.path.dirname(os.path.dirname(script_directory)), 'preToolUse', 'block-test-weakening',
+            'test-weakening-definitions.json',
+        ),
+    )
+    parsed_arguments = parser.parse_args(arguments)
+
+    try:
+        ignored_reference_file_patterns, excluded_name_patterns, languages = load_definitions(
+            parsed_arguments.definitions_path
+        )
+        test_file_patterns = load_test_file_patterns(parsed_arguments.test_definitions_path)
+        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
+        if not hook_input_json.strip():
+            raise ValueError('agentStop hook input is empty.')
+        hook_input = json.loads(hook_input_json)
+        if not isinstance(hook_input, dict):
+            raise ValueError('agentStop hook input must be a JSON object.')
+
+        # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
+        if hook_input.get('agentId'):
+            return 0
+
+        cwd = hook_input.get('cwd')
+        if not isinstance(cwd, str) or not cwd.strip():
+            raise ValueError('cwd must be a non-empty string.')
+        if not os.path.isabs(cwd):
+            raise ValueError('cwd must be an absolute path.')
+        transcript_path = hook_input.get('transcriptPath')
+        if not isinstance(transcript_path, str) or not transcript_path.strip():
+            raise ValueError('transcriptPath must be a non-empty string.')
+        if not os.path.isfile(transcript_path):
+            raise ValueError(f'transcript path is not a file or could not be verified as a file: {transcript_path}')
+
+        # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
+        runpy.run_path(
+            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event.py')
+        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+
+        last_assistant_msg, writes, already_requested = get_turn_summary(transcript_path)
+        # 同じ依頼で差し戻すのは1回だけにし、意図して残す場合に停止できなくなるのを防ぐ。
+        if last_assistant_msg is None or already_requested or not writes:
+            return 0
+        # 参照はリポジトリ全体から探すため、gitがない、またはリポジトリ外の場合は検査しない。
+        repository_root = run_git(cwd, ['rev-parse', '--show-toplevel'])
+        if repository_root is None or not repository_root.strip():
+            return 0
+        repository_root = os.path.realpath(repository_root.strip())
+        candidates = find_candidates(
+            writes, cwd, repository_root, excluded_name_patterns, languages, test_file_patterns,
+        )
+        if not candidates:
+            return 0
+        orphans = find_orphans(candidates, repository_root, ignored_reference_file_patterns, test_file_patterns)
+    except (OSError, UnicodeError, ValueError) as ex:
+        print(f'Failed to detect orphaned additions: {ex}', file=sys.stderr)
+        return 2
+
+    if orphans:
+        findings = '\n'.join(
+            f'- {path}:{line_number}: {name} ({kind})' for path, line_number, name, kind in orphans[:MAX_FINDINGS]
+        )
+        print(json.dumps(
+            {'decision': 'block', 'reason': BLOCK_REASON.format(findings=findings)},
+            ensure_ascii=False, separators=(',', ':'),
+        ))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
