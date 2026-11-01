@@ -97,7 +97,7 @@ def get_turn_events(transcript_path):
 def get_requirement(path, cwd):
     # 変更したファイルに必要なテストを返す。戻り値は (要件のキー, 情報) またはNone。
     # 情報は、label・test（実行するテストのパス）・accepted（成功とみなすテストファイル名）・readme（確認を促すREADME）。
-    normalized = os.path.normpath(os.path.join(cwd, path)).replace('\\', '/')
+    normalized = os.path.normpath(os.path.join(cwd, path)).replace(os.sep, '/')
     match = HOOKS_PATH_PATTERN.match(normalized)
     if not match:
         return None
@@ -203,11 +203,11 @@ def get_unverified(events, cwd):
 
 
 def get_display_path(path, cwd):
-    # cwd配下のファイルは相対パスで示し、理由を短くする。
+    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
         if os.path.normcase(os.path.commonpath([cwd, path])) == os.path.normcase(cwd):
-            return os.path.relpath(path, cwd).replace('\\', '/')
+            return os.path.relpath(path, cwd).replace(os.sep, '/')
     except ValueError:
         pass
     return path

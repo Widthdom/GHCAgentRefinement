@@ -94,7 +94,7 @@ class BlockTestWeakeningTests(unittest.TestCase):
                 self.new_session()
                 self.assert_denied(
                     self.run_call({'name': 'create', 'args': {'path': path, 'file_text': f'{line}\n'}}),
-                    [os.path.normpath(path), f'"{line}"', 'skip, focus, or trivially pass'], line,
+                    [path, f'"{line}"', 'skip, focus, or trivially pass'], line,
                 )
 
     def test_normal_lines_are_allowed(self):
@@ -139,8 +139,8 @@ class BlockTestWeakeningTests(unittest.TestCase):
                 self.new_session()
                 self.assert_denied(
                     self.run_call({'name': 'create', 'args': {'path': path, 'file_text': 'pytest.skip("x")\n'}}),
-                    # 理由のパスはOSの区切り文字で示される。
-                    [os.path.normpath(path)], path,
+                    # 理由のパスは、OSによらず `/` 区切りで示される。
+                    [path], path,
                 )
         other_paths = ['math.py', 'src/app.ts', 'Foo/Contest.cs', 'latest.py', 'docs/testing.md', 'Attestation.cs']
         for path in other_paths:
@@ -219,7 +219,7 @@ class BlockTestWeakeningTests(unittest.TestCase):
             '*** Begin Patch\n*** Update File: test_math.py\n@@\n+@pytest.mark.skip\n'
             '*** Add File: src/app.test.ts\n+it.only("a", () => {});\n*** End Patch\n'
         )})
-        self.assert_denied(result, ['test_math.py', os.path.normpath('src/app.test.ts')], 'patch')
+        self.assert_denied(result, ['test_math.py', 'src/app.test.ts'], 'patch')
 
     def test_view_and_other_tools_are_ignored(self):
         for tool_call in (

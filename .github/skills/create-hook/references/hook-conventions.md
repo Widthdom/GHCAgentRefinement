@@ -9,6 +9,10 @@
 5. 各hookのフォルダーに `README.md` を作成し、発動条件と処理詳細を記載する。設計背景は必要な場合だけ記載する。
 6. Python 3.14対応の構文・標準ライブラリAPIを使う。最低対応・推奨は3.14とし、新規インストールには3.14系の最新パッチ版を案内する。
 7. 補助ファイルは `os.path.dirname(os.path.abspath(__file__))` を基準に参照する。パスは `os.path.join` で階層ごとに連結し、親は `os.path.dirname`、一時ファイルの基点は `tempfile.gettempdir()` を使う。hookが実行をまたいで保持する状態は `<一時フォルダー>/ghc-agent-refinement/hook-states/<状態名>/`、デバッグ専用hookのログは `<一時フォルダー>/ghc-agent-refinement/debug-logs/<ログ名>/` に置き、`<一時フォルダー>/ghc-agent-refinement/` の直下には置かない。
+   - パスを表示・保存・文字列比較・正規表現やglobで照合する場合は、`/` 区切りに揃えてから使う。`os.path.relpath` などOS依存の区切りを返すAPIの結果は、同じ式で `.replace(os.sep, '/')` を付けて変換する（`pathlib` では `.as_posix()`）。ファイルシステムのAPIに渡すだけのパスは変換しない。
+   - 入力から受け取ったパス（ツール引数のファイルパスなど）は、`os.path.abspath` で絶対パスにしてからcwdやリポジトリルートと比較する。照合用の定義（除外パターンなど）は `/` 区切りで書く。
+   - テストの期待値は `/` 区切りで書き、実行するOSによって期待値を変えない。
+   - `.ps1` では、`Resolve-Path -Relative` などの結果に `-replace '\\', '/'` を付けて変換する。
 8. 標準入力はバイト列として読み、UTF-8で復号する。標準出力・標準エラーはBOMなしのUTF-8で出力する。異常終了は原因を標準エラーに出力して `sys.exit(2)`、正常終了とスキップは `sys.exit(0)` または正常なスクリプト終端にする。Unicode escapeを使う場合は、復号した文字列を近くのコメントに記載する。
 9. デバッグ専用hookには `debug-` 接頭辞を付ける。状態形式と保存先は [set-debug-mode.py](../../../hooks/helpers/events/userPromptSubmitted/set-debug-mode/set-debug-mode.py) 、状態の読み取りには [get-debug-mode.py](../../../hooks/helpers/utilities/get-debug-mode.py) の `get_debug_mode(session_id)` を使う。入力のセッションIDに対応する状態を読み、ファイルがない場合または `enabled` が `true` でない場合は正常終了する。
 10. 個別hookのテストは、hookのフォルダーに `test-<hook-name>.py` として置く。JSON構文、通常実行、条件を満たさない場合のスキップ、不正入力時の動作と終了コードを検証する。拒否hookでは許可と拒否の両方を検証する。

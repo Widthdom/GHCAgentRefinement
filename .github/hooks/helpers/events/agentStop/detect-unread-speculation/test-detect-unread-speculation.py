@@ -156,6 +156,8 @@ class DetectUnreadSpeculationTests(unittest.TestCase):
             tool('c1', 'functions.powershell', {'command': f'Get-Content "{absolute}"'}),
             tool('c1', 'rg', {'pattern': 'def', 'path': 'src/a.py'}),
             tool('c1', 'grep', {'pattern': 'def', 'paths': [absolute]}),
+            # Windowsでも、`/` 区切りで書いた絶対パスを読んだとみなす。
+            tool('c1', 'bash', {'command': f'cat {absolute.replace(os.sep, "/")}'}),
         )
         for read in reads:
             with self.subTest(read=read):

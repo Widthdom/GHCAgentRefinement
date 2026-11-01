@@ -134,7 +134,7 @@ class DetectEditOscillationTests(unittest.TestCase):
                 self.write('B')
                 self.assert_silent(self.edit('2', payload, other))
                 self.write('A')
-                self.assert_notification(self.edit('1', payload, other), f'{os.path.join("sub", "other.txt")}, 対象.py')
+                self.assert_notification(self.edit('1', payload, other), 'sub/other.txt, 対象.py')
 
     def test_deleted_file_counts_as_content(self):
         self.assert_silent(self.edit('A'))

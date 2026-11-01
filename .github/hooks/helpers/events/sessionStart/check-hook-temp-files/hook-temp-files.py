@@ -39,7 +39,8 @@ def find_stale_files(root, now):
                     size = os.lstat(path).st_size
                 except OSError:
                     continue
-                group = os.path.relpath(directory, root)
+                # 分類は表示に使うため、OSによらず `/` 区切りにする。
+                group = os.path.relpath(directory, root).replace(os.sep, '/')
                 stale_files.append((group, path, size))
     return sorted(stale_files)
 

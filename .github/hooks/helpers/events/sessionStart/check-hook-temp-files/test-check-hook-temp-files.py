@@ -143,10 +143,11 @@ class CheckHookTempFilesTests(unittest.TestCase):
         stale, _ = self.create_layout()
         found = self.helper['find_stale_files'](self.root, time.time())
         self.assertEqual(sorted(path for _, path, _ in found), sorted(stale))
+        # 分類は、OSによらず `/` 区切りで示される。
         self.assertEqual({group for group, _, _ in found}, {
-            os.path.join('hook-states', 'edit-oscillation'),
-            os.path.join('hook-states', 'debug-mode'),
-            os.path.join('debug-logs', 'prompt-transformations', 'session'),
+            'hook-states/edit-oscillation',
+            'hook-states/debug-mode',
+            'debug-logs/prompt-transformations/session',
         })
         self.assertTrue(all(size == 10 for _, _, size in found))
         self.assertEqual(self.helper['find_stale_files'](os.path.join(self.temp, 'missing'), time.time()), [])
@@ -180,8 +181,8 @@ class CheckHookTempFilesTests(unittest.TestCase):
         output = result.stdout.decode('utf-8')
         self.assertIn(f'Temporary directory: {self.root}', output)
         self.assertIn('Files not updated for more than 48 hours: 3 (30 B)', output)
-        self.assertIn(f'  {os.path.join("hook-states", "edit-oscillation")}: 1', output)
-        self.assertIn(f'  {os.path.join("debug-logs", "prompt-transformations", "session")}: 1', output)
+        self.assertIn('  hook-states/edit-oscillation: 1', output)
+        self.assertIn('  debug-logs/prompt-transformations/session: 1', output)
         self.assertTrue(all(os.path.exists(path) for path in stale + kept))
 
     def test_deletes_stale_files_and_directories(self):

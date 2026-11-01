@@ -85,8 +85,8 @@ class BlockGeneratedFileEditsTests(unittest.TestCase):
                 self.new_session()
                 self.assert_denied(
                     self.run_call({'name': 'create', 'args': {'path': path, 'file_text': 'x\n'}}),
-                    # 理由のパスはOSの区切り文字で示される。
-                    [f'{os.path.normpath(path)} (path matches a generated file pattern)', 'regenerate it'], path,
+                    # 理由のパスは、OSによらず `/` 区切りで示される。
+                    [f'{path} (path matches a generated file pattern)', 'regenerate it'], path,
                 )
 
     def test_normal_paths_are_allowed(self):

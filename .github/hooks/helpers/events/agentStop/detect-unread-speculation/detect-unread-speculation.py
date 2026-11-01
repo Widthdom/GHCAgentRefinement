@@ -161,6 +161,8 @@ def is_read_by_command(full_path, candidate, cwd, command_texts):
         spellings.add(os.path.relpath(full_path, cwd))
     except ValueError:
         pass
+    # Windowsでは `/` 区切りでも同じパスを書けるため、OS依存の区切りの表記を `/` 区切りにしたものも加える。
+    spellings |= {spelling.replace(os.sep, '/') for spelling in spellings}
     return any(spelling in text for text in command_texts for spelling in spellings)
 
 

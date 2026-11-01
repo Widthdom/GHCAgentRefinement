@@ -169,7 +169,8 @@ class RequireReadBeforeEditTests(unittest.TestCase):
             '*** Update File: sub/other.py\n@@\n-a\n+b\n'
             '*** Update File: 対象.py\n@@\n-a\n+b\n*** End Patch\n'
         )))
-        files = sorted([os.path.normcase(outside), os.path.join('sub', 'other.py'), '対象.py'], key=lambda path: (
+        # cwd配下のファイルは、OSによらず `/` 区切りで示される。
+        files = sorted([os.path.normcase(outside), 'sub/other.py', '対象.py'], key=lambda path: (
             os.path.normcase(os.path.realpath(os.path.join(self.workspace, path)))
         ))
         self.assert_denied(result, ', '.join(files))

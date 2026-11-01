@@ -132,7 +132,8 @@ class BlockShellFileEditsTests(unittest.TestCase):
         self.assert_denied(self.invoke(('powershell', {'command': 'Clear-Content .\\対象.txt'})), '対象.txt')
 
     def test_follows_directory_changes(self):
-        nested = os.path.join('sub', 'nested.txt')
+        # 理由のパスは、OSによらず `/` 区切りで示される。
+        nested = 'sub/nested.txt'
         cases = (
             ('bash', 'cd sub && echo x > nested.txt'),
             ('bash', 'cd sub; cd ..; echo x > sub/nested.txt'),
@@ -150,7 +151,7 @@ class BlockShellFileEditsTests(unittest.TestCase):
         result = self.invoke(('PowerShell', {'command': "Set-Content 対象.txt x; Set-Content 'other.txt' y"}))
         self.assert_denied(result, ', '.join(sorted(['other.txt', '対象.txt'])))
         result = self.invoke(('bash', {'command': 'echo x > other.txt; echo x | tee sub/nested.txt untracked.txt'}))
-        self.assert_denied(result, ', '.join(sorted(['other.txt', os.path.join('sub', 'nested.txt')])))
+        self.assert_denied(result, ', '.join(sorted(['other.txt', 'sub/nested.txt'])))
 
     def test_allows_commands_that_do_not_write_tracked_files(self):
         cases = (

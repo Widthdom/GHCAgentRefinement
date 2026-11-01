@@ -204,7 +204,7 @@ class PreserveLineEndingsTests(unittest.TestCase):
                 self.write(b'a\nb\n')
                 self.assert_notification(
                     self.edit(b'y', payload, other),
-                    f'{os.path.join("sub", "other.txt")} (final newline removed); 対象.py (line endings changed from CRLF to LF)',
+                    'sub/other.txt (final newline removed); 対象.py (line endings changed from CRLF to LF)',
                 )
 
     def test_subdirectory_cwd_and_file_outside_cwd(self):

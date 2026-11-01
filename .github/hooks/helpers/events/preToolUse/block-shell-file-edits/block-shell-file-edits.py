@@ -340,11 +340,11 @@ def get_tracked_files(paths):
 
 
 def get_display_path(path, cwd):
-    # cwd配下のファイルは相対パスで示し、理由を短くする。大文字小文字は表記のまま示す。
+    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。大文字小文字は表記のまま示す。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
         if os.path.normcase(os.path.commonpath([cwd, path])) == os.path.normcase(cwd):
-            return os.path.relpath(path, cwd)
+            return os.path.relpath(path, cwd).replace(os.sep, '/')
     except ValueError:
         pass
     return path

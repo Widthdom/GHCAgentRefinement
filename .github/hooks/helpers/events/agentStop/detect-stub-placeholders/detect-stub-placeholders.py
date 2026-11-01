@@ -176,11 +176,11 @@ def read_lines(path):
 
 
 def get_display_path(path, cwd):
-    # cwd配下のファイルは相対パスで示し、理由を短くする。
+    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
         if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd)
+            return os.path.relpath(path, cwd).replace(os.sep, '/')
     except ValueError:
         pass
     return path
