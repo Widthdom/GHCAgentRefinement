@@ -22,13 +22,13 @@ flowchart LR
 
     sessionStart["<b><i><u>sessionStart</u></i></b><br/><div style='text-align: left'>・copilot-instructions.md読込<br/>・ターゲットセッション確認<br/>・各種ツール導入状況確認<br/>・一時ファイル蓄積状況確認<br/>・gitの途中操作確認</div>"]
 
-    userPromptSubmitted["<b><i><u>userPromptSubmitted</u></i></b><br/><div style='text-align: left'>■メインエージェントへの依頼時<br/>・デバッグモード設定<br/>・敵対的レビューモード設定<br/>■サブエージェントへの依頼時<br/>・copilot-instructions.md連携</div>"]
+    userPromptSubmitted["<b><i><u>userPromptSubmitted</u></i></b><br/><div style='text-align: left'>■メインエージェントへの依頼時<br/>・デバッグモード設定<br/>・敵対的レビューモード設定<br/>・hook変更依頼の記録<br/>■サブエージェントへの依頼時<br/>・copilot-instructions.md連携</div>"]
 
     userPromptTransformed["<b><i><u>userPromptTransformed</u></i></b><br/><div style='text-align: left'>■デバッグモード有効時<br/>・プロンプト変換ログ保存</div>"]
 
     LoopStart[/作業開始\]
 
-    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・省略記号による内容消失抑止<br/>・エラーの握りつぶし抑止<br/>・生成ファイル直接編集抑止<br/>・秘密情報書き込み抑止<br/>・shellによるファイル編集抑止<br/>・テストの骨抜き抑止<br/>・テスト期待値の後付け抑止<br/>・テスト通過用ハードコード抑止<br/>・待ち時間の水増し抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・未読ファイル編集抑止</div>"]
+    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・省略記号による内容消失抑止<br/>・エラーの握りつぶし抑止<br/>・生成ファイル直接編集抑止<br/>・秘密情報書き込み抑止<br/>・shellによるファイル編集抑止<br/>・テストの骨抜き抑止<br/>・テスト期待値の後付け抑止<br/>・テスト通過用ハードコード抑止<br/>・待ち時間の水増し抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・依頼のないhook改変抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・未読ファイル編集抑止</div>"]
 
     runTool["ツール実行"]
 
@@ -106,14 +106,18 @@ flowchart LR
       <td><a href="./hooks/helpers/events/sessionStart/check-git-state/README.md">check-git-state</a></td>
     </tr>
     <tr>
-      <td rowspan="3">userPromptSubmitted</td>
-      <td rowspan="2">メインエージェントへの依頼時</td>
+      <td rowspan="4">userPromptSubmitted</td>
+      <td rowspan="3">メインエージェントへの依頼時</td>
       <td>デバッグモード設定</td>
       <td><a href="./hooks/helpers/events/userPromptSubmitted/set-debug-mode/README.md">set-debug-mode</a></td>
     </tr>
     <tr>
       <td>敵対的レビューモード設定</td>
       <td><a href="./hooks/helpers/events/userPromptSubmitted/set-adversarial-review-state/README.md">set-adversarial-review-state</a></td>
+    </tr>
+    <tr>
+      <td>hook変更依頼の記録</td>
+      <td><a href="./hooks/helpers/events/userPromptSubmitted/record-hook-change-requests/README.md">record-hook-change-requests</a></td>
     </tr>
     <tr>
       <td>サブエージェントへの依頼時</td>
@@ -127,8 +131,8 @@ flowchart LR
       <td><a href="./hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/README.md">debug-log-transformed-prompt</a></td>
     </tr>
     <tr>
-      <td rowspan="14">preToolUse</td>
-      <td rowspan="14"></td>
+      <td rowspan="15">preToolUse</td>
+      <td rowspan="15"></td>
       <td>危険コマンド実行抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-commands/README.md">block-commands</a></td>
     </tr>
@@ -175,6 +179,10 @@ flowchart LR
     <tr>
       <td>文字化けの書き込み抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-mojibake-writes/README.md">block-mojibake-writes</a></td>
+    </tr>
+    <tr>
+      <td>依頼のないhook改変抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-hook-tampering/README.md">block-hook-tampering</a></td>
     </tr>
     <tr>
       <td>パイプでの終了コード隠蔽抑止</td>

@@ -9,6 +9,11 @@
       },
       {
         "type": "command",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/userPromptSubmitted/record-hook-change-requests/record-hook-change-requests.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/userPromptSubmitted/record-hook-change-requests/record-hook-change-requests.py"
+      },
+      {
+        "type": "command",
         "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/userPromptSubmitted/set-adversarial-review-state/set-adversarial-review-state.py",
         "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/userPromptSubmitted/set-adversarial-review-state/set-adversarial-review-state.py"
       },
