@@ -1,0 +1,26 @@
+# detect-stale-verification hook README
+
+## 発動条件
+agentStop（エージェントの応答終了時）
+
+## 処理詳細
+1. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（Copilotはトランスクリプトへ非同期に追記するため、発動直後は最終応答や最後のツール実行の結果が未書き込みのことがある）。
+2. ユーザーの最新の依頼以降について、最終応答と、ファイル編集ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）で変更に成功したファイル、bash・powershellで実行したコマンドとその終了コードを、完了した順に集める。
+3. 最終応答（コードブロックを除く）が「テストが通った」と主張していなければ何もしない。主張の判定は [verify-completion-claims](../verify-completion-claims/README.md) hookと同じ基準とする。
+4. テストとみなすコマンドのうち最後のものが終了コード0で終わっていて、その後に対象のファイルを変更していれば、cwdからの相対パス（`/` 区切り）で最大10件を列挙して差し戻す。
+5. 差し戻しは `{"decision":"block","reason":"..."}` を標準出力し、テストを再実行して実際の結果を報告するか、最新の変更が未テストである旨を明記するよう求める。
+
+## 対象外とする変更
+- 説明だけのファイル（`*.md`・`*.markdown`・`*.rst`・`*.txt`・`*.adoc`）の変更
+- `.github/hooks/` 配下のファイルの変更。[require-hook-tests](../require-hook-tests/README.md) hookが主張の有無によらず変更後のテストを求めるため、重ねて差し戻さない。
+- 失敗した編集、`view` などの閲覧
+
+## 備考
+- 特別なプロンプト指定は不要。
+- テストが通った後にコードを直し、再実行しないまま「テストが通った」と報告することを防ぐhook。[verify-completion-claims](../verify-completion-claims/README.md) は最後のテストの終了コードしか見ないため、その後の変更を見逃す。
+- 最後のテストが失敗・未完了の場合や、テストを1回も実行していない場合は、verify-completion-claimsが差し戻すため対象外とする。
+- 再実行するテストが変更を対象とするかは判定しない。最後のテストより後の変更があるかだけを見る。
+- シェルで作成・変更したファイルは検出できない。git管理ファイルへの書き込みは [block-shell-file-edits](../../preToolUse/block-shell-file-edits/README.md) hookが拒否する。
+- hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
+- 同じ依頼で差し戻すのは1回だけ。テストを実行できない場合でも停止できるよう、2回目以降の応答は検査しない。
+- サブエージェントの停止は対象外とする。最終応答として報告されるのは親の応答のため。
