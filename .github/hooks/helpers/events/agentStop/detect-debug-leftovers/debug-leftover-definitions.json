@@ -1,0 +1,39 @@
+{
+  "excludedFilePatterns": [
+    "(?i)\\.(?:md|markdown|rst|txt|adoc|json)$"
+  ],
+  "debugPatterns": [
+    {
+      "name": "console output",
+      "pattern": "\\bconsole\\.(?:log|debug|trace|dir|table)\\s*\\("
+    },
+    {
+      "name": "debugger statement",
+      "pattern": "^\\s*debugger\\s*;?\\s*$"
+    },
+    {
+      "name": "Python debugger",
+      "pattern": "\\bbreakpoint\\(\\s*\\)|\\b(?:i?pdb|pudb)\\.(?:set_trace|post_mortem)\\s*\\(|^\\s*(?:import|from)\\s+(?:i?pdb|pudb)\\b"
+    },
+    {
+      "name": "Ruby debugger",
+      "pattern": "\\bbinding\\.(?:pry|irb)\\b|^\\s*byebug\\b"
+    },
+    {
+      "name": "Rust dbg macro",
+      "pattern": "\\bdbg!\\s*\\("
+    },
+    {
+      "name": "PHP dump",
+      "pattern": "\\bvar_dump\\s*\\("
+    },
+    {
+      "name": ".NET debugger",
+      "pattern": "\\bDebugger\\.(?:Break|Launch)\\s*\\("
+    },
+    {
+      "name": "debug-labeled output",
+      "pattern": "\\b(?:print|println|printf|puts|echo|Write-Host|Write-Output|Console\\.Write(?:Line)?|System\\.(?:out|err)\\.print(?:ln|f)?|fmt\\.(?:Print|Fprint)(?:ln|f)?|log\\.Print(?:ln|f)?|e?println!|e?print!)\\s*\\(?\\s*(?:[\\w.]+\\s*,\\s*)?[fr]?[\"'`](?:\\[?DEBUG\\b|debug:|XXX\\b|HERE\\b|>>>|\\*\\*\\*)"
+    }
+  ]
+}

@@ -14,6 +14,11 @@
       },
       {
         "type": "command",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-debug-leftovers/detect-debug-leftovers.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-debug-leftovers/detect-debug-leftovers.py"
+      },
+      {
+        "type": "command",
         "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-dropped-requirements/detect-dropped-requirements.py",
         "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-dropped-requirements/detect-dropped-requirements.py"
       },
