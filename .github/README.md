@@ -34,7 +34,7 @@ flowchart LR
 
     runToolResult{"判定"}
 
-    postToolUse["<b><i><u>postToolUse</u></i></b><br/><div style='text-align: left'>・既読ファイルの記録<br/>・テスト失敗値の記録<br/>・改行コード不変確認<br/>・振り子編集検知<br/>・skillのcross agent対応確認</div>"]
+    postToolUse["<b><i><u>postToolUse</u></i></b><br/><div style='text-align: left'>・既読ファイルの記録<br/>・テスト失敗値の記録<br/>・テスト件数の空振り・減少検知<br/>・改行コード不変確認<br/>・振り子編集検知<br/>・skillのcross agent対応確認</div>"]
 
     postToolUseFailure["<b><i><u>postToolUseFailure</u></i></b><br/><div style='text-align: left'>・失敗の繰り返し検知</div>"]
 
@@ -181,14 +181,18 @@ flowchart LR
       <td><a href="./hooks/helpers/events/preToolUse/require-read-before-edit/README.md">require-read-before-edit</a></td>
     </tr>
     <tr>
-      <td rowspan="5">postToolUse</td>
-      <td rowspan="5"></td>
+      <td rowspan="6">postToolUse</td>
+      <td rowspan="6"></td>
       <td>既読ファイルの記録</td>
       <td><a href="./hooks/helpers/events/postToolUse/record-seen-files/README.md">record-seen-files</a></td>
     </tr>
     <tr>
       <td>テスト失敗値の記録</td>
       <td><a href="./hooks/helpers/events/postToolUse/record-test-failure-values/README.md">record-test-failure-values</a></td>
+    </tr>
+    <tr>
+      <td>テスト件数の空振り・減少検知</td>
+      <td><a href="./hooks/helpers/events/postToolUse/detect-vacuous-test-success/README.md">detect-vacuous-test-success</a></td>
     </tr>
     <tr>
       <td>改行コード不変確認</td>
