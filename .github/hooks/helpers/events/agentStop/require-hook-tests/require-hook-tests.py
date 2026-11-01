@@ -104,12 +104,13 @@ def get_requirement(path, cwd):
     root, relative = match.groups()
     hooks_directory = os.path.join(root, '.github', 'hooks')
     parts = relative.split('/')
-    if len(parts) == 5 and parts[:2] == ['helpers', 'events']:
+    # 共通hookは helpers/events、このリポジトリ専用のhookは helpers/-repo-events に置く。
+    if len(parts) == 5 and parts[0] == 'helpers' and parts[1] in ('events', '-repo-events'):
         event_name, hook_name, filename = parts[2:]
         # 説明だけの変更ではテストを求めない。
         if filename.lower().endswith('.md'):
             return None
-        hook_directory = os.path.join(hooks_directory, 'helpers', 'events', event_name, hook_name)
+        hook_directory = os.path.join(hooks_directory, 'helpers', parts[1], event_name, hook_name)
         # hook自体を削除した場合は対象外とする。
         if not os.path.isdir(hook_directory):
             return None

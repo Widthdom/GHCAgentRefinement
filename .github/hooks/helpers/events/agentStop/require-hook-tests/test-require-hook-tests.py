@@ -141,6 +141,25 @@ class RequireHookTestsTests(unittest.TestCase):
                 events = [user('直して'), *edit('e1', alpha), *runs]
                 self.assert_block(self.invoke(events), f'- preToolUse/alpha ({status}): run `{PYTHON_COMMAND} {test}`')
 
+    def test_repository_specific_hooks(self):
+        directory = os.path.join(self.hooks, 'helpers', '-repo-events', 'preToolUse', 'gamma')
+        for filename in ('gamma.py', 'test-gamma.py', 'README.md'):
+            self.touch(os.path.join(directory, filename))
+        gamma = '.github/hooks/helpers/-repo-events/preToolUse/gamma/gamma.py'
+        test = '.github/hooks/helpers/-repo-events/preToolUse/gamma/test-gamma.py'
+        self.assert_block(
+            self.invoke([user('直して'), *edit('e1', gamma)]),
+            f'- preToolUse/gamma (not run): run `{PYTHON_COMMAND} {test}`',
+            '.github/hooks/helpers/-repo-events/preToolUse/gamma/README.md',
+        )
+        for command in (f'python3 {test}', 'python3 .github/hooks/tests/test-all-hooks.py'):
+            with self.subTest(command=command):
+                self.assert_silent(self.invoke([user('直して'), *edit('e1', gamma), *shell('s1', command, 0)]))
+        self.assert_silent(self.invoke([
+            user('直して'), *edit('e1', '.github/hooks/-repo-preToolUse.json'),
+            *shell('s1', 'python3 .github/hooks/tests/test-hook-configurations.py', 0),
+        ]))
+
     def test_requires_rerun_after_later_edit(self):
         alpha = self.hook_file('preToolUse', 'alpha', 'alpha.py')
         test = self.hook_file('preToolUse', 'alpha', 'test-alpha.py')

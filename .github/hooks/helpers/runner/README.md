@@ -6,10 +6,10 @@ hook定義JSONから各hookの実行スクリプトを起動し、hookが実際�
 Copilotのトランスクリプトには、`hook.start` と `hook.end` がイベント種別（hookType）ごとに1組しか記録されない。どのhookが起動したか、どのhookが出力したかは区別されないため、本ランナーで記録する。
 
 ## 起動方法
-JSONの `bash` には `python3 .github/hooks/helpers/runner/run-hook.py <実行スクリプト>`、`powershell` には `python .github/hooks/helpers/runner/run-hook.py <実行スクリプト>` を記述する。実行スクリプトは、リポジトリルートからの相対パスで `.github/hooks/helpers/events/<イベント名>/<hook名>/<hook名>.py` を指定する。
+JSONの `bash` には `python3 .github/hooks/helpers/runner/run-hook.py <実行スクリプト>`、`powershell` には `python .github/hooks/helpers/runner/run-hook.py <実行スクリプト>` を記述する。実行スクリプトは、リポジトリルートからの相対パスで `.github/hooks/helpers/events/<イベント名>/<hook名>/<hook名>.py` を指定する。このリポジトリ専用のhookは `.github/hooks/helpers/-repo-events/<イベント名>/<hook名>/<hook名>.py` を指定する。
 
 ## 処理詳細
-1. 引数の実行スクリプトが `helpers/events/<イベント名>/<hook名>/<hook名>.py` の形で存在するか確認する。違う場合は原因を標準エラーに出力し、終了コード2で終了する。
+1. 引数の実行スクリプトが `helpers/events/<イベント名>/<hook名>/<hook名>.py` または `helpers/-repo-events/<イベント名>/<hook名>/<hook名>.py` の形で存在するか確認する。違う場合は原因を標準エラーに出力し、終了コード2で終了する。
 2. 実行スクリプトを、子プロセスにせずランナーのプロセス内で `runpy.run_path(..., run_name='__main__')` により実行する（[実行方式](#実行方式)を参照）。標準入力はバイト列のまま渡し、標準出力・標準エラーは差し替えたバッファで受け取る。
 3. 受け取った標準出力・標準エラーをバイト列のまま中継し、hookの終了コードをそのまま返す。
 4. 入力の `sessionId` が読める場合、起動時刻・イベント名・hook名・機能したかどうかを `<一時フォルダー>/ghc-agent-refinement/hook-states/hook-activity/<セッションID>.sqlite3` に記録する。記録は [hook-activity-state.py](../utilities/hook-activity-state.py) で読み書きする。

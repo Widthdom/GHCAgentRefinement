@@ -11,7 +11,11 @@ from typing import cast
 
 runner_directory = os.path.dirname(os.path.abspath(__file__))
 helpers_directory = os.path.dirname(runner_directory)
-events_directory = os.path.join(helpers_directory, 'events')
+# 共通hookは helpers/events、このリポジトリ専用のhookは helpers/-repo-events に置く。
+events_directories = (
+    os.path.join(helpers_directory, 'events'),
+    os.path.join(helpers_directory, '-repo-events'),
+)
 # helpers → hooks → .github → リポジトリルート
 repository_root = os.path.dirname(os.path.dirname(os.path.dirname(helpers_directory)))
 # Pythonの標準入出力は、Windowsでは改行コードを変換し、それ以外では変換しない。hookの実行時も同じにする。
@@ -19,16 +23,21 @@ STANDARD_STREAM_NEWLINE = None if os.name == 'nt' else '\n'
 
 
 def _resolve_hook_script(argument):
-    # 実行スクリプトは helpers/events/<イベント名>/<hook名>/<hook名>.py に限る。
+    # 実行スクリプトは helpers/events または helpers/-repo-events の <イベント名>/<hook名>/<hook名>.py に限る。
     script_path = os.path.normpath(os.path.join(repository_root, argument))
     hook_directory = os.path.dirname(script_path)
     event_directory = os.path.dirname(hook_directory)
     hook_name = os.path.basename(hook_directory)
     if (
-        os.path.normcase(os.path.dirname(event_directory)) != os.path.normcase(events_directory)
+        os.path.normcase(os.path.dirname(event_directory)) not in {
+            os.path.normcase(directory) for directory in events_directories
+        }
         or os.path.basename(script_path) != f'{hook_name}.py'
     ):
-        raise ValueError(f'Hook script must be helpers/events/<event-name>/<hook-name>/<hook-name>.py: {argument}')
+        raise ValueError(
+            f'Hook script must be helpers/events/<event-name>/<hook-name>/<hook-name>.py or '
+            f'helpers/-repo-events/<event-name>/<hook-name>/<hook-name>.py: {argument}'
+        )
     if not os.path.isfile(script_path):
         raise FileNotFoundError(f'Hook script not found: {argument}')
     return script_path, os.path.basename(event_directory), hook_name

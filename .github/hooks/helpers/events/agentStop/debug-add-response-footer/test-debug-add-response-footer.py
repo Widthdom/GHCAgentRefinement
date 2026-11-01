@@ -409,6 +409,13 @@ class DebugResponseFooterTests(unittest.TestCase):
             _to_compressed_json({'hooks': {'sessionStart': []}}),
         )
 
+        # このリポジトリ専用のhookは、-repo-<event-name>.jsonで定義し、helpers/-repo-events配下に置く。
+        os.makedirs(os.path.join(hooks_directory, 'helpers', '-repo-events', 'preToolUse', 'm-repo'))
+        _write_all_text(
+            os.path.join(hooks_directory, '-repo-preToolUse.json'),
+            _to_compressed_json({'hooks': {'preToolUse': []}}),
+        )
+
         collection_transcript = os.path.join(self.temp_dir, 'collection.jsonl')
 
         correction = block_output['reason']
@@ -452,7 +459,7 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         get_skills = runpy.run_path(str(Path(script_directory) / 'get-used-skills.py'))['get_used_skills']
 
-        if get_hooks(collection_transcript, hooks_directory) != ['a-first', 'z-last']:
+        if get_hooks(collection_transcript, hooks_directory) != ['a-first', 'm-repo', 'z-last']:
             raise AssertionError('Expected current-turn hooks in name order, retaining correction history.')
 
         if get_skills(collection_transcript) != ['first', 'second']:

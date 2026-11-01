@@ -123,6 +123,14 @@ class RunHookTests(unittest.TestCase):
                 self.assertIn(error, result.stderr)
                 self.assertEqual(self.recorded_runs()[-1], ('preToolUse', 'fake-hook', 1 if exit_code else 0))
 
+    def test_runs_repository_specific_hook(self):
+        repository_hook = '.github/hooks/helpers/-repo-events/preToolUse/repo-hook/repo-hook.py'
+        self.write_file(repository_hook, FAKE_HOOK)
+        stdin = self.payload()
+        result = self.run_hook(stdin, repository_hook)
+        self.assertEqual((result.returncode, result.stdout, result.stderr), (0, stdin, b''))
+        self.assertEqual(self.recorded_runs(), [('preToolUse', 'repo-hook', 1)])
+
     def test_text_output_matches_direct_run(self):
         result = self.run_hook(self.payload(), FAKE_MODE='text')
         # Windowsでは改行コードが変換される。
@@ -196,7 +204,9 @@ class RunHookTests(unittest.TestCase):
     def test_rejects_invalid_arguments(self):
         self.write_file('.github/hooks/helpers/events/preToolUse/fake-hook/other.py', FAKE_HOOK)
         self.write_file('.github/hooks/helpers/other/fake-hook/fake-hook.py', FAKE_HOOK)
+        self.write_file('.github/hooks/-repo-events/preToolUse/fake-hook/fake-hook.py', FAKE_HOOK)
         cases = (
+            (('.github/hooks/-repo-events/preToolUse/fake-hook/fake-hook.py',), 'Failed to resolve hook script'),
             ((), 'Usage: run-hook.py'),
             ((self.fake_hook, 'extra'), 'Usage: run-hook.py'),
             (('.github/hooks/helpers/events/preToolUse/fake-hook/other.py',), 'Failed to resolve hook script'),
@@ -242,11 +252,13 @@ class RunHookTests(unittest.TestCase):
         for filename in sorted(name for name in os.listdir(hooks_directory) if name.endswith('.json')):
             with open(os.path.join(hooks_directory, filename), encoding='utf-8') as file:
                 configuration = json.load(file)
+            # このリポジトリ専用のhookの定義（-repo-<event-name>.json）は helpers/-repo-events 配下のhookを起動する。
+            events_name = '-repo-events' if filename.startswith('-repo-') else 'events'
             for event_name, entries in configuration['hooks'].items():
                 for entry in entries:
                     hook_name = os.path.basename(os.path.dirname(entry['bash'].split()[-1]))
-                    with self.subTest(event_name=event_name, hook_name=hook_name):
-                        relative_path = f'.github/hooks/helpers/events/{event_name}/{hook_name}/{hook_name}.py'
+                    with self.subTest(filename=filename, event_name=event_name, hook_name=hook_name):
+                        relative_path = f'.github/hooks/helpers/{events_name}/{event_name}/{hook_name}/{hook_name}.py'
                         if hook_name in DIRECT_HOOKS:
                             self.assertNotIn(RUNNER, entry['bash'])
                             self.assertNotIn(RUNNER, entry['powershell'])

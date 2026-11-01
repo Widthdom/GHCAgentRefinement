@@ -47,8 +47,10 @@ def get_used_hooks(transcript_path, hooks_path):
         configured_hooks = hook_definition.get('hooks', {})
         if not isinstance(configured_hooks, dict):
             raise ValueError(f'Hook definitions must contain a hooks object: {hook_file.path}')
+        # このリポジトリ専用のhookの定義（-repo-<event-name>.json）は helpers/-repo-events 配下のhookを起動する。
+        events_name = '-repo-events' if hook_file.name.startswith('-repo-') else 'events'
         for hook_type in hook_types.intersection(configured_hooks):
-            event_hooks_directory = os.path.join(hooks_path, 'helpers', 'events', hook_type)
+            event_hooks_directory = os.path.join(hooks_path, 'helpers', events_name, hook_type)
             if not os.path.isdir(event_hooks_directory):
                 raise FileNotFoundError(f'Event hooks directory not found: {event_hooks_directory}')
             with os.scandir(event_hooks_directory) as entries:
