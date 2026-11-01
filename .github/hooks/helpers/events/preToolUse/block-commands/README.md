@@ -3,14 +3,22 @@
 ## 発動条件
 preToolUse（bashまたはpowershellツールの実行前）
 
+## 処理概要
+定義ファイルの正規表現に一致する危険なコマンドの実行を、定義された理由とともに拒否する。Pythonが使えない環境では、すべてのコマンドを拒否する。
+
 ## 処理詳細
 1. Windowsでは `python`、macOS/Linuxでは `python3` が見つからない場合、またはPython 3.14未満の場合、標準エラーにその旨を出力したうえでツール実行拒否JSONを標準出力する。
 2. 1.以外の場合、標準入力を引き継いで[py](./block-commands.py)を実行する。
 3. [blocked-command-definitions.json](./blocked-command-definitions.json) が存在しない場合、フォーマット違反の場合、不正な正規表現がひとつでも含まれていた場合は異常終了し、標準エラーにその旨を出力したうえでツール実行拒否JSONを標準出力する。
 4. 呼び出すツール（`toolName`・`toolArgs`）がbash・powershellで、そのコマンドが `blocked-command-definitions.json` に定義された正規表現に一致した場合は、定義の `reason` を拒否理由とするツール実行拒否JSONを標準出力し、正常終了する。標準エラーには出力しない。
 
-## 備考
+## 前提条件
+- Python 3.14以降が必要。見つからない場合や3.14未満の場合は、コマンドを拒否する。
+
+## 例外
 - bashとpowershell以外のツール呼び出しは処理対象外。
+
+## 備考
 - Python未インストール時であっても機能するように、Windowsでは[cmd](./block-commands.cmd)、macOS/Linuxでは[sh](./block-commands.sh)を呼び出す。
 - Windows用バッチはコメントも含めASCIIで記述する。UTF-8の日本語コメントは、cmd.exeのコードページによってコメントの一部がコマンドとして解釈されるため、使用しない。
 

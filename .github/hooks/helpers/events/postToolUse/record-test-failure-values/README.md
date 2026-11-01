@@ -4,6 +4,10 @@
 
 postToolUse（ツール `bash`・`powershell` が成功した直後）
 
+## 処理概要
+
+テストの実行結果から、失敗したアサーションの期待値と実際の値の組を読み取り、最新のテスト実行の結果として記録する。他のhookが使う記録で、単独では何も出力しない。
+
 ## 処理詳細
 
 1. ツール引数の `command` がテストの実行（`pytest`・`npm test`・`test-*.py` など）でなければ何もしない。基準は [verify-completion-claims](../../agentStop/verify-completion-claims/README.md) hookと同じ。
@@ -21,13 +25,22 @@ postToolUse（ツール `bash`・`powershell` が成功した直後）
 |pytest|`E       assert 3 == 4`|決まらない（両方の向きを記録）|
 |Rust|`left: 3` / `right: 4`|決まらない（両方の向きを記録）|
 
-## 備考
+## 前提条件
 
 - 特別なプロンプト指定は不要。
-- [block-goalpost-moving](../../preToolUse/block-goalpost-moving/README.md) hookと [block-hardcoding-for-tests](../../preToolUse/block-hardcoding-for-tests/README.md) hookが使う記録。単独では何も出力しない。
-- テストの失敗はコマンドの非ゼロ終了で表され、ツール自体は成功扱いになるため、postToolUseFailureではなくpostToolUseで記録する。
+- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
+
+## 例外
+
 - 最新のテスト実行の結果だけを残す。成功した実行や、形式を読み取れない出力では前回の記録を消し、修正後の正当な編集を古い失敗で拒否しないようにする。
+
+## 制約と限界
+
 - 記録は1回の実行につき100組まで。空、複数行、200文字を超える値は記録しない。
 - サブエージェントのテスト実行も親と同じ記録に含まれる。postToolUseの入力では親と区別できないため。
+
+## 備考
+
+- [block-goalpost-moving](../../preToolUse/block-goalpost-moving/README.md) hookと [block-hardcoding-for-tests](../../preToolUse/block-hardcoding-for-tests/README.md) hookが使う記録。単独では何も出力しない。
+- テストの失敗はコマンドの非ゼロ終了で表され、ツール自体は成功扱いになるため、postToolUseFailureではなくpostToolUseで記録する。
 - 状態は [assertion-failure-values-state.py](../../../utilities/assertion-failure-values-state.py) でblock-goalpost-moving hook・block-hardcoding-for-tests hookと共有する。値そのものは保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/test-failure-values/<セッションID>.sqlite3` に保存する。読み取れる組がなく、消す記録もなければ状態ファイルを作らない。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。

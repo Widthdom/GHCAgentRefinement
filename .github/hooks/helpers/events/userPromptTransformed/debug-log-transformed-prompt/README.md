@@ -4,11 +4,19 @@
 
 userPromptTransformed（モデルへ渡すプロンプトの変換直後）
 
+## 処理概要
+
+デバッグモードのとき、ユーザー入力と変換後のプロンプトの全文と差分をMarkdownファイルに保存する。
+
 ## 処理詳細
 
 1. セッションのデバッグモードを確認し、無効なら終了する。
 2. 差分を先頭に、ユーザー入力（`prompt`）と変換後の文章（`transformedPrompt`）の全文をMarkdownファイルに保存する。
 3. プロンプト自体は変更せず、保存先は独立した[応答終了時のhook](../../agentStop/debug-show-prompt-log-paths/README.md)で表示する。
+
+## 前提条件
+
+- デバッグモード（[set-debug-mode](../../userPromptSubmitted/set-debug-mode/README.md) hookで有効化）が有効なときだけ動く。
 
 ## 備考
 

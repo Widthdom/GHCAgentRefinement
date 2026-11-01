@@ -3,6 +3,9 @@
 ## 発動条件
 preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_replace_editor`・`apply_patch` の実行前）
 
+## 処理概要
+タイムアウト・待ち時間・再試行回数の数値を増やすだけの編集を拒否し、待ち時間を延ばさずに原因を直すよう求める。
+
 ## 処理詳細
 1. [timeout-inflation-definitions.json](./timeout-inflation-definitions.json) から、対象外のファイルのパス（`excludedFilePatterns`）と、待ち時間・再試行を表す語の正規表現（`timingPatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
@@ -46,14 +49,20 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |再試行|`retry`・`MAX_RETRIES`・`stop_after_attempt`|
 |間隔・バックオフ・期限|`POLL_INTERVAL`・`backoff`・`deadline`|
 
-## 備考
+## 前提条件
 - 特別なプロンプト指定は不要。
-- 遅い・不安定な処理やテストを、待ち時間・再試行回数を延ばすだけで「直した」ことにする事故を、書き込む前に防ぐためのhook。競合状態、`await` の漏れ、誤った待機条件などの原因が残り、テストやCIが遅くなる。
+- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
+
+## 例外
 - ロジックの変更を伴う編集は、原因に手を入れた可能性があるため対象外とする。同じ行の末尾にコメントを加えた場合も、行の形が変わるため対象外になる。
+- 文書のファイルは対象外とする。設定ファイル（YAML・JSONなど）は、CIのタイムアウトなどがあるため対象にする。
+- シェルによる書き込みは対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../block-shell-file-edits/README.md) hookが拒否する。
+
+## 制約と限界
 - 拒否は同じファイルにつき1回だけ。ユーザーが依頼した場合や、処理に本当にその時間がかかる場合は、同じ編集を再実行すれば通るようにする。
 - `limit=10` のように待ち時間と関係のない数値でも、同じ行に対象の語があれば対象になる。
-- 文書のファイルは対象外とする。設定ファイル（YAML・JSONなど）は、CIのタイムアウトなどがあるため対象にする。
+
+## 備考
+- 遅い・不安定な処理やテストを、待ち時間・再試行回数を延ばすだけで「直した」ことにする事故を、書き込む前に防ぐためのhook。競合状態、`await` の漏れ、誤った待機条件などの原因が残り、テストやCIが遅くなる。
 - 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block-timeout-inflation/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
-- シェルによる書き込みは対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../block-shell-file-edits/README.md) hookが拒否する。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。

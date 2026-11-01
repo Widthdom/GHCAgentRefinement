@@ -6,7 +6,7 @@
 2. hook定義はイベントごとに `.github/hooks/<event-name>.json` の配列にまとめ、要素を実行スクリプトパスの昇順に並べる。
 3. hookのファイルは `.github/hooks/helpers/events/<event-name>/<hook-name>/` に置き、実行スクリプトは `<hook-name>.py` とする。複数hookで共有する補助スクリプトは [.github/hooks/helpers/utilities/](../../../hooks/helpers/utilities/) に置く。
 4. JSONのコマンドは、[hookランナー](../../../hooks/helpers/runner/README.md) に実行スクリプトのリポジトリルート相対パスを渡して起動する。`bash` には `python3 .github/hooks/helpers/runner/run-hook.py <実行スクリプト>`、`powershell` には `python .github/hooks/helpers/runner/run-hook.py <実行スクリプト>` を記述する。Pythonが無い環境でも動く必要があるhook（`check-python`、`block-commands`）だけは、ランナーを通さず `.sh`・`.cmd` から起動する。
-5. 各hookのフォルダーに `README.md` を作成し、発動条件と処理詳細を記載する。設計背景は必要な場合だけ記載する。
+5. 各hookのフォルダーに `README.md` を作成し、発動条件、処理概要（hookが何をするかの1〜2文の説明）、処理詳細の順に記載する。前提条件、例外（意図して対象外・許可とするもの）、制約と限界（検出漏れ・誤検知・拒否の回数など）がある場合は、処理詳細や備考に混ぜず、それぞれ `## 前提条件`・`## 例外`・`## 制約と限界` の章に分けて、検出内容などの詳細の章の後、背景・備考の前に記載する。設計背景は必要な場合だけ記載する。
 6. Python 3.14対応の構文・標準ライブラリAPIを使う。最低対応・推奨は3.14とし、新規インストールには3.14系の最新パッチ版を案内する。
 7. 補助ファイルは `os.path.dirname(os.path.abspath(__file__))` を基準に参照する。パスは `os.path.join` で階層ごとに連結し、親は `os.path.dirname`、一時ファイルの基点は `tempfile.gettempdir()` を使う。hookが実行をまたいで保持する状態は `<一時フォルダー>/ghc-agent-refinement/hook-states/<状態名>/`、デバッグ専用hookのログは `<一時フォルダー>/ghc-agent-refinement/debug-logs/<ログ名>/` に置き、`<一時フォルダー>/ghc-agent-refinement/` の直下には置かない。
    - パスを表示・保存・文字列比較・正規表現やglobで照合する場合は、`/` 区切りに揃えてから使う。`os.path.relpath` などOS依存の区切りを返すAPIの結果は、同じ式で `.replace(os.sep, '/')` を付けて変換する（`pathlib` では `.as_posix()`）。ファイルシステムのAPIに渡すだけのパスは変換しない。

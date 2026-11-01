@@ -3,6 +3,9 @@
 ## 発動条件
 preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_replace_editor`・`apply_patch` と、bash・powershellの実行前）
 
+## 処理概要
+ユーザーがこのセッションでhookの変更に触れていないのに、hookの定義・実装・状態ファイルを変更する操作を拒否する。
+
 ## 処理詳細
 1. 呼び出すツール（`toolName`・`toolArgs`）から、守るパス（[守る対象](#守る対象)を参照）への変更を探す。
    - 編集系ツール：`path`、または `apply_patch` の `*** Add File:`・`*** Update File:`・`*** Delete File:`・`*** Move to:` のパスを、cwdを基準に絶対パスにして照合する（`str_replace_editor` の `view` は除く）。
@@ -28,13 +31,19 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |守るパスへのリダイレクト|`echo {} > .github/hooks/preToolUse.json`|
 |スクリプト内部での書き込み|`python -c "open(..., 'w')"`・`write_text`・`os.remove`・`shutil.move`・`[IO.File]::WriteAllText`・`fs.writeFileSync` など|
 
-- 読み取りやテストの実行（`cat`・`grep`・`git diff`・`git log`・`python .github/hooks/tests/test-all-hooks.py > /tmp/all.log`）は許可する。
-
-## 備考
+## 前提条件
 - 特別なプロンプト指定は不要。hookを変更する作業では、依頼で `hook`・`フック`・イベント名・hookの名前のいずれかに触れればよい。
-- hookに拒否されたエージェントが、hookの定義や実装、定義ファイル、状態ファイルを書き換えて制限を外すのを防ぐためのhook。hookが増えるほど、hookそのものを守る仕組みが必要になる。
-- 他のhookと異なり、同じファイルでも拒否は1回で終わらない。再実行で通せると、拒否を避けたいエージェントがそのまま再実行できてしまうため。ユーザーがhookに触れた依頼をすれば、以降は許可する。
+- [record-hook-change-requests](../../userPromptSubmitted/record-hook-change-requests/README.md) hookの記録で許可を判定する。
+
+## 例外
+- 読み取りやテストの実行（`cat`・`grep`・`git diff`・`git log`・`python .github/hooks/tests/test-all-hooks.py > /tmp/all.log`）は許可する。
 - 許可はセッション単位で、一度hookに触れた依頼があればセッションの間は続く。依頼ごとに判定すると、hookの作業中の「続けて」などで止まってしまうため。
+
+## 制約と限界
+- 他のhookと異なり、同じファイルでも拒否は1回で終わらない。再実行で通せると、拒否を避けたいエージェントがそのまま再実行できてしまうため。ユーザーがhookに触れた依頼をすれば、以降は許可する。
 - サブエージェントの呼び出しも同じセッションIDで判定する。サブエージェントへの依頼文では許可されない（record-hook-change-requests hookが記録しない）。
 - コマンドの判定は正規表現による簡易的なもので、守るパスを変数や文字列の連結で組み立てた場合は検出できない。逆に、守るパスから他の場所への `cp` など、hookを変更しない操作も拒否する。
+
+## 備考
+- hookに拒否されたエージェントが、hookの定義や実装、定義ファイル、状態ファイルを書き換えて制限を外すのを防ぐためのhook。hookが増えるほど、hookそのものを守る仕組みが必要になる。
 - 状態ファイルが壊れている場合は異常終了し、Copilotがツールの実行の拒否として扱う。

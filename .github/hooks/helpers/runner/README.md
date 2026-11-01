@@ -28,26 +28,29 @@ Copilotは `timeoutSec` を超えたhookのプロセスを終了させる。hook
 - 捕捉されなかった例外は、トレースバックを標準エラーに出力して終了コード1にする。
 - 実行後は差し替えたものを元に戻す。
 
-### プロセス内で実行する場合の制約
-- hookが `os._exit` を呼ぶと、出力の中継と記録を行わずにランナーごと終了する。
-- hookが起動した子プロセスが、出力をパイプで受け取らずに標準出力へ直接書くと、記録の判定から漏れる。今のhookのgit呼び出しは、どれも出力をパイプで受け取るか捨てている。
-- タイムアウトで終了させられたhookは記録されない。
-
 ### 採用しなかった案
 |案|採用しなかった理由|
 |--|--|
 |子プロセスとして起動し、ランナー側で `subprocess.run(timeout=...)` により `timeoutSec` より先に止める|JSONの `timeoutSec` と同じ値をランナーの引数にも書く二重管理になる。`timeoutSec` を省略したhookでは、Copilotの既定のタイムアウトも知る必要がある。|
 |子プロセスとして起動し、OSの機能で親の終了時に子も止める（WindowsのJob Object、LinuxのPR_SET_PDEATHSIG）|macOSに同等の仕組みがなく、OS固有の処理（ctypesなど）が増える。[共通規約](../../../skills/create-hook/references/hook-conventions.md)の「Windows、macOS、Linuxのすべてを対象にする」に合わない。|
 
-### 未確認の事項
-Copilotはhookのコマンドを `bash`/`powershell` 経由で起動する。タイムアウト時にCopilotが終了させるのがシェルだけの場合、その先の `python` はランナーの方式によらず取り残される可能性がある。実際に `timeoutSec` を超えるhookでの確認は未実施。
-
 ## 機能したとみなす条件
 - 終了コードが0以外。
 - 標準出力が空・空白だけ・空のJSONオブジェクト（`{}`）のいずれでもない。
 
-## 備考
+## 例外
 - `sessionId` を読めない入力のときは、記録だけを行わない。入力の検証は起動したhook自身が行う。
-- 記録に失敗しても、hookの出力と終了コードは変えない。失敗の原因は標準エラーに出力する。
 - [check-python](../events/sessionStart/check-python/README.md) と [block-commands](../events/preToolUse/block-commands/README.md) は本ランナーを通さない。Pythonが無い環境や古い環境でも、Pythonの不足を報告したりコマンドを拒否したりする必要があるため。この2つは起動も機能も記録されない。
+
+## 制約と限界
+### プロセス内で実行する場合の制約
+- hookが `os._exit` を呼ぶと、出力の中継と記録を行わずにランナーごと終了する。
+- hookが起動した子プロセスが、出力をパイプで受け取らずに標準出力へ直接書くと、記録の判定から漏れる。今のhookのgit呼び出しは、どれも出力をパイプで受け取るか捨てている。
+- タイムアウトで終了させられたhookは記録されない。
+
+### 未確認の事項
+Copilotはhookのコマンドを `bash`/`powershell` 経由で起動する。タイムアウト時にCopilotが終了させるのがシェルだけの場合、その先の `python` はランナーの方式によらず取り残される可能性がある。実際に `timeoutSec` を超えるhookでの確認は未実施。
+
+## 備考
+- 記録に失敗しても、hookの出力と終了コードは変えない。失敗の原因は標準エラーに出力する。
 - 記録を読むのは [debug-add-response-footer](../events/agentStop/debug-add-response-footer/README.md) のみ。

@@ -3,6 +3,9 @@
 ## 発動条件
 preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_replace_editor`・`apply_patch` の実行前）
 
+## 処理概要
+テストファイルにスキップ・限定実行・常に成功するアサーションを加える編集や、アサーションを減らす編集を拒否し、テストではなく実装を直すよう求める。
+
 ## 処理詳細
 1. [test-weakening-definitions.json](./test-weakening-definitions.json) から、テストファイルのパス（`testFilePatterns`）、アサーション（`assertionPatterns`）、テストを弱める行（`weakeningPatterns`）の正規表現を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
@@ -24,16 +27,22 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |常に成功するアサーション|`Assert.True(true)`・`Assert.Pass()`・`assert True`・`self.assertTrue(True)`・`expect(true).toBe(true)`|
 |アサーション（数える対象）|`Assert.*(`・`CollectionAssert.*(`・`.Should()`・`assert*(`・`assert` 文・`assert_eq!(`・`expect(`・`t.Error(`・`t.Fatal(`・`pytest.raises(`|
 
-## 備考
+## 前提条件
 - 特別なプロンプト指定は不要。
-- テストが失敗したとき、エージェントが実装を直さずに、テストをスキップしたり、アサーションを消したり、常に成功するアサーションに置き換えたりして成功させる事故を、書き込む前に防ぐためのhook。テストの成功の主張を確かめる [verify-completion-claims](../../agentStop/verify-completion-claims/README.md) hookと組み合わせ、テストを弱めて成功させる抜け道を塞ぐ。
-- 限定実行（`.only` など）は、他のテストを実行させなくするため、スキップと同じく骨抜きとして扱う。
+- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
+
+## 例外
+- シェルによる書き込みは対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../block-shell-file-edits/README.md) hookが拒否する。
+
+## 制約と限界
 - 拒否は同じファイルの同じ種類（骨抜き・アサーションの減少）につき1回だけ。ユーザーの依頼による削除や、アサーションの移動・統合などの意図した編集でも、同じ編集を再実行すれば通るようにする。
 - アサーションは行単位で数え、1行で複数のパターンに一致しても1件とする。ファイル間や複数回の編集をまたぐアサーションの移動は、それぞれの編集で判定する。
+- 正規表現で検出するため、定義にない形式（条件分岐による早期の `return` など）は見逃す。期待値をテスト対象の出力に合わせる書き換えは [block-goalpost-moving](../block-goalpost-moving/README.md) hookが拒否する。
+
+## 備考
+- テストが失敗したとき、エージェントが実装を直さずに、テストをスキップしたり、アサーションを消したり、常に成功するアサーションに置き換えたりして成功させる事故を、書き込む前に防ぐためのhook。テストの成功の主張を確かめる [verify-completion-claims](../../agentStop/verify-completion-claims/README.md) hookと組み合わせ、テストを弱めて成功させる抜け道を塞ぐ。
+- 限定実行（`.only` など）は、他のテストを実行させなくするため、スキップと同じく骨抜きとして扱う。
 - 新規のテストファイルでも、スキップや限定実行の行は骨抜きとして扱う。
 - 状態にはファイルパスを保存せず、照合用のSHA-256と拒否の種類だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block-test-weakening/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
-- シェルによる書き込みは対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../block-shell-file-edits/README.md) hookが拒否する。
-- 正規表現で検出するため、定義にない形式（条件分岐による早期の `return` など）は見逃す。期待値をテスト対象の出力に合わせる書き換えは [block-goalpost-moving](../block-goalpost-moving/README.md) hookが拒否する。
 - `testFilePatterns` はblock-goalpost-moving hookもテストファイルの判定に使う。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
