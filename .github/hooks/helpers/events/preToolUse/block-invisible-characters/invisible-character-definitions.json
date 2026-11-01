@@ -1,0 +1,27 @@
+{
+  "excludedFilePatterns": [
+    "(?i)\\.(?:md|markdown|rst|txt|adoc)$"
+  ],
+  "characterPatterns": [
+    {
+      "name": "zero-width character",
+      "pattern": "[\\u200B-\\u200D\\u2060\\uFEFF]"
+    },
+    {
+      "name": "bidirectional control character",
+      "pattern": "[\\u061C\\u200E\\u200F\\u202A-\\u202E\\u2066-\\u2069]"
+    },
+    {
+      "name": "invisible formatting character",
+      "pattern": "[\\u00AD\\u180E\\u2061-\\u2064]"
+    },
+    {
+      "name": "no-break space",
+      "pattern": "[\\u00A0\\u202F]"
+    },
+    {
+      "name": "ideographic space in code",
+      "pattern": "^[ \\t]*\\u3000|\\u3000[ \\t]*$|[\\x21-\\x7E]\\u3000|\\u3000[\\x21-\\x7E]"
+    }
+  ]
+}
