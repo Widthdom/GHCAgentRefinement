@@ -269,3 +269,17 @@ flowchart LR
 - Pylanceがこの読み込みを解決できるよう、リポジトリ直下の [pyrightconfig.json](../pyrightconfig.json) で同じパスを `extraPaths` に指定している。
 - hookはWindows・macOS・Linuxのすべてを対象にし、`os.name == 'nt'` などでOSごとに分岐するため、`pythonPlatform` を `All` にして、実行中のOS以外向けの分岐も解析させる。
 - このファイルがあると、Pylanceは `python.analysis.*` の設定（`typeCheckingMode` など）よりこのファイルを優先するため、ユーザー設定で変えている項目はこのファイルにも記載する。
+
+### トラブルシューティング
+
+#### デバッグフッターにsessionStartのhookが載らない
+
+デバッグモードで回答に付与される（[debug-add-response-footer](./hooks/helpers/events/agentStop/debug-add-response-footer/README.md)）フッターに `check-python` や `load-copilot-instructions` などsessionStartのhookが載らないのは仕様。
+- 「Hooks used」は、直近のユーザー発言以降にトランスクリプトへ記録された `hook.start` のイベント種別から、起動した可能性のあるhookを推定する。ユーザー発言のたびに収集済みのイベント種別をリセットするため、最初のユーザー発言より前に動くsessionStartのhookは表示範囲外になる。
+- 「Hooks fired」は、直近のユーザー依頼の `userPromptSubmitted` の `hook.start` 以降に[hookランナー](./hooks/helpers/runner/README.md)経由で起動し、終了コードが0以外か、空・空白だけ・空のJSONオブジェクト（`{}`）以外の標準出力を返したhookが対象。sessionStartはターンの区切りより前のため対象外で、さらに `block-commands` や `check-python` はランナーを通さないため起動も機能も記録されない。
+
+#### デバッグフッターの「Hooks used」にhookが並ぶのに「Hooks fired」がnoneになる
+
+デバッグモードで回答に付与される（[debug-add-response-footer](./hooks/helpers/events/agentStop/debug-add-response-footer/README.md)）フッターに設けられている「Hooks used」はイベント種別からの推定であり、各hookが実際に出力したことを示すものではない。「Hooks fired」は上記の条件で機能したhookだけを表示し、agentStopのhookは同時実行の結果をフッター作成時点で確定できないため除外する。ランナーを通さない `block-commands` や `check-python` も対象外になる。
+
+そのため、ツールを呼び出さないターンでは「Hooks used」にagentStopのhookが並んでも、「Hooks fired」が `none` になることがある。フッターに載らないことや `none` だけでは、hookが起動しなかったとは判断できない。
