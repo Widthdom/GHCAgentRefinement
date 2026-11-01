@@ -28,7 +28,7 @@ flowchart LR
 
     LoopStart[/作業開始\]
 
-    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・省略記号による内容消失抑止<br/>・エラーの握りつぶし抑止<br/>・生成ファイル直接編集抑止<br/>・秘密情報書き込み抑止<br/>・shellによるファイル編集抑止<br/>・テストの骨抜き抑止<br/>・テスト期待値の後付け抑止<br/>・テスト通過用ハードコード抑止<br/>・待ち時間の水増し抑止<br/>・不可視文字の書き込み抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・未読ファイル編集抑止</div>"]
+    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・省略記号による内容消失抑止<br/>・エラーの握りつぶし抑止<br/>・生成ファイル直接編集抑止<br/>・秘密情報書き込み抑止<br/>・shellによるファイル編集抑止<br/>・テストの骨抜き抑止<br/>・テスト期待値の後付け抑止<br/>・テスト通過用ハードコード抑止<br/>・待ち時間の水増し抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・未読ファイル編集抑止</div>"]
 
     runTool["ツール実行"]
 
@@ -127,8 +127,8 @@ flowchart LR
       <td><a href="./hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/README.md">debug-log-transformed-prompt</a></td>
     </tr>
     <tr>
-      <td rowspan="13">preToolUse</td>
-      <td rowspan="13"></td>
+      <td rowspan="14">preToolUse</td>
+      <td rowspan="14"></td>
       <td>危険コマンド実行抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-commands/README.md">block-commands</a></td>
     </tr>
@@ -171,6 +171,10 @@ flowchart LR
     <tr>
       <td>不可視文字の書き込み抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-invisible-characters/README.md">block-invisible-characters</a></td>
+    </tr>
+    <tr>
+      <td>文字化けの書き込み抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-mojibake-writes/README.md">block-mojibake-writes</a></td>
     </tr>
     <tr>
       <td>パイプでの終了コード隠蔽抑止</td>
