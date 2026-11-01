@@ -13,13 +13,13 @@ hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirnam
 sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-# 見えない文字は、テストのコード上で見えるようにUnicode escapeで書く。
-ZERO_WIDTH_SPACE = '​'  # ゼロ幅スペース（U+200B）
-BOM = '﻿'  # バイトオーダーマーク・ゼロ幅ノーブレークスペース（U+FEFF）
-RIGHT_TO_LEFT_OVERRIDE = '‮'  # 右から左への上書き（U+202E）
-SOFT_HYPHEN = '­'  # ソフトハイフン（U+00AD）
-NO_BREAK_SPACE = ' '  # ノーブレークスペース（U+00A0）
-IDEOGRAPHIC_SPACE = '　'  # 全角スペース（U+3000）
+# 見えない文字は、テストのコード上で見えるようにchrで書く。
+ZERO_WIDTH_SPACE = chr(0x200B)  # ゼロ幅スペース
+BOM = chr(0xFEFF)  # バイトオーダーマーク・ゼロ幅ノーブレークスペース
+RIGHT_TO_LEFT_OVERRIDE = chr(0x202E)  # 右から左への上書き
+SOFT_HYPHEN = chr(0x00AD)  # ソフトハイフン
+NO_BREAK_SPACE = chr(0x00A0)  # ノーブレークスペース
+IDEOGRAPHIC_SPACE = chr(0x3000)  # 全角スペース
 
 
 class BlockInvisibleCharactersTests(unittest.TestCase):
@@ -100,7 +100,10 @@ class BlockInvisibleCharactersTests(unittest.TestCase):
                 self.new_session()
                 self.assert_denied(
                     self.run_call({'name': 'create', 'args': {'path': 'a.py', 'file_text': content}}),
-                    ['a.py', kind, visible, 'escape sequence', 'retry the edit'], kind,
+                    [
+                        'a.py', kind, visible, 'chr(0x3000)', 'read the file after the edit',
+                        'Retry this edit unchanged only if',
+                    ], kind,
                 )
 
     def test_allowed_contents(self):

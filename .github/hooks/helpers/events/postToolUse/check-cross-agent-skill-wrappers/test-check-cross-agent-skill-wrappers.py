@@ -112,7 +112,8 @@ class CheckCrossAgentSkillWrappersTests(unittest.TestCase):
 
     def test_crlf_and_bom_are_accepted(self):
         content = f"---\nname: sample\ndescription: 'サンプルを作るときに使う。'\n---\n\n{WRAPPER_BODY.format(name='sample')}\n"
-        self.write(CLAUDE_WRAPPER, '﻿' + content, newline='\r\n')
+        # 先頭にUTF-8 BOM（U+FEFF）を付ける。見えない文字のため、コード上ではchrで書く。
+        self.write(CLAUDE_WRAPPER, chr(0xFEFF) + content, newline='\r\n')
         self.assert_silent(self.invoke(CLAUDE_WRAPPER))
 
     def test_description_change_without_wrappers(self):

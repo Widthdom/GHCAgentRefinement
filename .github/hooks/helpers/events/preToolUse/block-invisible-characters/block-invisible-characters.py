@@ -32,8 +32,10 @@ DENY_REASON = (
     'Edit denied: {findings}. These characters are invisible or look like ordinary spaces, so they slip past review '
     'and can break parsing, string comparison, indentation, or change how code reads (bidirectional controls can '
     'reorder what is displayed). Remove them, or replace them with ordinary spaces. If one is intended, for example '
-    'test data or a deliberate string, write it as an escape sequence (such as \\u3000) so it is visible, and retry '
-    'the edit; this check denies it only once per file.'
+    'test data or a deliberate string, write it by its code point so it is visible, such as chr(0x3000) in Python or '
+    'String.fromCodePoint(0x3000) in JavaScript. If you write it as an escape sequence instead, read the file after '
+    'the edit and confirm that the escape was not turned into the character itself. Retry this edit unchanged only if '
+    'neither removing nor rewriting the character is appropriate; this check denies it only once per file.'
 )
 
 

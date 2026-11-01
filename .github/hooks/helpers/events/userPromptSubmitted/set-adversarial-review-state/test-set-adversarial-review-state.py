@@ -40,11 +40,13 @@ class ReviewModeTests(unittest.TestCase):
             return json.load(file)
 
     def test_prompt_suffix_and_reset(self):
+        # 全角スペース（U+3000）は普通の空白と見分けられないため、コード上ではchrで書く。
+        ideographic_space = chr(0x3000)
         for prompt, enabled in [
             (';;', True), ('日本語\nreview;;', True), ('regular', False),
             (' ;;review', False), ('\n;;review', False), ('x;;', True),
             (';;review', False), ('review;; ', False), ('review;;\n', False),
-            ('review;;\r\n', False), ('review;;\t', False), ('review;;　', False),
+            ('review;;\r\n', False), ('review;;\t', False), (f'review;;{ideographic_space}', False),
             (' review;;', True), ('\nreview;;', True), ('review；；', False),
             (';', False), ('', False), ('  ', False), ('?? debug', False),
         ]:
