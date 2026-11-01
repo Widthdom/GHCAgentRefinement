@@ -1,0 +1,13 @@
+{
+  "excludedFilePatterns": [
+    "(?i)(?:^|/)(?:package-lock\\.json|npm-shrinkwrap\\.json|yarn\\.lock|pnpm-lock\\.yaml|poetry\\.lock|uv\\.lock|Pipfile\\.lock|Cargo\\.lock|go\\.sum|composer\\.lock|Gemfile\\.lock|packages\\.lock\\.json)$"
+  ],
+  "formattingRequestPatterns": [
+    "整形|フォーマット|インデント|字下げ|空白|スペース|タブ|改行|行末|体裁|lint",
+    "(?i)\\b(?:format(?:ting)?|reformat|indent(?:ation)?|whitespace|spaces?|tabs?|line\\s+endings?|trailing|prettier|black|lint)\\b"
+  ],
+  "removalRequestPatterns": [
+    "削除|消し|消す|消して|除去|取り除|リネーム|改名|名前を変|移動|移し|移す|整理|分割|統合|置き換え",
+    "(?i)\\b(?:delete|remove|rename|move|relocate|clean\\s*up|split|merge|consolidate|replace)\\b"
+  ]
+}
