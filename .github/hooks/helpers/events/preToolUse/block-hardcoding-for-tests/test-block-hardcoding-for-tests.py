@@ -62,9 +62,9 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
         })
         self.assertEqual((result.returncode, result.stderr), (0, b''))
 
-    def run_calls(self, *tool_calls):
+    def run_call(self, tool_call):
         return self.run_process(
-            hook_path, {'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': list(tool_calls)},
+            hook_path, {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']},
         )
 
     def assert_allowed(self, result, message):
@@ -113,7 +113,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
                 self.record_failure('Expected: 4\nReceived: -1\n')
                 tool_name = 'create' if name == 'create new file' else name
                 self.assert_denied(
-                    self.run_calls({'name': tool_name, 'args': args}),
+                    self.run_call({'name': tool_name, 'args': args}),
                     ['would add a branch on 1 that yields the expected value 4', 'retry the same edit'], name,
                 )
 
@@ -133,7 +133,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
                 self.new_session()
                 self.record_failure('Expected: "three"\nReceived: "two"\n')
                 self.assert_denied(
-                    self.run_calls({'name': 'edit', 'args': {'path': 'math.py', 'old_str': 'return a - b',
+                    self.run_call({'name': 'edit', 'args': {'path': 'math.py', 'old_str': 'return a - b',
                                                              'new_str': new_text}}),
                     ['math.py', 'three'], name,
                 )
@@ -141,7 +141,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
     def test_symmetric_formats_use_both_values(self):
         self.record_failure('E       assert -1 == 4\n', command='pytest')
         self.assert_denied(
-            self.run_calls({'name': 'edit', 'args': {'path': 'math.py', 'old_str': 'return a - b',
+            self.run_call({'name': 'edit', 'args': {'path': 'math.py', 'old_str': 'return a - b',
                                                      'new_str': 'if a == 1: return 4\n    return a - b'}}),
             ['math.py'], 'pytest does not tell which value is expected.',
         )
@@ -169,23 +169,23 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
         ]
         for name, args in cases:
             with self.subTest(name=name):
-                self.assert_allowed(self.run_calls({'name': 'edit', 'args': args}), name)
+                self.assert_allowed(self.run_call({'name': 'edit', 'args': args}), name)
 
     def test_no_recorded_failure_is_allowed(self):
         call = {'name': 'create', 'args': {'path': 'math.py', 'file_text': SPECIAL_CASE}}
-        self.assert_allowed(self.run_calls(call), 'No state file.')
+        self.assert_allowed(self.run_call(call), 'No state file.')
         self.assertFalse(os.path.exists(self.state_path), 'The check must not create a state file.')
         self.record_failure('Expected: 4\nReceived: -1\n')
         self.record_failure('1 passed\n')
-        self.assert_allowed(self.run_calls(call), 'A passing run clears the recorded failure.')
+        self.assert_allowed(self.run_call(call), 'A passing run clears the recorded failure.')
 
     def test_denies_only_once_per_file(self):
         self.record_failure('Expected: 4\nReceived: -1\n')
         call = {'name': 'create', 'args': {'path': 'math.py', 'file_text': SPECIAL_CASE}}
-        self.assert_denied(self.run_calls(call), ['math.py'], 'first')
-        self.assert_allowed(self.run_calls(call), 'The same file must not be denied twice.')
+        self.assert_denied(self.run_call(call), ['math.py'], 'first')
+        self.assert_allowed(self.run_call(call), 'The same file must not be denied twice.')
         self.assert_denied(
-            self.run_calls({'name': 'create', 'args': {'path': 'other.py', 'file_text': SPECIAL_CASE}}),
+            self.run_call({'name': 'create', 'args': {'path': 'other.py', 'file_text': SPECIAL_CASE}}),
             ['other.py'], 'Another file must still be denied once.',
         )
 
@@ -197,49 +197,49 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
         )
         result = self.run_process(goalpost_path, {
             'sessionId': self.session_id, 'cwd': self.directory,
-            'toolCalls': [{'name': 'edit', 'args': {'path': 'math.py', 'old_str': 'return 4', 'new_str': 'return -1'}}],
+            'toolName': 'edit', 'toolArgs': {'path': 'math.py', 'old_str': 'return 4', 'new_str': 'return -1'},
         })
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
         self.assert_denied(
-            self.run_calls({'name': 'create', 'args': {'path': 'math.py', 'file_text': SPECIAL_CASE}}),
+            self.run_call({'name': 'create', 'args': {'path': 'math.py', 'file_text': SPECIAL_CASE}}),
             ['math.py'], 'The state shared with block-goalpost-moving must still work.',
         )
 
-    def test_parallel_calls_are_reported_together(self):
+    def test_patch_files_are_reported_together(self):
         self.record_failure('Expected: 4\nReceived: -1\n')
-        result = self.run_calls(
-            {'name': 'create', 'args': {'path': 'math.py', 'file_text': SPECIAL_CASE}},
-            {'name': 'create', 'args': {'path': 'src/calc.ts', 'file_text': 'if (a === 1) return 4;\n'}},
-        )
-        self.assert_denied(result, ['math.py', 'calc.ts'], 'parallel')
+        result = self.run_call({'name': 'apply_patch', 'args': (
+            '*** Begin Patch\n*** Add File: math.py\n'
+            + ''.join(f'+{line}\n' for line in SPECIAL_CASE.splitlines())
+            + '*** Add File: src/calc.ts\n+if (a === 1) return 4;\n*** End Patch\n'
+        )})
+        self.assert_denied(result, ['math.py', 'calc.ts'], 'patch')
 
     def test_other_tools_are_ignored(self):
         self.record_failure('Expected: 4\nReceived: -1\n')
-        self.assert_allowed(
-            self.run_calls(
-                {'name': 'str_replace_editor', 'args': {'command': 'view', 'path': 'math.py'}},
-                {'name': 'bash', 'args': {'command': 'echo "if a == 1: return 4" >> math.py'}},
-                {'name': 'apply_patch', 'args': '*** Begin Patch\n*** Delete File: math.py\n*** End Patch\n'},
-            ),
-            'Non-writing tools, shell commands, and deletions must be ignored.',
-        )
+        for tool_call in (
+            {'name': 'str_replace_editor', 'args': {'command': 'view', 'path': 'math.py'}},
+            {'name': 'bash', 'args': {'command': 'echo "if a == 1: return 4" >> math.py'}},
+            {'name': 'apply_patch', 'args': '*** Begin Patch\n*** Delete File: math.py\n*** End Patch\n'},
+        ):
+            with self.subTest(tool_call=tool_call):
+                self.assert_allowed(self.run_call(tool_call), 'Non-writing tools, shell commands, and deletions must be ignored.')
 
     def test_invalid_input(self):
         def encode(value):
             return json.dumps(value).encode('utf-8')
 
-        calls = [{'name': 'edit', 'args': {}}]
+        call = {'toolName': 'edit', 'toolArgs': {}}
         for name, hook_input in [
             ('empty', b''),
             ('not json', b'{'),
             ('not object', b'[]'),
-            ('no session', encode({'cwd': self.directory, 'toolCalls': calls})),
-            ('invalid session', encode({'sessionId': 'x', 'cwd': self.directory, 'toolCalls': calls})),
-            ('no cwd', encode({'sessionId': self.session_id, 'toolCalls': calls})),
-            ('relative cwd', encode({'sessionId': self.session_id, 'cwd': 'relative', 'toolCalls': calls})),
-            ('no tool calls', encode({'sessionId': self.session_id, 'cwd': self.directory})),
-            ('tool call not object', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': ['edit']})),
-            ('no tool name', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': [{'args': {}}]})),
+            ('no session', encode({'cwd': self.directory, **call})),
+            ('invalid session', encode({'sessionId': 'x', 'cwd': self.directory, **call})),
+            ('no cwd', encode({'sessionId': self.session_id, **call})),
+            ('relative cwd', encode({'sessionId': self.session_id, 'cwd': 'relative', **call})),
+            ('no tool args', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit'})),
+            ('tool name not string', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 1, 'toolArgs': {}})),
+            ('no tool name', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolArgs': {}})),
             ('invalid utf-8', b'\xff'),
         ]:
             with self.subTest(name=name):
@@ -249,7 +249,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
                 self.assertIn(b'Failed to check hardcoding for tests:', result.stderr)
 
     def test_invalid_definitions(self):
-        valid_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': [{'name': 'edit', 'args': {}}]}
+        valid_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit', 'toolArgs': {}}
         for name, content in [
             ('missing file', None),
             ('not json', '{'),

@@ -1,6 +1,8 @@
 # hookの共通規約
 
 1. Copilot SDKのイベント、設定、入出力仕様を使い、SDK以外の形式向けの互換処理、フォールバック、専用の実装・検証は加えない。Windows特有の制御を行うhookを除き、Windows、macOS、Linuxのすべてを対象にする。イベントは対象VS Codeバージョンで使えることを確認する。
+   - 入力の項目は[公式の入出力仕様](https://docs.github.com/en/copilot/reference/hooks-reference)で確認する。セッションのイベント履歴（`events.jsonl`）にある `hook.start` の `input` は、hookの標準入力と形式が異なる場合があるため、入力仕様の根拠にしない。
+   - preToolUse・postToolUseには、ツール呼び出し1件の名前（`toolName`）と引数（`toolArgs`）が渡される。`toolCalls` 配列は渡されない。
 2. hook定義はイベントごとに `.github/hooks/<event-name>.json` の配列にまとめ、要素を実行スクリプトパスの昇順に並べる。
 3. hookのファイルは `.github/hooks/helpers/events/<event-name>/<hook-name>/` に置き、実行スクリプトは `<hook-name>.py` とする。複数hookで共有する補助スクリプトは [.github/hooks/helpers/utilities/](../../../hooks/helpers/utilities/) に置く。
 4. JSONのコマンドは、[hookランナー](../../../hooks/helpers/runner/README.md) に実行スクリプトのリポジトリルート相対パスを渡して起動する。`bash` には `python3 .github/hooks/helpers/runner/run-hook.py <実行スクリプト>`、`powershell` には `python .github/hooks/helpers/runner/run-hook.py <実行スクリプト>` を記述する。Pythonが無い環境でも動く必要があるhook（`check-python`、`block-commands`）だけは、ランナーを通さず `.sh`・`.cmd` から起動する。

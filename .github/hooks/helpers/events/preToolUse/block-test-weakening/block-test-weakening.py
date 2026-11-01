@@ -242,23 +242,18 @@ def main(arguments=None):
             raise ValueError('cwd must be a non-empty string.')
         if not os.path.isabs(cwd):
             raise ValueError('cwd must be an absolute path.')
-        # preToolUseには、並列に呼び出すツールがまとめて渡される。
-        tool_calls = hook_input.get('toolCalls')
-        if not isinstance(tool_calls, list) or not tool_calls:
-            raise ValueError('toolCalls must be a non-empty array.')
+        # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
+        tool_name = hook_input.get('toolName')
+        if not isinstance(tool_name, str) or not tool_name.strip():
+            raise ValueError('toolName must be a non-empty string.')
+        if 'toolArgs' not in hook_input:
+            raise ValueError('toolArgs is required.')
 
         real_cwd = os.path.realpath(cwd)
         candidates = []
-        for tool_call in tool_calls:
-            if not isinstance(tool_call, dict):
-                raise ValueError('each tool call must be a JSON object.')
-            tool_name = tool_call.get('name')
-            if not isinstance(tool_name, str) or not tool_name.strip():
-                raise ValueError('each tool call requires a non-empty name.')
-            tool_name = tool_name.removeprefix('functions.')
-            if tool_name not in EDIT_TOOL_NAMES:
-                continue
-            for write in get_writes(tool_name, get_tool_args(tool_call.get('args'))):
+        tool_name = tool_name.removeprefix('functions.')
+        if tool_name in EDIT_TOOL_NAMES:
+            for write in get_writes(tool_name, get_tool_args(hook_input['toolArgs'])):
                 path = os.path.realpath(os.path.join(cwd, write['path']))
                 # テストファイルの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
                 display_path = get_display_path(path, real_cwd)

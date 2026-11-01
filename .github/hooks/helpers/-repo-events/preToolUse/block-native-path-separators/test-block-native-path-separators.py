@@ -50,8 +50,8 @@ class BlockNativePathSeparatorsTests(unittest.TestCase):
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
         )
 
-    def run_calls(self, *tool_calls):
-        return self.run_process({'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': list(tool_calls)})
+    def run_call(self, tool_call):
+        return self.run_process({'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']})
 
     def assert_allowed(self, result, message):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''), message)
@@ -96,14 +96,14 @@ class BlockNativePathSeparatorsTests(unittest.TestCase):
             with self.subTest(path=path, content=content):
                 self.new_session()
                 self.assert_denied(
-                    self.run_calls({'name': 'create', 'args': {'path': path, 'file_text': content}}),
+                    self.run_call({'name': 'create', 'args': {'path': path, 'file_text': content}}),
                     [path, kind, f'"{content.strip()}"', 'retry the same edit'], content,
                 )
 
     def test_reason_uses_slash_separated_paths(self):
         # 拒否の理由自体もOSによらず `/` 区切りで示す。
         self.assert_denied(
-            self.run_calls({'name': 'create', 'args': {
+            self.run_call({'name': 'create', 'args': {
                 'path': os.path.join('src', 'tools', 'a.py'), 'file_text': 'x = os.path.relpath(a, b)\n',
             }}),
             ['src/tools/a.py would get Python relative path'], 'nested path',
@@ -130,7 +130,7 @@ class BlockNativePathSeparatorsTests(unittest.TestCase):
         for path, content in cases:
             with self.subTest(path=path, content=content):
                 self.assert_allowed(
-                    self.run_calls({'name': 'create', 'args': {'path': path, 'file_text': content}}), content,
+                    self.run_call({'name': 'create', 'args': {'path': path, 'file_text': content}}), content,
                 )
 
     def test_tool_formats(self):
@@ -145,17 +145,17 @@ class BlockNativePathSeparatorsTests(unittest.TestCase):
         for tool_name, args in cases:
             with self.subTest(tool_name=tool_name):
                 self.new_session()
-                self.assert_denied(self.run_calls({'name': tool_name, 'args': args}), ['app.py'], tool_name)
+                self.assert_denied(self.run_call({'name': tool_name, 'args': args}), ['app.py'], tool_name)
 
     def test_existing_lines_are_allowed(self):
         self.assert_allowed(
-            self.run_calls({'name': 'edit', 'args': {
+            self.run_call({'name': 'edit', 'args': {
                 'path': 'app.py', 'old_str': 'print(show(a, b))', 'new_str': 'print(show(a, c))',
             }}),
             'Edits around an existing native path must be allowed.',
         )
         self.assert_allowed(
-            self.run_calls({'name': 'edit', 'args': {
+            self.run_call({'name': 'edit', 'args': {
                 'path': 'app.py',
                 'old_str': '    return os.path.relpath(path, cwd)\n',
                 'new_str': '        return os.path.relpath(path, cwd)\n',
@@ -164,49 +164,48 @@ class BlockNativePathSeparatorsTests(unittest.TestCase):
         )
 
     def test_documents_and_deletions_are_ignored(self):
-        self.assert_allowed(
-            self.run_calls(
-                {'name': 'create', 'args': {'path': 'docs/README.md', 'file_text': 'Use `os.path.relpath(a, b)`.\n'}},
-                {'name': 'create', 'args': {'path': 'NOTES.txt', 'file_text': 'path.relative(a, b)\n'}},
-                {'name': 'apply_patch', 'args': '*** Begin Patch\n*** Delete File: app.py\n*** End Patch\n'},
-                {'name': 'str_replace_editor', 'args': {'command': 'view', 'path': 'app.py'}},
-                {'name': 'bash', 'args': {'command': 'echo "os.path.relpath(a, b)" > a.py'}},
-            ),
-            'Documents, deletions, and non-writing tools must be ignored.',
-        )
+        for tool_call in (
+            {'name': 'create', 'args': {'path': 'docs/README.md', 'file_text': 'Use `os.path.relpath(a, b)`.\n'}},
+            {'name': 'create', 'args': {'path': 'NOTES.txt', 'file_text': 'path.relative(a, b)\n'}},
+            {'name': 'apply_patch', 'args': '*** Begin Patch\n*** Delete File: app.py\n*** End Patch\n'},
+            {'name': 'str_replace_editor', 'args': {'command': 'view', 'path': 'app.py'}},
+            {'name': 'bash', 'args': {'command': 'echo "os.path.relpath(a, b)" > a.py'}},
+        ):
+            with self.subTest(tool_call=tool_call):
+                self.assert_allowed(self.run_call(tool_call), 'Documents, deletions, and non-writing tools must be ignored.')
 
     def test_denies_only_once_per_file(self):
         call = {'name': 'create', 'args': {'path': 'a.py', 'file_text': 'x = os.path.relpath(a, b)\n'}}
-        self.assert_denied(self.run_calls(call), ['a.py'], 'first')
-        self.assert_allowed(self.run_calls(call), 'The same file must not be denied twice.')
+        self.assert_denied(self.run_call(call), ['a.py'], 'first')
+        self.assert_allowed(self.run_call(call), 'The same file must not be denied twice.')
         self.assert_denied(
-            self.run_calls({'name': 'create', 'args': {'path': 'b.py', 'file_text': 'x = os.path.relpath(a, b)\n'}}),
+            self.run_call({'name': 'create', 'args': {'path': 'b.py', 'file_text': 'x = os.path.relpath(a, b)\n'}}),
             ['b.py'], 'Another file must still be denied once.',
         )
 
-    def test_parallel_calls_are_reported_together(self):
-        result = self.run_calls(
-            {'name': 'create', 'args': {'path': 'a.py', 'file_text': 'x = os.path.relpath(a, b)\n'}},
-            {'name': 'create', 'args': {'path': 'b.ts', 'file_text': 'const x = path.relative(a, b);\n'}},
-        )
-        self.assert_denied(result, ['a.py', 'b.ts'], 'parallel')
+    def test_patch_files_are_reported_together(self):
+        result = self.run_call({'name': 'apply_patch', 'args': (
+            '*** Begin Patch\n*** Add File: a.py\n+x = os.path.relpath(a, b)\n'
+            '*** Add File: b.ts\n+const x = path.relative(a, b);\n*** End Patch\n'
+        )})
+        self.assert_denied(result, ['a.py', 'b.ts'], 'patch')
 
     def test_invalid_input(self):
         def encode(value):
             return json.dumps(value).encode('utf-8')
 
-        calls = [{'name': 'edit', 'args': {}}]
+        call = {'toolName': 'edit', 'toolArgs': {}}
         for name, hook_input in [
             ('empty', b''),
             ('not json', b'{'),
             ('not object', b'[]'),
-            ('no session', encode({'cwd': self.directory, 'toolCalls': calls})),
-            ('invalid session', encode({'sessionId': 'x', 'cwd': self.directory, 'toolCalls': calls})),
-            ('no cwd', encode({'sessionId': self.session_id, 'toolCalls': calls})),
-            ('relative cwd', encode({'sessionId': self.session_id, 'cwd': 'relative', 'toolCalls': calls})),
-            ('no tool calls', encode({'sessionId': self.session_id, 'cwd': self.directory})),
-            ('tool call not object', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': ['edit']})),
-            ('no tool name', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': [{'args': {}}]})),
+            ('no session', encode({'cwd': self.directory, **call})),
+            ('invalid session', encode({'sessionId': 'x', 'cwd': self.directory, **call})),
+            ('no cwd', encode({'sessionId': self.session_id, **call})),
+            ('relative cwd', encode({'sessionId': self.session_id, 'cwd': 'relative', **call})),
+            ('no tool args', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit'})),
+            ('tool name not string', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 1, 'toolArgs': {}})),
+            ('no tool name', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolArgs': {}})),
             ('invalid utf-8', b'\xff'),
         ]:
             with self.subTest(name=name):
@@ -216,7 +215,7 @@ class BlockNativePathSeparatorsTests(unittest.TestCase):
                 self.assertIn(b'Failed to check native path separators:', result.stderr)
 
     def test_invalid_definitions(self):
-        valid_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': [{'name': 'edit', 'args': {}}]}
+        valid_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit', 'toolArgs': {}}
         valid_native = [{'name': 'x', 'pattern': 'x'}]
         valid_normalization = ['y']
         for name, content in [

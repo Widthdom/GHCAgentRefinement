@@ -34,13 +34,12 @@ class RequireReadBeforeEditTests(unittest.TestCase):
             with open(path, 'w', encoding='utf-8') as file:
                 file.write('a\n')
 
-    def payload(self, *tool_calls, session_id=None):
+    def payload(self, tool_call, session_id=None):
         return {
             'sessionId': session_id or self.session_id,
             'cwd': self.workspace,
-            'toolCalls': [
-                {'id': f'call_{index}', 'name': name, 'args': args} for index, (name, args) in enumerate(tool_calls)
-            ],
+            'toolName': tool_call[0],
+            'toolArgs': tool_call[1],
         }
 
     def run_hook(self, path, payload=None, raw=None):
@@ -51,8 +50,8 @@ class RequireReadBeforeEditTests(unittest.TestCase):
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
         )
 
-    def invoke(self, *tool_calls, session_id=None):
-        return self.run_hook(hook_path, self.payload(*tool_calls, session_id=session_id))
+    def invoke(self, tool_call, session_id=None):
+        return self.run_hook(hook_path, self.payload(tool_call, session_id=session_id))
 
     def view(self, path, session_id=None):
         # 閲覧の記録は、実際の記録側hookを通して作る。
@@ -130,45 +129,46 @@ class RequireReadBeforeEditTests(unittest.TestCase):
             '*** Update File: missing.py\n@@\n-a\n+b\n*** End Patch\n'
         )
         cases = (
-            [('create', {'path': 'new.py', 'file_text': 'x'})],
-            [('edit', {'path': 'missing.py', 'old_str': 'a', 'new_str': 'b'})],
-            [('str_replace_editor', {'command': 'view', 'path': '対象.py'})],
-            [('apply_patch', patch_text)],
-            [('view', {'path': '対象.py'}), ('bash', {'command': 'cat 対象.py'})],
-            [('edit', {})],
-            [('edit', None)],
-            [('apply_patch', 'not a patch')],
+            ('create', {'path': 'new.py', 'file_text': 'x'}),
+            ('edit', {'path': 'missing.py', 'old_str': 'a', 'new_str': 'b'}),
+            ('str_replace_editor', {'command': 'view', 'path': '対象.py'}),
+            ('apply_patch', patch_text),
+            ('view', {'path': '対象.py'}),
+            ('bash', {'command': 'cat 対象.py'}),
+            ('edit', {}),
+            ('edit', None),
+            ('apply_patch', 'not a patch'),
         )
-        for tool_calls in cases:
-            with self.subTest(tool_calls=tool_calls):
-                self.assert_allowed(self.invoke(*tool_calls))
+        for tool_call in cases:
+            with self.subTest(tool_call=tool_call):
+                self.assert_allowed(self.invoke(tool_call))
         self.assertFalse(os.path.exists(self.state_directory))
 
-    def test_parallel_calls_are_checked_together(self):
+    def test_patch_files_are_checked_together(self):
         self.view(self.other)
-        # 同時に呼び出したviewの結果は編集に使えないため、閲覧済みとはみなさない。
-        result = self.invoke(
-            ('view', {'path': self.target}),
-            ('edit', {'path': self.target}),
-            ('edit', {'path': self.other}),
-            ('apply_patch', '*** Begin Patch\n*** Update File: 対象.py\n@@\n-a\n+b\n*** End Patch\n'),
-        )
-        self.assert_denied(result, '対象.py')
         third = os.path.join(self.workspace, 'third.py')
         with open(third, 'w', encoding='utf-8') as file:
             file.write('a\n')
-        self.assert_denied(
-            self.invoke(('edit', {'path': self.target}), ('edit', {'path': third}), ('edit', {'path': self.other})),
-            'third.py',
+        patch_text = (
+            '*** Begin Patch\n*** Update File: 対象.py\n@@\n-a\n+b\n'
+            '*** Update File: other.py\n@@\n-a\n+b\n*** End Patch\n'
         )
+        self.assert_denied(self.invoke(('apply_patch', patch_text)), '対象.py')
+        patch_text = (
+            '*** Begin Patch\n*** Update File: 対象.py\n@@\n-a\n+b\n'
+            '*** Update File: third.py\n@@\n-a\n+b\n*** End Patch\n'
+        )
+        self.assert_denied(self.invoke(('apply_patch', patch_text)), 'third.py')
 
     def test_lists_multiple_files_and_outside_paths(self):
         outside = os.path.join(self.root, 'outside.py')
         with open(outside, 'w', encoding='utf-8') as file:
             file.write('a\n')
-        result = self.invoke(
-            ('edit', {'path': outside}), ('edit', {'path': 'sub/other.py'}), ('edit', {'path': '対象.py'}),
-        )
+        result = self.invoke(('apply_patch', (
+            f'*** Begin Patch\n*** Update File: {outside}\n@@\n-a\n+b\n'
+            '*** Update File: sub/other.py\n@@\n-a\n+b\n'
+            '*** Update File: 対象.py\n@@\n-a\n+b\n*** End Patch\n'
+        )))
         files = sorted([os.path.normcase(outside), os.path.join('sub', 'other.py'), '対象.py'], key=lambda path: (
             os.path.normcase(os.path.realpath(os.path.join(self.workspace, path)))
         ))
@@ -183,15 +183,15 @@ class RequireReadBeforeEditTests(unittest.TestCase):
     def test_invalid_input_reports_error(self):
         base = self.payload(('edit', {'path': self.target}))
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'true', b'{"cwd":"\xff"}']
-        for field in ('sessionId', 'cwd', 'toolCalls'):
+        for field in ('sessionId', 'cwd', 'toolName', 'toolArgs'):
             payload = base.copy()
             del payload[field]
             invalid.append(json.dumps(payload).encode('utf-8'))
         for field in ('sessionId', 'cwd'):
             for value in ('', ' \t', None, 3, False, [], {}):
                 invalid.append(json.dumps({**base, field: value}).encode('utf-8'))
-        for value in (None, [], {}, 'edit', [None], ['edit'], [{'args': {}}], [{'name': ' '}], [{'name': 3}]):
-            invalid.append(json.dumps({**base, 'toolCalls': value}).encode('utf-8'))
+        for value in (None, '', ' \t', 3, [], {}):
+            invalid.append(json.dumps({**base, 'toolName': value}).encode('utf-8'))
         for changes in ({'cwd': 'relative'}, {'sessionId': '../bad'}):
             invalid.append(json.dumps({**base, **changes}).encode('utf-8'))
         for raw in invalid:

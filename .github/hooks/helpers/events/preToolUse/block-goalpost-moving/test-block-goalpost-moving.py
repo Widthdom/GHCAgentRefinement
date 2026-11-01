@@ -65,9 +65,9 @@ class BlockGoalpostMovingTests(unittest.TestCase):
         })
         self.assertEqual((result.returncode, result.stderr), (0, b''))
 
-    def run_calls(self, *tool_calls):
+    def run_call(self, tool_call):
         return self.run_process(
-            hook_path, {'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': list(tool_calls)},
+            hook_path, {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']},
         )
 
     def assert_allowed(self, result, message):
@@ -112,14 +112,14 @@ class BlockGoalpostMovingTests(unittest.TestCase):
                 self.new_session()
                 self.record_failure('E       assert 3 == 4\n')
                 self.assert_denied(
-                    self.run_calls({'name': tool_name, 'args': args}),
+                    self.run_call({'name': tool_name, 'args': args}),
                     ['test_math.py would replace the expected value 4 with 3', 'retry the same edit'], tool_name,
                 )
 
     def test_string_literals_with_other_quotes_are_matched(self):
         self.record_failure('    Expected: "hello a"\n    Received: "hi a"\n', command='npx jest')
         self.assert_denied(
-            self.run_calls({'name': 'edit', 'args': {
+            self.run_call({'name': 'edit', 'args': {
                 'path': 'test_math.py', 'old_str': 'greet("a") == "hello a"', 'new_str': "greet(\"a\") == 'hi a'",
             }}),
             ['"hello a"', "'hi a'"], 'Quotes must not affect the comparison.',
@@ -138,70 +138,70 @@ class BlockGoalpostMovingTests(unittest.TestCase):
         ]
         for name, args in cases:
             with self.subTest(name=name):
-                self.assert_allowed(self.run_calls({'name': 'edit', 'args': args}), name)
+                self.assert_allowed(self.run_call({'name': 'edit', 'args': args}), name)
         self.assert_allowed(
-            self.run_calls({'name': 'insert', 'args': {'path': 'test_math.py', 'insert_line': 1, 'new_str': '    x = 3\n'}}),
+            self.run_call({'name': 'insert', 'args': {'path': 'test_math.py', 'insert_line': 1, 'new_str': '    x = 3\n'}}),
             'An insertion has no replaced value.',
         )
 
     def test_no_recorded_failure_is_allowed(self):
         call = {'name': 'edit', 'args': {'path': 'test_math.py', 'old_str': '== 4', 'new_str': '== 3'}}
-        self.assert_allowed(self.run_calls(call), 'No state file.')
+        self.assert_allowed(self.run_call(call), 'No state file.')
         self.assertFalse(os.path.exists(self.state_path), 'The check must not create a state file.')
         self.record_failure('Expected: 4\nReceived: 3\n')
         self.record_failure('1 passed\n')
-        self.assert_allowed(self.run_calls(call), 'A passing run clears the recorded failure.')
+        self.assert_allowed(self.run_call(call), 'A passing run clears the recorded failure.')
 
     def test_denies_only_once_per_file(self):
         self.record_failure('Expected: 4\nReceived: 3\n')
         self.write_file('tests/test_other.py', 'assert other() == 4\n')
         call = {'name': 'edit', 'args': {'path': 'test_math.py', 'old_str': 'add(1, 2) == 4', 'new_str': 'add(1, 2) == 3'}}
-        self.assert_denied(self.run_calls(call), ['test_math.py'], 'first')
-        self.assert_allowed(self.run_calls(call), 'The same file must not be denied twice.')
+        self.assert_denied(self.run_call(call), ['test_math.py'], 'first')
+        self.assert_allowed(self.run_call(call), 'The same file must not be denied twice.')
         self.assert_denied(
-            self.run_calls({'name': 'edit', 'args': {
+            self.run_call({'name': 'edit', 'args': {
                 'path': 'tests/test_other.py', 'old_str': 'other() == 4', 'new_str': 'other() == 3',
             }}),
             ['test_other.py'], 'Another file must still be denied once.',
         )
 
-    def test_parallel_calls_are_reported_together(self):
+    def test_patch_files_are_reported_together(self):
         self.record_failure('Expected: 4\nReceived: 3\n')
         self.write_file('src/app.test.ts', 'expect(add(1, 2)).toBe(4);\n')
-        result = self.run_calls(
-            {'name': 'edit', 'args': {'path': 'test_math.py', 'old_str': 'add(1, 2) == 4', 'new_str': 'add(1, 2) == 3'}},
-            {'name': 'edit', 'args': {'path': 'src/app.test.ts', 'old_str': 'toBe(4)', 'new_str': 'toBe(3)'}},
-        )
-        self.assert_denied(result, ['test_math.py', 'app.test.ts'], 'parallel')
+        result = self.run_call({'name': 'apply_patch', 'args': (
+            '*** Begin Patch\n*** Update File: test_math.py\n@@\n-    assert add(1, 2) == 4\n+    assert add(1, 2) == 3\n'
+            '*** Update File: src/app.test.ts\n@@\n-expect(add(1, 2)).toBe(4);\n+expect(add(1, 2)).toBe(3);\n'
+            '*** End Patch\n'
+        )})
+        self.assert_denied(result, ['test_math.py', 'app.test.ts'], 'patch')
 
     def test_non_test_files_and_other_tools_are_ignored(self):
         self.record_failure('Expected: 4\nReceived: 3\n')
-        self.assert_allowed(
-            self.run_calls(
-                {'name': 'edit', 'args': {'path': 'docs/latest.md', 'old_str': 'x == 4', 'new_str': 'x == 3'}},
-                {'name': 'str_replace_editor', 'args': {'command': 'view', 'path': 'test_math.py'}},
-                {'name': 'bash', 'args': {'command': 'sed -i s/4/3/ test_math.py'}},
-                {'name': 'apply_patch', 'args': '*** Begin Patch\n*** Delete File: test_math.py\n*** End Patch\n'},
-            ),
-            'Non-test files, non-writing tools, and deletions must be ignored.',
-        )
+        for tool_call in (
+            {'name': 'edit', 'args': {'path': 'docs/latest.md', 'old_str': 'x == 4', 'new_str': 'x == 3'}},
+            {'name': 'str_replace_editor', 'args': {'command': 'view', 'path': 'test_math.py'}},
+            {'name': 'bash', 'args': {'command': 'sed -i s/4/3/ test_math.py'}},
+            {'name': 'apply_patch', 'args': '*** Begin Patch\n*** Delete File: test_math.py\n*** End Patch\n'},
+        ):
+            with self.subTest(tool_call=tool_call):
+                self.assert_allowed(self.run_call(tool_call), 'Non-test files, non-writing tools, and deletions must be ignored.')
 
     def test_invalid_input(self):
         def encode(value):
             return json.dumps(value).encode('utf-8')
 
-        calls = [{'name': 'edit', 'args': {}}]
+        call = {'toolName': 'edit', 'toolArgs': {}}
         for name, hook_input in [
             ('empty', b''),
             ('not json', b'{'),
             ('not object', b'[]'),
-            ('no session', encode({'cwd': self.directory, 'toolCalls': calls})),
-            ('invalid session', encode({'sessionId': 'x', 'cwd': self.directory, 'toolCalls': calls})),
-            ('no cwd', encode({'sessionId': self.session_id, 'toolCalls': calls})),
-            ('relative cwd', encode({'sessionId': self.session_id, 'cwd': 'relative', 'toolCalls': calls})),
-            ('no tool calls', encode({'sessionId': self.session_id, 'cwd': self.directory})),
-            ('tool call not object', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': ['edit']})),
-            ('no tool name', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': [{'args': {}}]})),
+            ('no session', encode({'cwd': self.directory, **call})),
+            ('invalid session', encode({'sessionId': 'x', 'cwd': self.directory, **call})),
+            ('no cwd', encode({'sessionId': self.session_id, **call})),
+            ('relative cwd', encode({'sessionId': self.session_id, 'cwd': 'relative', **call})),
+            ('no tool args', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit'})),
+            ('tool name not string', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 1, 'toolArgs': {}})),
+            ('no tool name', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolArgs': {}})),
             ('invalid utf-8', b'\xff'),
         ]:
             with self.subTest(name=name):
@@ -211,7 +211,7 @@ class BlockGoalpostMovingTests(unittest.TestCase):
                 self.assertIn(b'Failed to check goalpost moving:', result.stderr)
 
     def test_invalid_definitions(self):
-        valid_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': [{'name': 'edit', 'args': {}}]}
+        valid_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit', 'toolArgs': {}}
         for name, content in [
             ('missing file', None),
             ('not json', '{'),

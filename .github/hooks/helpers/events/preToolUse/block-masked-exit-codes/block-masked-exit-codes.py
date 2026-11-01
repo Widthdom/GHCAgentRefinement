@@ -211,30 +211,22 @@ def main():
             parsed_session_id = uuid.UUID(session_id.strip())
         except ValueError:
             raise ValueError('sessionId must be a valid UUID.') from None
-        # preToolUseには、並列に呼び出すツールがまとめて渡される。
-        tool_calls = hook_input.get('toolCalls')
-        if not isinstance(tool_calls, list) or not tool_calls:
-            raise ValueError('toolCalls must be a non-empty array.')
+        # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
+        tool_name = hook_input.get('toolName')
+        if not isinstance(tool_name, str) or not tool_name.strip():
+            raise ValueError('toolName must be a non-empty string.')
+        if 'toolArgs' not in hook_input:
+            raise ValueError('toolArgs is required.')
 
         masked = []
         command_keys = []
-        for tool_call in tool_calls:
-            if not isinstance(tool_call, dict):
-                raise ValueError('each tool call must be a JSON object.')
-            tool_name = tool_call.get('name')
-            if not isinstance(tool_name, str) or not tool_name.strip():
-                raise ValueError('each tool call requires a non-empty name.')
-            if not SHELL_TOOL_PATTERN.match(tool_name):
-                continue
-            tool_args = get_tool_args(tool_call.get('args'))
-            command = tool_args.get('command') if isinstance(tool_args, dict) else None
-            if not isinstance(command, str):
-                continue
-            commands = get_masked_commands(command)
-            if commands:
-                masked.extend(commands)
-                # 状態にはコマンドを保存せず、照合用のSHA-256だけを保存する。
-                command_keys.append(hashlib.sha256(command.encode('utf-8')).hexdigest())
+        tool_args = get_tool_args(hook_input['toolArgs']) if SHELL_TOOL_PATTERN.match(tool_name) else None
+        command = tool_args.get('command') if isinstance(tool_args, dict) else None
+        commands = get_masked_commands(command) if isinstance(command, str) else []
+        if commands:
+            masked.extend(commands)
+            # 状態にはコマンドを保存せず、照合用のSHA-256だけを保存する。
+            command_keys.append(hashlib.sha256(command.encode('utf-8')).hexdigest())
 
         denied = False
         if command_keys:

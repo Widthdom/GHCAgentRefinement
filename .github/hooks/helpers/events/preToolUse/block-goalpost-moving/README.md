@@ -6,7 +6,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 処理詳細
 1. [block-test-weakening](../block-test-weakening/README.md) hookの [test-weakening-definitions.json](../block-test-weakening/test-weakening-definitions.json) から、テストファイルのパスの正規表現（`testFilePatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. このセッションで [record-test-failure-values](../../postToolUse/record-test-failure-values/README.md) hookが記録した、最新のテスト実行の失敗の期待値と実際の値の組を読み込む。記録がなければ許可する。
-3. 並列に呼び出すツール（`toolCalls`）のうち編集系ツールから、対象のファイルごとに書き込む内容と置換前の内容を特定する。
+3. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
    - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・置換前の内容（`old_str`）を除く引数の文字列（`str_replace_editor` の `view` は除く）。`create` での上書きはファイルの現在の内容と比べる。
    - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）と削除行（`-`）。`*** Delete File:` は対象外とする。
 4. cwdからの相対パス（`/` 区切り）が `testFilePatterns` のいずれかに一致するファイルについて、置換前の行と書き込む行のうち、リテラル（文字列・数値・真偽値・null）以外の部分が一致する組を対応させる。同じ位置のリテラルが、記録した期待値から実際の値に変わっていれば拒否の候補とする。

@@ -31,13 +31,12 @@ class BlockShellFileEditsTests(unittest.TestCase):
         with open(self.outside, 'w', encoding='utf-8') as file:
             file.write('a\n')
 
-    def payload(self, *tool_calls):
+    def payload(self, tool_call):
         return {
             'sessionId': 'test-session',
             'cwd': self.workspace,
-            'toolCalls': [
-                {'id': f'call_{index}', 'name': name, 'args': args} for index, (name, args) in enumerate(tool_calls)
-            ],
+            'toolName': tool_call[0],
+            'toolArgs': tool_call[1],
         }
 
     def run_hook(self, payload=None, raw=None):
@@ -47,8 +46,8 @@ class BlockShellFileEditsTests(unittest.TestCase):
             [sys.executable, hook_path], input=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
         )
 
-    def invoke(self, *tool_calls):
-        return self.run_hook(self.payload(*tool_calls))
+    def invoke(self, tool_call):
+        return self.run_hook(self.payload(tool_call))
 
     def assert_allowed(self, result):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
@@ -146,13 +145,12 @@ class BlockShellFileEditsTests(unittest.TestCase):
         self.assert_allowed(self.invoke(('bash', {'command': 'cd "$DIR" && echo x > nested.txt'})))
 
     def test_lists_multiple_files_and_tool_formats(self):
-        result = self.invoke(
-            ('functions.bash', json.dumps({'command': 'echo x > other.txt'})),
-            ('view', {'path': '対象.txt'}),
-            ('PowerShell', {'command': "Set-Content 対象.txt x; Set-Content 'other.txt' y"}),
-            ('bash', {'command': 'echo x | tee sub/nested.txt untracked.txt'}),
-        )
-        self.assert_denied(result, ', '.join(sorted(['other.txt', os.path.join('sub', 'nested.txt'), '対象.txt'])))
+        self.assert_denied(self.invoke(('functions.bash', json.dumps({'command': 'echo x > other.txt'}))), 'other.txt')
+        self.assert_allowed(self.invoke(('view', {'path': '対象.txt'})))
+        result = self.invoke(('PowerShell', {'command': "Set-Content 対象.txt x; Set-Content 'other.txt' y"}))
+        self.assert_denied(result, ', '.join(sorted(['other.txt', '対象.txt'])))
+        result = self.invoke(('bash', {'command': 'echo x > other.txt; echo x | tee sub/nested.txt untracked.txt'}))
+        self.assert_denied(result, ', '.join(sorted(['other.txt', os.path.join('sub', 'nested.txt')])))
 
     def test_allows_commands_that_do_not_write_tracked_files(self):
         cases = (
@@ -188,15 +186,15 @@ class BlockShellFileEditsTests(unittest.TestCase):
 
     def test_allows_other_tools_and_missing_commands(self):
         cases = (
-            [('edit', {'path': '対象.txt'})],
-            [('bash', {})],
-            [('bash', None)],
-            [('bash', 'not json')],
-            [('bash', {'command': 3})],
+            ('edit', {'path': '対象.txt'}),
+            ('bash', {}),
+            ('bash', None),
+            ('bash', 'not json'),
+            ('bash', {'command': 3}),
         )
-        for tool_calls in cases:
-            with self.subTest(tool_calls=tool_calls):
-                self.assert_allowed(self.invoke(*tool_calls))
+        for tool_call in cases:
+            with self.subTest(tool_call=tool_call):
+                self.assert_allowed(self.invoke(tool_call))
 
     def test_allows_outside_git_repository(self):
         payload = self.payload(('bash', {'command': 'echo x > outside.txt'}))
@@ -206,14 +204,14 @@ class BlockShellFileEditsTests(unittest.TestCase):
     def test_invalid_input_reports_error(self):
         base = self.payload(('bash', {'command': 'echo x'}))
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'true', b'{"cwd":"\xff"}']
-        for field in ('cwd', 'toolCalls'):
+        for field in ('cwd', 'toolName', 'toolArgs'):
             payload = base.copy()
             del payload[field]
             invalid.append(json.dumps(payload).encode('utf-8'))
         for value in ('', ' \t', None, 3, False, [], {}, 'relative'):
             invalid.append(json.dumps({**base, 'cwd': value}).encode('utf-8'))
-        for value in (None, [], {}, 'bash', [None], ['bash'], [{'args': {}}], [{'name': ' '}], [{'name': 3}]):
-            invalid.append(json.dumps({**base, 'toolCalls': value}).encode('utf-8'))
+        for value in (None, '', ' \t', 3, [], {}):
+            invalid.append(json.dumps({**base, 'toolName': value}).encode('utf-8'))
         for raw in invalid:
             with self.subTest(raw=raw):
                 result = self.run_hook(raw=raw)

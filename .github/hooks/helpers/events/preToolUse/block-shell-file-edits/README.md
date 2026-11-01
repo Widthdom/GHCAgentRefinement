@@ -6,7 +6,7 @@ preToolUse（bashまたはpowershellツールの実行前）
 
 ## 処理詳細
 
-1. 並列に呼び出すツール（`toolCalls`）のうちbash・powershellのコマンドから、ファイルへの書き込み先を抜き出す。
+1. 呼び出すツール（`toolName`・`toolArgs`）がbash・powershellなら、そのコマンドからファイルへの書き込み先を抜き出す。
    - bash：リダイレクト（`>`・`>>`・`>|`・`&>`・`2>` など）、`sed -i`・`sed --in-place`、`perl -i`・`perl -pi`、`tee`
    - powershell：リダイレクト（`>`・`>>`・`2>` など）、`Set-Content`・`Add-Content`・`Clear-Content`・`Out-File`・`Tee-Object` とその別名（`sc`・`ac`・`clc`・`tee`）、`[IO.File]::WriteAll*`・`AppendAll*`、powershellから呼ぶ `sed -i`・`perl -i`
 2. 書き込み先のうち、既存のファイルで、gitの管理対象（`git ls-files` に出るもの）を探す。

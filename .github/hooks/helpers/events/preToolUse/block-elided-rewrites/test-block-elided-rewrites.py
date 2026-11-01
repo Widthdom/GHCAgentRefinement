@@ -36,8 +36,8 @@ class BlockElidedRewritesTests(unittest.TestCase):
         state_path = os.path.join(state_directory, f'{self.session_id}.sqlite3')
         self.addCleanup(lambda: os.path.exists(state_path) and os.remove(state_path))
 
-    def run_calls(self, *tool_calls):
-        hook_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': list(tool_calls)}
+    def run_call(self, tool_call):
+        hook_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']}
         return run_hook(json.dumps(hook_input).encode('utf-8'))
 
     def assert_allowed(self, result, message):
@@ -77,7 +77,7 @@ class BlockElidedRewritesTests(unittest.TestCase):
             with self.subTest(placeholder=placeholder):
                 self.new_session()
                 self.assert_denied(
-                    self.run_calls({'name': 'edit', 'args': {
+                    self.run_call({'name': 'edit', 'args': {
                         'path': 'app.py', 'old_str': 'line 2\n', 'new_str': f'line 2 changed\n{placeholder}\n',
                     }}),
                     ['app.py', placeholder.strip()], placeholder,
@@ -97,7 +97,7 @@ class BlockElidedRewritesTests(unittest.TestCase):
         for comment in comments:
             with self.subTest(comment=comment):
                 self.assert_allowed(
-                    self.run_calls({'name': 'edit', 'args': {
+                    self.run_call({'name': 'edit', 'args': {
                         'path': 'app.py', 'old_str': 'line 2\n', 'new_str': f'line 2\n{comment}\n',
                     }}),
                     comment,
@@ -114,11 +114,11 @@ class BlockElidedRewritesTests(unittest.TestCase):
         for tool_name, args in cases:
             with self.subTest(tool_name=tool_name):
                 self.new_session()
-                self.assert_denied(self.run_calls({'name': tool_name, 'args': args}), ['app.py', '"# ..."'], tool_name)
+                self.assert_denied(self.run_call({'name': tool_name, 'args': args}), ['app.py', '"# ..."'], tool_name)
 
     def test_existing_placeholder_is_allowed(self):
         self.assert_allowed(
-            self.run_calls({'name': 'edit', 'args': {
+            self.run_call({'name': 'edit', 'args': {
                 'path': 'app.py', 'old_str': 'a\n# ... rest of the file\n', 'new_str': 'b\n# ... rest of the file\n',
             }}),
             'A placeholder that the replaced text already contains must be allowed.',
@@ -126,27 +126,26 @@ class BlockElidedRewritesTests(unittest.TestCase):
         with open(os.path.join(self.directory, 'doc.md'), 'w', encoding='utf-8') as file:
             file.write('<!-- ... -->\n')
         self.assert_allowed(
-            self.run_calls({'name': 'insert', 'args': {'path': 'doc.md', 'insert_line': 1, 'new_str': '<!-- ... -->'}}),
+            self.run_call({'name': 'insert', 'args': {'path': 'doc.md', 'insert_line': 1, 'new_str': '<!-- ... -->'}}),
             'A placeholder that the file already contains must be allowed.',
         )
 
     def test_new_files_are_allowed(self):
-        self.assert_allowed(
-            self.run_calls(
-                {'name': 'create', 'args': {'path': 'new.py', 'file_text': 'def main():\n    # ... rest of implementation\n'}},
-                {'name': 'apply_patch', 'args': '*** Begin Patch\n*** Add File: other.py\n+# ...\n*** End Patch\n'},
-            ),
-            'Placeholders in new files must be allowed.',
-        )
+        for tool_call in (
+            {'name': 'create', 'args': {'path': 'new.py', 'file_text': 'def main():\n    # ... rest of implementation\n'}},
+            {'name': 'apply_patch', 'args': '*** Begin Patch\n*** Add File: other.py\n+# ...\n*** End Patch\n'},
+        ):
+            with self.subTest(tool_call=tool_call):
+                self.assert_allowed(self.run_call(tool_call), 'Placeholders in new files must be allowed.')
 
     def test_shrinking_overwrite(self):
         self.assert_denied(
-            self.run_calls({'name': 'create', 'args': {'path': 'app.py', 'file_text': 'line 1\nline 2\n'}}),
+            self.run_call({'name': 'create', 'args': {'path': 'app.py', 'file_text': 'line 1\nline 2\n'}}),
             ['app.py would be overwritten with 2 lines although it currently has 40 lines.'], 'shrink',
         )
         self.new_session()
         self.assert_denied(
-            self.run_calls({'name': 'str_replace_editor', 'args': {'command': 'create', 'path': 'app.py', 'file_text': 'x\n'}}),
+            self.run_call({'name': 'str_replace_editor', 'args': {'command': 'create', 'path': 'app.py', 'file_text': 'x\n'}}),
             ['has 40 lines'], 'str_replace_editor create',
         )
 
@@ -159,42 +158,41 @@ class BlockElidedRewritesTests(unittest.TestCase):
         ]
         for name, path, content in cases:
             with self.subTest(name=name):
-                self.assert_allowed(self.run_calls({'name': 'create', 'args': {'path': path, 'file_text': content}}), name)
+                self.assert_allowed(self.run_call({'name': 'create', 'args': {'path': path, 'file_text': content}}), name)
 
     def test_denies_only_once(self):
         call = {'name': 'edit', 'args': {'path': 'app.py', 'old_str': 'line 2\n', 'new_str': '# ...\n'}}
-        self.assert_denied(self.run_calls(call), ['retry the same edit'], 'first')
-        self.assert_allowed(self.run_calls(call), 'The same kind of denial must not repeat for the same file.')
+        self.assert_denied(self.run_call(call), ['retry the same edit'], 'first')
+        self.assert_allowed(self.run_call(call), 'The same kind of denial must not repeat for the same file.')
         self.assert_denied(
-            self.run_calls({'name': 'create', 'args': {'path': 'app.py', 'file_text': 'x\n'}}),
+            self.run_call({'name': 'create', 'args': {'path': 'app.py', 'file_text': 'x\n'}}),
             ['has 40 lines'], 'A different kind must still be denied once.',
         )
 
     def test_view_and_other_tools_are_ignored(self):
-        self.assert_allowed(
-            self.run_calls(
-                {'name': 'str_replace_editor', 'args': {'command': 'view', 'path': 'app.py'}},
-                {'name': 'bash', 'args': {'command': 'echo "# ..." > app.py'}},
-            ),
-            'Non-writing tool calls must be ignored.',
-        )
+        for tool_call in (
+            {'name': 'str_replace_editor', 'args': {'command': 'view', 'path': 'app.py'}},
+            {'name': 'bash', 'args': {'command': 'echo "# ..." > app.py'}},
+        ):
+            with self.subTest(tool_call=tool_call):
+                self.assert_allowed(self.run_call(tool_call), 'Non-writing tool calls must be ignored.')
 
     def test_invalid_input(self):
         def encode(value):
             return json.dumps(value).encode('utf-8')
 
-        calls = [{'name': 'edit', 'args': {}}]
+        call = {'toolName': 'edit', 'toolArgs': {}}
         for name, hook_input in [
             ('empty', b''),
             ('not json', b'{'),
             ('not object', b'[]'),
-            ('no session', encode({'cwd': self.directory, 'toolCalls': calls})),
-            ('invalid session', encode({'sessionId': 'x', 'cwd': self.directory, 'toolCalls': calls})),
-            ('no cwd', encode({'sessionId': self.session_id, 'toolCalls': calls})),
-            ('relative cwd', encode({'sessionId': self.session_id, 'cwd': 'relative', 'toolCalls': calls})),
-            ('no tool calls', encode({'sessionId': self.session_id, 'cwd': self.directory})),
-            ('tool call not object', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': ['edit']})),
-            ('no tool name', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': [{'args': {}}]})),
+            ('no session', encode({'cwd': self.directory, **call})),
+            ('invalid session', encode({'sessionId': 'x', 'cwd': self.directory, **call})),
+            ('no cwd', encode({'sessionId': self.session_id, **call})),
+            ('relative cwd', encode({'sessionId': self.session_id, 'cwd': 'relative', **call})),
+            ('no tool args', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit'})),
+            ('tool name not string', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 1, 'toolArgs': {}})),
+            ('no tool name', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolArgs': {}})),
             ('invalid utf-8', b'\xff'),
         ]:
             with self.subTest(name=name):
@@ -205,7 +203,7 @@ class BlockElidedRewritesTests(unittest.TestCase):
 
     def test_invalid_definitions(self):
         valid_input = json.dumps({
-            'sessionId': self.session_id, 'cwd': self.directory, 'toolCalls': [{'name': 'edit', 'args': {}}],
+            'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit', 'toolArgs': {},
         }).encode('utf-8')
         for name, content in [
             ('not json', '{'),

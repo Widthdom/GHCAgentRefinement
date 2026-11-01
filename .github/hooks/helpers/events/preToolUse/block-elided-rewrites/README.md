@@ -5,7 +5,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 処理詳細
 1. [elision-definitions.json](./elision-definitions.json) から、省略を表すプレースホルダーの正規表現を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
-2. 並列に呼び出すツール（`toolCalls`）のうち編集系ツールから、対象のファイルごとに書き込む内容を特定する。
+2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容を特定する。
    - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・置換前の内容（`old_str`）を除く引数の文字列（`str_replace_editor` の `view` は除く）
    - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）
 3. 既存のファイルについて、次のいずれかに該当すれば拒否の候補とする。

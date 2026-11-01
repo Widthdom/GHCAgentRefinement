@@ -149,81 +149,44 @@ def main(definitions_path=None):
         write_stderr_msg_and_deny('preToolUse hook input must be a JSON object.')
         return 2
 
-    # dictであるhook_inputに、`toolCalls` キーが存在するかどうかを判定する。
-    if 'toolCalls' in hook_input:
-        tool_calls = hook_input['toolCalls']
-        # 配列（最外側が[]）でなければ異常終了。
-        if not isinstance(tool_calls, list):
-            write_stderr_msg_and_deny('preToolUse hook toolCalls must be an array.')
-            return 2
+    # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
+    #   {
+    #       "toolName": "...",
+    #       "toolArgs": { "command": "..." }
+    #   }
+    # toolNameが文字列でなければ異常終了。空白のみの文字列も許容しない。
+    tool_name = hook_input.get('toolName')
+    if not is_non_empty_string(tool_name):
+        write_stderr_msg_and_deny('preToolUse hook requires a tool name.')
+        return 2
 
-        # 空配列なら異常終了。
-        if not tool_calls:
-            write_stderr_msg_and_deny('preToolUse hook toolCalls must be a non-empty array.')
-            return 2
+    # 以下に一致しない場合は許可する。大文字小文字は区別しない。
+    #   bash
+    #   powershell
+    #   functions.bash
+    #   functions.powershell
+    if not re.search(r'^(?:functions\.)?(?:bash|powershell)$', tool_name, re.IGNORECASE):
+        print('{}')
+        return 0
+
+    tool_args = hook_input.get('toolArgs')
+    if isinstance(tool_args, str):
+        command = tool_args
+    elif isinstance(tool_args, dict):
+        command = tool_args.get('command')
     else:
-        # このelseブロックは、以下のように（"toolCalls"配列になっていない）単体のツール呼び出しへの備えである。
-        #   {
-        #       "toolName": "...",
-        #       "toolArgs": { "command": "..." }
-        #   }
-        # 一方でifブロックは、以下のように（"toolCalls" 配列として）複数のツールの一括呼び出しへ対応している。
-        #   {
-        #       "toolCalls": [
-        #           {"name": "bash", "args": {"command": "git status"}},
-        #           {"name": "powershell", "args": {"command": "git reset"}}
-        #       ]
-        #   }
-        tool_calls = [
-            {
-                'name': hook_input.get('toolName'),
-                'args': hook_input.get('toolArgs'),
-            }
-        ]
+        command = None
 
-    commands = []
-    # 複数のツール呼び出しをまとめて要求される場合があるため、ひとつずつ処理する。
-    for tool_call in tool_calls:
-        # 各tool_callがJSONオブジェクトでなければ異常終了。
-        if not isinstance(tool_call, dict):
-            write_stderr_msg_and_deny('preToolUse hook requires each tool call to be a JSON object.')
-            return 2
-
-        # 各tool_callのnameが文字列でなければ異常終了。空白のみの文字列も許容しない。
-        tool_name = tool_call.get('name')
-        if not is_non_empty_string(tool_name):
-            write_stderr_msg_and_deny('preToolUse hook requires a tool name for each tool call.')
-            return 2
-
-        # 以下に一致しない場合はスキップする。大文字小文字は区別しない。
-        #   bash
-        #   powershell
-        #   functions.bash
-        #   functions.powershell
-        if not re.search(r'^(?:functions\.)?(?:bash|powershell)$', tool_name, re.IGNORECASE):
-            continue
-
-        tool_args = tool_call.get('args')
-        if isinstance(tool_args, str):
-            command = tool_args
-        elif isinstance(tool_args, dict):
-            command = tool_args.get('command')
-        else:
-            command = None
-
-        if not is_non_empty_string(command):
-            write_stderr_msg_and_deny(f"preToolUse hook input for tool '{tool_name}' requires a non-empty command string.")
-            return 2
-
-        commands.append(command)
+    if not is_non_empty_string(command):
+        write_stderr_msg_and_deny(f"preToolUse hook input for tool '{tool_name}' requires a non-empty command string.")
+        return 2
 
     # コマンドが各定義のパターンに一致するかを順に確認する。
-    for command in commands:
-        for compiled_pattern, reason in compiled_definitions:
-            if compiled_pattern.search(command):
-                # 拒否とその理由をJSON形式に変換して返却する。
-                write_stdout_deny(reason)
-                return 0
+    for compiled_pattern, reason in compiled_definitions:
+        if compiled_pattern.search(command):
+            # 拒否とその理由をJSON形式に変換して返却する。
+            write_stdout_deny(reason)
+            return 0
 
     # 標準出力へ空のJSONオブジェクトを返すことで、「拒否する判断はない」ことを呼び出し元に伝える。
     print('{}')

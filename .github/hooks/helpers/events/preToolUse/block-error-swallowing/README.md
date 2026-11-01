@@ -5,7 +5,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 処理詳細
 1. [error-swallowing-definitions.json](./error-swallowing-definitions.json) から、対象外のファイルのパス（`excludedFilePatterns`）と、エラーを握りつぶすコードの正規表現（`swallowingPatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
-2. 並列に呼び出すツール（`toolCalls`）のうち編集系ツールから、対象のファイルごとに書き込む内容と置換前の内容を特定する。
+2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
    - `edit`・`str_replace_editor`：置換前の内容（`old_str`）がファイルにあれば、置換を適用した後のファイル全体。なければ `path`・`command`・`old_str` を除く引数の文字列。
    - `create`・`insert`：`path`・`command` を除く引数の文字列（`str_replace_editor` の `view` は除く）
    - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）と削除行（`-`）。`*** Delete File:` は対象外とする。

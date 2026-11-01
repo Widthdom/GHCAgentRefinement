@@ -23,13 +23,12 @@ class BlockMaskedExitCodesTests(unittest.TestCase):
         self.environment = os.environ.copy()
         self.environment.update({'TMPDIR': self.root, 'TEMP': self.root, 'TMP': self.root})
 
-    def payload(self, *tool_calls, session_id=None):
+    def payload(self, tool_call, session_id=None):
         return {
             'sessionId': self.session_id if session_id is None else session_id,
             'cwd': self.root,
-            'toolCalls': [
-                {'id': f'call_{index}', 'name': name, 'args': args} for index, (name, args) in enumerate(tool_calls)
-            ],
+            'toolName': tool_call[0],
+            'toolArgs': tool_call[1],
         }
 
     def run_hook(self, payload=None, raw=None):
@@ -121,11 +120,9 @@ class BlockMaskedExitCodesTests(unittest.TestCase):
         self.assert_allowed(self.run_hook(self.payload(('edit', {'path': 'a.txt', 'new_str': 'pytest | tail'}))))
         self.assert_allowed(self.run_hook(self.payload(('bash', {'mode': 'sync'}))))
 
-    def test_string_args_and_parallel_calls(self):
+    def test_string_args_and_prefixed_tool_name(self):
         result = self.run_hook(self.payload(
-            ('view', {'path': 'a.txt'}),
-            ('functions.bash', json.dumps({'command': 'pytest | tail'})),
-            ('bash', {'command': 'dotnet test | head'}),
+            ('functions.bash', json.dumps({'command': 'pytest | tail; dotnet test | head'})),
         ))
         self.assert_denied(result, '"pytest", "dotnet test"')
 
@@ -153,12 +150,12 @@ class BlockMaskedExitCodesTests(unittest.TestCase):
             ('broken json', b'{'),
             ('invalid utf-8', b'\xff'),
             ('not object', encode([])),
-            ('missing sessionId', encode({'toolCalls': [{'name': 'bash', 'args': {}}]})),
-            ('invalid sessionId', encode({'sessionId': 'x', 'toolCalls': [{'name': 'bash', 'args': {}}]})),
-            ('missing toolCalls', encode({'sessionId': self.session_id})),
-            ('empty toolCalls', encode({'sessionId': self.session_id, 'toolCalls': []})),
-            ('tool call not object', encode({'sessionId': self.session_id, 'toolCalls': ['bash']})),
-            ('missing name', encode({'sessionId': self.session_id, 'toolCalls': [{'args': {}}]})),
+            ('missing sessionId', encode({'toolName': 'bash', 'toolArgs': {}})),
+            ('invalid sessionId', encode({'sessionId': 'x', 'toolName': 'bash', 'toolArgs': {}})),
+            ('missing toolName', encode({'sessionId': self.session_id, 'toolArgs': {}})),
+            ('empty toolName', encode({'sessionId': self.session_id, 'toolName': ' ', 'toolArgs': {}})),
+            ('toolName not string', encode({'sessionId': self.session_id, 'toolName': 3, 'toolArgs': {}})),
+            ('missing toolArgs', encode({'sessionId': self.session_id, 'toolName': 'bash'})),
         ]:
             with self.subTest(name=name):
                 result = self.run_hook(raw=raw)

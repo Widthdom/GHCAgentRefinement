@@ -5,7 +5,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 処理詳細
 1. [secret-definitions.json](./secret-definitions.json) から、秘密情報の種類（`name`）と正規表現（`pattern`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
-2. 並列に呼び出すツール（`toolCalls`）のうち編集系ツールから、書き込む内容と対象のファイルを特定する。
+2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から書き込む内容と対象のファイルを特定する。
    - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・置換前の内容（`old_str`）を除く引数の文字列を書き込む内容とする（`str_replace_editor` の `view` は除く）。
    - `apply_patch`：パッチの追加行（`+`）を書き込む内容とし、`*** Add File:`・`*** Update File:`・`*** Move to:` の行から対象を特定する。
 3. 書き込む内容が定義の正規表現に一致し、その値が既存の内容（置換前の内容、パッチの削除行、対象ファイルの現在の内容）に含まれていなければ、秘密情報の書き込みとみなす。
