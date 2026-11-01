@@ -1,0 +1,58 @@
+{
+  "ignoredReferenceFilePatterns": [
+    "(?i)\\.(?:md|markdown|rst|txt|adoc)$"
+  ],
+  "excludedNamePatterns": [
+    "^(?:main|Main|init)$",
+    "^__\\w+__$",
+    "^(?:Dispose|DisposeAsync|GetEnumerator|Equals|GetHashCode|ToString|CompareTo|Deconstruct)$",
+    "^(?:String|Error|ServeHTTP|Len|Less|Swap|MarshalJSON|UnmarshalJSON)$"
+  ],
+  "languages": [
+    {
+      "name": "C#",
+      "filePattern": "(?i)\\.cs$",
+      "annotationPattern": "^\\s*\\[",
+      "definitionPatterns": [
+        "^[ \\t]*(?:(?:public|internal|protected|private|static|abstract|sealed|partial|readonly|unsafe|file|ref|new)\\s+)*(?:class|struct|interface|enum|record(?:\\s+(?:class|struct))?)\\s+(?P<name>[A-Za-z_]\\w*)",
+        "^[ \\t]*(?:public|internal|protected|private)\\s+(?:(?:static|virtual|abstract|async|sealed|extern|unsafe|new|partial|readonly)\\s+)*(?!(?:class|struct|interface|enum|record|override|event|delegate|operator|implicit|explicit)\\b)[A-Za-z_][\\w.]*(?:<[^()=;]*?>)?(?:\\[\\])*\\??\\s+(?P<name>[A-Za-z_]\\w*)\\s*(?:<[^()]*>)?\\s*\\("
+      ]
+    },
+    {
+      "name": "Java",
+      "filePattern": "(?i)\\.java$",
+      "annotationPattern": "^\\s*@",
+      "definitionPatterns": [
+        "^[ \\t]*(?:(?:public|protected|private|static|abstract|final|sealed|non-sealed|strictfp)\\s+)*(?:class|interface|enum|record|@interface)\\s+(?P<name>[A-Za-z_$][\\w$]*)",
+        "^[ \\t]*(?:public|protected|private)\\s+(?:(?:static|abstract|final|synchronized|native|strictfp|default)\\s+)*(?:<[^()=;]*?>\\s+)?(?!(?:class|interface|enum|record)\\b)[A-Za-z_$][\\w.$]*(?:<[^()=;]*?>)?(?:\\[\\])*\\s+(?P<name>[A-Za-z_$][\\w$]*)\\s*\\("
+      ]
+    },
+    {
+      "name": "Python",
+      "filePattern": "(?i)\\.pyw?$",
+      "annotationPattern": "^\\s*@",
+      "definitionPatterns": [
+        "^(?:async[ \\t]+)?def[ \\t]+(?P<name>[A-Za-z_]\\w*)[ \\t]*[\\[(]",
+        "^class[ \\t]+(?P<name>[A-Za-z_]\\w*)"
+      ]
+    },
+    {
+      "name": "JavaScript/TypeScript",
+      "filePattern": "(?i)\\.[cm]?[jt]sx?$",
+      "annotationPattern": "^\\s*@",
+      "definitionPatterns": [
+        "^[ \\t]*(?:export[ \\t]+)?(?:declare[ \\t]+)?(?:async[ \\t]+)?function\\b[ \\t]*\\*?[ \\t]*(?P<name>[A-Za-z_$][\\w$]*)",
+        "^[ \\t]*(?:export[ \\t]+)?(?:declare[ \\t]+)?(?:abstract[ \\t]+)?(?:class|interface|enum|type)[ \\t]+(?P<name>[A-Za-z_$][\\w$]*)",
+        "^(?:export[ \\t]+)?(?:const|let|var)[ \\t]+(?P<name>[A-Za-z_$][\\w$]*)[ \\t]*(?::[^=]+)?=[ \\t]*(?:async[ \\t]+)?(?:function\\b|\\([^()]*\\)[ \\t]*(?::[^=]+)?=>|[A-Za-z_$][\\w$]*[ \\t]*=>)"
+      ]
+    },
+    {
+      "name": "Go",
+      "filePattern": "(?i)\\.go$",
+      "definitionPatterns": [
+        "^func[ \\t]+(?:\\([^()]*\\)[ \\t]*)?(?P<name>[A-Za-z_]\\w*)",
+        "^type[ \\t]+(?P<name>[A-Za-z_]\\w*)"
+      ]
+    }
+  ]
+}
