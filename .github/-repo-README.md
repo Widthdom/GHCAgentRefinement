@@ -50,3 +50,7 @@ flowchart LR
     </tr>
   </tbody>
 </table>
+
+## CIについて
+
+- [-repo-hook-tests.yml](./workflows/-repo-hook-tests.yml) はmainへのpushとmain向けPRで（Markdownのみの変更を除く）、Linux・Windows・macOS上のPython 3.14でhookのテスト一式を実行する。

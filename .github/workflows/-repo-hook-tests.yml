@@ -1,0 +1,46 @@
+name: Hook Tests
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Test hook configurations
+        run: python .github/hooks/tests/test-hook-configurations.py
+
+      - name: Test hook test output helper
+        run: python .github/hooks/tests/helpers/test-hook-test-output.py
+
+      - name: Test all hooks
+        run: python .github/hooks/tests/test-all-hooks.py
