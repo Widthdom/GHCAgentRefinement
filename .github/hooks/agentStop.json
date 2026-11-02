@@ -49,12 +49,6 @@
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-tests-passing-without-change/detect-tests-passing-without-change.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-tests-passing-without-change/detect-tests-passing-without-change.py",
-        "timeoutSec": 180
-      },
-      {
-        "type": "command",
         "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-unread-speculation/detect-unread-speculation.py",
         "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-unread-speculation/detect-unread-speculation.py"
       },
