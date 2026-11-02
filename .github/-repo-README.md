@@ -17,7 +17,7 @@ flowchart LR
 
     LoopStart[/作業開始\]
 
-    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・OS依存のパス区切り抑止<br/>・Py3.14非対応構文抑止</div>"]
+    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・OS依存のパス区切り抑止<br/>・OS非互換のファイル名抑止<br/>・Py3.14非対応構文抑止</div>"]
 
     runTool["ツール実行"]
 
@@ -41,6 +41,12 @@ flowchart LR
       <td></td>
       <td>OS依存のパス区切り抑止</td>
       <td><a href="./hooks/helpers/-repo-events/preToolUse/block-native-path-separators/README.md">block-native-path-separators</a></td>
+    </tr>
+    <tr>
+      <td>preToolUse</td>
+      <td></td>
+      <td>OS非互換のファイル名抑止</td>
+      <td><a href="./hooks/helpers/-repo-events/preToolUse/block-nonportable-paths/README.md">block-nonportable-paths</a></td>
     </tr>
     <tr>
       <td>preToolUse</td>
