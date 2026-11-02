@@ -22,10 +22,10 @@ def run_hook_in(cwd):
     return run_hook(json.dumps({'timestamp': 0, 'cwd': cwd, 'source': 'new'}).encode('utf-8'))
 
 
-def git(cwd, *args):
-    subprocess.run(
+def git(cwd, *args, check=True):
+    return subprocess.run(
         ['git', '-c', 'user.name=test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false', *args],
-        cwd=cwd, check=True, capture_output=True,
+        cwd=cwd, check=check, capture_output=True,
     )
 
 
@@ -92,7 +92,7 @@ class CheckGitStateTests(unittest.TestCase):
         git(self.repository, 'checkout', '--quiet', 'main')
         write(os.path.join(self.repository, 'file.txt'), 'main\n')
         git(self.repository, 'commit', '--quiet', '-am', 'main')
-        merge = subprocess.run(['git', 'merge', 'other'], cwd=self.repository, capture_output=True)
+        merge = git(self.repository, 'merge', 'other', check=False)
         self.assertNotEqual(merge.returncode, 0, 'The merge must conflict.')
         self.assert_notified(
             run_hook_in(self.repository),
