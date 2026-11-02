@@ -169,18 +169,19 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
         )
 
     def test_python_imports_are_checked(self):
-        self.write_file('app/helpers.py', '')
-        self.assert_allowed(self.create('app/main.py', (
+        # setUpの `App/` と、大文字小文字を区別しないファイルシステムで衝突しない名前にする。
+        self.write_file('pkg/helpers.py', '')
+        self.assert_allowed(self.create('pkg/main.py', (
             'import os, sys as system\nfrom collections import abc\nfrom __future__ import annotations\n'
-            'import helpers\nfrom app import helpers\nfrom . import helpers\nimport json  # comment\n'
+            'import helpers\nfrom pkg import helpers\nfrom . import helpers\nimport json  # comment\n'
         )), 'stdlib and local modules')
         self.assert_denied(
-            self.create('app/main.py', 'import jsonx\nfrom zz_missing_module.sub import x\n'),
+            self.create('pkg/main.py', 'import jsonx\nfrom zz_missing_module.sub import x\n'),
             ['Python module `jsonx` (did you mean `json`?)', 'Python module `zz_missing_module`', 'python -c "import <name>"'],
             'unknown modules',
         )
         state['record_verified'](self.state_path, [('python-module', 'jsonx'), ('python-module', 'zz_missing_module')])
-        self.assert_allowed(self.create('app/main.py', 'import jsonx\nfrom zz_missing_module.sub import x\n'), 'verified modules')
+        self.assert_allowed(self.create('pkg/main.py', 'import jsonx\nfrom zz_missing_module.sub import x\n'), 'verified modules')
 
     def test_python_module_in_venv_is_allowed(self):
         site_packages = os.path.join(self.directory, '.venv', 'lib', 'python3.14', 'site-packages')
