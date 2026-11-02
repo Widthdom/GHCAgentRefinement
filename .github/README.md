@@ -28,13 +28,13 @@ flowchart LR
 
     LoopStart[/作業開始\]
 
-    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・省略記号による内容消失抑止<br/>・エラーの握りつぶし抑止<br/>・生成ファイル直接編集抑止<br/>・秘密情報書き込み抑止<br/>・shellによるファイル編集抑止<br/>・テストの骨抜き抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・テスト通過用ハードコード抑止<br/>・待ち時間の水増し抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・依頼のないhook改変抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・未読ファイル編集抑止</div>"]
+    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・省略記号による内容消失抑止<br/>・エラーの握りつぶし抑止<br/>・生成ファイル直接編集抑止<br/>・秘密情報書き込み抑止<br/>・shellによるファイル編集抑止<br/>・テストの骨抜き抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・テスト通過用ハードコード抑止<br/>・待ち時間の水増し抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・依頼のないhook改変抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・未確認の依存追加抑止<br/>・未読ファイル編集抑止</div>"]
 
     runTool["ツール実行"]
 
     runToolResult{"判定"}
 
-    postToolUse["<b><i><u>postToolUse</u></i></b><br/><div style='text-align: left'>・既読ファイルの記録<br/>・テスト失敗値の記録<br/>・テスト件数の空振り・減少検知<br/>・改行コード不変確認<br/>・振り子編集検知<br/>・名前変更の取り残し検知<br/>・skillのcross agent対応確認</div>"]
+    postToolUse["<b><i><u>postToolUse</u></i></b><br/><div style='text-align: left'>・既読ファイルの記録<br/>・テスト失敗値の記録<br/>・確認済み依存の記録<br/>・テスト件数の空振り・減少検知<br/>・改行コード不変確認<br/>・振り子編集検知<br/>・名前変更の取り残し検知<br/>・skillのcross agent対応確認</div>"]
 
     postToolUseFailure["<b><i><u>postToolUseFailure</u></i></b><br/><div style='text-align: left'>・失敗の繰り返し検知</div>"]
 
@@ -131,8 +131,8 @@ flowchart LR
       <td><a href="./hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/README.md">debug-log-transformed-prompt</a></td>
     </tr>
     <tr>
-      <td rowspan="16">preToolUse</td>
-      <td rowspan="16"></td>
+      <td rowspan="17">preToolUse</td>
+      <td rowspan="17"></td>
       <td>危険コマンド実行抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-commands/README.md">block-commands</a></td>
     </tr>
@@ -193,18 +193,26 @@ flowchart LR
       <td><a href="./hooks/helpers/events/preToolUse/block-masked-exit-codes/README.md">block-masked-exit-codes</a></td>
     </tr>
     <tr>
+      <td>未確認の依存追加抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-unverified-dependencies/README.md">block-unverified-dependencies</a></td>
+    </tr>
+    <tr>
       <td>未読ファイル編集抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/require-read-before-edit/README.md">require-read-before-edit</a></td>
     </tr>
     <tr>
-      <td rowspan="7">postToolUse</td>
-      <td rowspan="7"></td>
+      <td rowspan="8">postToolUse</td>
+      <td rowspan="8"></td>
       <td>既読ファイルの記録</td>
       <td><a href="./hooks/helpers/events/postToolUse/record-seen-files/README.md">record-seen-files</a></td>
     </tr>
     <tr>
       <td>テスト失敗値の記録</td>
       <td><a href="./hooks/helpers/events/postToolUse/record-test-failure-values/README.md">record-test-failure-values</a></td>
+    </tr>
+    <tr>
+      <td>確認済み依存の記録</td>
+      <td><a href="./hooks/helpers/events/postToolUse/record-verified-packages/README.md">record-verified-packages</a></td>
     </tr>
     <tr>
       <td>テスト件数の空振り・減少検知</td>
