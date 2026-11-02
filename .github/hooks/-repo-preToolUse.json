@@ -12,6 +12,13 @@
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/-repo-events/preToolUse/block-nonportable-paths/block-nonportable-paths.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/-repo-events/preToolUse/block-nonportable-paths/block-nonportable-paths.py",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
         "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/-repo-events/preToolUse/block-py314-incompatible-syntax/block-py314-incompatible-syntax.py",
         "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/-repo-events/preToolUse/block-py314-incompatible-syntax/block-py314-incompatible-syntax.py",
         "timeoutSec": 10
