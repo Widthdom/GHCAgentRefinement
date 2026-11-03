@@ -1,0 +1,248 @@
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+import uuid
+
+
+script_directory = os.path.dirname(os.path.abspath(__file__))
+hook_path = os.path.join(script_directory, 'block-exclusion-escapes.py')
+definitions_path = os.path.join(script_directory, 'exclusion-definitions.json')
+hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
+sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests
+
+TRACKED_FILES = {
+    'src/calc.py': 'def add(a, b):\n    return a + b\n',
+    'tests/test_calc.py': 'def test_add():\n    assert False\n',
+    'tests/test_slow.py': 'def test_slow():\n    pass\n',
+    'web/src/app.ts': 'export const x = 1;\n',
+    'web/src/app.test.ts': 'test("x", () => {});\n',
+    'web/package.json': '{\n  "name": "web",\n  "jest": {\n    "testPathIgnorePatterns": ["/node_modules/"]\n  }\n}\n',
+    'web/tsconfig.json': '{\n  "compilerOptions": {},\n  "exclude": ["node_modules"]\n}\n',
+    'Calc/Calc.csproj': '<Project Sdk="Microsoft.NET.Sdk">\n  <ItemGroup>\n  </ItemGroup>\n</Project>\n',
+    'Calc/Broken.cs': 'class Broken {}\n',
+    'pyproject.toml': '[tool.pytest.ini_options]\naddopts = "-q"\n\n[tool.ruff]\nextend-exclude = ["build"]\n',
+    'setup.cfg': '[coverage:run]\nomit =\n    build/*\n\n[metadata]\nname = calc\n',
+    '.eslintignore': 'dist/\n',
+}
+
+
+@unittest.skipUnless(shutil.which('git'), 'git is required to list tracked files.')
+class BlockExclusionEscapesTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-exclusion-escapes-test-')
+        self.addCleanup(temporary.cleanup)
+        self.root = os.path.realpath(temporary.name)
+        self.environment = os.environ.copy()
+        self.environment.update({'TMPDIR': self.root, 'TEMP': self.root, 'TMP': self.root})
+        self.directory = os.path.join(self.root, 'workspace')
+        os.makedirs(self.directory)
+        for path, content in TRACKED_FILES.items():
+            self.write_file(path, content)
+        subprocess.run(['git', 'init', '-q'], cwd=self.directory, check=True)
+        subprocess.run(['git', 'add', '-A'], cwd=self.directory, check=True)
+        self.new_session()
+
+    def write_file(self, path, content):
+        full_path = os.path.join(self.directory, path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        with open(full_path, 'w', encoding='utf-8', newline='\n') as file:
+            file.write(content)
+
+    def new_session(self):
+        self.session_id = str(uuid.uuid4())
+        self.state_path = os.path.join(
+            self.root, 'ghc-agent-refinement', 'hook-states', 'block-exclusion-escapes', f'{self.session_id}.sqlite3',
+        )
+
+    def run_hook(self, hook_input, *arguments):
+        raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
+        return subprocess.run(
+            [sys.executable, hook_path, *arguments], input=raw,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
+        )
+
+    def run_call(self, tool_name, tool_args, cwd=None):
+        return self.run_hook({
+            'sessionId': self.session_id, 'cwd': cwd or self.directory, 'toolName': tool_name, 'toolArgs': tool_args,
+        })
+
+    def assert_allowed(self, result, message):
+        self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''), message)
+
+    def assert_denied(self, result, expected_parts, message):
+        self.assertEqual(result.returncode, 0, f'{message} {result.stderr!r}')
+        self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'), f'{message} stdout must not start with a BOM.')
+        output = json.loads(result.stdout.decode('utf-8'))
+        self.assertEqual(output['permissionDecision'], 'deny', message)
+        for part in expected_parts:
+            self.assertIn(part, output['permissionDecisionReason'], message)
+
+    def test_definitions_are_valid_json(self):
+        with open(definitions_path, encoding='utf-8') as file:
+            definitions = json.load(file)
+        self.assertTrue(definitions['ignoreFiles'])
+        self.assertTrue(definitions['configFiles'])
+
+    def test_configuration(self):
+        with open(os.path.join(hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
+            configuration = json.load(file)
+        relative_path = '.github/hooks/helpers/events/preToolUse/block-exclusion-escapes/block-exclusion-escapes.py'
+        entries = [
+            entry for entry in configuration['hooks']['preToolUse']
+            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
+        ]
+        self.assertEqual(len(entries), 1)
+        self.assertEqual(entries[0]['type'], 'command')
+        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
+        for tool_name in ('edit', 'functions.create', 'insert', 'str_replace_editor', 'apply_patch'):
+            self.assertRegex(tool_name, f'^(?:{entries[0]["matcher"]})$')
+        self.assertNotRegex('bash', f'^(?:{entries[0]["matcher"]})$')
+
+    def test_excluding_tracked_files_is_denied(self):
+        cases = [
+            ('pytest --ignore', 'edit', {
+                'path': 'pyproject.toml', 'old_str': 'addopts = "-q"',
+                'new_str': 'addopts = "-q --ignore=tests/test_calc.py"',
+            }, ['pyproject.toml adds the exclusion "tests/test_calc.py"', 'tracked file tests/test_calc.py']),
+            ('pytest --deselect list', 'edit', {
+                'path': 'pyproject.toml', 'old_str': 'addopts = "-q"',
+                'new_str': 'addopts = ["-q", "--deselect", "tests/test_calc.py::test_add"]',
+            }, ['"tests/test_calc.py"']),
+            ('ruff extend-exclude', 'edit', {
+                'path': 'pyproject.toml', 'old_str': 'extend-exclude = ["build"]',
+                'new_str': 'extend-exclude = ["build", "src/calc.py"]',
+            }, ['"src/calc.py"']),
+            ('coverage omit continuation', 'edit', {
+                'path': 'setup.cfg', 'old_str': '    build/*\n', 'new_str': '    build/*\n    src/*\n',
+            }, ['setup.cfg adds the exclusion "src"', 'src/calc.py']),
+            ('conftest collect_ignore', 'create', {
+                'path': 'tests/conftest.py', 'file_text': 'collect_ignore = ["test_calc.py"]\n',
+            }, ['tests/conftest.py adds the exclusion "test_calc.py"', 'tests/test_calc.py']),
+            ('jest testPathIgnorePatterns regex', 'edit', {
+                'path': 'web/package.json', 'old_str': '["/node_modules/"]',
+                'new_str': '["/node_modules/", "<rootDir>/src/app\\\\.test\\\\.ts"]',
+            }, ['web/package.json adds the exclusion "src/app.test.ts"', 'web/src/app.test.ts']),
+            ('tsconfig exclude glob', 'str_replace_editor', {
+                'command': 'str_replace', 'path': 'web/tsconfig.json', 'old_str': '["node_modules"]',
+                'new_str': '["node_modules", "src/**/*.test.ts"]',
+            }, ['"src/**/*.test.ts"']),
+            ('csproj Compile Remove', 'insert', {
+                'path': 'Calc/Calc.csproj', 'insert_line': 2, 'new_str': '    <Compile Remove="Broken.cs" />\n',
+            }, ['Calc/Calc.csproj adds the exclusion "Broken.cs"', 'Calc/Broken.cs']),
+            ('eslintignore', 'apply_patch',
+             '*** Begin Patch\n*** Update File: .eslintignore\n@@\n dist/\n+src/\n*** End Patch\n',
+             ['.eslintignore adds the exclusion "src"']),
+            ('new eslintignore', 'apply_patch',
+             '*** Begin Patch\n*** Add File: web/.eslintignore\n+src/app.ts\n*** End Patch\n',
+             ['web/.eslintignore adds the exclusion "src/app.ts"']),
+        ]
+        for name, tool_name, args, expected in cases:
+            with self.subTest(name=name):
+                self.new_session()
+                self.assert_denied(self.run_call(tool_name, args), [*expected, 'only once per file'], name)
+
+    def test_harmless_edits_are_allowed(self):
+        cases = [
+            ('untracked build output', 'edit', {
+                'path': 'pyproject.toml', 'old_str': 'extend-exclude = ["build"]',
+                'new_str': 'extend-exclude = ["build", "dist", ".venv"]',
+            }),
+            ('existing entry reformatted', 'edit', {
+                'path': 'pyproject.toml', 'old_str': 'extend-exclude = ["build"]', 'new_str': "extend-exclude = ['build']",
+            }),
+            ('removing an exclusion', 'edit', {
+                'path': 'setup.cfg', 'old_str': 'omit =\n    build/*\n', 'new_str': 'omit =\n',
+            }),
+            ('negated entry', 'apply_patch',
+             '*** Begin Patch\n*** Update File: .eslintignore\n@@\n dist/\n+!src/app.ts\n*** End Patch\n'),
+            ('comment in ignore file', 'apply_patch',
+             '*** Begin Patch\n*** Update File: .eslintignore\n@@\n dist/\n+# src is linted\n*** End Patch\n'),
+            ('other keys', 'edit', {
+                'path': 'setup.cfg', 'old_str': 'name = calc', 'new_str': 'name = src',
+            }),
+            ('keyword in prose', 'edit', {
+                'path': 'pyproject.toml', 'old_str': 'addopts = "-q"', 'new_str': '# exclude src later\naddopts = "-q"',
+            }),
+            ('not a config file', 'edit', {
+                'path': 'src/calc.py', 'old_str': 'return a + b', 'new_str': 'exclude = ["tests"]\n    return a + b',
+            }),
+            ('gitignore is out of scope', 'create', {'path': '.gitignore', 'file_text': 'src/\n'}),
+        ]
+        for name, tool_name, args in cases:
+            with self.subTest(name=name):
+                self.assert_allowed(self.run_call(tool_name, args), name)
+        self.assertFalse(os.path.exists(self.state_path), 'Allowed edits must not create the state file.')
+
+    def test_same_file_is_denied_only_once(self):
+        args = {'path': 'pyproject.toml', 'old_str': 'addopts = "-q"', 'new_str': 'addopts = "-q --ignore=tests"'}
+        self.assert_denied(self.run_call('edit', args), ['"tests"'], 'First edit must be denied.')
+        self.assert_allowed(self.run_call('edit', args), 'Retry must be allowed.')
+
+    def test_outside_git_repository_is_allowed(self):
+        outside = os.path.join(self.root, 'outside')
+        os.makedirs(outside)
+        with open(os.path.join(outside, 'calc.py'), 'w', encoding='utf-8') as file:
+            file.write('x = 1\n')
+        self.assert_allowed(
+            self.run_call('create', {'path': 'pytest.ini', 'file_text': '[pytest]\naddopts = --ignore=calc.py\n'}, cwd=outside),
+            'Files outside a git repository cannot be judged.',
+        )
+
+    def test_undetermined_edits_and_other_tools_are_ignored(self):
+        cases = [
+            ('old_str not found', 'edit', {'path': 'pyproject.toml', 'old_str': 'missing', 'new_str': 'addopts = "--ignore=src"'}),
+            ('view', 'str_replace_editor', {'command': 'view', 'path': 'pyproject.toml'}),
+            ('delete', 'apply_patch', '*** Begin Patch\n*** Delete File: .eslintignore\n*** End Patch\n'),
+            ('shell', 'bash', {'command': 'echo src/ >> .eslintignore'}),
+        ]
+        for name, tool_name, args in cases:
+            with self.subTest(name=name):
+                self.assert_allowed(self.run_call(tool_name, args), name)
+
+    def test_invalid_input_exits_with_error(self):
+        cases = [
+            ('empty input', b''),
+            ('invalid JSON', b'{'),
+            ('non-object', b'[]'),
+            ('missing sessionId', {'cwd': self.directory, 'toolName': 'edit', 'toolArgs': {}}),
+            ('invalid sessionId', {'sessionId': 'abc', 'cwd': self.directory, 'toolName': 'edit', 'toolArgs': {}}),
+            ('missing cwd', {'sessionId': self.session_id, 'toolName': 'edit', 'toolArgs': {}}),
+            ('relative cwd', {'sessionId': self.session_id, 'cwd': 'workspace', 'toolName': 'edit', 'toolArgs': {}}),
+            ('missing toolName', {'sessionId': self.session_id, 'cwd': self.directory, 'toolArgs': {}}),
+            ('missing toolArgs', {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit'}),
+        ]
+        for name, hook_input in cases:
+            with self.subTest(name=name):
+                result = self.run_hook(hook_input)
+                self.assertEqual(result.returncode, 2, name)
+                self.assertIn(b'Failed to check exclusion escapes', result.stderr, name)
+
+    def test_invalid_definitions_exit_with_error(self):
+        config = {'name': 'x', 'filePattern': 'x', 'valuePatterns': [], 'keywordPatterns': ['y']}
+        cases = [
+            ('not an object', []),
+            ('empty configFiles', {'ignoreFiles': [], 'configFiles': []}),
+            ('no patterns', {'ignoreFiles': [], 'configFiles': [{**config, 'keywordPatterns': []}]}),
+            ('value without group', {'ignoreFiles': [], 'configFiles': [{**config, 'valuePatterns': ['a']}]}),
+            ('invalid regex', {'ignoreFiles': ['('], 'configFiles': [config]}),
+            ('missing name', {'ignoreFiles': [], 'configFiles': [{**config, 'name': ''}]}),
+        ]
+        for name, definitions in cases:
+            with self.subTest(name=name):
+                path = os.path.join(self.root, 'definitions.json')
+                with open(path, 'w', encoding='utf-8') as file:
+                    json.dump(definitions, file)
+                result = self.run_hook(
+                    {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit', 'toolArgs': {}},
+                    '--definitions-path', path,
+                )
+                self.assertEqual(result.returncode, 2, name)
+
+
+if __name__ == '__main__':
+    run_tests()

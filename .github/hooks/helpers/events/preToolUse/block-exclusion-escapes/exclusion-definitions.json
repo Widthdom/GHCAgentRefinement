@@ -1,0 +1,58 @@
+{
+  "ignoreFiles": [
+    "^\\.(?:eslint|prettier|stylelint|markdownlint|jshint|semgrep)ignore$"
+  ],
+  "configFiles": [
+    {
+      "name": "Python test and lint settings",
+      "filePattern": "^(?:pytest\\.ini|pyproject\\.toml|setup\\.cfg|tox\\.ini|\\.coveragerc|conftest\\.py|\\.flake8|mypy\\.ini|\\.pylintrc|pylintrc|\\.?ruff\\.toml)$",
+      "valuePatterns": [
+        "--ignore(?:-glob)?(?:=|\\s+|[\"']\\s*,\\s*[\"'])([^\\s\"',\\]]+)",
+        "--deselect(?:=|\\s+|[\"']\\s*,\\s*[\"'])([^\\s\"',\\]]+)"
+      ],
+      "keywordPatterns": [
+        "\\bnorecursedirs\\b",
+        "\\bcollect_ignore(?:_glob)?\\b",
+        "\\bomit\\b",
+        "\\b(?:extend-)?exclude\\b",
+        "\\bignore-paths\\b",
+        "\\bignore-patterns\\b"
+      ]
+    },
+    {
+      "name": "JavaScript and TypeScript test and lint settings",
+      "filePattern": "^(?:package\\.json|tsconfig(?:\\.[\\w-]+)?\\.json|jsconfig\\.json|(?:jest|vitest|vite|playwright|eslint|karma)\\.config\\.[cm]?[jt]s(?:on)?|karma\\.conf\\.[cm]?js|\\.eslintrc(?:\\.[cm]?js|\\.json|\\.ya?ml)?|\\.mocharc\\.(?:[cm]?js|json|ya?ml)|\\.c8rc(?:\\.json)?|\\.nycrc(?:\\.json)?)$",
+      "valuePatterns": [],
+      "keywordPatterns": [
+        "\\b(?:testPathIgnorePatterns|modulePathIgnorePatterns|coveragePathIgnorePatterns|watchPathIgnorePatterns)\\b",
+        "\\b(?:exclude|ignores|ignorePatterns|testIgnore)\\b"
+      ]
+    },
+    {
+      "name": ".NET project and test settings",
+      "filePattern": "(?:\\.(?:cs|fs|vb)proj|^Directory\\.Build\\.(?:props|targets)|\\.runsettings)$",
+      "valuePatterns": [
+        "<(?:Compile|Content|None|EmbeddedResource)\\s+Remove\\s*=\\s*\"([^\"]+)\"",
+        "<(?:ExcludeByFile|Exclude)>([^<]+)<"
+      ],
+      "keywordPatterns": []
+    },
+    {
+      "name": "Rust package settings",
+      "filePattern": "^Cargo\\.toml$",
+      "valuePatterns": [],
+      "keywordPatterns": [
+        "\\bexclude\\b"
+      ]
+    },
+    {
+      "name": "coverage service settings",
+      "filePattern": "^(?:\\.?codecov\\.ya?ml|sonar-project\\.properties)$",
+      "valuePatterns": [],
+      "keywordPatterns": [
+        "\\bignore\\b",
+        "\\bsonar\\.(?:test\\.|coverage\\.|cpd\\.)?exclusions\\b"
+      ]
+    }
+  ]
+}

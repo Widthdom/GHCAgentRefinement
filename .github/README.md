@@ -28,7 +28,7 @@ flowchart LR
 
     LoopStart[/作業開始\]
 
-    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・省略記号による内容消失抑止<br/>・エラーの握りつぶし抑止<br/>・生成ファイル直接編集抑止<br/>・秘密情報書き込み抑止<br/>・shellによるファイル編集抑止<br/>・テストの骨抜き抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・テスト通過用ハードコード抑止<br/>・待ち時間の水増し抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・依頼のないhook改変抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・未確認の依存追加抑止<br/>・未読ファイル編集抑止</div>"]
+    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・省略記号による内容消失抑止<br/>・エラーの握りつぶし抑止<br/>・生成ファイル直接編集抑止<br/>・秘密情報書き込み抑止<br/>・shellによるファイル編集抑止<br/>・テストの骨抜き抑止<br/>・除外設定による隠蔽抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・スナップショット一括承認抑止<br/>・テスト通過用ハードコード抑止<br/>・日付の時限爆弾テスト抑止<br/>・待ち時間の水増し抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・依頼のないhook改変抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・未確認の依存追加抑止<br/>・未読ファイル編集抑止</div>"]
 
     runTool["ツール実行"]
 
@@ -40,7 +40,7 @@ flowchart LR
 
     LoopEnd[\作業終了/]
 
-    agentStop["<b><i><u>agentStop</u></i></b><br/><div style='text-align: left'>・hookのテスト実行催促<br/>・存在しないファイル参照検知<br/>・未読ファイルに対する推測検知<br/>・完了報告の真偽判定<br/>・テスト後の変更の見逃し検知<br/>・依頼項目の取りこぼし検知<br/>・依頼外の変更検知<br/>・仮実装の残置検知<br/>・デバッグコードの残置検知<br/>・未使用の追加定義検知<br/>・ユーザへの迎合検知<br/>■デバッグモード有効時<br/>・プロンプト変換ログ保存先表示<br/>・回答にデバッグ情報を付与<br/>■敵対的レビューモード有効時<br/>・敵対的レビュー要請<br/></div>"]
+    agentStop["<b><i><u>agentStop</u></i></b><br/><div style='text-align: left'>・hookのテスト実行催促<br/>・存在しないファイル参照検知<br/>・未読ファイルに対する推測検知<br/>・完了報告の真偽判定<br/>・未計測の性能改善主張検知<br/>・テスト後の変更の見逃し検知<br/>・依頼項目の取りこぼし検知<br/>・依頼外の変更検知<br/>・仮実装の残置検知<br/>・デバッグコードの残置検知<br/>・ロックファイル更新漏れ検知<br/>・未使用の追加定義検知<br/>・ユーザへの迎合検知<br/>■デバッグモード有効時<br/>・プロンプト変換ログ保存先表示<br/>・回答にデバッグ情報を付与<br/>■敵対的レビューモード有効時<br/>・敵対的レビュー要請<br/></div>"]
 
     agentStopResult{"判定"}
 
@@ -131,8 +131,8 @@ flowchart LR
       <td><a href="./hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/README.md">debug-log-transformed-prompt</a></td>
     </tr>
     <tr>
-      <td rowspan="17">preToolUse</td>
-      <td rowspan="17"></td>
+      <td rowspan="20">preToolUse</td>
+      <td rowspan="20"></td>
       <td>危険コマンド実行抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-commands/README.md">block-commands</a></td>
     </tr>
@@ -161,6 +161,10 @@ flowchart LR
       <td><a href="./hooks/helpers/events/preToolUse/block-test-weakening/README.md">block-test-weakening</a></td>
     </tr>
     <tr>
+      <td>除外設定による隠蔽抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-exclusion-escapes/README.md">block-exclusion-escapes</a></td>
+    </tr>
+    <tr>
       <td>自己比較テスト抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-tautological-tests/README.md">block-tautological-tests</a></td>
     </tr>
@@ -169,8 +173,16 @@ flowchart LR
       <td><a href="./hooks/helpers/events/preToolUse/block-goalpost-moving/README.md">block-goalpost-moving</a></td>
     </tr>
     <tr>
+      <td>スナップショット一括承認抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-snapshot-rubber-stamp/README.md">block-snapshot-rubber-stamp</a></td>
+    </tr>
+    <tr>
       <td>テスト通過用ハードコード抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-hardcoding-for-tests/README.md">block-hardcoding-for-tests</a></td>
+    </tr>
+    <tr>
+      <td>日付の時限爆弾テスト抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-time-bomb-literals/README.md">block-time-bomb-literals</a></td>
     </tr>
     <tr>
       <td>待ち時間の水増し抑止</td>
@@ -241,8 +253,8 @@ flowchart LR
       <td><a href="./hooks/helpers/events/postToolUseFailure/detect-repeated-failures/README.md">detect-repeated-failures</a></td>
     </tr>
     <tr>
-      <td rowspan="14">agentStop</td>
-      <td rowspan="11"></td>
+      <td rowspan="16">agentStop</td>
+      <td rowspan="13"></td>
       <td>hookのテスト実行催促</td>
       <td><a href="./hooks/helpers/events/agentStop/require-hook-tests/README.md">require-hook-tests</a></td>
     </tr>
@@ -257,6 +269,10 @@ flowchart LR
     <tr>
       <td>完了報告の真偽判定</td>
       <td><a href="./hooks/helpers/events/agentStop/verify-completion-claims/README.md">verify-completion-claims</a></td>
+    </tr>
+    <tr>
+      <td>未計測の性能改善主張検知</td>
+      <td><a href="./hooks/helpers/events/agentStop/detect-unmeasured-performance-claims/README.md">detect-unmeasured-performance-claims</a></td>
     </tr>
     <tr>
       <td>テスト後の変更の見逃し検知</td>
@@ -277,6 +293,10 @@ flowchart LR
     <tr>
       <td>デバッグコードの残置検知</td>
       <td><a href="./hooks/helpers/events/agentStop/detect-debug-leftovers/README.md">detect-debug-leftovers</a></td>
+    </tr>
+    <tr>
+      <td>ロックファイル更新漏れ検知</td>
+      <td><a href="./hooks/helpers/events/agentStop/detect-lockfile-drift/README.md">detect-lockfile-drift</a></td>
     </tr>
     <tr>
       <td>未使用の追加定義検知</td>

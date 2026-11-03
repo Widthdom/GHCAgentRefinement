@@ -1,0 +1,26 @@
+{
+  "claimPatterns": [
+    "高速化(?:した|しました|できた|された|されました|済み|を実現)",
+    "(?:速く|早く|軽く)(?:なった|なりました|なる|なります)",
+    "\\d+(?:\\.\\d+)?\\s*(?:倍|%|％)\\s*(?:速|高速|短縮|削減|改善|向上|軽量|減)(?![^。\\n]{0,6}?(?:ない|ません|なかった|ず))",
+    "(?:処理時間|実行時間|応答時間|待ち時間|レイテンシ|起動時間|ビルド時間|メモリ(?:使用量)?|アロケーション|割り当て|CPU(?:使用率)?|スループット|負荷)[^。\\n]{0,15}?(?:短縮|削減|減少|減らし|減っ|改善|向上|半減|抑え|下がっ|上がっ)(?![^。\\n]{0,6}?(?:ない|ません|なかった|ず))",
+    "(?:パフォーマンス|性能|処理速度|速度)[^。\\n]{0,10}?(?:向上|改善|上がっ|上がり)(?![^。\\n]{0,6}?(?:ない|ません|なかった|ず))",
+    "ボトルネック[^。\\n]{0,10}?(?:解消|除去|取り除)(?![^。\\n]{0,6}?(?:ない|ません|なかった|ず))",
+    "(?i)\\b\\d+(?:\\.\\d+)?\\s*(?:x|×|%|percent|times)\\s+(?:faster|quicker|speed-?up|less\\s+(?:memory|time|cpu|allocations?)|reduction|improvement|lower\\s+latency)\\b",
+    "(?i)\\b(?:is|are|runs?|now|much|significantly|noticeably|considerably)\\s+(?:\\w+\\s+)?faster\\b",
+    "(?i)\\b(?:speeds?|sped|speeding)\\s+up\\b",
+    "(?i)\\b(?:improv(?:es|ed)|boost(?:s|ed))\\s+(?:the\\s+)?(?:performance|throughput|latency|speed)\\b",
+    "(?i)\\breduc(?:es|ed)\\s+(?:the\\s+)?(?:memory(?:\\s+usage)?|latency|allocations?|cpu(?:\\s+usage)?|runtime|execution\\s+time|startup\\s+time|build\\s+time)\\b"
+  ],
+  "hedgePatterns": [
+    "はず|見込み|見込ま|可能性|かもしれ|と思われ|と考えられ|期待|予想|想定|理論上|推定|未計測|未測定|未検証",
+    "(?:計測|測定|ベンチマーク|検証|確認)[^。\\n]{0,8}?(?:ない|ません|なかった|ず|未)",
+    "(?i)\\b(?:could|might|may|should|would|expected\\s+to|likely|potentially|in\\s+theory|presumably|not\\s+(?:been\\s+)?(?:measured|benchmarked|profiled|verified)|unmeasured|unverified)\\b|n't\\b|\\bnot\\s+(?:any\\s+)?faster\\b"
+  ],
+  "measurementCommandPatterns": [
+    "(?i)\\bbench(?:mark)?s?\\b|--bench(?:mark)?\\b|(?<!\\S)-bench\\b|\\bcargo\\s+bench\\b|\\bBenchmarkDotNet\\b|\\bcriterion\\b",
+    "(?i)\\b(?:hyperfine|timeit|pyperf|pyperformance|pyinstrument|cProfile|py-spy|scalene|memray|memory_profiler|tracemalloc|valgrind|massif|heaptrack|dotnet-counters|dotnet-trace|perf\\s+(?:stat|record)|k6|wrk|autocannon|lighthouse)\\b",
+    "(?m)(?:^\\s*|[;&|(]\\s*|\\bsudo\\s+)time\\s+\\S|/usr/bin/time\\b|\\bMeasure-Command\\b",
+    "\\b(?:Stopwatch|perf_counter|process_time|process\\.hrtime|console\\.time|performance\\.now)\\b"
+  ]
+}

@@ -24,6 +24,11 @@
       },
       {
         "type": "command",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-lockfile-drift/detect-lockfile-drift.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-lockfile-drift/detect-lockfile-drift.py"
+      },
+      {
+        "type": "command",
         "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-orphaned-additions/detect-orphaned-additions.py",
         "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-orphaned-additions/detect-orphaned-additions.py"
       },
@@ -46,6 +51,11 @@
         "type": "command",
         "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-sycophantic-reversal/detect-sycophantic-reversal.py",
         "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-sycophantic-reversal/detect-sycophantic-reversal.py"
+      },
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-unmeasured-performance-claims/detect-unmeasured-performance-claims.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-unmeasured-performance-claims/detect-unmeasured-performance-claims.py"
       },
       {
         "type": "command",

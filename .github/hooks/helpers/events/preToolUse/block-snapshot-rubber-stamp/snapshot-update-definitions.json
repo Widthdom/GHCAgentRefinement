@@ -1,0 +1,36 @@
+{
+  "updateCommands": [
+    {
+      "name": "Jest/Vitest/Playwright snapshot update (-u)",
+      "pattern": "(?i)(?:\\b(?:jest|vitest|playwright)\\b|\\b(?:npm|pnpm|yarn|bun)\\s+(?:run\\s+)?test\\b|\\breact-scripts\\s+test\\b).*(?<!\\S)(?:-u|--update)(?!\\S)"
+    },
+    {
+      "name": "snapshot update option (--update-snapshots / --updateSnapshot / --snapshot-update)",
+      "pattern": "(?<!\\S)(?:--update-?snapshots?|--updateSnapshot|--snapshot-update)(?:=\\S*)?(?!\\S)"
+    },
+    {
+      "name": "pytest-regressions regeneration (--force-regen)",
+      "pattern": "(?<!\\S)--force-regen(?!\\S)"
+    },
+    {
+      "name": "inline-snapshot rewrite (--inline-snapshot=fix/create/update)",
+      "pattern": "(?<!\\S)--inline-snapshot=\\S*\\b(?:fix|create|update|trim)\\b"
+    },
+    {
+      "name": "insta snapshot accept",
+      "pattern": "(?i)\\bcargo\\s+insta\\s+(?:accept|review)\\b|\\bcargo\\s+insta\\s+test\\b.*(?<!\\S)--accept(?!\\S)|\\bINSTA_UPDATE=(?:always|new|unseen)\\b"
+    },
+    {
+      "name": "Verify snapshot accept",
+      "pattern": "(?i)\\bverify\\s+accept\\b"
+    },
+    {
+      "name": "Go golden file update (go test -update)",
+      "pattern": "\\bgo\\s+test\\b.*(?<!\\S)--?update(?:[-_]golden)?(?:=true)?(?!\\S)"
+    },
+    {
+      "name": "snapshot/golden update environment variable",
+      "pattern": "(?i)(?<![\\w$])(?:\\$env:)?(?:UPDATE_SNAPSHOTS?|SNAPSHOT_UPDATE|SNAPSHOTS_UPDATE|UPDATE_GOLDEN(?:_FILES)?|GOLDEN_UPDATE|UPDATE_EXPECT(?:ED|ATIONS)?)\\s*=\\s*['\"]?(?:1|true|yes|on)\\b"
+    }
+  ]
+}
