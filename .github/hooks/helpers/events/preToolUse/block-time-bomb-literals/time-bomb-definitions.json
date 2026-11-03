@@ -1,0 +1,32 @@
+{
+  "pastDays": 1,
+  "futureDays": 365,
+  "clockPatterns": [
+    "\\bDateTime(?:Offset)?\\.(?:Now|UtcNow|Today)\\b",
+    "\\[datetime(?:offset)?\\]::(?:Now|UtcNow|Today)\\b",
+    "\\bTimeProvider\\.System\\b",
+    "\\b(?:datetime|date)\\.(?:now|today|utcnow)\\s*\\(",
+    "\\btime\\.(?:time|localtime|gmtime)\\s*\\(",
+    "\\bTimestamp\\.(?:now|today)\\s*\\(",
+    "\\bDate\\.now\\s*\\(",
+    "\\bnew\\s+Date\\s*\\(\\s*\\)",
+    "\\b(?:dayjs|moment)\\s*\\(\\s*\\)",
+    "\\b(?:LocalDate|LocalDateTime|ZonedDateTime|OffsetDateTime|Instant)\\.now\\s*\\(",
+    "\\bClock\\.system(?:DefaultZone|UTC)\\s*\\(",
+    "\\bSystem\\.currentTimeMillis\\s*\\(",
+    "\\btime\\.(?:Now|Since|Until)\\s*\\(",
+    "\\b(?:Utc|Local)::now\\s*\\(",
+    "\\bSystemTime::now\\s*\\(",
+    "\\b(?:Time|Date|DateTime)\\.(?:now|today|current)\\b",
+    "\\bGet-Date\\b(?!\\s+-(?:Date|Year|Month|Day)\\b)",
+    "\\bnew\\s+DateTime(?:Immutable)?\\s*\\(\\s*(?:['\"]now['\"])?\\s*\\)"
+  ],
+  "frozenClockPatterns": [
+    "(?i)\\bfreeze_?time\\b|\\bfreezegun\\b|\\btime_machine\\b|\\btravel(?:_to)?\\s*\\(",
+    "\\b(?:Fake|Manual|Mock|Test|Stub|Fixed)(?:TimeProvider|Clock|SystemClock)\\b",
+    "\\b(?:setSystemTime|useFakeTimers)\\s*\\(",
+    "\\bClock\\.(?:fixed|offset)\\s*\\(",
+    "(?i)\\btimecop\\b|\\bfaketime\\b",
+    "\\bpatch(?:\\.object)?\\s*\\([^)\\n]*\\b(?:datetime|date|time\\.time|now|today|utcnow)\\b"
+  ]
+}

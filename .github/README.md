@@ -28,7 +28,7 @@ flowchart LR
 
     LoopStart[/作業開始\]
 
-    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・省略記号による内容消失抑止<br/>・エラーの握りつぶし抑止<br/>・生成ファイル直接編集抑止<br/>・秘密情報書き込み抑止<br/>・shellによるファイル編集抑止<br/>・テストの骨抜き抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・スナップショット一括承認抑止<br/>・テスト通過用ハードコード抑止<br/>・待ち時間の水増し抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・依頼のないhook改変抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・未確認の依存追加抑止<br/>・未読ファイル編集抑止</div>"]
+    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・省略記号による内容消失抑止<br/>・エラーの握りつぶし抑止<br/>・生成ファイル直接編集抑止<br/>・秘密情報書き込み抑止<br/>・shellによるファイル編集抑止<br/>・テストの骨抜き抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・スナップショット一括承認抑止<br/>・テスト通過用ハードコード抑止<br/>・日付の時限爆弾テスト抑止<br/>・待ち時間の水増し抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・依頼のないhook改変抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・未確認の依存追加抑止<br/>・未読ファイル編集抑止</div>"]
 
     runTool["ツール実行"]
 
@@ -131,8 +131,8 @@ flowchart LR
       <td><a href="./hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/README.md">debug-log-transformed-prompt</a></td>
     </tr>
     <tr>
-      <td rowspan="18">preToolUse</td>
-      <td rowspan="18"></td>
+      <td rowspan="19">preToolUse</td>
+      <td rowspan="19"></td>
       <td>危険コマンド実行抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-commands/README.md">block-commands</a></td>
     </tr>
@@ -175,6 +175,10 @@ flowchart LR
     <tr>
       <td>テスト通過用ハードコード抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-hardcoding-for-tests/README.md">block-hardcoding-for-tests</a></td>
+    </tr>
+    <tr>
+      <td>日付の時限爆弾テスト抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-time-bomb-literals/README.md">block-time-bomb-literals</a></td>
     </tr>
     <tr>
       <td>待ち時間の水増し抑止</td>

@@ -110,6 +110,13 @@
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-time-bomb-literals/block-time-bomb-literals.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-time-bomb-literals/block-time-bomb-literals.py",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
         "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-timeout-inflation/block-timeout-inflation.py",
         "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-timeout-inflation/block-timeout-inflation.py",
         "timeoutSec": 10
