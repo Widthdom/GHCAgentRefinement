@@ -7,21 +7,21 @@ import unittest
 import uuid
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-mojibake-writes.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-mojibake-writes.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 # 文字化けは、テストのコード上にそのまま書かず、正しい文字列を誤った文字コードで復号して作る。
-JAPANESE = 'これは日本語のテストです'
-CP932_MOJIBAKE = JAPANESE.encode('utf-8').decode('cp932', errors='replace')
-CP932_MOJIBAKE_WITHOUT_REPLACEMENT = 'ファイル'.encode('utf-8').decode('cp932')
-CP1252_MOJIBAKE = 'ファイル'.encode('utf-8').decode('cp1252', errors='ignore')
-LATIN1_MOJIBAKE = 'ファイル'.encode('utf-8').decode('latin-1')
-ACCENT_MOJIBAKE = 'café'.encode('utf-8').decode('cp1252')
-REPLACEMENT_CHARACTER = chr(0xFFFD)  # 置換文字（復号できなかったバイトの代わり）
-NO_BREAK_SPACE = chr(0x00A0)  # ノーブレークスペース
+_JAPANESE = 'これは日本語のテストです'
+_CP932_MOJIBAKE = _JAPANESE.encode('utf-8').decode('cp932', errors='replace')
+_CP932_MOJIBAKE_WITHOUT_REPLACEMENT = 'ファイル'.encode('utf-8').decode('cp932')
+_CP1252_MOJIBAKE = 'ファイル'.encode('utf-8').decode('cp1252', errors='ignore')
+_LATIN1_MOJIBAKE = 'ファイル'.encode('utf-8').decode('latin-1')
+_ACCENT_MOJIBAKE = 'café'.encode('utf-8').decode('cp1252')
+_REPLACEMENT_CHARACTER = chr(0xFFFD)  # 置換文字（復号できなかったバイトの代わり）
+_NO_BREAK_SPACE = chr(0x00A0)  # ノーブレークスペース
 
 
 class BlockMojibakeWritesTests(unittest.TestCase):
@@ -49,7 +49,7 @@ class BlockMojibakeWritesTests(unittest.TestCase):
     def run_process(self, hook_input, *arguments):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path, *arguments], input=raw,
+            [sys.executable, _hook_path, *arguments], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
         )
 
@@ -72,7 +72,7 @@ class BlockMojibakeWritesTests(unittest.TestCase):
         return output['permissionDecisionReason']
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         relative_path = '.github/hooks/helpers/events/preToolUse/block-mojibake-writes/block-mojibake-writes.py'
         entries = configuration['hooks']['preToolUse']
@@ -90,14 +90,14 @@ class BlockMojibakeWritesTests(unittest.TestCase):
 
     def test_mojibake_is_denied(self):
         cases = [
-            ('a.py', f'message = "{CP932_MOJIBAKE}"\n', 'UTF-8 read as Shift_JIS (CP932)'),
-            ('a.py', f'message = "{CP932_MOJIBAKE}"\n', 'replacement character (U+FFFD)'),
-            ('a.py', f'# {CP932_MOJIBAKE_WITHOUT_REPLACEMENT}\n', 'UTF-8 read as Shift_JIS (CP932)'),
-            ('a.py', f'label = "{CP1252_MOJIBAKE}"\n', 'UTF-8 read as Latin-1 or Windows-1252'),
-            ('a.py', f'label = "{LATIN1_MOJIBAKE}"\n', 'UTF-8 read as Latin-1 or Windows-1252'),
-            ('a.py', f'name = "{ACCENT_MOJIBAKE}"\n', 'UTF-8 read as Latin-1 or Windows-1252'),
-            ('a.py', f'name = "a{REPLACEMENT_CHARACTER}b"\n', 'replacement character (U+FFFD)'),
-            ('README.md', f'# {CP932_MOJIBAKE_WITHOUT_REPLACEMENT}\n', 'UTF-8 read as Shift_JIS (CP932)'),
+            ('a.py', f'message = "{_CP932_MOJIBAKE}"\n', 'UTF-8 read as Shift_JIS (CP932)'),
+            ('a.py', f'message = "{_CP932_MOJIBAKE}"\n', 'replacement character (U+FFFD)'),
+            ('a.py', f'# {_CP932_MOJIBAKE_WITHOUT_REPLACEMENT}\n', 'UTF-8 read as Shift_JIS (CP932)'),
+            ('a.py', f'label = "{_CP1252_MOJIBAKE}"\n', 'UTF-8 read as Latin-1 or Windows-1252'),
+            ('a.py', f'label = "{_LATIN1_MOJIBAKE}"\n', 'UTF-8 read as Latin-1 or Windows-1252'),
+            ('a.py', f'name = "{_ACCENT_MOJIBAKE}"\n', 'UTF-8 read as Latin-1 or Windows-1252'),
+            ('a.py', f'name = "a{_REPLACEMENT_CHARACTER}b"\n', 'replacement character (U+FFFD)'),
+            ('README.md', f'# {_CP932_MOJIBAKE_WITHOUT_REPLACEMENT}\n', 'UTF-8 read as Shift_JIS (CP932)'),
         ]
         for path, content, kind in cases:
             with self.subTest(kind=kind, content=content.encode('unicode_escape')):
@@ -110,17 +110,17 @@ class BlockMojibakeWritesTests(unittest.TestCase):
 
     def test_control_characters_in_snippet_are_visible(self):
         reason = self.assert_denied(
-            self.run_call({'name': 'create', 'args': {'path': 'a.py', 'file_text': f'x = "{LATIN1_MOJIBAKE}"\n'}}),
+            self.run_call({'name': 'create', 'args': {'path': 'a.py', 'file_text': f'x = "{_LATIN1_MOJIBAKE}"\n'}}),
             ['<U+0083>'], 'C1 control characters',
         )
         self.assertNotIn(chr(0x83), reason)
 
     def test_allowed_contents(self):
         cases = [
-            ('a.py', f'message = "{JAPANESE}"\n'),
+            ('a.py', f'message = "{_JAPANESE}"\n'),
             ('a.py', '# 縮小・繰り返し・編集・継続・総合・維持の漢字を含むコメント\n'),
             ('a.py', 'name = "café résumé naïve Ångström São Paulo"\n'),
-            ('a.py', f'quote = "«{NO_BREAK_SPACE}café{NO_BREAK_SPACE}»"\n'),
+            ('a.py', f'quote = "«{_NO_BREAK_SPACE}café{_NO_BREAK_SPACE}»"\n'),
             ('a.py', 'price = "€5 — “quoted” … ™"\n'),
             ('a.py', 'text = "\\ufffd is written as an escape"\n'),
             ('a.py', 'mojibake = "ファイル".encode("utf-8").decode("cp932")\n'),
@@ -133,7 +133,7 @@ class BlockMojibakeWritesTests(unittest.TestCase):
                 )
 
     def test_tool_formats(self):
-        bad = f'value = "{CP932_MOJIBAKE_WITHOUT_REPLACEMENT}"'
+        bad = f'value = "{_CP932_MOJIBAKE_WITHOUT_REPLACEMENT}"'
         cases = [
             ('edit', {'path': 'app.py', 'old_str': 'value = 1', 'new_str': bad}),
             ('functions.edit', json.dumps({'path': 'app.py', 'old_str': 'value = 1', 'new_str': bad})),
@@ -147,7 +147,7 @@ class BlockMojibakeWritesTests(unittest.TestCase):
                 self.assert_denied(self.run_call({'name': tool_name, 'args': args}), ['app.py', 'CP932'], tool_name)
 
     def test_existing_lines_are_allowed(self):
-        line = f'name = "{CP932_MOJIBAKE}"'
+        line = f'name = "{_CP932_MOJIBAKE}"'
         self.write_file('legacy.py', f'{line}\nvalue = 1\n')
         self.assert_allowed(
             self.run_call({'name': 'edit', 'args': {'path': 'legacy.py', 'old_str': 'value = 1', 'new_str': 'value = 2'}}),
@@ -162,46 +162,46 @@ class BlockMojibakeWritesTests(unittest.TestCase):
         for tool_call in (
             {'name': 'apply_patch', 'args': '*** Begin Patch\n*** Delete File: app.py\n*** End Patch\n'},
             {'name': 'str_replace_editor', 'args': {'command': 'view', 'path': 'app.py'}},
-            {'name': 'bash', 'args': {'command': f'echo "{CP932_MOJIBAKE}" > a.py'}},
+            {'name': 'bash', 'args': {'command': f'echo "{_CP932_MOJIBAKE}" > a.py'}},
         ):
             with self.subTest(tool_call=tool_call['name']):
                 self.assert_allowed(self.run_call(tool_call), 'Deletions and non-writing tools must be ignored.')
 
     def test_excluded_files_are_allowed(self):
         definitions_path = os.path.join(self.root, 'definitions.json')
-        with open(os.path.join(script_directory, 'mojibake-definitions.json'), encoding='utf-8') as file:
+        with open(os.path.join(_script_directory, 'mojibake-definitions.json'), encoding='utf-8') as file:
             definitions = json.load(file)
         definitions['excludedFilePatterns'] = ['(?i)^fixtures/']
         with open(definitions_path, 'w', encoding='utf-8') as file:
             json.dump(definitions, file)
         hook_input = {
             'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'create',
-            'toolArgs': {'path': 'fixtures/broken.txt', 'file_text': CP932_MOJIBAKE},
+            'toolArgs': {'path': 'fixtures/broken.txt', 'file_text': _CP932_MOJIBAKE},
         }
         self.assert_allowed(self.run_process(hook_input, '--definitions-path', definitions_path), 'excluded')
         hook_input['toolArgs']['path'] = 'src/broken.txt'
         self.assert_denied(self.run_process(hook_input, '--definitions-path', definitions_path), ['src/broken.txt'], 'not excluded')
 
     def test_denies_only_once_per_file(self):
-        call = {'name': 'create', 'args': {'path': 'a.py', 'file_text': f'x = "{CP932_MOJIBAKE}"\n'}}
+        call = {'name': 'create', 'args': {'path': 'a.py', 'file_text': f'x = "{_CP932_MOJIBAKE}"\n'}}
         self.assert_denied(self.run_call(call), ['a.py'], 'first')
         self.assert_allowed(self.run_call(call), 'The same file must not be denied twice.')
         self.assert_denied(
-            self.run_call({'name': 'create', 'args': {'path': 'b.py', 'file_text': f'x = "{CP932_MOJIBAKE}"\n'}}),
+            self.run_call({'name': 'create', 'args': {'path': 'b.py', 'file_text': f'x = "{_CP932_MOJIBAKE}"\n'}}),
             ['b.py'], 'Another file must still be denied once.',
         )
 
     def test_patch_files_are_reported_together_and_snippets_are_limited(self):
-        lines = ''.join(f'+line{index} = "{CP932_MOJIBAKE_WITHOUT_REPLACEMENT}"\n' for index in range(5))
+        lines = ''.join(f'+line{index} = "{_CP932_MOJIBAKE_WITHOUT_REPLACEMENT}"\n' for index in range(5))
         result = self.run_call({'name': 'apply_patch', 'args': (
             f'*** Begin Patch\n*** Add File: a.py\n{lines}'
-            f'*** Add File: b.ts\n+const x = "{ACCENT_MOJIBAKE}";\n*** End Patch\n'
+            f'*** Add File: b.ts\n+const x = "{_ACCENT_MOJIBAKE}";\n*** End Patch\n'
         )})
         reason = self.assert_denied(result, ['a.py', 'b.ts', 'line2 ', 'Latin-1'], 'patch')
         self.assertNotIn('line3 ', reason)
 
     def test_long_snippet_is_truncated(self):
-        content = f'x = "{CP932_MOJIBAKE_WITHOUT_REPLACEMENT}{"y" * 200}"\n'
+        content = f'x = "{_CP932_MOJIBAKE_WITHOUT_REPLACEMENT}{"y" * 200}"\n'
         reason = self.assert_denied(
             self.run_call({'name': 'create', 'args': {'path': 'a.py', 'file_text': content}}), ['...'], 'long',
         )

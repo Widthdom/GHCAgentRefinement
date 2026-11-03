@@ -7,12 +7,12 @@ import unittest
 import uuid
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'require-read-before-edit.py')
-events_directory = os.path.dirname(os.path.dirname(script_directory))
-record_hook_path = os.path.join(events_directory, 'postToolUse', 'record-seen-files', 'record-seen-files.py')
-hooks_directory = os.path.dirname(os.path.dirname(events_directory))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'require-read-before-edit.py')
+_events_directory = os.path.dirname(os.path.dirname(_script_directory))
+_record_hook_path = os.path.join(_events_directory, 'postToolUse', 'record-seen-files', 'record-seen-files.py')
+_hooks_directory = os.path.dirname(os.path.dirname(_events_directory))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
@@ -51,11 +51,11 @@ class RequireReadBeforeEditTests(unittest.TestCase):
         )
 
     def invoke(self, tool_call, session_id=None):
-        return self.run_hook(hook_path, self.payload(tool_call, session_id=session_id))
+        return self.run_hook(_hook_path, self.payload(tool_call, session_id=session_id))
 
     def view(self, path, session_id=None):
         # 閲覧の記録は、実際の記録側hookを通して作る。
-        result = self.run_hook(record_hook_path, {
+        result = self.run_hook(_record_hook_path, {
             'sessionId': session_id or self.session_id, 'timestamp': 0, 'cwd': self.workspace,
             'toolName': 'view', 'toolArgs': {'path': path},
             'toolResult': {'resultType': 'success', 'textResultForLlm': '1. a'},
@@ -75,7 +75,7 @@ class RequireReadBeforeEditTests(unittest.TestCase):
         self.assertIn(f'not read the following existing files in this session: {files}.', output['permissionDecisionReason'])
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         relative_path = '.github/hooks/helpers/events/preToolUse/require-read-before-edit/require-read-before-edit.py'
         entries = [
@@ -101,7 +101,7 @@ class RequireReadBeforeEditTests(unittest.TestCase):
         self.view(self.target)
         self.assert_allowed(self.invoke(('edit', {'path': self.target, 'old_str': 'a', 'new_str': 'b'})))
         # 編集の成功も記録される。
-        result = self.run_hook(record_hook_path, {
+        result = self.run_hook(_record_hook_path, {
             'sessionId': self.session_id, 'timestamp': 0, 'cwd': self.workspace,
             'toolName': 'create', 'toolArgs': {'path': 'sub/other.py', 'file_text': 'a\n'},
             'toolResult': {'resultType': 'success', 'textResultForLlm': 'Created.'},
@@ -197,7 +197,7 @@ class RequireReadBeforeEditTests(unittest.TestCase):
             invalid.append(json.dumps({**base, **changes}).encode('utf-8'))
         for raw in invalid:
             with self.subTest(raw=raw):
-                result = self.run_hook(hook_path, raw=raw)
+                result = self.run_hook(_hook_path, raw=raw)
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(result.stdout, b'')
                 self.assertIn(b'Failed to check read-before-edit:', result.stderr)
@@ -217,7 +217,7 @@ class RequireReadBeforeEditTests(unittest.TestCase):
         processes = []
         for _ in range(6):
             process = subprocess.Popen(
-                [sys.executable, hook_path], stdin=subprocess.PIPE,
+                [sys.executable, _hook_path], stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment,
             )
             self.addCleanup(self.finish_process, process)

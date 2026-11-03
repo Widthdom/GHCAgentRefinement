@@ -13,19 +13,19 @@ from typing import cast
 
 
 # ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
+_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 # 置換前の内容を表す引数。書き込む内容ではないため検査せず、既存の内容として照合に使う。
-REMOVED_TEXT_KEYS = {'old_str', 'old_string'}
+_REMOVED_TEXT_KEYS = {'old_str', 'old_string'}
 # 書き込む内容ではない引数。
-IGNORED_KEYS = {'path', 'command'}
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
-EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
-NATIVE_PATH_PATTERNS_KEY = 'nativePathPatterns'
-NORMALIZATION_PATTERNS_KEY = 'normalizationPatterns'
-MAX_SNIPPETS = 3
-MAX_SNIPPET_LENGTH = 80
-FINDING = '{file} would get {kinds} without converting to "/" separators ({snippets})'
-DENY_REASON = (
+_IGNORED_KEYS = {'path', 'command'}
+_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
+_EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
+_NATIVE_PATH_PATTERNS_KEY = 'nativePathPatterns'
+_NORMALIZATION_PATTERNS_KEY = 'normalizationPatterns'
+_MAX_SNIPPETS = 3
+_MAX_SNIPPET_LENGTH = 80
+_FINDING = '{file} would get {kinds} without converting to "/" separators ({snippets})'
+_DENY_REASON = (
     'Edit denied: {findings}. These calls return paths with the OS-native separator, which is "\\" on Windows and "/" '
     'elsewhere, so code and tests that pass on one OS fail on another once the path is shown, stored, or compared as '
     'a string. Convert the path to "/" separators where it leaves file system APIs (for example '
@@ -35,35 +35,35 @@ DENY_REASON = (
 )
 
 
-def compile_patterns(patterns, key):
+def _compile_patterns(patterns, key):
     try:
         return [re.compile(pattern) for pattern in patterns]
     except re.PatternError as ex:
         raise ValueError(f'invalid regular expression in {key}: {ex}') from None
 
 
-def is_string_list(value, allow_empty):
+def _is_string_list(value, allow_empty):
     return isinstance(value, list) and (allow_empty or bool(value)) and all(
         isinstance(item, str) and item.strip() for item in value
     )
 
 
-def load_definitions(path):
+def _load_definitions(path):
     # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
     if not isinstance(definitions, dict):
         raise ValueError('path separator definitions must be a JSON object.')
-    if not is_string_list(definitions.get(EXCLUDED_FILE_PATTERNS_KEY), allow_empty=True):
+    if not _is_string_list(definitions.get(_EXCLUDED_FILE_PATTERNS_KEY), allow_empty=True):
         raise ValueError(
-            f'path separator definitions require an array of non-empty strings for {EXCLUDED_FILE_PATTERNS_KEY}.'
+            f'path separator definitions require an array of non-empty strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
         )
-    if not is_string_list(definitions.get(NORMALIZATION_PATTERNS_KEY), allow_empty=False):
+    if not _is_string_list(definitions.get(_NORMALIZATION_PATTERNS_KEY), allow_empty=False):
         raise ValueError(
             f'path separator definitions require a non-empty array of non-empty strings for '
-            f'{NORMALIZATION_PATTERNS_KEY}.'
+            f'{_NORMALIZATION_PATTERNS_KEY}.'
         )
-    native_definitions = definitions.get(NATIVE_PATH_PATTERNS_KEY)
+    native_definitions = definitions.get(_NATIVE_PATH_PATTERNS_KEY)
     if not isinstance(native_definitions, list) or not native_definitions or not all(
         isinstance(definition, dict) and all(
             isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'pattern')
@@ -72,19 +72,19 @@ def load_definitions(path):
     ):
         raise ValueError(
             f'path separator definitions require a non-empty array of objects with non-empty strings for name and '
-            f'pattern in {NATIVE_PATH_PATTERNS_KEY}.'
+            f'pattern in {_NATIVE_PATH_PATTERNS_KEY}.'
         )
-    native_patterns = compile_patterns(
-        [definition['pattern'] for definition in native_definitions], NATIVE_PATH_PATTERNS_KEY,
+    native_patterns = _compile_patterns(
+        [definition['pattern'] for definition in native_definitions], _NATIVE_PATH_PATTERNS_KEY,
     )
     return (
-        compile_patterns(definitions[EXCLUDED_FILE_PATTERNS_KEY], EXCLUDED_FILE_PATTERNS_KEY),
+        _compile_patterns(definitions[_EXCLUDED_FILE_PATTERNS_KEY], _EXCLUDED_FILE_PATTERNS_KEY),
         [(definition['name'], pattern) for definition, pattern in zip(native_definitions, native_patterns)],
-        compile_patterns(definitions[NORMALIZATION_PATTERNS_KEY], NORMALIZATION_PATTERNS_KEY),
+        _compile_patterns(definitions[_NORMALIZATION_PATTERNS_KEY], _NORMALIZATION_PATTERNS_KEY),
     )
 
 
-def get_tool_args(raw_tool_args):
+def _get_tool_args(raw_tool_args):
     # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
     if isinstance(raw_tool_args, str):
         try:
@@ -94,24 +94,24 @@ def get_tool_args(raw_tool_args):
     return raw_tool_args
 
 
-def collect_strings(value, ignored_keys=frozenset()):
+def _collect_strings(value, ignored_keys=frozenset()):
     if isinstance(value, str):
         yield value
     elif isinstance(value, dict):
         for key, item in value.items():
             if key not in ignored_keys:
-                yield from collect_strings(item, ignored_keys)
+                yield from _collect_strings(item, ignored_keys)
     elif isinstance(value, list):
         for item in value:
-            yield from collect_strings(item, ignored_keys)
+            yield from _collect_strings(item, ignored_keys)
 
 
-def get_patch_writes(text):
+def _get_patch_writes(text):
     # パッチをファイルごとに分け、追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。
     # 削除するファイルには何も書き込まないため対象外とする。
     writes = []
     for line in text.splitlines():
-        match = PATCH_FILE_PATTERN.match(line)
+        match = _PATCH_FILE_PATTERN.match(line)
         if match:
             writes.append({'path': match.group(2), 'written': [], 'removed': [], 'deleted': match.group(1) == 'Delete'})
         elif writes and line.startswith('+'):
@@ -124,10 +124,10 @@ def get_patch_writes(text):
     ]
 
 
-def get_writes(tool_name, tool_args):
+def _get_writes(tool_name, tool_args):
     # 戻り値は (パス, 書き込む内容, 置換前の内容) のリスト。
     if tool_name == 'apply_patch':
-        return [write for text in collect_strings(tool_args) for write in get_patch_writes(text)]
+        return [write for text in _collect_strings(tool_args) for write in _get_patch_writes(text)]
     if not isinstance(tool_args, dict):
         return []
     # str_replace_editorのviewは閲覧なので対象外とする。
@@ -138,12 +138,12 @@ def get_writes(tool_name, tool_args):
         return []
     return [(
         path,
-        '\n'.join(collect_strings(tool_args, IGNORED_KEYS | REMOVED_TEXT_KEYS)),
-        '\n'.join(text for key in REMOVED_TEXT_KEYS for text in collect_strings(tool_args.get(key))),
+        '\n'.join(_collect_strings(tool_args, _IGNORED_KEYS | _REMOVED_TEXT_KEYS)),
+        '\n'.join(text for key in _REMOVED_TEXT_KEYS for text in _collect_strings(tool_args.get(key))),
     )]
 
 
-def read_existing(path):
+def _read_existing(path):
     try:
         with open(path, encoding='utf-8', errors='replace') as file:
             return file.read()
@@ -151,7 +151,7 @@ def read_existing(path):
         return None
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルは、OSによらず `/` 区切りの相対パスで示す。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -162,15 +162,15 @@ def get_display_path(path, cwd):
     return path
 
 
-def normalize_lines(text):
+def _normalize_lines(text):
     # インデントの違いで既存の内容との照合が外れないよう、各行の前後の空白を除く。
     return {line.strip() for line in text.splitlines()}
 
 
-def find_native_paths(native_patterns, normalization_patterns, written, existing):
+def _find_native_paths(native_patterns, normalization_patterns, written, existing):
     # 戻り値は (種類の名前のリスト, 該当行のリスト)。
     # 同じ行で `/` 区切りに変換しているものと、既存の内容に同じ行があるもの（元からあるもの）は除く。
-    existing_lines = normalize_lines(existing)
+    existing_lines = _normalize_lines(existing)
     kinds = []
     snippets = []
     for line in written.splitlines():
@@ -186,13 +186,13 @@ def find_native_paths(native_patterns, normalization_patterns, written, existing
     return kinds, snippets
 
 
-def format_snippet(snippet):
-    if len(snippet) > MAX_SNIPPET_LENGTH:
-        snippet = snippet[:MAX_SNIPPET_LENGTH] + '...'
+def _format_snippet(snippet):
+    if len(snippet) > _MAX_SNIPPET_LENGTH:
+        snippet = snippet[:_MAX_SNIPPET_LENGTH] + '...'
     return f'"{snippet}"'
 
 
-def record_denials(state_path, candidates):
+def _record_denials(state_path, candidates):
     # candidates：(ファイルキー, 理由) のリスト。戻り値は、今回初めて拒否する理由のリスト。
     # 同じファイルの拒否は1回だけにし、意図した編集なら再実行で通す。
     # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
@@ -223,7 +223,7 @@ def main(arguments=None):
     parsed_arguments = parser.parse_args(arguments)
 
     try:
-        excluded_file_patterns, native_patterns, normalization_patterns = load_definitions(
+        excluded_file_patterns, native_patterns, normalization_patterns = _load_definitions(
             parsed_arguments.definitions_path
         )
 
@@ -255,22 +255,22 @@ def main(arguments=None):
         real_cwd = os.path.realpath(cwd)
         candidates = []
         tool_name = tool_name.removeprefix('functions.')
-        if tool_name in EDIT_TOOL_NAMES:
-            for write_path, written, removed in get_writes(tool_name, get_tool_args(hook_input['toolArgs'])):
+        if tool_name in _EDIT_TOOL_NAMES:
+            for write_path, written, removed in _get_writes(tool_name, _get_tool_args(hook_input['toolArgs'])):
                 path = os.path.realpath(os.path.join(cwd, write_path))
-                display_path = get_display_path(path, real_cwd)
+                display_path = _get_display_path(path, real_cwd)
                 if any(pattern.search(display_path) for pattern in excluded_file_patterns):
                     continue
-                current = (read_existing(path) if os.path.isfile(path) else None) or ''
-                kinds, snippets = find_native_paths(
+                current = (_read_existing(path) if os.path.isfile(path) else None) or ''
+                kinds, snippets = _find_native_paths(
                     native_patterns, normalization_patterns, written, '\n'.join([removed, current]),
                 )
                 if snippets:
                     # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
                     file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
-                    candidates.append((file_key, FINDING.format(
+                    candidates.append((file_key, _FINDING.format(
                         file=display_path, kinds=', '.join(kinds),
-                        snippets=', '.join(format_snippet(snippet) for snippet in snippets[:MAX_SNIPPETS]),
+                        snippets=', '.join(_format_snippet(snippet) for snippet in snippets[:_MAX_SNIPPETS]),
                     )))
 
         reasons = []
@@ -281,13 +281,13 @@ def main(arguments=None):
                 tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-native-path-separators',
                 f'{parsed_session_id}.sqlite3',
             )
-            reasons = record_denials(state_path, candidates)
+            reasons = _record_denials(state_path, candidates)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check native path separators: {ex}', file=sys.stderr)
         return 2
 
     if reasons:
-        reason = DENY_REASON.format(findings='; '.join(reasons))
+        reason = _DENY_REASON.format(findings='; '.join(reasons))
         print(reason, file=sys.stderr)
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference

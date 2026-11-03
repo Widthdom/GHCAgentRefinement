@@ -14,25 +14,25 @@ from typing import cast
 
 
 # 上書きで、既存の行数がこれ以上あり、新しい行数がこの割合未満になれば縮小とみなす。
-MIN_SHRINK_LINES = 20
-SHRINK_RATIO = 0.5
-ELISION = 'elision'
-SHRINK = 'shrink'
-ELISION_REASON = (
+_MIN_SHRINK_LINES = 20
+_SHRINK_RATIO = 0.5
+_ELISION = 'elision'
+_SHRINK = 'shrink'
+_ELISION_REASON = (
     '{files} would get placeholder comments that stand in for omitted content ({lines}). '
     'Writing such a placeholder replaces the real content with the comment and silently deletes it.'
 )
-SHRINK_REASON = (
+_SHRINK_REASON = (
     '{file} would be overwritten with {new} lines although it currently has {old} lines.'
 )
-DENY_REASON = (
+_DENY_REASON = (
     'Edit denied: {findings} Write the complete content, or use a targeted edit that replaces only the part you '
     'change. If the placeholder or the removal is intended, for example when the user asked for it, '
     'retry the same edit; this check denies it only once.'
 )
 
 
-def load_definitions(path):
+def _load_definitions(path):
     # 定義はUTF-8のJSON配列として読み込む。UTF-8 BOMは許容する。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
@@ -51,7 +51,7 @@ def load_definitions(path):
     return compiled
 
 
-def read_existing(path):
+def _read_existing(path):
     try:
         with open(path, encoding='utf-8', errors='replace') as file:
             return file.read()
@@ -59,7 +59,7 @@ def read_existing(path):
         return None
 
 
-def find_elision_lines(definitions, written, existing):
+def _find_elision_lines(definitions, written, existing):
     # 既存の内容に同じ行があるプレースホルダーは、元からあるものとみなす。
     existing_lines = {line.strip() for line in existing.splitlines()}
     lines = []
@@ -71,11 +71,11 @@ def find_elision_lines(definitions, written, existing):
     return lines
 
 
-def count_lines(text):
+def _count_lines(text):
     return len(text.splitlines())
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -86,7 +86,7 @@ def get_display_path(path, cwd):
     return path
 
 
-def record_denials(state_path, candidates):
+def _record_denials(state_path, candidates):
     # candidates：(ファイルキー, 種類, 理由) のリスト。戻り値は、今回初めて拒否する理由のリスト。
     # 同じファイルの同じ種類の拒否は1回だけにし、意図した編集なら再実行で通す。
     # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
@@ -121,7 +121,7 @@ def main(arguments=None):
     parsed_arguments = parser.parse_args(arguments)
 
     try:
-        definitions = load_definitions(parsed_arguments.definitions_path)
+        definitions = _load_definitions(parsed_arguments.definitions_path)
 
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
         if not hook_input_json.strip():
@@ -157,25 +157,25 @@ def main(arguments=None):
         ))['extract_edit_tool_changes']
         for change in extract_edit_tool_changes(tool_name, hook_input['toolArgs']):
             path = os.path.normcase(os.path.realpath(os.path.join(cwd, change['path'])))
-            display_path = get_display_path(path, normalized_cwd)
+            display_path = _get_display_path(path, normalized_cwd)
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
             file_key = hashlib.sha256(path.encode('utf-8')).hexdigest()
-            current = read_existing(path) if os.path.isfile(path) else None
+            current = _read_existing(path) if os.path.isfile(path) else None
             # 新規ファイルには消える内容がないため、骨組みとしてのプレースホルダーを許可する。
             if current is None:
                 continue
 
-            lines = find_elision_lines(definitions, change['written'], '\n'.join([change['removed'], current]))
+            lines = _find_elision_lines(definitions, change['written'], '\n'.join([change['removed'], current]))
             if lines:
-                candidates.append((file_key, ELISION, ELISION_REASON.format(
+                candidates.append((file_key, _ELISION, _ELISION_REASON.format(
                     files=display_path, lines=', '.join(f'"{line}"' for line in lines[:3]),
                 )))
 
             if change['full_content'] is not None:
-                old_lines = count_lines(current)
-                new_lines = count_lines(change['full_content'])
-                if old_lines >= MIN_SHRINK_LINES and new_lines < old_lines * SHRINK_RATIO:
-                    candidates.append((file_key, SHRINK, SHRINK_REASON.format(
+                old_lines = _count_lines(current)
+                new_lines = _count_lines(change['full_content'])
+                if old_lines >= _MIN_SHRINK_LINES and new_lines < old_lines * _SHRINK_RATIO:
+                    candidates.append((file_key, _SHRINK, _SHRINK_REASON.format(
                         file=display_path, new=new_lines, old=old_lines,
                     )))
 
@@ -187,13 +187,13 @@ def main(arguments=None):
                 tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-elided-rewrites',
                 f'{parsed_session_id}.sqlite3',
             )
-            reasons = record_denials(state_path, candidates)
+            reasons = _record_denials(state_path, candidates)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check elided rewrites: {ex}', file=sys.stderr)
         return 2
 
     if reasons:
-        reason = DENY_REASON.format(findings=' '.join(reasons))
+        reason = _DENY_REASON.format(findings=' '.join(reasons))
         print(reason, file=sys.stderr)
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference

@@ -6,24 +6,24 @@ import tempfile
 import unittest
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-py314-incompatible-syntax.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-py314-incompatible-syntax.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-ORIGINAL = (
+_ORIGINAL = (
     'def show(value):\n'
     '    return value\n'
     '\n'
     'print(show(1))\n'
 )
 # Python 3.14で追加された文法（PEP 750のテンプレート文字列、PEP 758の括弧なしの複数例外）。
-PY314_SOURCES = [
+_PY314_SOURCES = [
     'name = "x"\ntemplate = t"Hello {name}"\n',
     'try:\n    pass\nexcept ValueError, TypeError:\n    pass\n',
 ]
-INCOMPATIBLE_SOURCES = [
+_INCOMPATIBLE_SOURCES = [
     ('Python 2 print', 'print "hello"\n'),
     ('Python 2 raise', 'raise ValueError, "message"\n'),
     ('Python 2 exec', 'exec "x = 1"\n'),
@@ -41,7 +41,7 @@ class BlockPy314IncompatibleSyntaxTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-block-py314-incompatible-syntax-test-')
         self.addCleanup(temporary.cleanup)
         self.directory = os.path.realpath(temporary.name)
-        self.write_file('app.py', ORIGINAL)
+        self.write_file('app.py', _ORIGINAL)
 
     def write_file(self, path, content):
         full_path = os.path.join(self.directory, path)
@@ -52,7 +52,7 @@ class BlockPy314IncompatibleSyntaxTests(unittest.TestCase):
     def run_process(self, hook_input):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path], input=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
+            [sys.executable, _hook_path], input=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
         )
 
     def run_call(self, tool_name, tool_args):
@@ -70,7 +70,7 @@ class BlockPy314IncompatibleSyntaxTests(unittest.TestCase):
             self.assertIn(part, output['permissionDecisionReason'], message)
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, '-repo-preToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, '-repo-preToolUse.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         relative_path = (
             '.github/hooks/helpers/-repo-events/preToolUse/block-py314-incompatible-syntax/'
@@ -88,14 +88,14 @@ class BlockPy314IncompatibleSyntaxTests(unittest.TestCase):
         self.assertNotRegex('bash', f'^(?:{entries[0]["matcher"]})$')
 
     def test_incompatible_syntax_is_denied(self):
-        for name, source in INCOMPATIBLE_SOURCES:
+        for name, source in _INCOMPATIBLE_SOURCES:
             with self.subTest(name=name):
                 self.assert_denied(
                     self.run_call('create', {'path': 'new.py', 'file_text': source}), ['new.py line 1'], name,
                 )
 
     def test_python_314_syntax_is_allowed(self):
-        for source in [ORIGINAL, *PY314_SOURCES]:
+        for source in [_ORIGINAL, *_PY314_SOURCES]:
             with self.subTest(source=source):
                 self.assert_allowed(
                     self.run_call('create', {'path': 'new.py', 'file_text': source}), 'Python 3.14 syntax must be allowed.',

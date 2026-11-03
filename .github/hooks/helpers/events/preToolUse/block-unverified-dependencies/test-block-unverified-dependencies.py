@@ -8,17 +8,17 @@ import tempfile
 import unittest
 import uuid
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-unverified-dependencies.py')
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-unverified-dependencies.py')
 
-helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(script_directory)))
-hooks_directory = os.path.dirname(helpers_directory)
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
+_hooks_directory = os.path.dirname(_helpers_directory)
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-state = runpy.run_path(os.path.join(helpers_directory, 'utilities', 'verified-packages-state', 'verified-packages-state.py'))
+_state = runpy.run_path(os.path.join(_helpers_directory, 'utilities', 'verified-packages-state', 'verified-packages-state.py'))
 
-CSPROJ = (
+_CSPROJ = (
     '<Project Sdk="Microsoft.NET.Sdk">\n'
     '  <ItemGroup>\n'
     '    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />\n'
@@ -38,13 +38,13 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
         os.makedirs(os.path.join(self.nuget_directory, 'newtonsoft.json', '13.0.3'))
         os.makedirs(os.path.join(self.nuget_directory, 'serilog', '4.0.0'))
         self.write_file('.gitignore', '.nuget-packages/\n.venv/\nnode_modules/\n')
-        self.write_file('App/App.csproj', CSPROJ)
+        self.write_file('App/App.csproj', _CSPROJ)
         self.new_session()
 
     def new_session(self):
         # テストごとに別セッションとし、確認の記録を持ち越さない。
         self.session_id = str(uuid.uuid4())
-        self.state_path = state['get_state_path'](self.session_id)
+        self.state_path = _state['get_state_path'](self.session_id)
         self.addCleanup(lambda path=self.state_path: os.path.exists(path) and os.remove(path))
 
     def write_file(self, path, content):
@@ -55,7 +55,7 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
 
     def run_raw(self, input_bytes):
         environment = dict(os.environ, NUGET_PACKAGES=self.nuget_directory)
-        return subprocess.run([sys.executable, hook_path], input=input_bytes, capture_output=True, env=environment)
+        return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True, env=environment)
 
     def run_call(self, tool_name, tool_args):
         hook_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_name, 'toolArgs': tool_args}
@@ -107,7 +107,7 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
                 self.assert_allowed(self.add_reference('Serilog', version), version)
 
     def test_package_in_other_manifest_is_allowed(self):
-        self.write_file('Lib/Lib.csproj', CSPROJ.replace('Newtonsoft.Json" Version="13.0.3', 'Contoso.Internal" Version="2.0.0'))
+        self.write_file('Lib/Lib.csproj', _CSPROJ.replace('Newtonsoft.Json" Version="13.0.3', 'Contoso.Internal" Version="2.0.0'))
         self.assert_allowed(self.add_reference('Contoso.Internal', '2.0.0'), 'other manifest')
 
     def test_restored_assets_are_allowed(self):
@@ -118,14 +118,14 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
         self.assert_allowed(self.run_call('edit', {
             'path': 'App/App.csproj', 'old_str': '  <ItemGroup>', 'new_str': '  <ItemGroup Label="Packages">',
         }), 'unrelated edit')
-        moved = CSPROJ.replace('Newtonsoft.Json" Version="13.0.3" /', 'Newtonsoft.Json" Version="13.0.3" PrivateAssets="all" /')
+        moved = _CSPROJ.replace('Newtonsoft.Json" Version="13.0.3" /', 'Newtonsoft.Json" Version="13.0.3" PrivateAssets="all" /')
         self.write_file('Other/Other.csproj', '<Project />\n')
         self.assert_allowed(self.create('Other/Other.csproj', moved), 'reference in other manifest')
 
     def test_verified_package_is_allowed(self):
         self.assert_denied(self.add_reference('Contoso.Missing'), ['Contoso.Missing'], 'before verification')
         self.assert_denied(self.add_reference('Contoso.Missing'), ['Contoso.Missing'], 'denied again')
-        state['record_verified'](self.state_path, [('nuget', 'contoso.missing')])
+        _state['record_verified'](self.state_path, [('nuget', 'contoso.missing')])
         self.assert_allowed(self.add_reference('Contoso.Missing', '9.9.9'), 'after verification')
 
     def test_requirements_are_checked(self):
@@ -180,7 +180,7 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
             ['Python module `jsonx` (did you mean `json`?)', 'Python module `zz_missing_module`', 'python -c "import <name>"'],
             'unknown modules',
         )
-        state['record_verified'](self.state_path, [('python-module', 'jsonx'), ('python-module', 'zz_missing_module')])
+        _state['record_verified'](self.state_path, [('python-module', 'jsonx'), ('python-module', 'zz_missing_module')])
         self.assert_allowed(self.create('pkg/main.py', 'import jsonx\nfrom zz_missing_module.sub import x\n'), 'verified modules')
 
     def test_python_module_in_venv_is_allowed(self):

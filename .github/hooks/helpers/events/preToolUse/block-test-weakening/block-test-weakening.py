@@ -13,14 +13,14 @@ from contextlib import closing
 from typing import cast
 
 
-TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
-ASSERTION_PATTERNS_KEY = 'assertionPatterns'
-WEAKENING_PATTERNS_KEY = 'weakeningPatterns'
-WEAKENING = 'weakening'
-ASSERTION_REDUCTION = 'assertion-reduction'
-WEAKENING_REASON = '{file} would get lines that skip, focus, or trivially pass tests ({lines}).'
-ASSERTION_REDUCTION_REASON = '{file} would lose assertions ({old} assertion lines would become {new}).'
-DENY_REASON = (
+_TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
+_ASSERTION_PATTERNS_KEY = 'assertionPatterns'
+_WEAKENING_PATTERNS_KEY = 'weakeningPatterns'
+_WEAKENING = 'weakening'
+_ASSERTION_REDUCTION = 'assertion-reduction'
+_WEAKENING_REASON = '{file} would get lines that skip, focus, or trivially pass tests ({lines}).'
+_ASSERTION_REDUCTION_REASON = '{file} would lose assertions ({old} assertion lines would become {new}).'
+_DENY_REASON = (
     'Edit denied: {findings} Weakening a test to make it pass hides the failure instead of fixing it. '
     'Fix the implementation, or keep the test as it is and report the failure to the user. '
     'If the change is intended, for example when the user asked for it or you are only moving or merging '
@@ -28,27 +28,27 @@ DENY_REASON = (
 )
 
 
-def compile_patterns(patterns, key):
+def _compile_patterns(patterns, key):
     try:
         return [re.compile(pattern) for pattern in patterns]
     except re.PatternError as ex:
         raise ValueError(f'invalid regular expression in {key}: {ex}') from None
 
 
-def is_non_empty_string_list(value):
+def _is_non_empty_string_list(value):
     return isinstance(value, list) and bool(value) and all(isinstance(item, str) and item.strip() for item in value)
 
 
-def load_definitions(path):
+def _load_definitions(path):
     # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
     if not isinstance(definitions, dict):
         raise ValueError('test weakening definitions must be a JSON object.')
-    for key in (TEST_FILE_PATTERNS_KEY, ASSERTION_PATTERNS_KEY):
-        if not is_non_empty_string_list(definitions.get(key)):
+    for key in (_TEST_FILE_PATTERNS_KEY, _ASSERTION_PATTERNS_KEY):
+        if not _is_non_empty_string_list(definitions.get(key)):
             raise ValueError(f'test weakening definitions require a non-empty array of non-empty strings for {key}.')
-    weakening_definitions = definitions.get(WEAKENING_PATTERNS_KEY)
+    weakening_definitions = definitions.get(_WEAKENING_PATTERNS_KEY)
     if not isinstance(weakening_definitions, list) or not weakening_definitions or not all(
         isinstance(definition, dict) and all(
             isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'pattern')
@@ -57,19 +57,19 @@ def load_definitions(path):
     ):
         raise ValueError(
             f'test weakening definitions require a non-empty array of objects with non-empty strings for name and '
-            f'pattern in {WEAKENING_PATTERNS_KEY}.'
+            f'pattern in {_WEAKENING_PATTERNS_KEY}.'
         )
-    weakening_patterns = compile_patterns(
-        [definition['pattern'] for definition in weakening_definitions], WEAKENING_PATTERNS_KEY,
+    weakening_patterns = _compile_patterns(
+        [definition['pattern'] for definition in weakening_definitions], _WEAKENING_PATTERNS_KEY,
     )
     return (
-        compile_patterns(definitions[TEST_FILE_PATTERNS_KEY], TEST_FILE_PATTERNS_KEY),
-        compile_patterns(definitions[ASSERTION_PATTERNS_KEY], ASSERTION_PATTERNS_KEY),
+        _compile_patterns(definitions[_TEST_FILE_PATTERNS_KEY], _TEST_FILE_PATTERNS_KEY),
+        _compile_patterns(definitions[_ASSERTION_PATTERNS_KEY], _ASSERTION_PATTERNS_KEY),
         [(definition['name'], pattern) for definition, pattern in zip(weakening_definitions, weakening_patterns)],
     )
 
 
-def read_existing(path):
+def _read_existing(path):
     try:
         with open(path, encoding='utf-8', errors='replace') as file:
             return file.read()
@@ -77,7 +77,7 @@ def read_existing(path):
         return None
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -88,13 +88,13 @@ def get_display_path(path, cwd):
     return path
 
 
-def is_test_file(test_file_patterns, display_path):
+def _is_test_file(test_file_patterns, display_path):
     # パターンはOSによらず `/` 区切りのパスに対して照合する。
     slash_path = display_path.replace(os.sep, '/')
     return any(pattern.search(slash_path) for pattern in test_file_patterns)
 
 
-def find_weakening_lines(weakening_patterns, written, existing):
+def _find_weakening_lines(weakening_patterns, written, existing):
     # 既存の内容に同じ行があるものは、元からあるものとみなす。
     existing_lines = {line.strip() for line in existing.splitlines()}
     lines = []
@@ -107,12 +107,12 @@ def find_weakening_lines(weakening_patterns, written, existing):
     return lines
 
 
-def count_assertion_lines(assertion_patterns, text):
+def _count_assertion_lines(assertion_patterns, text):
     # 1行に複数のパターンが一致しても1件と数え、パターンの重なりで数がぶれないようにする。
     return sum(1 for line in text.splitlines() if any(pattern.search(line) for pattern in assertion_patterns))
 
 
-def record_denials(state_path, candidates):
+def _record_denials(state_path, candidates):
     # candidates：(ファイルキー, 種類, 理由) のリスト。戻り値は、今回初めて拒否する理由のリスト。
     # 同じファイルの同じ種類の拒否は1回だけにし、意図した編集なら再実行で通す。
     # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
@@ -147,7 +147,7 @@ def main(arguments=None):
     parsed_arguments = parser.parse_args(arguments)
 
     try:
-        test_file_patterns, assertion_patterns, weakening_patterns = load_definitions(
+        test_file_patterns, assertion_patterns, weakening_patterns = _load_definitions(
             parsed_arguments.definitions_path,
         )
 
@@ -186,16 +186,16 @@ def main(arguments=None):
         for change in extract_edit_tool_changes(tool_name, hook_input['toolArgs'], include_deleted=True):
             path = os.path.realpath(os.path.join(cwd, change['path']))
             # テストファイルの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
-            display_path = get_display_path(path, real_cwd)
-            if not is_test_file(test_file_patterns, display_path):
+            display_path = _get_display_path(path, real_cwd)
+            if not _is_test_file(test_file_patterns, display_path):
                 continue
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
             file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
-            current = (read_existing(path) if os.path.isfile(path) else None) or ''
+            current = (_read_existing(path) if os.path.isfile(path) else None) or ''
 
-            lines = find_weakening_lines(weakening_patterns, change['written'], '\n'.join([change['removed'], current]))
+            lines = _find_weakening_lines(weakening_patterns, change['written'], '\n'.join([change['removed'], current]))
             if lines:
-                candidates.append((file_key, WEAKENING, WEAKENING_REASON.format(
+                candidates.append((file_key, _WEAKENING, _WEAKENING_REASON.format(
                     file=display_path, lines=', '.join(f'"{line}"' for line in lines[:3]),
                 )))
 
@@ -206,10 +206,10 @@ def main(arguments=None):
                 removed, written = current, change['full_content']
             else:
                 removed, written = change['removed'], change['written']
-            old_count = count_assertion_lines(assertion_patterns, removed)
-            new_count = count_assertion_lines(assertion_patterns, written)
+            old_count = _count_assertion_lines(assertion_patterns, removed)
+            new_count = _count_assertion_lines(assertion_patterns, written)
             if new_count < old_count:
-                candidates.append((file_key, ASSERTION_REDUCTION, ASSERTION_REDUCTION_REASON.format(
+                candidates.append((file_key, _ASSERTION_REDUCTION, _ASSERTION_REDUCTION_REASON.format(
                     file=display_path, old=old_count, new=new_count,
                 )))
 
@@ -221,13 +221,13 @@ def main(arguments=None):
                 tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-test-weakening',
                 f'{parsed_session_id}.sqlite3',
             )
-            reasons = record_denials(state_path, candidates)
+            reasons = _record_denials(state_path, candidates)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check test weakening: {ex}', file=sys.stderr)
         return 2
 
     if reasons:
-        reason = DENY_REASON.format(findings=' '.join(reasons))
+        reason = _DENY_REASON.format(findings=' '.join(reasons))
         print(reason, file=sys.stderr)
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference

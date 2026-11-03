@@ -7,25 +7,25 @@ import time
 import unittest
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'verify-completion-claims.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'verify-completion-claims.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
-HOOK_TIMESTAMP = 1777777777000
+_HOOK_TIMESTAMP = 1777777777000
 
 
-def user(content, delivery='idle'):
+def _user(content, delivery='idle'):
     return {'type': 'user.message', 'data': {'content': content, 'delivery': delivery}}
 
 
-def assistant(content):
+def _assistant(content):
     return {'type': 'assistant.message', 'data': {'content': content}}
 
 
-def shell(call_id, command, exit_code, tool_name='bash'):
+def _shell(call_id, command, exit_code, tool_name='bash'):
     complete = {'toolCallId': call_id, 'success': exit_code is not None}
     if exit_code is not None:
         complete['shellExecution'] = {'exitCode': exit_code}
@@ -35,8 +35,8 @@ def shell(call_id, command, exit_code, tool_name='bash'):
     ]
 
 
-def agent_stop_start():
-    return {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': HOOK_TIMESTAMP}}}
+def _agent_stop_start():
+    return {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': _HOOK_TIMESTAMP}}}
 
 
 class VerifyCompletionClaimsTests(unittest.TestCase):
@@ -47,7 +47,7 @@ class VerifyCompletionClaimsTests(unittest.TestCase):
         self.transcript_path = os.path.join(self.root, 'events.jsonl')
         self.payload = {
             'sessionId': '00000000-0000-4000-8000-000000000000',
-            'timestamp': HOOK_TIMESTAMP,
+            'timestamp': _HOOK_TIMESTAMP,
             'cwd': self.root,
             'transcriptPath': self.transcript_path,
         }
@@ -59,11 +59,11 @@ class VerifyCompletionClaimsTests(unittest.TestCase):
 
     def invoke(self, events=None, payload=None, raw=None):
         if events is not None:
-            self.write_transcript([*events, agent_stop_start()])
+            self.write_transcript([*events, _agent_stop_start()])
         if raw is None:
             raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path], input=raw,
+            [sys.executable, _hook_path], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
         )
 
@@ -83,7 +83,7 @@ class VerifyCompletionClaimsTests(unittest.TestCase):
         return output['reason']
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         self.assertEqual(configuration['version'], 1)
         entries = configuration['hooks']['agentStop']
@@ -105,43 +105,43 @@ class VerifyCompletionClaimsTests(unittest.TestCase):
         )
         for claim in claims:
             with self.subTest(claim=claim):
-                events = [user('直して'), *shell('c1', 'git status', 0), assistant(claim)]
+                events = [_user('直して'), *_shell('c1', 'git status', 0), _assistant(claim)]
                 self.assert_block(self.invoke(events), 'no test command was run')
 
     def test_blocks_when_last_test_run_failed(self):
         cases = (
-            ([*shell('c1', 'python3 test-a.py', 1)], 'exited with code 1: python3 test-a.py'),
-            ([*shell('c1', 'npm test', 0), *shell('c2', 'pytest -q', 2)], 'exited with code 2: pytest -q'),
-            ([*shell('c1', 'go test ./...', None)], 'did not complete: go test ./...'),
+            ([*_shell('c1', 'python3 test-a.py', 1)], 'exited with code 1: python3 test-a.py'),
+            ([*_shell('c1', 'npm test', 0), *_shell('c2', 'pytest -q', 2)], 'exited with code 2: pytest -q'),
+            ([*_shell('c1', 'go test ./...', None)], 'did not complete: go test ./...'),
         )
         for runs, fragment in cases:
             with self.subTest(fragment=fragment):
-                events = [user('直して'), *runs, assistant('テストが通った。')]
+                events = [_user('直して'), *runs, _assistant('テストが通った。')]
                 self.assert_block(self.invoke(events), fragment)
 
     def test_long_failed_command_is_truncated(self):
         command = 'pytest ' + 'x' * 300
-        events = [user('直して'), *shell('c1', command, 1), assistant('Tests passed.')]
+        events = [_user('直して'), *_shell('c1', command, 1), _assistant('Tests passed.')]
         reason = self.assert_block(self.invoke(events))
         self.assertIn(command[:200] + '...', reason)
         self.assertNotIn(command, reason)
 
     def test_allows_test_claim_with_passing_last_run(self):
         runs = (
-            shell('c1', 'python3 .github/hooks/tests/test-all-hooks.py', 0),
-            shell('c1', 'Invoke-Pester', 0, 'functions.powershell'),
-            [*shell('c1', 'npm test', 1), *shell('c2', 'npm test', 0), *shell('c3', 'grep x y', 1)],
+            _shell('c1', 'python3 .github/hooks/tests/test-all-hooks.py', 0),
+            _shell('c1', 'Invoke-Pester', 0, 'functions.powershell'),
+            [*_shell('c1', 'npm test', 1), *_shell('c2', 'npm test', 0), *_shell('c3', 'grep x y', 1)],
         )
         for events in runs:
             with self.subTest(events=events):
-                self.assert_silent(self.invoke([user('直して'), *events, assistant('テストはすべて通過した。')]))
+                self.assert_silent(self.invoke([_user('直して'), *events, _assistant('テストはすべて通過した。')]))
 
     def test_verification_claim_requires_any_command(self):
         claims = ('動作確認済み。', '機能することを確認した。', 'I verified that it works.')
         for claim in claims:
             with self.subTest(claim=claim):
-                self.assert_block(self.invoke([user('直して'), assistant(claim)]), 'behavior was verified')
-                self.assert_silent(self.invoke([user('直して'), *shell('c1', 'ls', 0), assistant(claim)]))
+                self.assert_block(self.invoke([_user('直して'), _assistant(claim)]), 'behavior was verified')
+                self.assert_silent(self.invoke([_user('直して'), *_shell('c1', 'ls', 0), _assistant(claim)]))
 
     def test_ignores_non_claims(self):
         responses = (
@@ -156,49 +156,49 @@ class VerifyCompletionClaimsTests(unittest.TestCase):
         )
         for response in responses:
             with self.subTest(response=response):
-                self.assert_silent(self.invoke([user('直して'), assistant(response)]))
+                self.assert_silent(self.invoke([_user('直して'), _assistant(response)]))
 
     def test_only_runs_after_latest_user_request_count(self):
         events = [
-            user('前の依頼'), *shell('c1', 'npm test', 0), assistant('テストが通った。'),
-            user('次の依頼'), assistant('テストが通った。'),
+            _user('前の依頼'), *_shell('c1', 'npm test', 0), _assistant('テストが通った。'),
+            _user('次の依頼'), _assistant('テストが通った。'),
         ]
         self.assert_block(self.invoke(events), 'no test command was run')
 
     def test_queued_messages_do_not_reset_the_request(self):
         events = [
-            user('直して'), *shell('c1', 'npm test', 0),
-            user('The final response footer is missing or incorrect.', 'queued'),
-            assistant('テストが通った。'),
+            _user('直して'), *_shell('c1', 'npm test', 0),
+            _user('The final response footer is missing or incorrect.', 'queued'),
+            _assistant('テストが通った。'),
         ]
         self.assert_silent(self.invoke(events))
 
     def test_blocks_only_once_per_request(self):
-        first = [user('直して'), assistant('テストが通った。')]
+        first = [_user('直して'), _assistant('テストが通った。')]
         reason = self.assert_block(self.invoke(first))
-        self.assert_silent(self.invoke([*first, user(reason, 'queued'), assistant('テストが通った。')]))
-        self.assert_block(self.invoke([*first, user(reason, 'queued'), user('次の依頼'), assistant('テストが通った。')]))
+        self.assert_silent(self.invoke([*first, _user(reason, 'queued'), _assistant('テストが通った。')]))
+        self.assert_block(self.invoke([*first, _user(reason, 'queued'), _user('次の依頼'), _assistant('テストが通った。')]))
 
     def test_last_assistant_message_is_checked(self):
-        events = [user('直して'), assistant('テストが通った。'), assistant('テストはまだ実行していない。')]
+        events = [_user('直して'), _assistant('テストが通った。'), _assistant('テストはまだ実行していない。')]
         self.assert_silent(self.invoke(events))
 
     def test_skips_subagents(self):
-        events = [user('直して'), assistant('テストが通った。')]
+        events = [_user('直して'), _assistant('テストが通った。')]
         self.write_transcript(events)
         self.assert_silent(self.invoke(payload={**self.payload, 'agentId': 'child-agent'}))
 
     def test_waits_for_agent_stop_event(self):
-        self.write_transcript([user('直して')])
+        self.write_transcript([_user('直して')])
 
         def append_later():
             time.sleep(0.5)
             with open(self.transcript_path, 'a', encoding='utf-8', newline='\n') as file:
-                for event in (assistant('テストが通った。'), agent_stop_start()):
+                for event in (_assistant('テストが通った。'), _agent_stop_start()):
                     file.write(json.dumps(event, ensure_ascii=False) + '\n')
 
         process = subprocess.Popen(
-            [sys.executable, hook_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            [sys.executable, _hook_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
         process.stdin.write(json.dumps(self.payload).encode('utf-8'))
         process.stdin.close()

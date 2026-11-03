@@ -9,10 +9,10 @@ from datetime import datetime
 from unittest.mock import patch
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'set-adversarial-review-state.py')
-helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(script_directory)))
-hooks_directory = os.path.dirname(helpers_directory)
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'set-adversarial-review-state.py')
+_helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
+_hooks_directory = os.path.dirname(_helpers_directory)
 
 
 class ReviewModeTests(unittest.TestCase):
@@ -29,7 +29,7 @@ class ReviewModeTests(unittest.TestCase):
     def invoke(self, payload):
         raw = payload if isinstance(payload, bytes) else json.dumps(payload).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path], input=raw, capture_output=True,
+            [sys.executable, _hook_path], input=raw, capture_output=True,
             env=self.environment, check=False,
         )
 
@@ -87,7 +87,7 @@ class ReviewModeTests(unittest.TestCase):
 
     def test_existing_debug_hook_and_separate_state(self):
         debug_hook = os.path.join(
-            helpers_directory, 'events', 'userPromptSubmitted', 'set-debug-mode',
+            _helpers_directory, 'events', 'userPromptSubmitted', 'set-debug-mode',
             'set-debug-mode.py',
         )
         debug_path = os.path.join(
@@ -136,7 +136,7 @@ class ReviewModeTests(unittest.TestCase):
         self.assertIn(b'Failed to save adversarial review mode:', result.stderr)
 
     def test_configuration_preserves_existing_hook(self):
-        with open(os.path.join(hooks_directory, 'userPromptSubmitted.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'userPromptSubmitted.json'), encoding='utf-8') as file:
             commands = json.load(file)['hooks']['userPromptSubmitted']
         for key, interpreter in (('bash', 'python3'), ('powershell', 'python')):
             for hook_name in ('set-debug-mode', 'set-adversarial-review-state'):
@@ -149,7 +149,7 @@ class ReviewModeTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+    sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
     from hook_test_output import run_tests
 
     run_tests()

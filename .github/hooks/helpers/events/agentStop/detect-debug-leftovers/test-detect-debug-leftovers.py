@@ -6,31 +6,31 @@ import tempfile
 import unittest
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'detect-debug-leftovers.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'detect-debug-leftovers.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
-HOOK_TIMESTAMP = 1777777777000
-REASON_PREFIX = 'The changes in this request leave debugging code'
+_HOOK_TIMESTAMP = 1777777777000
+_REASON_PREFIX = 'The changes in this request leave debugging code'
 
 
-def user(content, delivery='idle'):
+def _user(content, delivery='idle'):
     return {'type': 'user.message', 'data': {'content': content, 'delivery': delivery}}
 
 
-def assistant(content):
+def _assistant(content):
     return {'type': 'assistant.message', 'data': {'content': content}}
 
 
-def tool(name, arguments, call_id='c1'):
+def _tool(name, arguments, call_id='c1'):
     return {'type': 'tool.execution_start', 'data': {'toolCallId': call_id, 'toolName': name, 'arguments': arguments}}
 
 
-def agent_stop_start():
-    return {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': HOOK_TIMESTAMP}}}
+def _agent_stop_start():
+    return {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': _HOOK_TIMESTAMP}}}
 
 
 class DetectDebugLeftoversTests(unittest.TestCase):
@@ -43,7 +43,7 @@ class DetectDebugLeftoversTests(unittest.TestCase):
         self.transcript_path = os.path.join(self.root, 'events.jsonl')
         self.payload = {
             'sessionId': '00000000-0000-4000-8000-000000000000',
-            'timestamp': HOOK_TIMESTAMP,
+            'timestamp': _HOOK_TIMESTAMP,
             'cwd': self.workspace,
             'transcriptPath': self.transcript_path,
         }
@@ -57,19 +57,19 @@ class DetectDebugLeftoversTests(unittest.TestCase):
     def invoke(self, events=None, payload=None, raw=None, arguments=()):
         if events is not None:
             with open(self.transcript_path, 'w', encoding='utf-8', newline='\n') as file:
-                for event in [*events, agent_stop_start()]:
+                for event in [*events, _agent_stop_start()]:
                     file.write(json.dumps(event, ensure_ascii=False) + '\n')
         if raw is None:
             raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path, *arguments], input=raw,
+            [sys.executable, _hook_path, *arguments], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
         )
 
     def created(self, path, content, response='直した。'):
         # ファイルを作成した依頼のトランスクリプト。
         self.write_file(path, content)
-        return [user('直して'), tool('create', {'path': path, 'file_text': content}), assistant(response)]
+        return [_user('直して'), _tool('create', {'path': path, 'file_text': content}), _assistant(response)]
 
     def assert_silent(self, result):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
@@ -80,13 +80,13 @@ class DetectDebugLeftoversTests(unittest.TestCase):
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
         output = json.loads(result.stdout.decode('utf-8'))
         self.assertEqual(output['decision'], 'block')
-        self.assertTrue(output['reason'].startswith(REASON_PREFIX))
+        self.assertTrue(output['reason'].startswith(_REASON_PREFIX))
         for fragment in fragments:
             self.assertIn(fragment, output['reason'])
         return output['reason']
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         entries = configuration['hooks']['agentStop']
         relative_path = '.github/hooks/helpers/events/agentStop/detect-debug-leftovers/detect-debug-leftovers.py'
@@ -142,12 +142,12 @@ class DetectDebugLeftoversTests(unittest.TestCase):
         self.write_file('b.py', 'def f():\n    breakpoint()\n    return 1\n')
         patch = '*** Begin Patch\n*** Update File: b.py\n def f():\n+    breakpoint()\n     return 1\n*** End Patch'
         events = [
-            user('直して'),
-            tool('functions.edit', json.dumps({
+            _user('直して'),
+            _tool('functions.edit', json.dumps({
                 'path': 'a.ts', 'old_str': 'return x;', 'new_str': 'console.log(x);\n    return x;',
             })),
-            tool('apply_patch', patch, call_id='c2'),
-            assistant('Done.'),
+            _tool('apply_patch', patch, call_id='c2'),
+            _assistant('Done.'),
         ]
         self.assert_block(self.invoke(events), '- a.ts: console output', '- b.py: Python debugger')
 
@@ -157,35 +157,35 @@ class DetectDebugLeftoversTests(unittest.TestCase):
         for path in ('notes.md', 'config.json'):
             self.write_file(path, 'console.log(x);\n')
         events = [
-            user('直して'),
+            _user('直して'),
             # 置換前の内容にもある行は、元からあるものとみなす。
-            tool('edit', {'path': 'kept.ts', 'old_str': 'console.log(x);', 'new_str': 'console.log(x);\nlet y;'}),
+            _tool('edit', {'path': 'kept.ts', 'old_str': 'console.log(x);', 'new_str': 'console.log(x);\nlet y;'}),
             # 後の編集でファイルから消えたデバッグコードは対象外。
-            tool('create', {'path': 'gone.py', 'file_text': 'breakpoint()\nx = 1\n'}, 'c2'),
-            tool('create', {'path': 'notes.md', 'file_text': 'console.log(x);\n'}, 'c3'),
-            tool('create', {'path': 'config.json', 'file_text': 'console.log(x);\n'}, 'c4'),
+            _tool('create', {'path': 'gone.py', 'file_text': 'breakpoint()\nx = 1\n'}, 'c2'),
+            _tool('create', {'path': 'notes.md', 'file_text': 'console.log(x);\n'}, 'c3'),
+            _tool('create', {'path': 'config.json', 'file_text': 'console.log(x);\n'}, 'c4'),
             # 閲覧、削除されたファイルへの書き込み、シェルは対象外。
-            tool('str_replace_editor', {'command': 'view', 'path': 'kept.ts', 'new_str': 'debugger;'}, 'c5'),
-            tool('create', {'path': 'deleted.js', 'file_text': 'debugger;'}, 'c6'),
-            tool('bash', {'command': 'echo "debugger;" > x.js'}, 'c7'),
-            assistant('直した。'),
+            _tool('str_replace_editor', {'command': 'view', 'path': 'kept.ts', 'new_str': 'debugger;'}, 'c5'),
+            _tool('create', {'path': 'deleted.js', 'file_text': 'debugger;'}, 'c6'),
+            _tool('bash', {'command': 'echo "debugger;" > x.js'}, 'c7'),
+            _assistant('直した。'),
         ]
         self.assert_silent(self.invoke(events))
 
     def test_only_latest_request_is_checked(self):
-        events = [*self.created('a.js', 'debugger;\n'), user('READMEを直して'), assistant('直した。')]
+        events = [*self.created('a.js', 'debugger;\n'), _user('READMEを直して'), _assistant('直した。')]
         self.assert_silent(self.invoke(events))
 
     def test_blocks_only_once_per_request(self):
         events = self.created('a.js', 'debugger;\n')
         reason = self.assert_block(self.invoke(events))
-        self.assert_silent(self.invoke([*events, user(reason, delivery='queued'), assistant('消した。')]))
+        self.assert_silent(self.invoke([*events, _user(reason, delivery='queued'), _assistant('消した。')]))
         # 割り込みのメッセージは依頼の区切りにならない。
-        self.assert_block(self.invoke([*events, user('急いで', delivery='queued'), assistant('直した。')]))
+        self.assert_block(self.invoke([*events, _user('急いで', delivery='queued'), _assistant('直した。')]))
 
     def test_skips_subagents_and_turns_without_response(self):
         self.assert_silent(self.invoke(self.created('a.js', 'debugger;\n'), payload={**self.payload, 'agentId': 'sub'}))
-        self.assert_silent(self.invoke([user('直して'), tool('create', {'path': 'a.js', 'file_text': 'x'})]))
+        self.assert_silent(self.invoke([_user('直して'), _tool('create', {'path': 'a.js', 'file_text': 'x'})]))
 
     def test_reports_each_line_once_and_limits_findings(self):
         reason = self.assert_block(self.invoke(self.created('a.js', 'console.log(">>> here");\n')))

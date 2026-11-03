@@ -6,39 +6,39 @@ import tempfile
 import unittest
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'detect-unrequested-changes.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'detect-unrequested-changes.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
-HOOK_TIMESTAMP = 1777777777000
-REASON_PREFIX = 'Some changes in this request are not clearly part of what the user asked for'
-WHITESPACE_ONLY = 'whitespace-only change'
-DELETED = 'deleted although'
-MOVED = 'moved to'
-UNMENTIONED = 'neither the request nor the responses mention this file'
+_HOOK_TIMESTAMP = 1777777777000
+_REASON_PREFIX = 'Some changes in this request are not clearly part of what the user asked for'
+_WHITESPACE_ONLY = 'whitespace-only change'
+_DELETED = 'deleted although'
+_MOVED = 'moved to'
+_UNMENTIONED = 'neither the request nor the responses mention this file'
 
 
-def user(content, delivery='idle'):
+def _user(content, delivery='idle'):
     return {'type': 'user.message', 'data': {'content': content, 'delivery': delivery}}
 
 
-def assistant(content):
+def _assistant(content):
     return {'type': 'assistant.message', 'data': {'content': content}}
 
 
-def tool(name, arguments, call_id='c1'):
+def _tool(name, arguments, call_id='c1'):
     return {'type': 'tool.execution_start', 'data': {'toolCallId': call_id, 'toolName': name, 'arguments': arguments}}
 
 
-def edit(path, old='a', new='b', call_id='c1'):
-    return tool('edit', {'path': path, 'old_str': old, 'new_str': new}, call_id)
+def _edit(path, old='a', new='b', call_id='c1'):
+    return _tool('edit', {'path': path, 'old_str': old, 'new_str': new}, call_id)
 
 
-def agent_stop_start():
-    return {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': HOOK_TIMESTAMP}}}
+def _agent_stop_start():
+    return {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': _HOOK_TIMESTAMP}}}
 
 
 class DetectUnrequestedChangesTests(unittest.TestCase):
@@ -51,7 +51,7 @@ class DetectUnrequestedChangesTests(unittest.TestCase):
         self.transcript_path = os.path.join(self.root, 'events.jsonl')
         self.payload = {
             'sessionId': '00000000-0000-4000-8000-000000000000',
-            'timestamp': HOOK_TIMESTAMP,
+            'timestamp': _HOOK_TIMESTAMP,
             'cwd': self.workspace,
             'transcriptPath': self.transcript_path,
         }
@@ -59,12 +59,12 @@ class DetectUnrequestedChangesTests(unittest.TestCase):
     def invoke(self, events=None, payload=None, raw=None, arguments=()):
         if events is not None:
             with open(self.transcript_path, 'w', encoding='utf-8', newline='\n') as file:
-                for event in [*events, agent_stop_start()]:
+                for event in [*events, _agent_stop_start()]:
                     file.write(json.dumps(event, ensure_ascii=False) + '\n')
         if raw is None:
             raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path, *arguments], input=raw,
+            [sys.executable, _hook_path, *arguments], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
         )
 
@@ -77,13 +77,13 @@ class DetectUnrequestedChangesTests(unittest.TestCase):
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
         output = json.loads(result.stdout.decode('utf-8'))
         self.assertEqual(output['decision'], 'block')
-        self.assertTrue(output['reason'].startswith(REASON_PREFIX))
+        self.assertTrue(output['reason'].startswith(_REASON_PREFIX))
         for fragment in fragments:
             self.assertIn(fragment, output['reason'])
         return output['reason']
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         entries = configuration['hooks']['agentStop']
         relative_path = '.github/hooks/helpers/events/agentStop/detect-unrequested-changes/detect-unrequested-changes.py'
@@ -96,28 +96,28 @@ class DetectUnrequestedChangesTests(unittest.TestCase):
 
     def test_blocks_unmentioned_files(self):
         events = [
-            user('src/app.py のバグを直して'),
-            edit('src/app.py'),
-            edit('src/util/helpers.py', call_id='c2'),
-            assistant('src/app.py を直した。'),
+            _user('src/app.py のバグを直して'),
+            _edit('src/app.py'),
+            _edit('src/util/helpers.py', call_id='c2'),
+            _assistant('src/app.py を直した。'),
         ]
-        reason = self.assert_block(self.invoke(events), f'- src/util/helpers.py: changed, but {UNMENTIONED}')
+        reason = self.assert_block(self.invoke(events), f'- src/util/helpers.py: changed, but {_UNMENTIONED}')
         self.assertNotIn('- src/app.py', reason)
 
     def test_files_mentioned_in_request_or_responses_are_allowed(self):
         cases = [
             # ファイル名
-            ([user('a.py を直して'), edit('lib/a.py'), assistant('直した。')]),
+            ([_user('a.py を直して'), _edit('lib/a.py'), _assistant('直した。')]),
             # 応答でのパスの言及（大文字小文字は区別しない）
-            ([user('直して'), edit('lib/Config.cs'), assistant('`lib/config.cs` を直した。')]),
+            ([_user('直して'), _edit('lib/Config.cs'), _assistant('`lib/config.cs` を直した。')]),
             # 途中の応答での言及
-            ([user('直して'), assistant('まず b.py を直す。'), edit('b.py'), assistant('直した。')]),
+            ([_user('直して'), _assistant('まず b.py を直す。'), _edit('b.py'), _assistant('直した。')]),
             # 拡張子を除いた名前
-            ([user('READMEを直して'), edit('README.md'), assistant('直した。')]),
+            ([_user('READMEを直して'), _edit('README.md'), _assistant('直した。')]),
             # 親ディレクトリ名
-            ([user('detect-foo hookを作って'), edit('hooks/detect-foo/test-detect-foo.py'), assistant('作った。')]),
+            ([_user('detect-foo hookを作って'), _edit('hooks/detect-foo/test-detect-foo.py'), _assistant('作った。')]),
             # 割り込みの指示での言及
-            ([user('直して'), user('ついでに notes.py も', delivery='queued'), edit('notes.py'), assistant('直した。')]),
+            ([_user('直して'), _user('ついでに notes.py も', delivery='queued'), _edit('notes.py'), _assistant('直した。')]),
         ]
         for events in cases:
             with self.subTest(events=events[0]['data']['content']):
@@ -125,8 +125,8 @@ class DetectUnrequestedChangesTests(unittest.TestCase):
 
     def test_short_name_parts_are_not_enough(self):
         # 短い名前は偶然一致しやすいため、拡張子を除いた名前や親ディレクトリ名では判定しない。
-        events = [user('aの値を直して'), edit('src/a.py'), assistant('直した。')]
-        self.assert_block(self.invoke(events), f'- src/a.py: changed, but {UNMENTIONED}')
+        events = [_user('aの値を直して'), _edit('src/a.py'), _assistant('直した。')]
+        self.assert_block(self.invoke(events), f'- src/a.py: changed, but {_UNMENTIONED}')
 
     def test_whitespace_only_changes(self):
         cases = [
@@ -137,8 +137,8 @@ class DetectUnrequestedChangesTests(unittest.TestCase):
         ]
         for tool_name, arguments in cases:
             with self.subTest(tool_name=tool_name):
-                events = [user('a.py の不具合を直して'), tool(tool_name, arguments), assistant('a.py を直した。')]
-                self.assert_block(self.invoke(events), f'- a.py: {WHITESPACE_ONLY}')
+                events = [_user('a.py の不具合を直して'), _tool(tool_name, arguments), _assistant('a.py を直した。')]
+                self.assert_block(self.invoke(events), f'- a.py: {_WHITESPACE_ONLY}')
 
     def test_whitespace_changes_are_allowed_when_requested_or_not_whitespace_only(self):
         for request, old, new in [
@@ -148,7 +148,7 @@ class DetectUnrequestedChangesTests(unittest.TestCase):
             ('a.py に追記して', '', '    '),
         ]:
             with self.subTest(request=request, new=new):
-                events = [user(request), edit('a.py', old, new), assistant('a.py を直した。')]
+                events = [_user(request), _edit('a.py', old, new), _assistant('a.py を直した。')]
                 self.assert_silent(self.invoke(events))
 
     def test_deletions_and_moves(self):
@@ -156,53 +156,53 @@ class DetectUnrequestedChangesTests(unittest.TestCase):
             '*** Begin Patch\n*** Delete File: old.py\n'
             '*** Update File: a.py\n*** Move to: lib/a.py\n@@\n-x = 1\n+x = 2\n*** End Patch'
         )
-        events = [user('old.py と a.py の不具合を直して'), tool('apply_patch', patch), assistant('old.py と a.py を直した。')]
-        self.assert_block(self.invoke(events), f'- old.py: {DELETED}', f'- a.py: {MOVED} lib/a.py')
+        events = [_user('old.py と a.py の不具合を直して'), _tool('apply_patch', patch), _assistant('old.py と a.py を直した。')]
+        self.assert_block(self.invoke(events), f'- old.py: {_DELETED}', f'- a.py: {_MOVED} lib/a.py')
         for request in ('old.py を削除して a.py を移動して', 'Remove old.py and move a.py'):
             with self.subTest(request=request):
-                self.assert_silent(self.invoke([user(request), tool('apply_patch', patch), assistant('対応した。')]))
+                self.assert_silent(self.invoke([_user(request), _tool('apply_patch', patch), _assistant('対応した。')]))
 
     def test_reasons_for_the_same_file_are_combined(self):
         events = [
-            user('直して'),
-            edit('a.py', 'x=1', 'x = 1'),
-            edit('a.py', 'y=1', 'y = 1', call_id='c2'),
-            assistant('直した。'),
+            _user('直して'),
+            _edit('a.py', 'x=1', 'x = 1'),
+            _edit('a.py', 'y=1', 'y = 1', call_id='c2'),
+            _assistant('直した。'),
         ]
-        reason = self.assert_block(self.invoke(events), f'- a.py: {WHITESPACE_ONLY}')
+        reason = self.assert_block(self.invoke(events), f'- a.py: {_WHITESPACE_ONLY}')
         self.assertEqual(reason.count('- a.py:'), 1)
-        self.assertEqual(reason.count(WHITESPACE_ONLY), 1)
-        self.assertIn(UNMENTIONED, reason)
+        self.assertEqual(reason.count(_WHITESPACE_ONLY), 1)
+        self.assertIn(_UNMENTIONED, reason)
 
     def test_ignores_excluded_files_views_and_shell(self):
         events = [
-            user('直して'),
-            edit('package-lock.json'),
-            edit('sub/yarn.lock', call_id='c2'),
-            tool('str_replace_editor', {'command': 'view', 'path': 'hidden.py'}, 'c3'),
-            tool('bash', {'command': 'echo x > hidden.py'}, 'c4'),
-            assistant('直した。'),
+            _user('直して'),
+            _edit('package-lock.json'),
+            _edit('sub/yarn.lock', call_id='c2'),
+            _tool('str_replace_editor', {'command': 'view', 'path': 'hidden.py'}, 'c3'),
+            _tool('bash', {'command': 'echo x > hidden.py'}, 'c4'),
+            _assistant('直した。'),
         ]
         self.assert_silent(self.invoke(events))
 
     def test_only_latest_request_is_checked(self):
-        events = [user('直して'), edit('hidden.py'), assistant('直した。'), user('説明して'), assistant('説明した。')]
+        events = [_user('直して'), _edit('hidden.py'), _assistant('直した。'), _user('説明して'), _assistant('説明した。')]
         self.assert_silent(self.invoke(events))
 
     def test_blocks_only_once_per_request(self):
-        events = [user('直して'), edit('hidden.py'), assistant('直した。')]
+        events = [_user('直して'), _edit('hidden.py'), _assistant('直した。')]
         reason = self.assert_block(self.invoke(events))
-        self.assert_silent(self.invoke([*events, user(reason, delivery='queued'), assistant('戻した。')]))
+        self.assert_silent(self.invoke([*events, _user(reason, delivery='queued'), _assistant('戻した。')]))
         # 割り込みのメッセージは依頼の区切りにならない。
-        self.assert_block(self.invoke([*events, user('急いで', delivery='queued'), assistant('直した。')]))
+        self.assert_block(self.invoke([*events, _user('急いで', delivery='queued'), _assistant('直した。')]))
 
     def test_skips_subagents_and_turns_without_response(self):
-        events = [user('直して'), edit('hidden.py'), assistant('直した。')]
+        events = [_user('直して'), _edit('hidden.py'), _assistant('直した。')]
         self.assert_silent(self.invoke(events, payload={**self.payload, 'agentId': 'sub'}))
-        self.assert_silent(self.invoke([user('直して'), edit('hidden.py')]))
+        self.assert_silent(self.invoke([_user('直して'), _edit('hidden.py')]))
 
     def test_limits_findings(self):
-        events = [user('直して'), *(edit(f'file{index:02}.py', call_id=f'c{index}') for index in range(12)), assistant('直した。')]
+        events = [_user('直して'), *(_edit(f'file{index:02}.py', call_id=f'c{index}') for index in range(12)), _assistant('直した。')]
         reason = self.assert_block(self.invoke(events), 'file09.py')
         self.assertNotIn('file10.py', reason)
 
@@ -241,7 +241,7 @@ class DetectUnrequestedChangesTests(unittest.TestCase):
                 with open(definitions_path, 'w', encoding='utf-8') as file:
                     file.write(content)
                 result = self.invoke(
-                    [user('直して'), edit('a.py'), assistant('直した。')], arguments=('--definitions-path', definitions_path),
+                    [_user('直して'), _edit('a.py'), _assistant('直した。')], arguments=('--definitions-path', definitions_path),
                 )
                 self.assertEqual((result.returncode, result.stdout), (2, b''), name)
                 self.assertIn(b'Failed to detect unrequested changes:', result.stderr)

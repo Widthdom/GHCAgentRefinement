@@ -7,15 +7,15 @@ import tempfile
 import unittest
 import uuid
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-test-weakening.py')
-state_directory = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-test-weakening')
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-test-weakening.py')
+_state_directory = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-test-weakening')
 
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-ORIGINAL = (
+_ORIGINAL = (
     'def test_add():\n'
     '    assert add(1, 2) == 3\n'
     '    assert add(0, 0) == 0\n'
@@ -25,8 +25,8 @@ ORIGINAL = (
 )
 
 
-def run_hook(input_bytes, *arguments):
-    return subprocess.run([sys.executable, hook_path, *arguments], input=input_bytes, capture_output=True)
+def _run_hook(input_bytes, *arguments):
+    return subprocess.run([sys.executable, _hook_path, *arguments], input=input_bytes, capture_output=True)
 
 
 class BlockTestWeakeningTests(unittest.TestCase):
@@ -34,7 +34,7 @@ class BlockTestWeakeningTests(unittest.TestCase):
         self.directory = os.path.realpath(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.directory, ignore_errors=True)
         self.new_session()
-        self.write_file('test_math.py', ORIGINAL)
+        self.write_file('test_math.py', _ORIGINAL)
         self.write_file('math.py', 'def add(a, b):\n    assert a is not None\n    return a + b\n')
 
     def write_file(self, path, content):
@@ -46,12 +46,12 @@ class BlockTestWeakeningTests(unittest.TestCase):
     def new_session(self):
         # テストごとに別セッションとし、拒否の記録を持ち越さない。
         self.session_id = str(uuid.uuid4())
-        state_path = os.path.join(state_directory, f'{self.session_id}.sqlite3')
+        state_path = os.path.join(_state_directory, f'{self.session_id}.sqlite3')
         self.addCleanup(lambda: os.path.exists(state_path) and os.remove(state_path))
 
     def run_call(self, tool_call):
         hook_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']}
-        return run_hook(json.dumps(hook_input).encode('utf-8'))
+        return _run_hook(json.dumps(hook_input).encode('utf-8'))
 
     def assert_allowed(self, result, message):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''), message)
@@ -248,7 +248,7 @@ class BlockTestWeakeningTests(unittest.TestCase):
             ('invalid utf-8', b'\xff'),
         ]:
             with self.subTest(name=name):
-                result = run_hook(hook_input)
+                result = _run_hook(hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertEqual(result.stdout, b'', name)
                 self.assertIn(b'Failed to check test weakening:', result.stderr)
@@ -272,7 +272,7 @@ class BlockTestWeakeningTests(unittest.TestCase):
                 path = os.path.join(self.directory, f'definitions-{name.replace(" ", "-")}.json')
                 with open(path, 'w', encoding='utf-8') as file:
                     file.write(content if isinstance(content, str) else json.dumps(content))
-                result = run_hook(valid_input, '--definitions-path', path)
+                result = _run_hook(valid_input, '--definitions-path', path)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to check test weakening:', result.stderr)
 

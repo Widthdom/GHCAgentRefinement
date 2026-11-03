@@ -10,7 +10,7 @@ import uuid
 from typing import cast
 
 
-def code_block(content, language):
+def _code_block(content, language):
     # プロンプト中の```などでログのコードブロックが閉じない長さにする。
     fence_length = max([3] + [len(match[0]) + 1 for match in re.finditer(r'`+', content)])
     fence = '`' * fence_length
@@ -18,7 +18,7 @@ def code_block(content, language):
     return f'{fence}{language}\n{content}{ending}{fence}\n'
 
 
-def format_log(hook_input, session_id):
+def _format_log(hook_input, session_id):
     prompt = hook_input['prompt']
     transformed_prompt = hook_input['transformedPrompt']
     difference = []
@@ -36,18 +36,18 @@ def format_log(hook_input, session_id):
         {'sessionId': str(session_id), 'timestamp': hook_input['timestamp'], 'cwd': hook_input['cwd']},
         ensure_ascii=False, indent=2,
     )
-    diff_section = code_block(''.join(difference), 'diff') if difference else 'No differences.\n'
+    diff_section = _code_block(''.join(difference), 'diff') if difference else 'No differences.\n'
     return (
         '# Prompt transformation\n\n'
         '## Difference (`prompt` → `transformedPrompt`)\n\n' + diff_section + '\n'
-        '## User prompt (`prompt`)\n\n' + code_block(prompt, 'text') + '\n'
+        '## User prompt (`prompt`)\n\n' + _code_block(prompt, 'text') + '\n'
         '## Model-facing prompt (`transformedPrompt`)\n\n'
-        + code_block(transformed_prompt, 'text') + '\n'
-        '## Event\n\n' + code_block(metadata, 'json')
+        + _code_block(transformed_prompt, 'text') + '\n'
+        '## Event\n\n' + _code_block(metadata, 'json')
     )
 
 
-def save_log(content, session_id, timestamp):
+def _save_log(content, session_id, timestamp):
     log_directory = os.path.join(
         tempfile.gettempdir(), 'ghc-agent-refinement', 'debug-logs', 'prompt-transformations', str(session_id),
     )
@@ -114,7 +114,7 @@ def main():
         if type(timestamp) is not int or timestamp < 0:
             raise ValueError('timestamp must be a non-negative Unix millisecond integer.')
 
-        save_log(format_log(hook_input, parsed_session_id), parsed_session_id, timestamp)
+        _save_log(_format_log(hook_input, parsed_session_id), parsed_session_id, timestamp)
     except (OSError, UnicodeError, ValueError, SyntaxError, KeyError) as ex:
         print(f'Failed to log transformed prompt: {ex}', file=sys.stderr)
         return 2

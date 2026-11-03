@@ -6,19 +6,19 @@ import sys
 import unittest
 import uuid
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'record-verified-packages.py')
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'record-verified-packages.py')
 
-helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(script_directory)))
-hooks_directory = os.path.dirname(helpers_directory)
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
+_hooks_directory = os.path.dirname(_helpers_directory)
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-state = runpy.run_path(os.path.join(helpers_directory, 'utilities', 'verified-packages-state', 'verified-packages-state.py'))
+_state = runpy.run_path(os.path.join(_helpers_directory, 'utilities', 'verified-packages-state', 'verified-packages-state.py'))
 
 
-def run_hook(input_bytes):
-    return subprocess.run([sys.executable, hook_path], input=input_bytes, capture_output=True)
+def _run_hook(input_bytes):
+    return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True)
 
 
 class RecordVerifiedPackagesTests(unittest.TestCase):
@@ -28,7 +28,7 @@ class RecordVerifiedPackagesTests(unittest.TestCase):
     def new_session(self):
         # テストごとに別セッションとし、確認の記録を持ち越さない。
         self.session_id = str(uuid.uuid4())
-        self.state_path = state['get_state_path'](self.session_id)
+        self.state_path = _state['get_state_path'](self.session_id)
         self.addCleanup(lambda path=self.state_path: os.path.exists(path) and os.remove(path))
 
     def run_call(self, tool_name, tool_args, output):
@@ -36,9 +36,9 @@ class RecordVerifiedPackagesTests(unittest.TestCase):
             'sessionId': self.session_id, 'cwd': os.getcwd(), 'toolName': tool_name, 'toolArgs': tool_args,
             'toolResult': {'resultType': 'success', 'textResultForLlm': output},
         }
-        result = run_hook(json.dumps(hook_input).encode('utf-8'))
+        result = _run_hook(json.dumps(hook_input).encode('utf-8'))
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
-        return state['get_verified'](self.state_path)
+        return _state['get_verified'](self.state_path)
 
     def test_registry_queries_are_recorded(self):
         cases = [
@@ -125,7 +125,7 @@ class RecordVerifiedPackagesTests(unittest.TestCase):
         ]
         for input_bytes in inputs:
             with self.subTest(input_bytes=input_bytes):
-                result = run_hook(input_bytes)
+                result = _run_hook(input_bytes)
                 self.assertEqual(result.returncode, 2, input_bytes)
                 self.assertIn(b'Failed to record verified packages', result.stderr)
 

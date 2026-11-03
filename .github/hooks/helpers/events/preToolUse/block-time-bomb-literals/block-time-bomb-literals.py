@@ -14,30 +14,30 @@ from contextlib import closing
 from typing import cast
 
 
-TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
+_TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
 # 文字列の中の日付（`2026-11-03`・`2026/11/03`）。バージョン番号（`1.2026-...`）の一部は除く。
-ISO_DATE_PATTERN = re.compile(r'(?<![\d.])(20\d{2})([-/])(\d{1,2})\2(\d{1,2})(?!\d)')
+_ISO_DATE_PATTERN = re.compile(r'(?<![\d.])(20\d{2})([-/])(\d{1,2})\2(\d{1,2})(?!\d)')
 # 年・月・日を引数に取る日付の生成（C#・Python・Java・Kotlin・Ruby・Go・Rust）。月は1始まり。
 # Goの月は `time.November` のような名前でもよい。
-CONSTRUCTOR_DATE_PATTERN = re.compile(
+_CONSTRUCTOR_DATE_PATTERN = re.compile(
     r'\b(?:DateTime(?:Offset)?|DateOnly|DateTimeImmutable|datetime|date|Date\.new|DateTime\.new'
     r'|Time\.(?:new|local|utc|gm|mktime)|(?:LocalDate|LocalDateTime|ZonedDateTime|OffsetDateTime)\.of'
     r'|time\.Date|NaiveDate::from_ymd(?:_opt)?)\s*\(\s*(20\d{2})\s*,\s*(?:time\.)?(\d{1,2}|[A-Z][a-z]+)\s*,\s*(\d{1,2})(?!\d)'
 )
 # JavaScriptの `new Date(年, 月, 日)`・`Date.UTC(年, 月, 日)`。月は0始まり。
-ZERO_BASED_MONTH_DATE_PATTERN = re.compile(
+_ZERO_BASED_MONTH_DATE_PATTERN = re.compile(
     r'(?:\bnew\s+Date|\bDate\.UTC)\s*\(\s*(20\d{2})\s*,\s*(\d{1,2})\s*,\s*(\d{1,2})(?!\d)'
 )
-MONTH_NAMES = {
+_MONTH_NAMES = {
     name: number for number, name in enumerate(
         ('January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October',
          'November', 'December'), 1,
     )
 }
 # コメント行の日付は判定に使わない。
-COMMENT_LINE_PATTERN = re.compile(r'^\s*(?:#|//|/\*|\*|--|<!--)')
-FINDING = '{file} writes {literal} ({date}) and reads the current time with {clock}'
-DENY_REASON = (
+_COMMENT_LINE_PATTERN = re.compile(r'^\s*(?:#|//|/\*|\*|--|<!--)')
+_FINDING = '{file} writes {literal} ({date}) and reads the current time with {clock}'
+_DENY_REASON = (
     'Edit denied: {findings}. Today is {today}, so the test compares a fixed date close to today with the real '
     'clock and will start failing (or silently change meaning) once that date passes. '
     'Derive the date from the current time (for example today + 30 days), or freeze the clock with a fake '
@@ -47,22 +47,22 @@ DENY_REASON = (
 )
 
 
-def load_test_file_patterns(path):
+def _load_test_file_patterns(path):
     # テストファイルの判定はblock-test-weakening hookの定義を共有し、二重管理しない。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
-    patterns = definitions.get(TEST_FILE_PATTERNS_KEY) if isinstance(definitions, dict) else None
+    patterns = definitions.get(_TEST_FILE_PATTERNS_KEY) if isinstance(definitions, dict) else None
     if not isinstance(patterns, list) or not patterns or not all(
         isinstance(pattern, str) and pattern.strip() for pattern in patterns
     ):
-        raise ValueError(f'test file definitions require a non-empty array of non-empty strings for {TEST_FILE_PATTERNS_KEY}.')
+        raise ValueError(f'test file definitions require a non-empty array of non-empty strings for {_TEST_FILE_PATTERNS_KEY}.')
     try:
         return [re.compile(pattern) for pattern in patterns]
     except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {TEST_FILE_PATTERNS_KEY}: {ex}') from None
+        raise ValueError(f'invalid regular expression in {_TEST_FILE_PATTERNS_KEY}: {ex}') from None
 
 
-def load_definitions(path):
+def _load_definitions(path):
     # 戻り値は {pastDays, futureDays, clockPatterns, frozenClockPatterns}。正規表現はコンパイル済み。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
@@ -87,7 +87,7 @@ def load_definitions(path):
     return loaded
 
 
-def read_existing(path):
+def _read_existing(path):
     try:
         with open(path, encoding='utf-8', errors='replace') as file:
             return file.read()
@@ -95,7 +95,7 @@ def read_existing(path):
         return None
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示す。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -106,9 +106,9 @@ def get_display_path(path, cwd):
     return path.replace(os.sep, '/')
 
 
-def to_date(year, month, day):
+def _to_date(year, month, day):
     # 戻り値は日付。存在しない日付（2月30日など）や読めない月名はNone。
-    month_number = int(month) if month.isdigit() else MONTH_NAMES.get(month)
+    month_number = int(month) if month.isdigit() else _MONTH_NAMES.get(month)
     if month_number is None:
         return None
     try:
@@ -117,28 +117,28 @@ def to_date(year, month, day):
         return None
 
 
-def find_date_literals(text):
+def _find_date_literals(text):
     # 戻り値は (書かれた文字列, 日付) のリスト。コメント行は除く。
     found = []
     for line in text.splitlines():
-        if COMMENT_LINE_PATTERN.match(line):
+        if _COMMENT_LINE_PATTERN.match(line):
             continue
-        for match in ISO_DATE_PATTERN.finditer(line):
-            found.append((match.group(0), to_date(match.group(1), match.group(3), match.group(4))))
-        for match in CONSTRUCTOR_DATE_PATTERN.finditer(line):
-            found.append((match.group(0), to_date(match.group(1), match.group(2), match.group(3))))
-        for match in ZERO_BASED_MONTH_DATE_PATTERN.finditer(line):
-            found.append((match.group(0), to_date(match.group(1), str(int(match.group(2)) + 1), match.group(3))))
+        for match in _ISO_DATE_PATTERN.finditer(line):
+            found.append((match.group(0), _to_date(match.group(1), match.group(3), match.group(4))))
+        for match in _CONSTRUCTOR_DATE_PATTERN.finditer(line):
+            found.append((match.group(0), _to_date(match.group(1), match.group(2), match.group(3))))
+        for match in _ZERO_BASED_MONTH_DATE_PATTERN.finditer(line):
+            found.append((match.group(0), _to_date(match.group(1), str(int(match.group(2)) + 1), match.group(3))))
     return [(literal, date) for literal, date in found if date is not None]
 
 
-def get_added_text(removed, written):
+def _get_added_text(removed, written):
     # 置換前にもあった行は、今回書き加えた日付ではないため除く。
     removed_lines = {line.strip() for line in removed.splitlines()}
     return '\n'.join(line for line in written.splitlines() if line.strip() not in removed_lines)
 
 
-def find_time_bomb(definitions, today, added, content):
+def _find_time_bomb(definitions, today, added, content):
     # 戻り値は最初に見つけた (日付の文字列, 日付, 現在時刻の参照)。見つからなければNone。
     if any(pattern.search(content) for pattern in definitions['frozenClockPatterns']):
         return None
@@ -147,13 +147,13 @@ def find_time_bomb(definitions, today, added, content):
         return None
     earliest = today - datetime.timedelta(days=definitions['pastDays'])
     latest = today + datetime.timedelta(days=definitions['futureDays'])
-    for literal, date in find_date_literals(added):
+    for literal, date in _find_date_literals(added):
         if earliest <= date <= latest:
             return literal, date, clock
     return None
 
 
-def record_denial(state_path, path):
+def _record_denial(state_path, path):
     # 戻り値は、このファイルを今回初めて拒否するか。同じファイルの拒否はセッションで1回だけにする。
     # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
     # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
@@ -166,7 +166,7 @@ def record_denial(state_path, path):
             return bool(connection.execute('INSERT OR IGNORE INTO denials (file) VALUES (?)', (file_key,)).rowcount)
 
 
-def parse_today(value):
+def _parse_today(value):
     try:
         return datetime.date.fromisoformat(value)
     except ValueError:
@@ -188,13 +188,13 @@ def main(arguments=None):
             os.path.dirname(script_directory), 'block-test-weakening', 'test-weakening-definitions.json',
         ),
     )
-    parser.add_argument('--today', type=parse_today, default=None)
+    parser.add_argument('--today', type=_parse_today, default=None)
     parsed_arguments = parser.parse_args(arguments)
     today = parsed_arguments.today or datetime.date.today()
 
     try:
-        definitions = load_definitions(parsed_arguments.definitions_path)
-        test_file_patterns = load_test_file_patterns(parsed_arguments.test_file_definitions_path)
+        definitions = _load_definitions(parsed_arguments.definitions_path)
+        test_file_patterns = _load_test_file_patterns(parsed_arguments.test_file_definitions_path)
 
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
         if not hook_input_json.strip():
@@ -232,20 +232,20 @@ def main(arguments=None):
         candidates = []
         for change in changes:
             path = os.path.realpath(os.path.join(cwd, change['path']))
-            display_path = get_display_path(path, real_cwd)
+            display_path = _get_display_path(path, real_cwd)
             # テストファイルのパターンはOSによらず `/` 区切りのパスに対して照合する。
             if not any(pattern.search(display_path) for pattern in test_file_patterns):
                 continue
-            current = (read_existing(path) if os.path.isfile(path) else None) or ''
+            current = (_read_existing(path) if os.path.isfile(path) else None) or ''
             # 上書きではファイル全体と現在の内容、それ以外では書き込む内容と置換前の内容を比べる。
             # 現在時刻の参照は、編集後のファイルにあればよいため、現在の内容と書き込む内容の両方から探す。
             if change['full_content'] is not None:
-                added = get_added_text(current, change['full_content'])
+                added = _get_added_text(current, change['full_content'])
                 content = change['full_content']
             else:
-                added = get_added_text(change['removed'], change['written'])
+                added = _get_added_text(change['removed'], change['written'])
                 content = current + '\n' + change['written']
-            time_bomb = find_time_bomb(definitions, today, added, content)
+            time_bomb = _find_time_bomb(definitions, today, added, content)
             if time_bomb:
                 candidates.append((path, display_path, time_bomb))
 
@@ -258,14 +258,14 @@ def main(arguments=None):
                 f'{parsed_session_id}.sqlite3',
             )
             for path, display_path, (literal, date, clock) in candidates:
-                if record_denial(state_path, path):
-                    findings.append(FINDING.format(file=display_path, literal=literal, date=date.isoformat(), clock=clock))
+                if _record_denial(state_path, path):
+                    findings.append(_FINDING.format(file=display_path, literal=literal, date=date.isoformat(), clock=clock))
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check time bomb literals: {ex}', file=sys.stderr)
         return 2
 
     if findings:
-        reason = DENY_REASON.format(findings='; '.join(findings), today=today.isoformat())
+        reason = _DENY_REASON.format(findings='; '.join(findings), today=today.isoformat())
         print(reason, file=sys.stderr)
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference

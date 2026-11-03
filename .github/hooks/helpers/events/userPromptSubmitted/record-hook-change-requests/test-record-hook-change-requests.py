@@ -7,10 +7,10 @@ import unittest
 import uuid
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'record-hook-change-requests.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'record-hook-change-requests.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
@@ -39,7 +39,7 @@ class RecordHookChangeRequestsTests(unittest.TestCase):
     def run_process(self, hook_input):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path], input=raw,
+            [sys.executable, _hook_path], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
         )
 
@@ -56,7 +56,7 @@ class RecordHookChangeRequestsTests(unittest.TestCase):
             return json.load(file)
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'userPromptSubmitted.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'userPromptSubmitted.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         relative_path = '.github/hooks/helpers/events/userPromptSubmitted/record-hook-change-requests/record-hook-change-requests.py'
         entries = configuration['hooks']['userPromptSubmitted']

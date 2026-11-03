@@ -7,19 +7,19 @@ import unittest
 import uuid
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-invisible-characters.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-invisible-characters.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 # 見えない文字は、テストのコード上で見えるようにchrで書く。
-ZERO_WIDTH_SPACE = chr(0x200B)  # ゼロ幅スペース
-BOM = chr(0xFEFF)  # バイトオーダーマーク・ゼロ幅ノーブレークスペース
-RIGHT_TO_LEFT_OVERRIDE = chr(0x202E)  # 右から左への上書き
-SOFT_HYPHEN = chr(0x00AD)  # ソフトハイフン
-NO_BREAK_SPACE = chr(0x00A0)  # ノーブレークスペース
-IDEOGRAPHIC_SPACE = chr(0x3000)  # 全角スペース
+_ZERO_WIDTH_SPACE = chr(0x200B)  # ゼロ幅スペース
+_BOM = chr(0xFEFF)  # バイトオーダーマーク・ゼロ幅ノーブレークスペース
+_RIGHT_TO_LEFT_OVERRIDE = chr(0x202E)  # 右から左への上書き
+_SOFT_HYPHEN = chr(0x00AD)  # ソフトハイフン
+_NO_BREAK_SPACE = chr(0x00A0)  # ノーブレークスペース
+_IDEOGRAPHIC_SPACE = chr(0x3000)  # 全角スペース
 
 
 class BlockInvisibleCharactersTests(unittest.TestCase):
@@ -47,7 +47,7 @@ class BlockInvisibleCharactersTests(unittest.TestCase):
     def run_process(self, hook_input, *arguments):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path, *arguments], input=raw,
+            [sys.executable, _hook_path, *arguments], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
         )
 
@@ -69,7 +69,7 @@ class BlockInvisibleCharactersTests(unittest.TestCase):
         return output['permissionDecisionReason']
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         relative_path = '.github/hooks/helpers/events/preToolUse/block-invisible-characters/block-invisible-characters.py'
         entries = configuration['hooks']['preToolUse']
@@ -86,14 +86,14 @@ class BlockInvisibleCharactersTests(unittest.TestCase):
 
     def test_invisible_characters_are_denied(self):
         cases = [
-            (f'name = "a{ZERO_WIDTH_SPACE}b"\n', 'zero-width character', '<U+200B>'),
-            (f'{BOM}import os\n', 'zero-width character', '<U+FEFF>'),
-            (f'if role != "user{RIGHT_TO_LEFT_OVERRIDE}":\n', 'bidirectional control character', '<U+202E>'),
-            (f'total = sub{SOFT_HYPHEN}total\n', 'invisible formatting character', '<U+00AD>'),
-            (f'value ={NO_BREAK_SPACE}1\n', 'no-break space', '<U+00A0>'),
-            (f'{IDEOGRAPHIC_SPACE}value = 1\n', 'ideographic space in code', '<U+3000>'),
-            (f'value = 1{IDEOGRAPHIC_SPACE}\n', 'ideographic space in code', '<U+3000>'),
-            (f'value{IDEOGRAPHIC_SPACE}= 1\n', 'ideographic space in code', '<U+3000>'),
+            (f'name = "a{_ZERO_WIDTH_SPACE}b"\n', 'zero-width character', '<U+200B>'),
+            (f'{_BOM}import os\n', 'zero-width character', '<U+FEFF>'),
+            (f'if role != "user{_RIGHT_TO_LEFT_OVERRIDE}":\n', 'bidirectional control character', '<U+202E>'),
+            (f'total = sub{_SOFT_HYPHEN}total\n', 'invisible formatting character', '<U+00AD>'),
+            (f'value ={_NO_BREAK_SPACE}1\n', 'no-break space', '<U+00A0>'),
+            (f'{_IDEOGRAPHIC_SPACE}value = 1\n', 'ideographic space in code', '<U+3000>'),
+            (f'value = 1{_IDEOGRAPHIC_SPACE}\n', 'ideographic space in code', '<U+3000>'),
+            (f'value{_IDEOGRAPHIC_SPACE}= 1\n', 'ideographic space in code', '<U+3000>'),
         ]
         for content, kind, visible in cases:
             with self.subTest(kind=kind, content=content.encode('unicode_escape')):
@@ -109,10 +109,10 @@ class BlockInvisibleCharactersTests(unittest.TestCase):
     def test_allowed_contents(self):
         cases = [
             ('a.py', 'value = 1  # 普通の空白\n'),
-            ('a.py', f'# 日本語の文{IDEOGRAPHIC_SPACE}中の全角スペース\n'),
+            ('a.py', f'# 日本語の文{_IDEOGRAPHIC_SPACE}中の全角スペース\n'),
             ('a.py', 'message = "\\u3000 and \\u200b are written as escapes"\n'),
-            ('README.md', f'Text{NO_BREAK_SPACE}with a no-break space and a{ZERO_WIDTH_SPACE}zero-width space.\n'),
-            ('notes.txt', f'{IDEOGRAPHIC_SPACE}indented\n'),
+            ('README.md', f'Text{_NO_BREAK_SPACE}with a no-break space and a{_ZERO_WIDTH_SPACE}zero-width space.\n'),
+            ('notes.txt', f'{_IDEOGRAPHIC_SPACE}indented\n'),
         ]
         for path, content in cases:
             with self.subTest(path=path, content=content.encode('unicode_escape')):
@@ -121,7 +121,7 @@ class BlockInvisibleCharactersTests(unittest.TestCase):
                 )
 
     def test_tool_formats(self):
-        bad = f'value = {ZERO_WIDTH_SPACE}2'
+        bad = f'value = {_ZERO_WIDTH_SPACE}2'
         cases = [
             ('edit', {'path': 'app.py', 'old_str': 'value = 1', 'new_str': bad}),
             ('functions.edit', json.dumps({'path': 'app.py', 'old_str': 'value = 1', 'new_str': bad})),
@@ -135,7 +135,7 @@ class BlockInvisibleCharactersTests(unittest.TestCase):
                 self.assert_denied(self.run_call({'name': tool_name, 'args': args}), ['app.py', '<U+200B>'], tool_name)
 
     def test_existing_lines_are_allowed(self):
-        self.write_file('legacy.py', f'name = "a{ZERO_WIDTH_SPACE}b"\nvalue = 1\n')
+        self.write_file('legacy.py', f'name = "a{_ZERO_WIDTH_SPACE}b"\nvalue = 1\n')
         self.assert_allowed(
             self.run_call({'name': 'edit', 'args': {
                 'path': 'legacy.py', 'old_str': 'value = 1', 'new_str': 'value = 2',
@@ -144,7 +144,7 @@ class BlockInvisibleCharactersTests(unittest.TestCase):
         )
         self.assert_allowed(
             self.run_call({'name': 'edit', 'args': {
-                'path': 'legacy.py', 'old_str': f'name = "a{ZERO_WIDTH_SPACE}b"', 'new_str': f'    name = "a{ZERO_WIDTH_SPACE}b"',
+                'path': 'legacy.py', 'old_str': f'name = "a{_ZERO_WIDTH_SPACE}b"', 'new_str': f'    name = "a{_ZERO_WIDTH_SPACE}b"',
             }}),
             'Reindenting an existing line must be allowed.',
         )
@@ -153,7 +153,7 @@ class BlockInvisibleCharactersTests(unittest.TestCase):
         # 行頭の全角スペースは前後の空白として除かず、既存の行とは別の行とみなす。
         self.assert_denied(
             self.run_call({'name': 'edit', 'args': {
-                'path': 'app.py', 'old_str': 'value = 1', 'new_str': f'{IDEOGRAPHIC_SPACE}value = 1',
+                'path': 'app.py', 'old_str': 'value = 1', 'new_str': f'{_IDEOGRAPHIC_SPACE}value = 1',
             }}),
             ['ideographic space in code'], 'ideographic indent',
         )
@@ -162,25 +162,25 @@ class BlockInvisibleCharactersTests(unittest.TestCase):
         for tool_call in (
             {'name': 'apply_patch', 'args': '*** Begin Patch\n*** Delete File: app.py\n*** End Patch\n'},
             {'name': 'str_replace_editor', 'args': {'command': 'view', 'path': 'app.py'}},
-            {'name': 'bash', 'args': {'command': f'echo "{ZERO_WIDTH_SPACE}" > a.py'}},
+            {'name': 'bash', 'args': {'command': f'echo "{_ZERO_WIDTH_SPACE}" > a.py'}},
         ):
             with self.subTest(tool_call=tool_call['name']):
                 self.assert_allowed(self.run_call(tool_call), 'Deletions and non-writing tools must be ignored.')
 
     def test_denies_only_once_per_file(self):
-        call = {'name': 'create', 'args': {'path': 'a.py', 'file_text': f'x = {ZERO_WIDTH_SPACE}1\n'}}
+        call = {'name': 'create', 'args': {'path': 'a.py', 'file_text': f'x = {_ZERO_WIDTH_SPACE}1\n'}}
         self.assert_denied(self.run_call(call), ['a.py'], 'first')
         self.assert_allowed(self.run_call(call), 'The same file must not be denied twice.')
         self.assert_denied(
-            self.run_call({'name': 'create', 'args': {'path': 'b.py', 'file_text': f'x = {ZERO_WIDTH_SPACE}1\n'}}),
+            self.run_call({'name': 'create', 'args': {'path': 'b.py', 'file_text': f'x = {_ZERO_WIDTH_SPACE}1\n'}}),
             ['b.py'], 'Another file must still be denied once.',
         )
 
     def test_patch_files_are_reported_together_and_snippets_are_limited(self):
-        lines = ''.join(f'+line{index} = {ZERO_WIDTH_SPACE}{index}\n' for index in range(5))
+        lines = ''.join(f'+line{index} = {_ZERO_WIDTH_SPACE}{index}\n' for index in range(5))
         result = self.run_call({'name': 'apply_patch', 'args': (
             f'*** Begin Patch\n*** Add File: a.py\n{lines}'
-            f'*** Add File: b.ts\n+const x ={NO_BREAK_SPACE}1;\n*** End Patch\n'
+            f'*** Add File: b.ts\n+const x ={_NO_BREAK_SPACE}1;\n*** End Patch\n'
         )})
         reason = self.assert_denied(result, ['a.py', 'b.ts', 'line2 ', 'no-break space'], 'patch')
         self.assertNotIn('line3 ', reason)

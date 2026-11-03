@@ -9,19 +9,19 @@ import unittest
 from unittest.mock import patch
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'check-hook-temp-files.py')
-helper_path = os.path.join(script_directory, 'hook-temp-files.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'check-hook-temp-files.py')
+_helper_path = os.path.join(_script_directory, 'hook-temp-files.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
 # 判定基準を借りる削除スクリプトも検証し、hookの移動・改名による参照切れを検出する。
-clean_script_path = os.path.join(
-    os.path.dirname(hooks_directory), 'skills', 'clean-hook-temp-files', 'scripts', 'clean-hook-temp-files.py',
+_clean_script_path = os.path.join(
+    os.path.dirname(_hooks_directory), 'skills', 'clean-hook-temp-files', 'scripts', 'clean-hook-temp-files.py',
 )
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-STALE_SECONDS = 48 * 60 * 60 + 60
-FRESH_SECONDS = 48 * 60 * 60 - 60
+_STALE_SECONDS = 48 * 60 * 60 + 60
+_FRESH_SECONDS = 48 * 60 * 60 - 60
 
 
 class CheckHookTempFilesTests(unittest.TestCase):
@@ -32,7 +32,7 @@ class CheckHookTempFilesTests(unittest.TestCase):
         self.environment = os.environ.copy()
         self.environment.update({'TMPDIR': self.temp, 'TEMP': self.temp, 'TMP': self.temp})
         self.root = os.path.join(self.temp, 'ghc-agent-refinement')
-        self.helper = runpy.run_path(helper_path)
+        self.helper = runpy.run_path(_helper_path)
         self.sequence = 0
 
     @staticmethod
@@ -48,7 +48,7 @@ class CheckHookTempFilesTests(unittest.TestCase):
         self.set_age(path, age_seconds)
         return path
 
-    def create_files(self, directory, count, age_seconds=STALE_SECONDS):
+    def create_files(self, directory, count, age_seconds=_STALE_SECONDS):
         for _ in range(count):
             self.sequence += 1
             self.create_file(os.path.join(directory, f'{self.sequence}.sqlite3'), age_seconds, size=0)
@@ -56,14 +56,14 @@ class CheckHookTempFilesTests(unittest.TestCase):
     def create_layout(self):
         # 48時間を超えて更新のないファイルと、それ以外のファイルを、分類の内外に配置する。
         stale = [
-            self.create_file(os.path.join('hook-states', 'edit-oscillation', 'a.sqlite3'), STALE_SECONDS),
-            self.create_file(os.path.join('hook-states', 'debug-mode', 'b.json'), STALE_SECONDS),
-            self.create_file(os.path.join('debug-logs', 'prompt-transformations', 'session', 'c.txt'), STALE_SECONDS),
+            self.create_file(os.path.join('hook-states', 'edit-oscillation', 'a.sqlite3'), _STALE_SECONDS),
+            self.create_file(os.path.join('hook-states', 'debug-mode', 'b.json'), _STALE_SECONDS),
+            self.create_file(os.path.join('debug-logs', 'prompt-transformations', 'session', 'c.txt'), _STALE_SECONDS),
         ]
         kept = [
-            self.create_file(os.path.join('hook-states', 'edit-oscillation', 'fresh.sqlite3'), FRESH_SECONDS),
-            self.create_file(os.path.join('debug-mode', 'legacy.json'), STALE_SECONDS),
-            self.create_file('root.txt', STALE_SECONDS),
+            self.create_file(os.path.join('hook-states', 'edit-oscillation', 'fresh.sqlite3'), _FRESH_SECONDS),
+            self.create_file(os.path.join('debug-mode', 'legacy.json'), _STALE_SECONDS),
+            self.create_file('root.txt', _STALE_SECONDS),
         ]
         # ファイルを作るとディレクトリの更新時刻も変わるため、最後に古くする。
         for directory in (
@@ -71,18 +71,18 @@ class CheckHookTempFilesTests(unittest.TestCase):
             os.path.join('debug-logs', 'prompt-transformations'),
             os.path.join('hook-states', 'debug-mode'),
         ):
-            self.set_age(os.path.join(self.root, directory), STALE_SECONDS)
+            self.set_age(os.path.join(self.root, directory), _STALE_SECONDS)
         return stale, kept
 
     def invoke_hook(self):
         return subprocess.run(
-            [sys.executable, hook_path], input=b'{"source":"new","sessionId":"x","timestamp":0,"cwd":"/"}',
+            [sys.executable, _hook_path], input=b'{"source":"new","sessionId":"x","timestamp":0,"cwd":"/"}',
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=30,
         )
 
     def run_clean(self, *arguments):
         return subprocess.run(
-            [sys.executable, clean_script_path, *arguments],
+            [sys.executable, _clean_script_path, *arguments],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=30,
         )
 
@@ -102,7 +102,7 @@ class CheckHookTempFilesTests(unittest.TestCase):
     # 警告hook
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'sessionStart.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'sessionStart.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         relative_path = '.github/hooks/helpers/events/sessionStart/check-hook-temp-files/check-hook-temp-files.py'
         entries = [
@@ -124,7 +124,7 @@ class CheckHookTempFilesTests(unittest.TestCase):
     def test_counts_only_stale_files_in_categories(self):
         self.create_files(os.path.join('hook-states', 'known-files'), 499)
         # 48時間以内に更新されたファイルと、分類外のファイルは数えない。
-        self.create_files(os.path.join('hook-states', 'known-files'), 50, age_seconds=FRESH_SECONDS)
+        self.create_files(os.path.join('hook-states', 'known-files'), 50, age_seconds=_FRESH_SECONDS)
         self.create_files('debug-mode', 50)
         self.create_files('', 50)
         self.create_files(os.path.join('..', 'other-tool'), 50)
@@ -217,7 +217,7 @@ class CheckHookTempFilesTests(unittest.TestCase):
                 self.assertFalse(os.path.exists(self.root))
 
     def test_size_format(self):
-        format_size = runpy.run_path(clean_script_path)['format_size']
+        format_size = runpy.run_path(_clean_script_path)['format_size']
         for size, expected in ((0, '0 B'), (1023, '1023 B'), (1024, '1.0 KB'), (1536, '1.5 KB'),
                                (1024 * 1024, '1.0 MB'), (5 * 1024 ** 3, '5120.0 MB')):
             with self.subTest(size=size):

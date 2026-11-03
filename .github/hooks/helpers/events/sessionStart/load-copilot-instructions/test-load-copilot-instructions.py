@@ -8,16 +8,16 @@ import tempfile
 import unittest
 import uuid
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'load-copilot-instructions.py')
-github_directory = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'load-copilot-instructions.py')
+_github_directory = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
 )
 
-real_instructions_path = os.path.join(github_directory, 'copilot-instructions.md')
+_real_instructions_path = os.path.join(_github_directory, 'copilot-instructions.md')
 
 
-def invoke_hook(script_path, *, cwd=None, env=None):
+def _invoke_hook(script_path, *, cwd=None, env=None):
     # BOMの有無を検査できるよう、標準出力はバイト列のまま受け取る。
     completed = subprocess.run(
         [sys.executable, script_path],
@@ -35,13 +35,13 @@ def invoke_hook(script_path, *, cwd=None, env=None):
     }
 
 
-def new_hook_sandbox(suffix=''):
+def _new_hook_sandbox(suffix=''):
     root = os.path.join(tempfile.gettempdir(), f'ghc-agent-refinement-test-{uuid.uuid4().hex}{suffix}')
     hook_directory = os.path.join(
         root, '.github', 'hooks', 'helpers', 'events', 'sessionStart', 'load-copilot-instructions'
     )
     os.makedirs(hook_directory, exist_ok=True)
-    shutil.copy(hook_path, hook_directory)
+    shutil.copy(_hook_path, hook_directory)
     return {
         'Root': root,
         'ScriptPath': os.path.join(hook_directory, 'load-copilot-instructions.py'),
@@ -49,7 +49,7 @@ def new_hook_sandbox(suffix=''):
     }
 
 
-def assert_valid_output(name, result, expected_context):
+def _assert_valid_output(name, result, expected_context):
     if result['ExitCode'] != 0 or result['Error']:
         raise AssertionError(f"Hook failed for '{name}': exit {result['ExitCode']}, stderr: {result['Error']}")
     if result['OutputBytes'][:3] == b'\xef\xbb\xbf':
@@ -66,22 +66,22 @@ def assert_valid_output(name, result, expected_context):
         raise AssertionError(f"additionalContext does not match the instructions file for '{name}'.")
 
 
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
 class LoadCopilotInstructionsTests(unittest.TestCase):
     def new_hook_sandbox(self, suffix=''):
-        sandbox = new_hook_sandbox(suffix)
+        sandbox = _new_hook_sandbox(suffix)
         self.addCleanup(shutil.rmtree, sandbox['Root'])
         return sandbox
 
     def test_real_instructions(self):
-        with open(real_instructions_path, 'rb') as file:
+        with open(_real_instructions_path, 'rb') as file:
             expected = file.read().decode('utf-8-sig')
 
-        assert_valid_output('real instructions file', invoke_hook(hook_path), expected)
+        _assert_valid_output('real instructions file', _invoke_hook(_hook_path), expected)
 
     def test_content_preservation(self):
         valid_cases = [
@@ -104,7 +104,7 @@ class LoadCopilotInstructionsTests(unittest.TestCase):
                 data = case['Bytes'] if case['Bytes'] is not None else case['Content'].encode('utf-8')
                 with open(sandbox['InstructionsPath'], 'wb') as file:
                     file.write(data)
-                assert_valid_output(case['Name'], invoke_hook(sandbox['ScriptPath']), case['Content'])
+                _assert_valid_output(case['Name'], _invoke_hook(sandbox['ScriptPath']), case['Content'])
 
     def test_invalid_files(self):
         invalid_cases = [
@@ -124,7 +124,7 @@ class LoadCopilotInstructionsTests(unittest.TestCase):
                 if case['Bytes'] is not None:
                     with open(sandbox['InstructionsPath'], 'wb') as file:
                         file.write(case['Bytes'])
-                result = invoke_hook(sandbox['ScriptPath'])
+                result = _invoke_hook(sandbox['ScriptPath'])
                 if result['ExitCode'] != 2 or result['Output'] or re.search(case['Error'], result['Error'], re.IGNORECASE) is None:
                     raise AssertionError(
                         f"Unexpected result for '{case['Name']}': exit {result['ExitCode']}, "
@@ -135,7 +135,7 @@ class LoadCopilotInstructionsTests(unittest.TestCase):
 
         os.mkdir(sandbox['InstructionsPath'])
 
-        result = invoke_hook(sandbox['ScriptPath'])
+        result = _invoke_hook(sandbox['ScriptPath'])
 
         if result['ExitCode'] != 2 or result['Output'] or \
                 re.search('instructions file not found', result['Error'], re.IGNORECASE) is None:
@@ -159,7 +159,7 @@ class LoadCopilotInstructionsTests(unittest.TestCase):
                 sandbox = self.new_hook_sandbox()
                 with open(sandbox['InstructionsPath'], 'wb') as file:
                     file.write(data)
-                result = invoke_hook(sandbox['ScriptPath'])
+                result = _invoke_hook(sandbox['ScriptPath'])
                 if result['ExitCode'] != 1 or result['Output'] or 'UnicodeDecodeError' not in result['Error']:
                     raise AssertionError(
                         f"Unexpected result for '{name}': exit {result['ExitCode']}, "
@@ -178,25 +178,25 @@ class LoadCopilotInstructionsTests(unittest.TestCase):
 
         ascii_env['PYTHONIOENCODING'] = 'ascii:strict'
 
-        assert_valid_output(
+        _assert_valid_output(
             'UTF-8 stdout with ASCII default and unrelated working directory',
-            invoke_hook(sandbox['ScriptPath'], cwd=tempfile.gettempdir(), env=ascii_env),
+            _invoke_hook(sandbox['ScriptPath'], cwd=tempfile.gettempdir(), env=ascii_env),
             content,
         )
 
 
         relative_script_path = os.path.relpath(sandbox['ScriptPath'], sandbox['Root'])
 
-        assert_valid_output(
+        _assert_valid_output(
             'relative script path',
-            invoke_hook(relative_script_path, cwd=sandbox['Root']),
+            _invoke_hook(relative_script_path, cwd=sandbox['Root']),
             content,
         )
 
 
         os.remove(sandbox['InstructionsPath'])
 
-        result = invoke_hook(sandbox['ScriptPath'], env=ascii_env)
+        result = _invoke_hook(sandbox['ScriptPath'], env=ascii_env)
 
         expected_error = f"Copilot instructions file not found: {sandbox['InstructionsPath']}"
 

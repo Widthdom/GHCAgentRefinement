@@ -10,10 +10,10 @@ import uuid
 from unittest.mock import patch
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'debug-log-transformed-prompt.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'debug-log-transformed-prompt.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
@@ -49,7 +49,7 @@ class DebugLogTransformedPromptTests(unittest.TestCase):
         if raw is None:
             raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path], input=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            [sys.executable, _hook_path], input=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             env=self.environment, timeout=10,
         )
 
@@ -77,7 +77,7 @@ class DebugLogTransformedPromptTests(unittest.TestCase):
             return file.read()
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'userPromptTransformed.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'userPromptTransformed.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         self.assertEqual(configuration['version'], 1)
         self.assertEqual(set(configuration['hooks']), {'userPromptTransformed'})
@@ -120,7 +120,7 @@ class DebugLogTransformedPromptTests(unittest.TestCase):
 
     def test_existing_debug_switch_controls_logging(self):
         switch_path = os.path.join(
-            hooks_directory, 'helpers', 'events', 'userPromptSubmitted', 'set-debug-mode', 'set-debug-mode.py',
+            _hooks_directory, 'helpers', 'events', 'userPromptSubmitted', 'set-debug-mode', 'set-debug-mode.py',
         )
         for prompt, expected_enabled in (('?? 最初の依頼', True), ('次の通常の依頼', False)):
             with self.subTest(prompt=prompt):
@@ -230,7 +230,7 @@ class DebugLogTransformedPromptTests(unittest.TestCase):
         self.assertIn(b'Failed to log transformed prompt:', result.stderr)
 
     def test_failed_finalization_removes_temporary_log(self):
-        save_log = runpy.run_path(hook_path)['save_log']
+        save_log = runpy.run_path(_hook_path)['_save_log']
         with (
             patch('tempfile.gettempdir', return_value=self.root),
             patch('os.replace', side_effect=OSError('test finalization failure')),

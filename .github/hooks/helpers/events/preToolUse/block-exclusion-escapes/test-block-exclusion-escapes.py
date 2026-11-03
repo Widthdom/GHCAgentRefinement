@@ -8,14 +8,14 @@ import unittest
 import uuid
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-exclusion-escapes.py')
-definitions_path = os.path.join(script_directory, 'exclusion-definitions.json')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-exclusion-escapes.py')
+_definitions_path = os.path.join(_script_directory, 'exclusion-definitions.json')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-TRACKED_FILES = {
+_TRACKED_FILES = {
     'src/calc.py': 'def add(a, b):\n    return a + b\n',
     'tests/test_calc.py': 'def test_add():\n    assert False\n',
     'tests/test_slow.py': 'def test_slow():\n    pass\n',
@@ -41,7 +41,7 @@ class BlockExclusionEscapesTests(unittest.TestCase):
         self.environment.update({'TMPDIR': self.root, 'TEMP': self.root, 'TMP': self.root})
         self.directory = os.path.join(self.root, 'workspace')
         os.makedirs(self.directory)
-        for path, content in TRACKED_FILES.items():
+        for path, content in _TRACKED_FILES.items():
             self.write_file(path, content)
         subprocess.run(['git', 'init', '-q'], cwd=self.directory, check=True)
         subprocess.run(['git', 'add', '-A'], cwd=self.directory, check=True)
@@ -62,7 +62,7 @@ class BlockExclusionEscapesTests(unittest.TestCase):
     def run_hook(self, hook_input, *arguments):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path, *arguments], input=raw,
+            [sys.executable, _hook_path, *arguments], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
         )
 
@@ -83,13 +83,13 @@ class BlockExclusionEscapesTests(unittest.TestCase):
             self.assertIn(part, output['permissionDecisionReason'], message)
 
     def test_definitions_are_valid_json(self):
-        with open(definitions_path, encoding='utf-8') as file:
+        with open(_definitions_path, encoding='utf-8') as file:
             definitions = json.load(file)
         self.assertTrue(definitions['ignoreFiles'])
         self.assertTrue(definitions['configFiles'])
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         relative_path = '.github/hooks/helpers/events/preToolUse/block-exclusion-escapes/block-exclusion-escapes.py'
         entries = [

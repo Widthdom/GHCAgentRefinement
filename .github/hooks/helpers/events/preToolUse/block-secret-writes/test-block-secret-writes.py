@@ -6,30 +6,30 @@ import sys
 import tempfile
 import unittest
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-secret-writes.py')
-definitions_path = os.path.join(script_directory, 'secret-definitions.json')
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-secret-writes.py')
+_definitions_path = os.path.join(_script_directory, 'secret-definitions.json')
 
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 # このテスト自体が本hookに拒否されないよう、秘密情報に見える値は接頭辞と本体を連結して作る。
-BODY = 'Ab3dE5gH7jK9mN1pQ3sT5vW7yZ9bC1dF3hJ5'
-SECRETS = {
-    'Anthropic API key': 'sk-' + 'ant-api03-' + BODY,
-    'OpenAI API key': 'sk-' + 'proj-' + BODY,
-    'GitHub token': 'gh' + 'p_' + BODY + 'xy',
+_BODY = 'Ab3dE5gH7jK9mN1pQ3sT5vW7yZ9bC1dF3hJ5'
+_SECRETS = {
+    'Anthropic API key': 'sk-' + 'ant-api03-' + _BODY,
+    'OpenAI API key': 'sk-' + 'proj-' + _BODY,
+    'GitHub token': 'gh' + 'p_' + _BODY + 'xy',
     'AWS access key ID': 'AK' + 'IA' + 'ABCDEFGHIJ234567',
-    'Google API key': 'AI' + 'za' + BODY[:35],
+    'Google API key': 'AI' + 'za' + _BODY[:35],
     'Slack token': 'xo' + 'xb-' + '1234567890-abcdefghij',
-    'Stripe live key': 'sk' + '_live_' + BODY[:24],
+    'Stripe live key': 'sk' + '_live_' + _BODY[:24],
     'Private key': '-----BEGIN ' + 'RSA PRIVATE KEY-----',
 }
 
 
-def run_hook(input_bytes, *arguments):
-    return subprocess.run([sys.executable, hook_path, *arguments], input=input_bytes, capture_output=True)
+def _run_hook(input_bytes, *arguments):
+    return subprocess.run([sys.executable, _hook_path, *arguments], input=input_bytes, capture_output=True)
 
 
 class BlockSecretWritesTests(unittest.TestCase):
@@ -39,7 +39,7 @@ class BlockSecretWritesTests(unittest.TestCase):
 
     def run_call(self, tool_call):
         hook_input = {'sessionId': '00000000-0000-4000-8000-000000000000', 'cwd': self.directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']}
-        return run_hook(json.dumps(hook_input).encode('utf-8'))
+        return _run_hook(json.dumps(hook_input).encode('utf-8'))
 
     def write_file(self, name, content):
         path = os.path.join(self.directory, name)
@@ -60,12 +60,12 @@ class BlockSecretWritesTests(unittest.TestCase):
         return output['permissionDecisionReason']
 
     def test_definitions_are_valid(self):
-        with open(definitions_path, encoding='utf-8') as file:
+        with open(_definitions_path, encoding='utf-8') as file:
             definitions = json.load(file)
-        self.assertEqual([definition['name'] for definition in definitions], list(SECRETS))
+        self.assertEqual([definition['name'] for definition in definitions], list(_SECRETS))
 
     def test_each_secret_is_denied(self):
-        for name, secret in SECRETS.items():
+        for name, secret in _SECRETS.items():
             with self.subTest(name=name):
                 reason = self.assert_denied(
                     self.run_call({'name': 'create', 'args': {'path': 'config.py', 'file_text': f'KEY = "{secret}"\n'}}),
@@ -74,7 +74,7 @@ class BlockSecretWritesTests(unittest.TestCase):
                 self.assertNotIn(secret, reason, 'The reason must not repeat the secret.')
 
     def test_tool_argument_shapes(self):
-        secret = SECRETS['GitHub token']
+        secret = _SECRETS['GitHub token']
         cases = [
             ('edit', {'path': 'a.txt', 'old_str': 'x', 'new_str': secret}),
             ('functions.edit', {'path': 'a.txt', 'old_str': 'x', 'new_str': secret}),
@@ -101,7 +101,7 @@ class BlockSecretWritesTests(unittest.TestCase):
                 self.assert_allowed(self.run_call({'name': 'create', 'args': args}), name)
 
     def test_existing_secret_is_allowed(self):
-        secret = SECRETS['Slack token']
+        secret = _SECRETS['Slack token']
         self.assert_allowed(
             self.run_call({'name': 'edit', 'args': {'path': 'a.txt', 'old_str': f'a {secret}', 'new_str': f'b {secret}'}}),
             'Moving a secret that is already in the replaced text must be allowed.',
@@ -118,7 +118,7 @@ class BlockSecretWritesTests(unittest.TestCase):
         )
 
     def test_view_and_other_tools_are_ignored(self):
-        secret = SECRETS['Anthropic API key']
+        secret = _SECRETS['Anthropic API key']
         for tool_call in (
             {'name': 'str_replace_editor', 'args': {'command': 'view', 'path': '.env'}},
             {'name': 'bash', 'args': {'command': f'echo {secret}'}},
@@ -145,9 +145,9 @@ class BlockSecretWritesTests(unittest.TestCase):
     def test_multiple_findings(self):
         patch_text = (
             '*** Begin Patch\n*** Add File: a.txt\n'
-            + ''.join(f'+{line}\n' for line in SECRETS['AWS access key ID'].splitlines())
+            + ''.join(f'+{line}\n' for line in _SECRETS['AWS access key ID'].splitlines())
             + '*** Add File: b.txt\n'
-            + ''.join(f'+{line}\n' for line in SECRETS['Private key'].splitlines())
+            + ''.join(f'+{line}\n' for line in _SECRETS['Private key'].splitlines())
             + '*** End Patch\n'
         )
         reason = self.assert_denied(
@@ -158,7 +158,7 @@ class BlockSecretWritesTests(unittest.TestCase):
 
     def test_anthropic_key_is_not_reported_as_openai(self):
         reason = self.assert_denied(
-            self.run_call({'name': 'create', 'args': {'path': 'a.txt', 'file_text': SECRETS['Anthropic API key']}}),
+            self.run_call({'name': 'create', 'args': {'path': 'a.txt', 'file_text': _SECRETS['Anthropic API key']}}),
             ['(Anthropic API key)'], 'Anthropic key',
         )
         self.assertNotIn('OpenAI', reason)
@@ -177,7 +177,7 @@ class BlockSecretWritesTests(unittest.TestCase):
             ('invalid utf-8', b'\xff'),
         ]:
             with self.subTest(name=name):
-                result = run_hook(hook_input)
+                result = _run_hook(hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertEqual(result.stdout, b'', name)
                 self.assertIn(b'Failed to check secret writes:', result.stderr)
@@ -193,10 +193,10 @@ class BlockSecretWritesTests(unittest.TestCase):
         ]:
             with self.subTest(name=name):
                 path = self.write_file(f'definitions-{name.replace(" ", "-")}.json', content)
-                result = run_hook(valid_input, '--definitions-path', path)
+                result = _run_hook(valid_input, '--definitions-path', path)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to check secret writes:', result.stderr)
-        result = run_hook(valid_input, '--definitions-path', os.path.join(self.directory, 'missing.json'))
+        result = _run_hook(valid_input, '--definitions-path', os.path.join(self.directory, 'missing.json'))
         self.assertEqual(result.returncode, 2, 'A missing definitions file must fail.')
 
 

@@ -13,12 +13,12 @@ from contextlib import closing
 from typing import cast
 
 
-EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
-SWALLOWING_PATTERNS_KEY = 'swallowingPatterns'
-MAX_SNIPPETS = 3
-MAX_SNIPPET_LENGTH = 80
-FINDING = '{file} would get {kinds} ({snippets})'
-DENY_REASON = (
+_EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
+_SWALLOWING_PATTERNS_KEY = 'swallowingPatterns'
+_MAX_SNIPPETS = 3
+_MAX_SNIPPET_LENGTH = 80
+_FINDING = '{file} would get {kinds} ({snippets})'
+_DENY_REASON = (
     'Edit denied: {findings}. Silencing an error or a diagnostic makes the symptom disappear without fixing the cause, '
     'and hides the next failure too. Fix the cause, or handle the error explicitly: log it, re-raise it, or return it '
     'to the caller. If ignoring it is intended, for example best-effort cleanup or when the user asked for it, '
@@ -26,7 +26,7 @@ DENY_REASON = (
 )
 
 
-def compile_patterns(patterns, key):
+def _compile_patterns(patterns, key):
     # 複数行にまたがる形式（`except:` の次の行の `pass` など）も検出できるよう、行頭・行末は各行に一致させる。
     try:
         return [re.compile(pattern, re.MULTILINE) for pattern in patterns]
@@ -34,18 +34,18 @@ def compile_patterns(patterns, key):
         raise ValueError(f'invalid regular expression in {key}: {ex}') from None
 
 
-def load_definitions(path):
+def _load_definitions(path):
     # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
     if not isinstance(definitions, dict):
         raise ValueError('error swallowing definitions must be a JSON object.')
-    excluded = definitions.get(EXCLUDED_FILE_PATTERNS_KEY)
+    excluded = definitions.get(_EXCLUDED_FILE_PATTERNS_KEY)
     if not isinstance(excluded, list) or not all(isinstance(item, str) and item.strip() for item in excluded):
         raise ValueError(
-            f'error swallowing definitions require an array of non-empty strings for {EXCLUDED_FILE_PATTERNS_KEY}.'
+            f'error swallowing definitions require an array of non-empty strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
         )
-    swallowing_definitions = definitions.get(SWALLOWING_PATTERNS_KEY)
+    swallowing_definitions = definitions.get(_SWALLOWING_PATTERNS_KEY)
     if not isinstance(swallowing_definitions, list) or not swallowing_definitions or not all(
         isinstance(definition, dict) and all(
             isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'pattern')
@@ -54,18 +54,18 @@ def load_definitions(path):
     ):
         raise ValueError(
             f'error swallowing definitions require a non-empty array of objects with non-empty strings for name and '
-            f'pattern in {SWALLOWING_PATTERNS_KEY}.'
+            f'pattern in {_SWALLOWING_PATTERNS_KEY}.'
         )
-    swallowing_patterns = compile_patterns(
-        [definition['pattern'] for definition in swallowing_definitions], SWALLOWING_PATTERNS_KEY,
+    swallowing_patterns = _compile_patterns(
+        [definition['pattern'] for definition in swallowing_definitions], _SWALLOWING_PATTERNS_KEY,
     )
     return (
-        compile_patterns(excluded, EXCLUDED_FILE_PATTERNS_KEY),
+        _compile_patterns(excluded, _EXCLUDED_FILE_PATTERNS_KEY),
         [(definition['name'], pattern) for definition, pattern in zip(swallowing_definitions, swallowing_patterns)],
     )
 
 
-def read_existing(path):
+def _read_existing(path):
     try:
         with open(path, encoding='utf-8', errors='replace') as file:
             return file.read()
@@ -73,7 +73,7 @@ def read_existing(path):
         return None
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -84,19 +84,19 @@ def get_display_path(path, cwd):
     return path
 
 
-def normalize_lines(text):
+def _normalize_lines(text):
     # インデントの違いで既存の内容との照合が外れないよう、各行の前後の空白を除く。
     return '\n'.join(line.strip() for line in text.splitlines())
 
 
-def find_swallowing(swallowing_patterns, written, existing):
+def _find_swallowing(swallowing_patterns, written, existing):
     # 戻り値は (種類の名前のリスト, 一致した箇所のリスト)。既存の内容に同じ箇所があるものは、元からあるものとみなす。
-    normalized_existing = normalize_lines(existing)
+    normalized_existing = _normalize_lines(existing)
     kinds = []
     snippets = []
     for name, pattern in swallowing_patterns:
         for match in pattern.finditer(written):
-            snippet = normalize_lines(match.group())
+            snippet = _normalize_lines(match.group())
             if not snippet or snippet in normalized_existing or snippet in snippets:
                 continue
             snippets.append(snippet)
@@ -105,14 +105,14 @@ def find_swallowing(swallowing_patterns, written, existing):
     return kinds, snippets
 
 
-def format_snippet(snippet):
+def _format_snippet(snippet):
     snippet = snippet.replace('\n', ' ')
-    if len(snippet) > MAX_SNIPPET_LENGTH:
-        snippet = snippet[:MAX_SNIPPET_LENGTH] + '...'
+    if len(snippet) > _MAX_SNIPPET_LENGTH:
+        snippet = snippet[:_MAX_SNIPPET_LENGTH] + '...'
     return f'"{snippet}"'
 
 
-def record_denials(state_path, candidates):
+def _record_denials(state_path, candidates):
     # candidates：(ファイルキー, 理由) のリスト。戻り値は、今回初めて拒否する理由のリスト。
     # 同じファイルの拒否は1回だけにし、意図した編集なら再実行で通す。
     # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
@@ -143,7 +143,7 @@ def main(arguments=None):
     parsed_arguments = parser.parse_args(arguments)
 
     try:
-        excluded_file_patterns, swallowing_patterns = load_definitions(parsed_arguments.definitions_path)
+        excluded_file_patterns, swallowing_patterns = _load_definitions(parsed_arguments.definitions_path)
 
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
         if not hook_input_json.strip():
@@ -179,24 +179,24 @@ def main(arguments=None):
         ))['extract_edit_tool_changes']
         for change in extract_edit_tool_changes(tool_name, hook_input['toolArgs']):
             path = os.path.realpath(os.path.join(cwd, change['path']))
-            display_path = get_display_path(path, real_cwd)
+            display_path = _get_display_path(path, real_cwd)
             # パターンはOSによらず `/` 区切りのパスに対して照合する。
             if any(pattern.search(display_path.replace(os.sep, '/')) for pattern in excluded_file_patterns):
                 continue
-            current = (read_existing(path) if os.path.isfile(path) else None) or ''
+            current = (_read_existing(path) if os.path.isfile(path) else None) or ''
             # 置換を適用できればファイル全体を、できなければ書き込む内容を、それぞれ既存の内容と比べる。
             replacement = change['replacement']
             if replacement and replacement[0] in current:
                 written, existing = current.replace(*replacement, 1), current
             else:
                 written, existing = change['written'], '\n'.join([change['removed'], current])
-            kinds, snippets = find_swallowing(swallowing_patterns, written, existing)
+            kinds, snippets = _find_swallowing(swallowing_patterns, written, existing)
             if snippets:
                 # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
                 file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
-                candidates.append((file_key, FINDING.format(
+                candidates.append((file_key, _FINDING.format(
                     file=display_path, kinds=', '.join(kinds),
-                    snippets=', '.join(format_snippet(snippet) for snippet in snippets[:MAX_SNIPPETS]),
+                    snippets=', '.join(_format_snippet(snippet) for snippet in snippets[:_MAX_SNIPPETS]),
                 )))
 
         reasons = []
@@ -207,13 +207,13 @@ def main(arguments=None):
                 tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-error-swallowing',
                 f'{parsed_session_id}.sqlite3',
             )
-            reasons = record_denials(state_path, candidates)
+            reasons = _record_denials(state_path, candidates)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check error swallowing: {ex}', file=sys.stderr)
         return 2
 
     if reasons:
-        reason = DENY_REASON.format(findings='; '.join(reasons))
+        reason = _DENY_REASON.format(findings='; '.join(reasons))
         print(reason, file=sys.stderr)
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference

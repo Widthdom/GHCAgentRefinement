@@ -8,31 +8,31 @@ import unicodedata
 from typing import cast
 
 
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+)$')
-INVALID_CHARACTERS = frozenset('<>:"\\|?*')
+_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
+_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+)$')
+_INVALID_CHARACTERS = frozenset('<>:"\\|?*')
 # Windows also reserves superscript 1, 2 and 3 in COM/LPT device names.
-DEVICE_DIGITS = '123456789' + ''.join(chr(value) for value in (0xB9, 0xB2, 0xB3))
-RESERVED_NAMES = {'CON', 'PRN', 'AUX', 'NUL', 'CONIN$', 'CONOUT$'} | {
-    prefix + digit for prefix in ('COM', 'LPT') for digit in DEVICE_DIGITS
+_DEVICE_DIGITS = '123456789' + ''.join(chr(value) for value in (0xB9, 0xB2, 0xB3))
+_RESERVED_NAMES = {'CON', 'PRN', 'AUX', 'NUL', 'CONIN$', 'CONOUT$'} | {
+    prefix + digit for prefix in ('COM', 'LPT') for digit in _DEVICE_DIGITS
 }
 
 
-def path_key(path):
+def _path_key(path):
     return unicodedata.normalize('NFC', path).casefold()
 
 
-def invalid_name_reason(name):
+def _invalid_name_reason(name):
     if name.endswith((' ', '.')):
         return 'a name ends with a space or dot'
-    if any(character in INVALID_CHARACTERS or ord(character) < 32 for character in name):
+    if any(character in _INVALID_CHARACTERS or ord(character) < 32 for character in name):
         return 'a name contains a character forbidden on Windows'
-    if name.split('.')[0].rstrip(' ').upper() in RESERVED_NAMES:
+    if name.split('.')[0].rstrip(' ').upper() in _RESERVED_NAMES:
         return 'a name is reserved by Windows'
     return None
 
 
-def get_operations(tool_name, tool_args, helpers):
+def _get_operations(tool_name, tool_args, helpers):
     destinations = []
     removed = set()
     if tool_name == 'apply_patch':
@@ -41,7 +41,7 @@ def get_operations(tool_name, tool_args, helpers):
             source = None
             for line in text.split('\n'):
                 line = line.removesuffix('\r')
-                match = PATCH_FILE_PATTERN.fullmatch(line)
+                match = _PATCH_FILE_PATTERN.fullmatch(line)
                 if match:
                     operation, source = match.groups()
                     if operation == 'Add':
@@ -65,7 +65,7 @@ def get_operations(tool_name, tool_args, helpers):
     return destinations, removed
 
 
-def absolute_path(cwd, path):
+def _absolute_path(cwd, path):
     # Keep trailing dots/spaces intact instead of letting Windows full-path APIs trim them.
     joined = os.path.join(os.path.abspath(cwd), path)
     if not os.path.isabs(joined):
@@ -73,13 +73,13 @@ def absolute_path(cwd, path):
     return os.path.normpath(joined).replace(os.sep, '/')
 
 
-def check_paths(cwd, destinations, removed):
-    removed_paths = {absolute_path(cwd, path) for path in removed}
+def _check_paths(cwd, destinations, removed):
+    removed_paths = {_absolute_path(cwd, path) for path in removed}
     planned = {}
     directory_entries = {}
     findings = []
     for destination in destinations:
-        path = absolute_path(cwd, destination)
+        path = _absolute_path(cwd, destination)
         drive, tail = os.path.splitdrive(path)
         parent = drive + '/'
         parts = tail.lstrip('/').split('/')
@@ -94,14 +94,14 @@ def check_paths(cwd, destinations, removed):
                 entry for entry in directory_entries[parent]
                 if parent.rstrip('/') + '/' + entry not in removed_paths
             ]
-            key = path_key(child)
+            key = _path_key(child)
             # Existing names may be edited without introducing a new portability problem.
             if name not in entries:
-                reason = invalid_name_reason(name)
+                reason = _invalid_name_reason(name)
                 if reason:
                     findings.append(f'{destination!r}: {reason} ({name!r})')
                     break
-                collision = next((entry for entry in entries if path_key(entry) == path_key(name)), None)
+                collision = next((entry for entry in entries if _path_key(entry) == _path_key(name)), None)
                 if collision is not None:
                     findings.append(f'{destination!r}: name {name!r} collides with existing name {collision!r}')
                     break
@@ -133,7 +133,7 @@ def main():
         if 'toolArgs' not in hook_input:
             raise ValueError('toolArgs is required.')
         tool_name = tool_name.removeprefix('functions.')
-        if tool_name not in EDIT_TOOL_NAMES:
+        if tool_name not in _EDIT_TOOL_NAMES:
             return 0
         helpers = runpy.run_path(os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
@@ -142,8 +142,8 @@ def main():
         tool_args = helpers['get_tool_args'](hook_input['toolArgs'])
         if tool_name == 'apply_patch' and not isinstance(tool_args, (str, dict)):
             raise ValueError('apply_patch toolArgs must be a patch string or JSON object.')
-        destinations, removed = get_operations(tool_name, tool_args, helpers)
-        findings = check_paths(cwd, destinations, removed)
+        destinations, removed = _get_operations(tool_name, tool_args, helpers)
+        findings = _check_paths(cwd, destinations, removed)
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to check portable paths: {ex}', file=sys.stderr)
         return 2

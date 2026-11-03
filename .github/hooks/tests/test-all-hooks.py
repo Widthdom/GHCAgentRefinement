@@ -2,46 +2,46 @@ import os
 import subprocess
 import sys
 
-helpers_directory = os.path.join(
+_helpers_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     'helpers',
 )
-repository_root = os.path.dirname(os.path.dirname(helpers_directory))
-test_paths = []
+_repository_root = os.path.dirname(os.path.dirname(_helpers_directory))
+_test_paths = []
 
-for current_directory, _, filenames in os.walk(helpers_directory):
+for current_directory, _, filenames in os.walk(_helpers_directory):
     for filename in filenames:
         if filename.startswith('test-') and filename.endswith('.py'):
-            test_paths.append(os.path.abspath(os.path.join(current_directory, filename)))
+            _test_paths.append(os.path.abspath(os.path.join(current_directory, filename)))
 
-test_paths.sort()
-if not test_paths:
-    print(f'No hook tests found under {helpers_directory}.', file=sys.stderr)
+_test_paths.sort()
+if not _test_paths:
+    print(f'No hook tests found under {_helpers_directory}.', file=sys.stderr)
     print('NG', file=sys.stderr)
     sys.exit(2)
 
-failed_tests = []
-for test_path in test_paths:
-    relative_test_path = os.path.relpath(test_path, repository_root)
+_failed_tests = []
+for test_path in _test_paths:
+    relative_test_path = os.path.relpath(test_path, _repository_root)
     print(f'Running {relative_test_path}...', flush=True)
     try:
-        result = subprocess.run([sys.executable, test_path], cwd=repository_root, check=False)
+        result = subprocess.run([sys.executable, test_path], cwd=_repository_root, check=False)
     except OSError as ex:
         print(f'Could not run {relative_test_path}: {ex}', file=sys.stderr)
-        failed_tests.append((relative_test_path, 'could not start'))
+        _failed_tests.append((relative_test_path, 'could not start'))
         continue
     finally:
         print('\n', flush=True)
 
     if result.returncode != 0:
-        failed_tests.append((relative_test_path, f'exited with code {result.returncode}'))
+        _failed_tests.append((relative_test_path, f'exited with code {result.returncode}'))
 
-if failed_tests:
-    print(f'Failed {len(failed_tests)} of {len(test_paths)} hook test files:', file=sys.stderr)
-    for test_path, reason in failed_tests:
+if _failed_tests:
+    print(f'Failed {len(_failed_tests)} of {len(_test_paths)} hook test files:', file=sys.stderr)
+    for test_path, reason in _failed_tests:
         print(f'- {test_path}: {reason}', file=sys.stderr)
     print('NG', file=sys.stderr)
     sys.exit(2)
 
-print(f'Passed all {len(test_paths)} hook test files.')
+print(f'Passed all {len(_test_paths)} hook test files.')
 print('OK', flush=True)

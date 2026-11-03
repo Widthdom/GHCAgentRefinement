@@ -6,22 +6,22 @@ import tempfile
 import unittest
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'require-hook-tests.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'require-hook-tests.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
-HOOK_TIMESTAMP = 1777777777000
-PYTHON_COMMAND = 'python' if sys.platform == 'win32' else 'python3'
+_HOOK_TIMESTAMP = 1777777777000
+_PYTHON_COMMAND = 'python' if sys.platform == 'win32' else 'python3'
 
 
-def user(content, delivery='idle'):
+def _user(content, delivery='idle'):
     return {'type': 'user.message', 'data': {'content': content, 'delivery': delivery}}
 
 
-def tool(call_id, tool_name, arguments, success=True, exit_code=None):
+def _tool(call_id, tool_name, arguments, success=True, exit_code=None):
     complete = {'toolCallId': call_id, 'success': success}
     if exit_code is not None:
         complete['shellExecution'] = {'exitCode': exit_code}
@@ -31,16 +31,16 @@ def tool(call_id, tool_name, arguments, success=True, exit_code=None):
     ]
 
 
-def edit(call_id, path, tool_name='edit', success=True):
-    return tool(call_id, tool_name, {'path': path, 'old_str': 'a', 'new_str': 'b'}, success=success)
+def _edit(call_id, path, tool_name='edit', success=True):
+    return _tool(call_id, tool_name, {'path': path, 'old_str': 'a', 'new_str': 'b'}, success=success)
 
 
-def shell(call_id, command, exit_code, tool_name='bash'):
-    return tool(call_id, tool_name, {'command': command}, success=exit_code is not None, exit_code=exit_code)
+def _shell(call_id, command, exit_code, tool_name='bash'):
+    return _tool(call_id, tool_name, {'command': command}, success=exit_code is not None, exit_code=exit_code)
 
 
-def agent_stop_start():
-    return {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': HOOK_TIMESTAMP}}}
+def _agent_stop_start():
+    return {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': _HOOK_TIMESTAMP}}}
 
 
 class RequireHookTestsTests(unittest.TestCase):
@@ -74,7 +74,7 @@ class RequireHookTestsTests(unittest.TestCase):
         self.transcript_path = os.path.join(self.root, 'events.jsonl')
         self.payload = {
             'sessionId': '00000000-0000-4000-8000-000000000000',
-            'timestamp': HOOK_TIMESTAMP,
+            'timestamp': _HOOK_TIMESTAMP,
             'cwd': self.repository,
             'transcriptPath': self.transcript_path,
         }
@@ -91,12 +91,12 @@ class RequireHookTestsTests(unittest.TestCase):
     def invoke(self, events=None, payload=None, raw=None):
         if events is not None:
             with open(self.transcript_path, 'w', encoding='utf-8', newline='\n') as file:
-                for event in [*events, agent_stop_start()]:
+                for event in [*events, _agent_stop_start()]:
                     file.write(json.dumps(event, ensure_ascii=False) + '\n')
         if raw is None:
             raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path], input=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
+            [sys.executable, _hook_path], input=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
         )
 
     def assert_silent(self, result):
@@ -115,7 +115,7 @@ class RequireHookTestsTests(unittest.TestCase):
         return output['reason']
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         entries = configuration['hooks']['agentStop']
         relative_path = '.github/hooks/helpers/events/agentStop/require-hook-tests/require-hook-tests.py'
@@ -131,15 +131,15 @@ class RequireHookTestsTests(unittest.TestCase):
         test = self.hook_file('preToolUse', 'alpha', 'test-alpha.py')
         cases = (
             ([], 'not run'),
-            (shell('s1', f'python3 {test}', 1), 'failed with exit code 1'),
-            (shell('s1', f'python3 {test}', None), 'did not complete'),
-            (shell('s1', 'python3 test-other-alpha.py', 0), 'not run'),
-            (shell('s1', 'git status', 0), 'not run'),
+            (_shell('s1', f'python3 {test}', 1), 'failed with exit code 1'),
+            (_shell('s1', f'python3 {test}', None), 'did not complete'),
+            (_shell('s1', 'python3 test-other-alpha.py', 0), 'not run'),
+            (_shell('s1', 'git status', 0), 'not run'),
         )
         for runs, status in cases:
             with self.subTest(status=status, runs=runs):
-                events = [user('直して'), *edit('e1', alpha), *runs]
-                self.assert_block(self.invoke(events), f'- preToolUse/alpha ({status}): run `{PYTHON_COMMAND} {test}`')
+                events = [_user('直して'), *_edit('e1', alpha), *runs]
+                self.assert_block(self.invoke(events), f'- preToolUse/alpha ({status}): run `{_PYTHON_COMMAND} {test}`')
 
     def test_repository_specific_hooks(self):
         directory = os.path.join(self.hooks, 'helpers', '-repo-events', 'preToolUse', 'gamma')
@@ -148,24 +148,24 @@ class RequireHookTestsTests(unittest.TestCase):
         gamma = '.github/hooks/helpers/-repo-events/preToolUse/gamma/gamma.py'
         test = '.github/hooks/helpers/-repo-events/preToolUse/gamma/test-gamma.py'
         self.assert_block(
-            self.invoke([user('直して'), *edit('e1', gamma)]),
-            f'- preToolUse/gamma (not run): run `{PYTHON_COMMAND} {test}`',
+            self.invoke([_user('直して'), *_edit('e1', gamma)]),
+            f'- preToolUse/gamma (not run): run `{_PYTHON_COMMAND} {test}`',
             '.github/hooks/helpers/-repo-events/preToolUse/gamma/README.md',
         )
         for command in (f'python3 {test}', 'python3 .github/hooks/tests/test-all-hooks.py'):
             with self.subTest(command=command):
-                self.assert_silent(self.invoke([user('直して'), *edit('e1', gamma), *shell('s1', command, 0)]))
+                self.assert_silent(self.invoke([_user('直して'), *_edit('e1', gamma), *_shell('s1', command, 0)]))
         self.assert_silent(self.invoke([
-            user('直して'), *edit('e1', '.github/hooks/-repo-preToolUse.json'),
-            *shell('s1', 'python3 .github/hooks/tests/test-hook-configurations.py', 0),
+            _user('直して'), *_edit('e1', '.github/hooks/-repo-preToolUse.json'),
+            *_shell('s1', 'python3 .github/hooks/tests/test-hook-configurations.py', 0),
         ]))
 
     def test_requires_rerun_after_later_edit(self):
         alpha = self.hook_file('preToolUse', 'alpha', 'alpha.py')
         test = self.hook_file('preToolUse', 'alpha', 'test-alpha.py')
         events = [
-            user('直して'), *edit('e1', alpha), *shell('s1', f'python3 {test}', 0),
-            *edit('e2', test, tool_name='functions.create'),
+            _user('直して'), *_edit('e1', alpha), *_shell('s1', f'python3 {test}', 0),
+            *_edit('e2', test, tool_name='functions.create'),
         ]
         self.assert_block(self.invoke(events), 'preToolUse/alpha (not run)')
 
@@ -173,52 +173,52 @@ class RequireHookTestsTests(unittest.TestCase):
         alpha = self.hook_file('preToolUse', 'alpha', 'alpha.py')
         beta = os.path.join(self.hooks, 'helpers', 'events', 'agentStop', 'beta', 'beta.py')
         cases = (
-            [*edit('e1', alpha), *shell('s1', f'python3 {self.hook_file("preToolUse", "alpha", "test-alpha.py")}', 0)],
-            [*edit('e1', alpha), *shell('s1', r'python .github\hooks\helpers\events\preToolUse\alpha\test-alpha.py', 0, 'powershell')],
-            [*edit('e1', alpha), *edit('e2', beta), *shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
-            [*edit('e1', alpha), *shell('s1', 'cd .github/hooks/helpers/events/preToolUse/alpha && python3 test-alpha.py -v', 0)],
-            [*edit('e1', '.github/hooks/preToolUse.json'), *shell('s1', 'python3 .github/hooks/tests/test-hook-configurations.py', 0)],
-            [*edit('e1', '.github/hooks/helpers/utilities/shared/shared.py'), *shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
-            [*edit('e1', '.github/hooks/helpers/runner/run-hook.py'),
-             *shell('s1', 'python3 .github/hooks/helpers/runner/test-run-hook.py', 0)],
-            [*edit('e1', '.github/hooks/helpers/runner/run-hook.py'), *shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
-            [*edit('e1', '.github/hooks/tests/helpers/hook_test_output.py'),
-             *shell('s1', 'python3 .github/hooks/tests/helpers/test-hook-test-output.py', 0)],
+            [*_edit('e1', alpha), *_shell('s1', f'python3 {self.hook_file("preToolUse", "alpha", "test-alpha.py")}', 0)],
+            [*_edit('e1', alpha), *_shell('s1', r'python .github\hooks\helpers\events\preToolUse\alpha\test-alpha.py', 0, 'powershell')],
+            [*_edit('e1', alpha), *_edit('e2', beta), *_shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
+            [*_edit('e1', alpha), *_shell('s1', 'cd .github/hooks/helpers/events/preToolUse/alpha && python3 test-alpha.py -v', 0)],
+            [*_edit('e1', '.github/hooks/preToolUse.json'), *_shell('s1', 'python3 .github/hooks/tests/test-hook-configurations.py', 0)],
+            [*_edit('e1', '.github/hooks/helpers/utilities/shared/shared.py'), *_shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
+            [*_edit('e1', '.github/hooks/helpers/runner/run-hook.py'),
+             *_shell('s1', 'python3 .github/hooks/helpers/runner/test-run-hook.py', 0)],
+            [*_edit('e1', '.github/hooks/helpers/runner/run-hook.py'), *_shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
+            [*_edit('e1', '.github/hooks/tests/helpers/hook_test_output.py'),
+             *_shell('s1', 'python3 .github/hooks/tests/helpers/test-hook-test-output.py', 0)],
         )
         for events in cases:
             with self.subTest(events=events):
-                self.assert_silent(self.invoke([user('直して'), *events]))
+                self.assert_silent(self.invoke([_user('直して'), *events]))
 
     def test_ignores_files_that_need_no_test(self):
         cases = (
-            [*edit('e1', self.hook_file('preToolUse', 'alpha', 'README.md'))],
-            [*edit('e1', '.github/hooks/tests/README.md')],
-            [*edit('e1', '.github/README.md')],
-            [*edit('e1', '.github/hooks/helpers/runner/README.md')],
-            [*edit('e1', 'src/app.py')],
-            [*edit('e1', self.hook_file('preToolUse', 'deleted', 'deleted.py'))],
-            [*edit('e1', self.hook_file('preToolUse', 'alpha', 'alpha.py'), success=False)],
-            [*tool('v1', 'str_replace_editor', {'command': 'view', 'path': self.hook_file('preToolUse', 'alpha', 'alpha.py')})],
-            [*tool('v1', 'view', {'path': self.hook_file('preToolUse', 'alpha', 'alpha.py')})],
+            [*_edit('e1', self.hook_file('preToolUse', 'alpha', 'README.md'))],
+            [*_edit('e1', '.github/hooks/tests/README.md')],
+            [*_edit('e1', '.github/README.md')],
+            [*_edit('e1', '.github/hooks/helpers/runner/README.md')],
+            [*_edit('e1', 'src/app.py')],
+            [*_edit('e1', self.hook_file('preToolUse', 'deleted', 'deleted.py'))],
+            [*_edit('e1', self.hook_file('preToolUse', 'alpha', 'alpha.py'), success=False)],
+            [*_tool('v1', 'str_replace_editor', {'command': 'view', 'path': self.hook_file('preToolUse', 'alpha', 'alpha.py')})],
+            [*_tool('v1', 'view', {'path': self.hook_file('preToolUse', 'alpha', 'alpha.py')})],
         )
         for events in cases:
             with self.subTest(events=events):
-                self.assert_silent(self.invoke([user('直して'), *events]))
+                self.assert_silent(self.invoke([_user('直して'), *events]))
 
     def test_only_changes_since_latest_request(self):
         alpha = self.hook_file('preToolUse', 'alpha', 'alpha.py')
-        self.assert_silent(self.invoke([user('前の依頼'), *edit('e1', alpha), user('次の依頼')]))
+        self.assert_silent(self.invoke([_user('前の依頼'), *_edit('e1', alpha), _user('次の依頼')]))
         # hookの差し戻しなどのqueuedなuser.messageは依頼の区切りとしない。
-        self.assert_block(self.invoke([user('依頼'), *edit('e1', alpha), user('割り込み', delivery='queued')]))
+        self.assert_block(self.invoke([_user('依頼'), *_edit('e1', alpha), _user('割り込み', delivery='queued')]))
 
     def test_blocks_only_once_per_request(self):
         alpha = self.hook_file('preToolUse', 'alpha', 'alpha.py')
-        events = [user('直して'), *edit('e1', alpha)]
+        events = [_user('直して'), *_edit('e1', alpha)]
         reason = self.assert_block(self.invoke(events))
-        self.assert_silent(self.invoke([*events, user(reason, delivery='queued')]))
+        self.assert_silent(self.invoke([*events, _user(reason, delivery='queued')]))
         # 次の依頼では改めて差し戻す。
         self.assert_block(self.invoke([
-            *events, user(reason, delivery='queued'), user('もう一度'), *edit('e2', events[1]['data']['arguments']['path']),
+            *events, _user(reason, delivery='queued'), _user('もう一度'), *_edit('e2', events[1]['data']['arguments']['path']),
         ]))
 
     def test_lists_requirements_and_readmes(self):
@@ -231,22 +231,22 @@ class RequireHookTestsTests(unittest.TestCase):
             '*** End Patch\n'
         )
         events = [
-            user('直して'),
-            *tool('p1', 'apply_patch', patch),
-            *edit('e1', '.github/hooks/helpers/utilities/shared/shared.py'),
-            *edit('e2', '.github/hooks/preToolUse.json'),
-            *edit('e3', '.github/hooks/tests/helpers/hook_test_output.py'),
+            _user('直して'),
+            *_tool('p1', 'apply_patch', patch),
+            *_edit('e1', '.github/hooks/helpers/utilities/shared/shared.py'),
+            *_edit('e2', '.github/hooks/preToolUse.json'),
+            *_edit('e3', '.github/hooks/tests/helpers/hook_test_output.py'),
             # 一括実行は共通出力処理のテストを含まない。
-            *shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 1),
+            *_shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 1),
         ]
         reason = self.assert_block(
             self.invoke(events),
-            f'- preToolUse/alpha (failed with exit code 1): run `{PYTHON_COMMAND} .github/hooks/helpers/events/preToolUse/alpha/test-alpha.py`',
+            f'- preToolUse/alpha (failed with exit code 1): run `{_PYTHON_COMMAND} .github/hooks/helpers/events/preToolUse/alpha/test-alpha.py`',
             '- agentStop/beta (failed with exit code 1)',
             '- sessionStart/no-test: the test file `.github/hooks/helpers/events/sessionStart/no-test/test-no-test.py` does not exist.',
             '- shared utilities (helpers/utilities) (failed with exit code 1)',
             '- hook configurations (failed with exit code 1)',
-            f'- tests/helpers/test-hook-test-output.py (not run): run `{PYTHON_COMMAND} .github/hooks/tests/helpers/test-hook-test-output.py`',
+            f'- tests/helpers/test-hook-test-output.py (not run): run `{_PYTHON_COMMAND} .github/hooks/tests/helpers/test-hook-test-output.py`',
         )
         self.assertTrue(reason.endswith(
             '\nAlso check whether these READMEs need updating for the implementation changes: '
@@ -258,18 +258,18 @@ class RequireHookTestsTests(unittest.TestCase):
 
     def test_requires_runner_test(self):
         reason = self.assert_block(
-            self.invoke([user('直して'), *edit('e1', '.github/hooks/helpers/runner/run-hook.py')]),
-            f'- hook runner (helpers/runner) (not run): run `{PYTHON_COMMAND} .github/hooks/helpers/runner/test-run-hook.py`',
+            self.invoke([_user('直して'), *_edit('e1', '.github/hooks/helpers/runner/run-hook.py')]),
+            f'- hook runner (helpers/runner) (not run): run `{_PYTHON_COMMAND} .github/hooks/helpers/runner/test-run-hook.py`',
         )
         self.assertTrue(reason.endswith('.github/hooks/helpers/runner/README.md'))
 
     def test_skips_subagent(self):
-        events = [user('直して'), *edit('e1', self.hook_file('preToolUse', 'alpha', 'alpha.py'))]
+        events = [_user('直して'), *_edit('e1', self.hook_file('preToolUse', 'alpha', 'alpha.py'))]
         self.invoke(events)
         self.assert_silent(self.invoke(payload={**self.payload, 'agentId': 'agent-1'}))
 
     def test_invalid_input_reports_error(self):
-        self.invoke([user('直して')])
+        self.invoke([_user('直して')])
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42']
         for changes in (
             {'cwd': None}, {'cwd': 'relative'}, {'transcriptPath': None}, {'transcriptPath': ' '},

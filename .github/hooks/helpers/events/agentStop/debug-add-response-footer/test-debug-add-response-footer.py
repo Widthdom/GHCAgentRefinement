@@ -13,8 +13,8 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 from pathlib import Path
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'debug-add-response-footer.py')
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'debug-add-response-footer.py')
 
 
 def _to_compressed_json(value):
@@ -30,8 +30,8 @@ def _new_session_id():
     return str(uuid.uuid4())
 
 
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
@@ -61,7 +61,7 @@ class DebugResponseFooterTests(unittest.TestCase):
             'TEMP': self.temp_dir,
         })
         completed = subprocess.run(
-            [sys.executable, hook_path],
+            [sys.executable, _hook_path],
             input=input_json if isinstance(input_json, bytes) else input_json.encode('utf-8'),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -308,7 +308,7 @@ class DebugResponseFooterTests(unittest.TestCase):
             str(Path(__file__).resolve().parents[3] / 'utilities' / 'get-current-jst' / 'get-current-jst.py')
         )['current_jst']
 
-        formatted_footer = runpy.run_path(str(Path(script_directory) / 'format-response-footer.py'))['format_response_footer'](
+        formatted_footer = runpy.run_path(str(Path(_script_directory) / 'format-response-footer.py'))['format_response_footer'](
             hooks=['none'],
             fired_hooks=['none'],
             skills=['none'],
@@ -425,7 +425,7 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         # userPromptSubmittedのhook.startはuser.messageより前に記録されるため、そこからを今回のターンとする。
         record_hook_run = runpy.run_path(
-            str(Path(script_directory).parents[2] / 'utilities' / 'hook-activity-state' / 'hook-activity-state.py')
+            str(Path(_script_directory).parents[2] / 'utilities' / 'hook-activity-state' / 'hook-activity-state.py')
         )['record_hook_run']
         with patch.object(tempfile, 'tempdir', self.temp_dir):
             for timestamp, event_name, hook_name, fired in (
@@ -455,9 +455,9 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         _write_all_text(collection_transcript, '\n'.join(map(_to_compressed_json, events)) + '\n')
 
-        get_hooks = runpy.run_path(str(Path(script_directory) / 'get-used-hooks.py'))['get_used_hooks']
+        get_hooks = runpy.run_path(str(Path(_script_directory) / 'get-used-hooks.py'))['get_used_hooks']
 
-        get_skills = runpy.run_path(str(Path(script_directory) / 'get-used-skills.py'))['get_used_skills']
+        get_skills = runpy.run_path(str(Path(_script_directory) / 'get-used-skills.py'))['get_used_skills']
 
         if get_hooks(collection_transcript, hooks_directory) != ['a-first', 'm-repo', 'z-last']:
             raise AssertionError('Expected current-turn hooks in name order, retaining correction history.')
@@ -465,7 +465,7 @@ class DebugResponseFooterTests(unittest.TestCase):
         if get_skills(collection_transcript) != ['first', 'second']:
             raise AssertionError('Expected distinct skill names in invocation order, retaining correction history.')
 
-        get_fired_hooks = runpy.run_path(str(Path(script_directory) / 'get-fired-hooks.py'))['get_fired_hooks']
+        get_fired_hooks = runpy.run_path(str(Path(_script_directory) / 'get-fired-hooks.py'))['get_fired_hooks']
 
         with patch.object(tempfile, 'tempdir', self.temp_dir):
             if get_fired_hooks(collection_transcript, self.enabled_session_id) != ['deny-hook', 'prompt-hook']:
@@ -529,9 +529,9 @@ class DebugResponseFooterTests(unittest.TestCase):
                         get_fired_hooks(collection_transcript, self.enabled_session_id)
 
     def test_footer_validation(self):
-        format_footer = runpy.run_path(str(Path(script_directory) / 'format-response-footer.py'))['format_response_footer']
+        format_footer = runpy.run_path(str(Path(_script_directory) / 'format-response-footer.py'))['format_response_footer']
 
-        validate_footer = runpy.run_path(str(Path(script_directory) / 'check-response-footer.py'))['test_response_footer']
+        validate_footer = runpy.run_path(str(Path(_script_directory) / 'check-response-footer.py'))['test_response_footer']
 
         current_jst = '2026-10-21 12:00:00 JST'
 
@@ -569,7 +569,7 @@ class DebugResponseFooterTests(unittest.TestCase):
             raise AssertionError('Expected the fired hooks section to state that agentStop hooks are excluded.')
 
     def test_transcript_and_polling_helpers(self):
-        hook = runpy.run_path(str(Path(script_directory) / 'debug-add-response-footer.py'))
+        hook = runpy.run_path(str(Path(_script_directory) / 'debug-add-response-footer.py'))
 
         last_message_transcript = os.path.join(self.temp_dir, 'last-message.jsonl')
 
@@ -593,7 +593,7 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         _write_all_text(flush_transcript, '\n' + _to_compressed_json(start_event) + '\n{"type":')
 
-        waiter = runpy.run_path(str(Path(script_directory).parents[2] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py'))
+        waiter = runpy.run_path(str(Path(_script_directory).parents[2] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py'))
         is_event_recorded = waiter['_is_agent_stop_event_recorded']
         wait_for_event = waiter['wait_for_agent_stop_event']
 

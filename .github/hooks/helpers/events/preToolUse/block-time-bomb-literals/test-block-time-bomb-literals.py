@@ -7,14 +7,14 @@ import unittest
 import uuid
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-time-bomb-literals.py')
-definitions_path = os.path.join(script_directory, 'time-bomb-definitions.json')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-time-bomb-literals.py')
+_definitions_path = os.path.join(_script_directory, 'time-bomb-definitions.json')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-TODAY = '2026-11-03'
+_TODAY = '2026-11-03'
 
 
 class BlockTimeBombLiteralsTests(unittest.TestCase):
@@ -45,7 +45,7 @@ class BlockTimeBombLiteralsTests(unittest.TestCase):
     def run_hook(self, hook_input, *arguments):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path, '--today', TODAY, *arguments], input=raw,
+            [sys.executable, _hook_path, '--today', _TODAY, *arguments], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
         )
 
@@ -66,13 +66,13 @@ class BlockTimeBombLiteralsTests(unittest.TestCase):
             self.assertIn(part, output['permissionDecisionReason'], message)
 
     def test_definitions_are_valid_json(self):
-        with open(definitions_path, encoding='utf-8') as file:
+        with open(_definitions_path, encoding='utf-8') as file:
             definitions = json.load(file)
         self.assertTrue(definitions['clockPatterns'])
         self.assertTrue(definitions['frozenClockPatterns'])
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         relative_path = '.github/hooks/helpers/events/preToolUse/block-time-bomb-literals/block-time-bomb-literals.py'
         entries = [
@@ -105,7 +105,7 @@ class BlockTimeBombLiteralsTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.new_session()
                 result = self.run_call('create', {'path': path, 'file_text': f'def test_x():\n{line}'})
-                self.assert_denied(result, [expected, f'Today is {TODAY}', 'only once per file'], name)
+                self.assert_denied(result, [expected, f'Today is {_TODAY}', 'only once per file'], name)
 
     def test_edit_tools_are_parsed(self):
         cases = [

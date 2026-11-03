@@ -13,11 +13,11 @@ from typing import cast
 
 
 # SDKがファイル書き込みとして扱う組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$', re.MULTILINE)
-UTF8_BOM = b'\xef\xbb\xbf'
-GIT_TIMEOUT_SECONDS = 5
-FORMAT_CONTEXT = (
+_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
+_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$', re.MULTILINE)
+_UTF8_BOM = b'\xef\xbb\xbf'
+_GIT_TIMEOUT_SECONDS = 5
+_FORMAT_CONTEXT = (
     'The following edited files no longer match the file format of their committed version: {changes}. '
     'Editing tools can silently rewrite line endings, the byte order mark, or the final newline when '
     'a whole file is rewritten, which turns a small edit into a whole-file diff. Unless the user asked '
@@ -26,7 +26,7 @@ FORMAT_CONTEXT = (
 )
 
 
-def get_tool_args(raw_tool_args):
+def _get_tool_args(raw_tool_args):
     # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列で渡される場合もある。
     if isinstance(raw_tool_args, str):
         try:
@@ -36,21 +36,21 @@ def get_tool_args(raw_tool_args):
     return raw_tool_args
 
 
-def collect_strings(value):
+def _collect_strings(value):
     if isinstance(value, str):
         yield value
     elif isinstance(value, dict):
         for item in value.values():
-            yield from collect_strings(item)
+            yield from _collect_strings(item)
     elif isinstance(value, list):
         for item in value:
-            yield from collect_strings(item)
+            yield from _collect_strings(item)
 
 
-def get_edited_paths(tool_name, tool_args, cwd):
+def _get_edited_paths(tool_name, tool_args, cwd):
     if tool_name == 'apply_patch':
         # パッチ本文の `*** Update File: <path>` などの行から対象を集める。削除・移動元は後で実在確認により除外する。
-        paths = [match for text in collect_strings(tool_args) for match in PATCH_FILE_PATTERN.findall(text)]
+        paths = [match for text in _collect_strings(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)]
     else:
         path = tool_args.get('path') if isinstance(tool_args, dict) else None
         paths = [path] if isinstance(path, str) and path.strip() else []
@@ -58,7 +58,7 @@ def get_edited_paths(tool_name, tool_args, cwd):
     return sorted({os.path.normcase(os.path.realpath(os.path.join(cwd, path))) for path in paths})
 
 
-def get_committed_content(path):
+def _get_committed_content(path):
     # HEADのファイルを、チェックアウト時と同じ変換（core.autocrlfや.gitattributesのeol）を通して取得する。
     # 変換前の内容と比べると、WindowsのautocrlfでCRLFになった作業ツリーを誤って変更扱いしてしまう。
     # gitがない、リポジトリ外、HEADにないファイル（新規・管理外）は比較できないためNoneを返す。
@@ -66,7 +66,7 @@ def get_committed_content(path):
         result = subprocess.run(
             ['git', 'cat-file', '--filters', f'HEAD:./{os.path.basename(path)}'],
             cwd=os.path.dirname(path), stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=GIT_TIMEOUT_SECONDS,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=_GIT_TIMEOUT_SECONDS,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -75,7 +75,7 @@ def get_committed_content(path):
     return result.stdout
 
 
-def get_line_ending_style(content):
+def _get_line_ending_style(content):
     crlf = content.count(b'\r\n')
     lf = content.count(b'\n') - crlf
     if crlf and lf:
@@ -87,30 +87,30 @@ def get_line_ending_style(content):
     return None
 
 
-def ends_with_newline(content):
+def _ends_with_newline(content):
     return content.endswith(b'\n')
 
 
-def get_format_changes(committed, current):
+def _get_format_changes(committed, current):
     # NUL文字を含むファイルはバイナリまたはUTF-16などとみなし、改行の判定をしない。
     if b'\0' in committed or b'\0' in current:
         return []
     changes = []
-    committed_style = get_line_ending_style(committed)
-    current_style = get_line_ending_style(current)
+    committed_style = _get_line_ending_style(committed)
+    current_style = _get_line_ending_style(current)
     # 元から混在しているファイルと、改行が1つもない内容は統一の基準がないため比べない。
     if committed_style in ('CRLF', 'LF') and current_style and current_style != committed_style:
         changes.append(f'line endings changed from {committed_style} to {current_style}')
-    if committed.startswith(UTF8_BOM) != current.startswith(UTF8_BOM):
-        changes.append('UTF-8 BOM removed' if committed.startswith(UTF8_BOM) else 'UTF-8 BOM added')
+    if committed.startswith(_UTF8_BOM) != current.startswith(_UTF8_BOM):
+        changes.append('UTF-8 BOM removed' if committed.startswith(_UTF8_BOM) else 'UTF-8 BOM added')
     # 空ファイルには末尾の改行という概念がないため、どちらかが空なら比べない。
-    if committed.removeprefix(UTF8_BOM) and current.removeprefix(UTF8_BOM):
-        if ends_with_newline(committed) != ends_with_newline(current):
-            changes.append('final newline removed' if ends_with_newline(committed) else 'final newline added')
+    if committed.removeprefix(_UTF8_BOM) and current.removeprefix(_UTF8_BOM):
+        if _ends_with_newline(committed) != _ends_with_newline(current):
+            changes.append('final newline removed' if _ends_with_newline(committed) else 'final newline added')
     return changes
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、助言を短くする。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -121,7 +121,7 @@ def get_display_path(path, cwd):
     return path
 
 
-def record_notifications(state_path, results):
+def _record_notifications(state_path, results):
     # results：(パス, パスのSHA-256, 変更点のリスト) のリスト。戻り値は、今回初めて通知する (パス, 変更点) のリスト。
     new_notifications = []
     # SQLiteのトランザクションで、並列に編集しても同じ変更を重複して通知しない。
@@ -185,23 +185,23 @@ def main():
             raise ValueError('toolArgs is required.')
 
         tool_name = hook_input['toolName'].removeprefix('functions.')
-        if tool_name not in EDIT_TOOL_NAMES:
+        if tool_name not in _EDIT_TOOL_NAMES:
             return 0
-        paths = get_edited_paths(tool_name, get_tool_args(hook_input['toolArgs']), hook_input['cwd'])
+        paths = _get_edited_paths(tool_name, _get_tool_args(hook_input['toolArgs']), hook_input['cwd'])
 
         results = []
         for path in paths:
             # 削除されたファイルと、パッチの移動元は比較対象がない。
             if not os.path.isfile(path):
                 continue
-            committed = get_committed_content(path)
+            committed = _get_committed_content(path)
             if committed is None:
                 continue
             with open(path, 'rb') as file:
                 current = file.read()
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
             file_key = hashlib.sha256(path.encode('utf-8')).hexdigest()
-            results.append((path, file_key, get_format_changes(committed, current)))
+            results.append((path, file_key, _get_format_changes(committed, current)))
         # hookは呼び出しごとに別プロセスなので、通知済みの変更をセッションUUID別に保存する。
         # DBファイル自体は自動削除しない。
         state_directory = os.path.join(
@@ -213,7 +213,7 @@ def main():
         # 形式が崩れない通常の編集では状態ファイルを作らない。
         if any(changes for _, _, changes in results) or (results and os.path.isfile(state_path)):
             os.makedirs(state_directory, exist_ok=True)
-            notifications = record_notifications(state_path, results)
+            notifications = _record_notifications(state_path, results)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check line endings: {ex}', file=sys.stderr)
         return 2
@@ -221,11 +221,11 @@ def main():
     if notifications:
         cwd = os.path.normcase(os.path.realpath(hook_input['cwd']))
         changes = '; '.join(
-            f'{get_display_path(path, cwd)} ({", ".join(file_changes)})' for path, file_changes in notifications
+            f'{_get_display_path(path, cwd)} ({", ".join(file_changes)})' for path, file_changes in notifications
         )
         # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({'additionalContext': FORMAT_CONTEXT.format(changes=changes)}, ensure_ascii=False))
+        print(json.dumps({'additionalContext': _FORMAT_CONTEXT.format(changes=changes)}, ensure_ascii=False))
     return 0
 
 

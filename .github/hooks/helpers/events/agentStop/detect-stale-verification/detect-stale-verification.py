@@ -8,22 +8,22 @@ from pathlib import Path
 from typing import cast
 
 
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-SHELL_TOOL_NAMES = {'bash', 'powershell'}
+_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
+_SHELL_TOOL_NAMES = {'bash', 'powershell'}
 # パッチで追加・更新・削除するファイルと移動先。
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$', re.MULTILINE)
+_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$', re.MULTILINE)
 # 説明だけのファイル。変更してもテストの結果は変わらないため対象外とする。
-DOCUMENT_EXTENSIONS = ('.md', '.markdown', '.rst', '.txt', '.adoc')
+_DOCUMENT_EXTENSIONS = ('.md', '.markdown', '.rst', '.txt', '.adoc')
 # hookのファイル。変更後のテストはrequire-hook-tests hookが主張の有無によらず求めるため、重ねて差し戻さない。
-HOOKS_PATH_PATTERN = re.compile(r'(?:^|/)\.github/hooks/', re.IGNORECASE)
-REASON_PREFIX = 'Files were edited after the last passing test run'
-MAX_LISTED_FILES = 10
-MAX_COMMAND_LENGTH = 200
+_HOOKS_PATH_PATTERN = re.compile(r'(?:^|/)\.github/hooks/', re.IGNORECASE)
+_REASON_PREFIX = 'Files were edited after the last passing test run'
+_MAX_LISTED_FILES = 10
+_MAX_COMMAND_LENGTH = 200
 
 
-def get_edited_paths(tool_name, arguments):
+def _get_edited_paths(tool_name, arguments):
     if tool_name == 'apply_patch':
-        return [match for text in collect_strings(arguments) for match in PATCH_FILE_PATTERN.findall(text)]
+        return [match for text in _collect_strings(arguments) for match in _PATCH_FILE_PATTERN.findall(text)]
     if not isinstance(arguments, dict):
         return []
     # str_replace_editorのviewは閲覧なので対象外とする。
@@ -33,18 +33,18 @@ def get_edited_paths(tool_name, arguments):
     return [path] if isinstance(path, str) and path.strip() else []
 
 
-def collect_strings(value):
+def _collect_strings(value):
     if isinstance(value, str):
         yield value
     elif isinstance(value, dict):
         for item in value.values():
-            yield from collect_strings(item)
+            yield from _collect_strings(item)
     elif isinstance(value, list):
         for item in value:
-            yield from collect_strings(item)
+            yield from _collect_strings(item)
 
 
-def get_turn_events(transcript_path):
+def _get_turn_events(transcript_path):
     # ユーザーの最新の依頼以降の、編集ツールで変更したファイルとシェル実行を完了した順に集め、最終応答も返す。
     # 戻り値は (('edit', パス) または ('shell', (コマンド, 終了コード)) のリスト, 最終応答, 本hookによる差し戻し済みか)。
     # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
@@ -67,7 +67,7 @@ def get_turn_events(transcript_path):
                 started.clear()
                 last_assistant_msg = None
                 already_requested = False
-            elif isinstance(content, str) and content.startswith(REASON_PREFIX):
+            elif isinstance(content, str) and content.startswith(_REASON_PREFIX):
                 already_requested = True
         elif event_type == 'assistant.message':
             content = data.get('content')
@@ -88,9 +88,9 @@ def get_turn_events(transcript_path):
                     arguments = json.loads(arguments)
                 except ValueError:
                     pass
-            if tool_name in EDIT_TOOL_NAMES and data.get('success') is True:
-                events.extend(('edit', path) for path in get_edited_paths(tool_name, arguments))
-            elif (tool_name in SHELL_TOOL_NAMES and isinstance(arguments, dict)
+            if tool_name in _EDIT_TOOL_NAMES and data.get('success') is True:
+                events.extend(('edit', path) for path in _get_edited_paths(tool_name, arguments))
+            elif (tool_name in _SHELL_TOOL_NAMES and isinstance(arguments, dict)
                     and isinstance(arguments.get('command'), str)):
                 shell_execution = data.get('shellExecution')
                 exit_code = shell_execution.get('exitCode') if isinstance(shell_execution, dict) else None
@@ -99,7 +99,7 @@ def get_turn_events(transcript_path):
     return events, last_assistant_msg, already_requested
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示す。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     absolute = os.path.normpath(os.path.join(cwd, path))
@@ -111,7 +111,7 @@ def get_display_path(path, cwd):
     return absolute.replace(os.sep, '/')
 
 
-def get_stale_edits(events, cwd, is_test_command):
+def _get_stale_edits(events, cwd, is_test_command):
     # 最後のテスト実行が成功し、その後に対象のファイルを変更していれば、(テストコマンド, 変更したファイル) を返す。
     # 最後のテスト実行が失敗・未実行の場合は、verify-completion-claims hookが扱うため対象外とする。
     last_test_index = None
@@ -129,8 +129,8 @@ def get_stale_edits(events, cwd, is_test_command):
     for kind, value in events[last_test_index + 1:]:
         if kind != 'edit':
             continue
-        display_path = get_display_path(value, cwd)
-        if display_path.lower().endswith(DOCUMENT_EXTENSIONS) or HOOKS_PATH_PATTERN.search(display_path):
+        display_path = _get_display_path(value, cwd)
+        if display_path.lower().endswith(_DOCUMENT_EXTENSIONS) or _HOOKS_PATH_PATTERN.search(display_path):
             continue
         key = os.path.normcase(display_path)
         if key not in seen:
@@ -141,16 +141,16 @@ def get_stale_edits(events, cwd, is_test_command):
     return command, stale_paths
 
 
-def get_block_reason(command, stale_paths):
-    if len(command) > MAX_COMMAND_LENGTH:
-        command = command[:MAX_COMMAND_LENGTH] + '...'
+def _get_block_reason(command, stale_paths):
+    if len(command) > _MAX_COMMAND_LENGTH:
+        command = command[:_MAX_COMMAND_LENGTH] + '...'
     lines = [
-        f'{REASON_PREFIX} ({command}), but the final response claims that tests passed. '
+        f'{_REASON_PREFIX} ({command}), but the final response claims that tests passed. '
         'The passing result does not cover these later edits:'
     ]
-    lines.extend(f'- {path}' for path in stale_paths[:MAX_LISTED_FILES])
-    if len(stale_paths) > MAX_LISTED_FILES:
-        lines.append(f'- ... and {len(stale_paths) - MAX_LISTED_FILES} more')
+    lines.extend(f'- {path}' for path in stale_paths[:_MAX_LISTED_FILES])
+    if len(stale_paths) > _MAX_LISTED_FILES:
+        lines.append(f'- ... and {len(stale_paths) - _MAX_LISTED_FILES} more')
     lines.append(
         'Re-run the relevant tests now and report the actual result. If you cannot run them, '
         'state explicitly that the latest edits were not tested.'
@@ -206,7 +206,7 @@ def main():
             str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
-        events, last_assistant_msg, already_requested = get_turn_events(transcript_path)
+        events, last_assistant_msg, already_requested = _get_turn_events(transcript_path)
     except (OSError, ValueError) as ex:
         print(f'Failed to inspect stale verification: {ex}', file=sys.stderr)
         return 2
@@ -216,10 +216,10 @@ def main():
             or not check_test_runs['claims_tests_passed'](last_assistant_msg)):
         return 0
 
-    stale = get_stale_edits(events, cwd, check_test_runs['is_test_command'])
+    stale = _get_stale_edits(events, cwd, check_test_runs['is_test_command'])
     if stale is not None:
         print(json.dumps(
-            {'decision': 'block', 'reason': get_block_reason(*stale)},
+            {'decision': 'block', 'reason': _get_block_reason(*stale)},
             ensure_ascii=False, separators=(',', ':'),
         ))
     return 0

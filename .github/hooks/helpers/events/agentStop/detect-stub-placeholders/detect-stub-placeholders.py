@@ -9,41 +9,41 @@ from pathlib import Path
 from typing import cast
 
 
-EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
-PLACEHOLDER_PATTERNS_KEY = 'placeholderPatterns'
-DISCLOSURE_PATTERNS_KEY = 'disclosurePatterns'
-REASON_PREFIX = 'The changes in this request leave placeholder code'
-MAX_FINDINGS = 10
-MAX_SNIPPET_LENGTH = 80
-BLOCK_REASON = (
-    REASON_PREFIX + ' that the final response does not mention:\n{findings}\n'
+_EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
+_PLACEHOLDER_PATTERNS_KEY = 'placeholderPatterns'
+_DISCLOSURE_PATTERNS_KEY = 'disclosurePatterns'
+_REASON_PREFIX = 'The changes in this request leave placeholder code'
+_MAX_FINDINGS = 10
+_MAX_SNIPPET_LENGTH = 80
+_BLOCK_REASON = (
+    _REASON_PREFIX + ' that the final response does not mention:\n{findings}\n'
     'Implement these parts now. If leaving them is intended (for example, an abstract method or work the user '
     'deferred), state in the response which parts remain unimplemented and why. Do not report the work as complete '
     'while placeholders remain.'
 )
 
 
-def compile_patterns(patterns, key):
+def _compile_patterns(patterns, key):
     try:
         return [re.compile(pattern) for pattern in patterns]
     except re.PatternError as ex:
         raise ValueError(f'invalid regular expression in {key}: {ex}') from None
 
 
-def is_string_list(value):
+def _is_string_list(value):
     return isinstance(value, list) and bool(value) and all(isinstance(item, str) and item.strip() for item in value)
 
 
-def load_definitions(path):
+def _load_definitions(path):
     # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
     if not isinstance(definitions, dict):
         raise ValueError('stub placeholder definitions must be a JSON object.')
-    for key in (EXCLUDED_FILE_PATTERNS_KEY, DISCLOSURE_PATTERNS_KEY):
-        if not is_string_list(definitions.get(key)):
+    for key in (_EXCLUDED_FILE_PATTERNS_KEY, _DISCLOSURE_PATTERNS_KEY):
+        if not _is_string_list(definitions.get(key)):
             raise ValueError(f'stub placeholder definitions require a non-empty array of non-empty strings for {key}.')
-    placeholder_definitions = definitions.get(PLACEHOLDER_PATTERNS_KEY)
+    placeholder_definitions = definitions.get(_PLACEHOLDER_PATTERNS_KEY)
     if not isinstance(placeholder_definitions, list) or not placeholder_definitions or not all(
         isinstance(definition, dict) and all(
             isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'pattern')
@@ -52,19 +52,19 @@ def load_definitions(path):
     ):
         raise ValueError(
             'stub placeholder definitions require a non-empty array of objects with non-empty strings for name and '
-            f'pattern in {PLACEHOLDER_PATTERNS_KEY}.'
+            f'pattern in {_PLACEHOLDER_PATTERNS_KEY}.'
         )
-    placeholder_patterns = compile_patterns(
-        [definition['pattern'] for definition in placeholder_definitions], PLACEHOLDER_PATTERNS_KEY,
+    placeholder_patterns = _compile_patterns(
+        [definition['pattern'] for definition in placeholder_definitions], _PLACEHOLDER_PATTERNS_KEY,
     )
     return (
-        compile_patterns(definitions[EXCLUDED_FILE_PATTERNS_KEY], EXCLUDED_FILE_PATTERNS_KEY),
+        _compile_patterns(definitions[_EXCLUDED_FILE_PATTERNS_KEY], _EXCLUDED_FILE_PATTERNS_KEY),
         [(definition['name'], pattern) for definition, pattern in zip(placeholder_definitions, placeholder_patterns)],
-        compile_patterns(definitions[DISCLOSURE_PATTERNS_KEY], DISCLOSURE_PATTERNS_KEY),
+        _compile_patterns(definitions[_DISCLOSURE_PATTERNS_KEY], _DISCLOSURE_PATTERNS_KEY),
     )
 
 
-def get_turn_summary(transcript_path):
+def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・編集・本hookによる差し戻し済みかを集める。
     # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
     # 編集ツールの引数の解析は、共通utilityで行う。
@@ -88,7 +88,7 @@ def get_turn_summary(transcript_path):
                 last_assistant_msg = None
                 changes.clear()
                 already_requested = False
-            elif isinstance(content, str) and content.startswith(REASON_PREFIX):
+            elif isinstance(content, str) and content.startswith(_REASON_PREFIX):
                 already_requested = True
         elif event_type == 'assistant.message':
             content = data.get('content')
@@ -101,10 +101,10 @@ def get_turn_summary(transcript_path):
     return last_assistant_msg, changes, already_requested
 
 
-def format_finding(finding):
+def _format_finding(finding):
     display_path, name, line = finding
-    if len(line) > MAX_SNIPPET_LENGTH:
-        line = line[:MAX_SNIPPET_LENGTH] + '...'
+    if len(line) > _MAX_SNIPPET_LENGTH:
+        line = line[:_MAX_SNIPPET_LENGTH] + '...'
     return f'- {display_path}: {name} ("{line}")'
 
 
@@ -122,7 +122,7 @@ def main(arguments=None):
     parsed_arguments = parser.parse_args(arguments)
 
     try:
-        excluded_file_patterns, placeholder_patterns, disclosure_patterns = load_definitions(
+        excluded_file_patterns, placeholder_patterns, disclosure_patterns = _load_definitions(
             parsed_arguments.definitions_path
         )
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
@@ -152,7 +152,7 @@ def main(arguments=None):
             str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
-        last_assistant_msg, changes, already_requested = get_turn_summary(transcript_path)
+        last_assistant_msg, changes, already_requested = _get_turn_summary(transcript_path)
         # 同じ依頼で差し戻すのは1回だけにし、意図して残す場合に停止できなくなるのを防ぐ。
         if last_assistant_msg is None or already_requested or not changes:
             return 0
@@ -170,7 +170,7 @@ def main(arguments=None):
         return 2
 
     if findings:
-        reason = BLOCK_REASON.format(findings='\n'.join(format_finding(finding) for finding in findings[:MAX_FINDINGS]))
+        reason = _BLOCK_REASON.format(findings='\n'.join(_format_finding(finding) for finding in findings[:_MAX_FINDINGS]))
         print(json.dumps({'decision': 'block', 'reason': reason}, ensure_ascii=False, separators=(',', ':')))
     return 0
 

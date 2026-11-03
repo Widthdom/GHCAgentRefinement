@@ -8,26 +8,26 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'check-python.sh')
-version_check_path = os.path.abspath(
-    os.path.join(script_directory, '../../../utilities/check-python-version/check-python-version.py')
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'check-python.sh')
+_version_check_path = os.path.abspath(
+    os.path.join(_script_directory, '../../../utilities/check-python-version/check-python-version.py')
 )
 
 
-def write_executable(path, content):
+def _write_executable(path, content):
     with open(path, 'w', encoding='utf-8', newline='\n') as file:
         file.write(content)
     os.chmod(path, 0o755)
 
 
-def invoke_shell_hook(status=None, system='Linux'):
+def _invoke_shell_hook(status=None, system='Linux'):
     shell = shutil.which('sh')
     if shell is None:
         raise AssertionError('A POSIX shell is required to test check-python.sh.')
 
     with tempfile.TemporaryDirectory() as directory:
-        write_executable(
+        _write_executable(
             os.path.join(directory, 'uname'),
             '#!/bin/sh\nprintf "%s\\n" "$CHECK_PYTHON_SYSTEM"\n',
         )
@@ -37,7 +37,7 @@ def invoke_shell_hook(status=None, system='Linux'):
             'CHECK_PYTHON_SYSTEM': system,
         }
         if status is not None:
-            write_executable(
+            _write_executable(
                 os.path.join(directory, 'python3'),
                 '#!/bin/sh\nprintf "%s\\n" "$@" > "$CHECK_PYTHON_ARGS"\n'
                 'printf "ignored stdout\\n"\nprintf "ignored stderr\\n" >&2\n'
@@ -48,7 +48,7 @@ def invoke_shell_hook(status=None, system='Linux'):
             environment['CHECK_PYTHON_STATUS'] = str(status)
 
         result = subprocess.run(
-            [shell, hook_path],
+            [shell, _hook_path],
             cwd=directory,
             env=environment,
             capture_output=True,
@@ -61,7 +61,7 @@ def invoke_shell_hook(status=None, system='Linux'):
         return result.returncode, result.stdout, result.stderr, args
 
 
-failure_messages = {
+_failure_messages = {
     'Darwin': (
         'Python 3.14 or later is required, and it must be available as the python3 command.\n'
         'Install it with: brew install python\n'
@@ -75,7 +75,7 @@ failure_messages = {
 }
 
 
-def get_expected_output(failure_message):
+def _get_expected_output(failure_message):
     # 標準エラーと同じ案内を、エージェントへの指示とともにadditionalContextとして渡すこと。
     return json.dumps({
         'additionalContext': (
@@ -84,8 +84,8 @@ def get_expected_output(failure_message):
         ),
     }, ensure_ascii=False, separators=(',', ':')) + '\n'
 
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
@@ -99,25 +99,25 @@ class CheckPythonTests(unittest.TestCase):
         ):
             with self.subTest(version=version, expected_exit=expected_exit):
                 with patch.object(sys, 'version_info', version), patch.object(sys, 'exit') as exit_mock:
-                    runpy.run_path(version_check_path)
+                    runpy.run_path(_version_check_path)
                     exit_mock.assert_called_once_with(expected_exit)
 
     def test_platform_wrapper(self):
         if os.name != 'nt':
-            return_code, output, error, args = invoke_shell_hook(0)
-            if (return_code, output, error) != (0, '', '') or os.path.abspath(args.rstrip('\n')) != version_check_path:
+            return_code, output, error, args = _invoke_shell_hook(0)
+            if (return_code, output, error) != (0, '', '') or os.path.abspath(args.rstrip('\n')) != _version_check_path:
                 raise AssertionError(f'Unexpected successful check-python.sh result: {return_code}, {output!r}, {error!r}, {args!r}')
 
-            for system, expected_error in failure_messages.items():
+            for system, expected_error in _failure_messages.items():
                 with self.subTest(system=system, expected_error=expected_error):
-                    return_code, output, error, args = invoke_shell_hook(1, system)
-                    if ((return_code, output, error) != (0, get_expected_output(expected_error), expected_error) or
-                            os.path.abspath(args.rstrip('\n')) != version_check_path):
+                    return_code, output, error, args = _invoke_shell_hook(1, system)
+                    if ((return_code, output, error) != (0, _get_expected_output(expected_error), expected_error) or
+                            os.path.abspath(args.rstrip('\n')) != _version_check_path):
                         raise AssertionError(f'Unexpected failed check-python.sh result on {system}: {return_code}, {output!r}, {error!r}, {args!r}')
 
-            return_code, output, error, args = invoke_shell_hook(None, 'Linux')
+            return_code, output, error, args = _invoke_shell_hook(None, 'Linux')
             if (return_code, output, error, args) != (
-                0, get_expected_output(failure_messages['Linux']), failure_messages['Linux'], None,
+                0, _get_expected_output(_failure_messages['Linux']), _failure_messages['Linux'], None,
             ):
                 raise AssertionError(f'Unexpected missing-python3 result: {return_code}, {output!r}, {error!r}')
         else:
@@ -125,7 +125,7 @@ class CheckPythonTests(unittest.TestCase):
             if not command_processor:
                 raise AssertionError('ComSpec is required to test check-python.cmd.')
 
-            cmd_hook_path = os.path.join(script_directory, 'check-python.cmd')
+            cmd_hook_path = os.path.join(_script_directory, 'check-python.cmd')
             for code_page, status in ((932, 0), (932, 1), (65001, 0), (65001, 1)):
                 with self.subTest(code_page=code_page, status=status):
                     expected_error = '' if status == 0 else (
@@ -149,7 +149,7 @@ class CheckPythonTests(unittest.TestCase):
                             copied_utilities_directory, 'check-python-version.py',
                         )
                         shutil.copyfile(cmd_hook_path, copied_hook_path)
-                        shutil.copyfile(version_check_path, copied_version_check_path)
+                        shutil.copyfile(_version_check_path, copied_version_check_path)
                         args_path = os.path.join(directory, 'args.txt')
                         with open(os.path.join(directory, 'python.cmd'), 'w', encoding='utf-8', newline='') as file:
                             file.write(
@@ -175,7 +175,7 @@ class CheckPythonTests(unittest.TestCase):
                             text=True,
                             creationflags=subprocess.CREATE_NO_WINDOW,
                         )
-                        expected_output = '' if status == 0 else get_expected_output(expected_error)
+                        expected_output = '' if status == 0 else _get_expected_output(expected_error)
                         if (result.returncode, result.stdout, result.stderr) != (0, expected_output, expected_error):
                             raise AssertionError(
                                 f'Unexpected check-python.cmd result on CP{code_page}: {result.returncode}, '

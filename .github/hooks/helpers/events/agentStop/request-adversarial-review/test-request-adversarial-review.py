@@ -10,13 +10,13 @@ import uuid
 from unittest.mock import patch
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'request-adversarial-review.py')
-helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(script_directory)))
-hooks_directory = os.path.dirname(helpers_directory)
-github_directory = os.path.dirname(hooks_directory)
-prompt_hook = os.path.join(
-    helpers_directory, 'events', 'userPromptSubmitted', 'set-adversarial-review-state',
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'request-adversarial-review.py')
+_helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
+_hooks_directory = os.path.dirname(_helpers_directory)
+_github_directory = os.path.dirname(_hooks_directory)
+_prompt_hook = os.path.join(
+    _helpers_directory, 'events', 'userPromptSubmitted', 'set-adversarial-review-state',
     'set-adversarial-review-state.py',
 )
 
@@ -55,7 +55,7 @@ class RequestReviewTests(unittest.TestCase):
         with open(os.path.join(self.repository, name), 'w', encoding='utf-8') as file:
             file.write(content)
 
-    def invoke(self, payload, path=hook_path):
+    def invoke(self, payload, path=_hook_path):
         raw = payload if isinstance(payload, bytes) else json.dumps(payload).encode('utf-8')
         return subprocess.run(
             [sys.executable, path], input=raw, capture_output=True,
@@ -63,7 +63,7 @@ class RequestReviewTests(unittest.TestCase):
         )
 
     def submit(self, prompt):
-        result = self.invoke({'sessionId': self.session_id, 'prompt': prompt}, prompt_hook)
+        result = self.invoke({'sessionId': self.session_id, 'prompt': prompt}, _prompt_hook)
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
 
     def stop(self, **extra):
@@ -178,7 +178,7 @@ class RequestReviewTests(unittest.TestCase):
                 self.assertTrue(result.stderr)
 
     def test_timeout_missing_git_and_state_write_failure(self):
-        namespace = runpy.run_path(hook_path)
+        namespace = runpy.run_path(_hook_path)
         for failure in (
             subprocess.TimeoutExpired(['git', 'status'], 10), FileNotFoundError('git'),
         ):
@@ -226,7 +226,7 @@ class RequestReviewTests(unittest.TestCase):
         self.assert_request(self.stop())
 
     def test_configuration_and_agent_contract(self):
-        with open(os.path.join(hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
             commands = json.load(file)['hooks']['agentStop']
         self.assertIn('debug-add-response-footer.py', commands[0]['bash'])
         review_commands = [command for command in commands if 'request-adversarial-review.py' in command['bash']]
@@ -237,7 +237,7 @@ class RequestReviewTests(unittest.TestCase):
                 'request-adversarial-review/request-adversarial-review.py'
             ))
         with open(os.path.join(
-            github_directory, 'agents', 'adversarial-review.agent.md',
+            _github_directory, 'agents', 'adversarial-review.agent.md',
         ), encoding='utf-8') as file:
             agent = file.read()
         frontmatter = agent.split('---', 2)[1]
@@ -253,7 +253,7 @@ class RequestReviewTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+    sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
     from hook_test_output import run_tests
 
     run_tests()

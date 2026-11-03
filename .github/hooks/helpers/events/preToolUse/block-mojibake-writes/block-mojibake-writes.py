@@ -14,12 +14,12 @@ from contextlib import closing
 from typing import cast
 
 
-EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
-MOJIBAKE_PATTERNS_KEY = 'mojibakePatterns'
-MAX_SNIPPETS = 3
-MAX_SNIPPET_LENGTH = 80
-FINDING = '{file} would get {kinds} ({snippets})'
-DENY_REASON = (
+_EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
+_MOJIBAKE_PATTERNS_KEY = 'mojibakePatterns'
+_MAX_SNIPPETS = 3
+_MAX_SNIPPET_LENGTH = 80
+_FINDING = '{file} would get {kinds} ({snippets})'
+_DENY_REASON = (
     'Edit denied: {findings}. This text looks like mojibake: UTF-8 text decoded with the wrong encoding '
     '(for example, output piped through Windows PowerShell 5.1 or a console using the ANSI code page, or a file read '
     'as Shift_JIS or Latin-1), or characters already lost and replaced with U+FFFD. Writing it would corrupt the file. '
@@ -30,23 +30,23 @@ DENY_REASON = (
 )
 
 
-def compile_patterns(patterns, key):
+def _compile_patterns(patterns, key):
     try:
         return [re.compile(pattern) for pattern in patterns]
     except re.PatternError as ex:
         raise ValueError(f'invalid regular expression in {key}: {ex}') from None
 
 
-def load_definitions(path):
+def _load_definitions(path):
     # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
     if not isinstance(definitions, dict):
         raise ValueError('mojibake definitions must be a JSON object.')
-    excluded = definitions.get(EXCLUDED_FILE_PATTERNS_KEY)
+    excluded = definitions.get(_EXCLUDED_FILE_PATTERNS_KEY)
     if not isinstance(excluded, list) or not all(isinstance(item, str) and item.strip() for item in excluded):
-        raise ValueError(f'mojibake definitions require an array of non-empty strings for {EXCLUDED_FILE_PATTERNS_KEY}.')
-    mojibake_definitions = definitions.get(MOJIBAKE_PATTERNS_KEY)
+        raise ValueError(f'mojibake definitions require an array of non-empty strings for {_EXCLUDED_FILE_PATTERNS_KEY}.')
+    mojibake_definitions = definitions.get(_MOJIBAKE_PATTERNS_KEY)
     if not isinstance(mojibake_definitions, list) or not mojibake_definitions or not all(
         isinstance(definition, dict) and all(
             isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'pattern')
@@ -55,18 +55,18 @@ def load_definitions(path):
     ):
         raise ValueError(
             'mojibake definitions require a non-empty array of objects with non-empty strings for name '
-            f'and pattern in {MOJIBAKE_PATTERNS_KEY}.'
+            f'and pattern in {_MOJIBAKE_PATTERNS_KEY}.'
         )
-    mojibake_patterns = compile_patterns(
-        [definition['pattern'] for definition in mojibake_definitions], MOJIBAKE_PATTERNS_KEY,
+    mojibake_patterns = _compile_patterns(
+        [definition['pattern'] for definition in mojibake_definitions], _MOJIBAKE_PATTERNS_KEY,
     )
     return (
-        compile_patterns(excluded, EXCLUDED_FILE_PATTERNS_KEY),
+        _compile_patterns(excluded, _EXCLUDED_FILE_PATTERNS_KEY),
         [(definition['name'], pattern) for definition, pattern in zip(mojibake_definitions, mojibake_patterns)],
     )
 
 
-def read_existing(path):
+def _read_existing(path):
     # 既存の内容は照合にだけ使う。UTF-8として読めないバイトも置換文字にして読み、照合を止めない。
     try:
         with open(path, encoding='utf-8', errors='replace') as file:
@@ -75,7 +75,7 @@ def read_existing(path):
         return None
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -86,7 +86,7 @@ def get_display_path(path, cwd):
     return path
 
 
-def find_mojibake(mojibake_patterns, written, existing):
+def _find_mojibake(mojibake_patterns, written, existing):
     # 戻り値は (種類の名前のリスト, 該当行のリスト)。既存の内容に同じ行があるものは、元からあるものとみなす。
     existing_lines = {line.strip() for line in existing.splitlines()}
     kinds = []
@@ -102,19 +102,19 @@ def find_mojibake(mojibake_patterns, written, existing):
     return kinds, lines
 
 
-def format_snippet(line):
+def _format_snippet(line):
     # 文字化けにはC1制御文字などの見えない文字が含まれるため、`<U+XXXX>` に置き換えて示す。
     snippet = ''.join(
         f'<U+{ord(character):04X}>' if unicodedata.category(character) in ('Cc', 'Cf') and character != '\t'
         else character
         for character in line
     )
-    if len(snippet) > MAX_SNIPPET_LENGTH:
-        snippet = snippet[:MAX_SNIPPET_LENGTH] + '...'
+    if len(snippet) > _MAX_SNIPPET_LENGTH:
+        snippet = snippet[:_MAX_SNIPPET_LENGTH] + '...'
     return f'"{snippet}"'
 
 
-def record_denials(state_path, candidates):
+def _record_denials(state_path, candidates):
     # candidates：(ファイルキー, 理由) のリスト。戻り値は、今回初めて拒否する理由のリスト。
     # 同じファイルの拒否は1回だけにし、意図した編集なら再実行で通す。
     # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
@@ -145,7 +145,7 @@ def main(arguments=None):
     parsed_arguments = parser.parse_args(arguments)
 
     try:
-        excluded_file_patterns, mojibake_patterns = load_definitions(parsed_arguments.definitions_path)
+        excluded_file_patterns, mojibake_patterns = _load_definitions(parsed_arguments.definitions_path)
 
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
         if not hook_input_json.strip():
@@ -181,18 +181,18 @@ def main(arguments=None):
         ))['extract_edit_tool_changes']
         for change in extract_edit_tool_changes(tool_name, hook_input['toolArgs']):
             path = os.path.realpath(os.path.join(cwd, change['path']))
-            display_path = get_display_path(path, real_cwd)
+            display_path = _get_display_path(path, real_cwd)
             # パターンはOSによらず `/` 区切りのパスに対して照合する。
             if any(pattern.search(display_path.replace(os.sep, '/')) for pattern in excluded_file_patterns):
                 continue
-            current = (read_existing(path) if os.path.isfile(path) else None) or ''
-            kinds, lines = find_mojibake(mojibake_patterns, change['written'], '\n'.join([change['removed'], current]))
+            current = (_read_existing(path) if os.path.isfile(path) else None) or ''
+            kinds, lines = _find_mojibake(mojibake_patterns, change['written'], '\n'.join([change['removed'], current]))
             if lines:
                 # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
                 file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
-                candidates.append((file_key, FINDING.format(
+                candidates.append((file_key, _FINDING.format(
                     file=display_path, kinds=', '.join(kinds),
-                    snippets=', '.join(format_snippet(line) for line in lines[:MAX_SNIPPETS]),
+                    snippets=', '.join(_format_snippet(line) for line in lines[:_MAX_SNIPPETS]),
                 )))
 
         reasons = []
@@ -203,13 +203,13 @@ def main(arguments=None):
                 tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-mojibake-writes',
                 f'{parsed_session_id}.sqlite3',
             )
-            reasons = record_denials(state_path, candidates)
+            reasons = _record_denials(state_path, candidates)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check mojibake: {ex}', file=sys.stderr)
         return 2
 
     if reasons:
-        reason = DENY_REASON.format(findings='; '.join(reasons))
+        reason = _DENY_REASON.format(findings='; '.join(reasons))
         print(reason, file=sys.stderr)
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference

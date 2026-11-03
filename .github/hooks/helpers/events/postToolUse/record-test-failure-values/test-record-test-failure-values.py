@@ -11,18 +11,18 @@ import uuid
 from contextlib import closing
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'record-test-failure-values.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'record-test-failure-values.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
-def pair_key(expected, actual):
+def _pair_key(expected, actual):
     return hashlib.sha256(json.dumps([expected, actual], ensure_ascii=False, separators=(',', ':')).encode('utf-8')).hexdigest()
 
 
-def value_key(value):
+def _value_key(value):
     return hashlib.sha256(value.encode('utf-8')).hexdigest()
 
 
@@ -54,7 +54,7 @@ class RecordTestFailureValuesTests(unittest.TestCase):
                 }
             raw = json.dumps(payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path], input=raw,
+            [sys.executable, _hook_path], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
         )
 
@@ -74,7 +74,7 @@ class RecordTestFailureValuesTests(unittest.TestCase):
             return {row[0] for row in connection.execute('SELECT value FROM expected_values')}
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'postToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'postToolUse.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         relative_path = '.github/hooks/helpers/events/postToolUse/record-test-failure-values/record-test-failure-values.py'
         entries = [
@@ -104,9 +104,9 @@ class RecordTestFailureValuesTests(unittest.TestCase):
                 self.new_session()
                 self.assert_silent(self.invoke(output))
                 pairs = self.read_pairs()
-                self.assertIn(pair_key(expected, actual), pairs, name)
-                self.assertNotIn(pair_key(actual, expected), pairs, name)
-                self.assertEqual(self.read_expected_values(), {value_key(expected)}, name)
+                self.assertIn(_pair_key(expected, actual), pairs, name)
+                self.assertNotIn(_pair_key(actual, expected), pairs, name)
+                self.assertEqual(self.read_expected_values(), {_value_key(expected)}, name)
 
     def test_symmetric_formats_are_recorded_in_both_directions(self):
         cases = [
@@ -119,13 +119,13 @@ class RecordTestFailureValuesTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.new_session()
                 self.assert_silent(self.invoke(output))
-                self.assertEqual(self.read_pairs(), {pair_key(first, second), pair_key(second, first)}, name)
-                self.assertEqual(self.read_expected_values(), {value_key(first), value_key(second)}, name)
+                self.assertEqual(self.read_pairs(), {_pair_key(first, second), _pair_key(second, first)}, name)
+                self.assertEqual(self.read_expected_values(), {_value_key(first), _value_key(second)}, name)
 
     def test_latest_run_replaces_previous_failures(self):
         self.assert_silent(self.invoke('Expected: 4\nReceived: 3\n'))
         self.assert_silent(self.invoke('Expected: 5\nReceived: 6\n', command='npm test'))
-        self.assertEqual(self.read_pairs(), {pair_key('5', '6')})
+        self.assertEqual(self.read_pairs(), {_pair_key('5', '6')})
         self.assert_silent(self.invoke('1 passed in 0.01s\n', command='pytest tests'))
         self.assertEqual(self.read_pairs(), set(), 'A passing run must clear the previous failures.')
         self.assertEqual(self.read_expected_values(), set(), 'A passing run must clear the previous expected values.')
@@ -158,7 +158,7 @@ class RecordTestFailureValuesTests(unittest.TestCase):
                     'toolResult': {'resultType': 'success', 'textResultForLlm': 'Expected: 4\nReceived: 3\n'},
                 }
                 self.assert_silent(self.invoke('', payload={**base, **payload}))
-                self.assertEqual(self.read_pairs(), {pair_key('4', '3')}, name)
+                self.assertEqual(self.read_pairs(), {_pair_key('4', '3')}, name)
         self.new_session()
         self.assert_silent(self.invoke('', payload={
             'sessionId': self.session_id, 'cwd': self.root, 'toolName': 'bash', 'toolArgs': {'command': 'pytest'},

@@ -7,11 +7,11 @@ import unittest
 import uuid
 from unittest.mock import patch
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-utility = runpy.run_path(os.path.join(script_directory, 'assertion-failure-values-state.py'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_utility = runpy.run_path(os.path.join(_script_directory, 'assertion-failure-values-state.py'))
 
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(script_directory)))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
@@ -27,17 +27,17 @@ class AssertionFailureValuesStateTests(unittest.TestCase):
     def test_state_path(self):
         session_id = uuid.uuid4()
         self.assertEqual(
-            utility['get_state_path'](f' {str(session_id).upper()} '),
+            _utility['get_state_path'](f' {str(session_id).upper()} '),
             os.path.join(self.temp_directory, 'ghc-agent-refinement', 'hook-states', 'test-failure-values',
                          f'{session_id}.sqlite3'),
         )
         for invalid in (None, '', '  ', 'not-a-uuid'):
             with self.subTest(session_id=invalid), self.assertRaises(ValueError):
-                utility['get_state_path'](invalid)
+                _utility['get_state_path'](invalid)
 
     def test_normalize_value(self):
-        normalize_value = utility['normalize_value']
-        limit = utility['MAX_VALUE_LENGTH']
+        normalize_value = _utility['normalize_value']
+        limit = _utility['_MAX_VALUE_LENGTH']
         for value, expected in (
             ('  42 ', '42'),
             ('"text",', 'text'),
@@ -54,22 +54,22 @@ class AssertionFailureValuesStateTests(unittest.TestCase):
                 self.assertEqual(normalize_value(value), expected)
 
     def test_keys(self):
-        get_pair_key = utility['get_pair_key']
+        get_pair_key = _utility['get_pair_key']
         self.assertEqual(get_pair_key('1', '2'), get_pair_key('1', '2'))
         # 期待値と実際の値の順序を区別する。
         self.assertNotEqual(get_pair_key('1', '2'), get_pair_key('2', '1'))
-        self.assertEqual(utility['get_value_key']('値'), hashlib.sha256('値'.encode('utf-8')).hexdigest())
+        self.assertEqual(_utility['get_value_key']('値'), hashlib.sha256('値'.encode('utf-8')).hexdigest())
         path = os.path.join(self.temp_directory, 'Test.py')
         self.assertEqual(
-            utility['get_file_key'](path), hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest(),
+            _utility['get_file_key'](path), hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest(),
         )
 
     def test_open_state(self):
-        state_path = utility['get_state_path'](str(uuid.uuid4()))
-        with utility['open_state'](state_path) as connection:
+        state_path = _utility['get_state_path'](str(uuid.uuid4()))
+        with _utility['open_state'](state_path) as connection:
             connection.execute('INSERT INTO pairs (pair) VALUES (?)', ('p',))
             connection.execute('INSERT INTO hardcoding_denials (file) VALUES (?)', ('f',))
-        with utility['open_state'](state_path) as connection:
+        with _utility['open_state'](state_path) as connection:
             tables = {name for (name,) in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
             pairs = connection.execute('SELECT pair FROM pairs').fetchall()
         self.assertEqual(tables, {'pairs', 'expected_values', 'denials', 'hardcoding_denials'})

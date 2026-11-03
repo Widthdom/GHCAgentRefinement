@@ -5,17 +5,17 @@ import subprocess
 import sys
 from typing import cast
 
-GIT_TIMEOUT_SECONDS = 5
+_GIT_TIMEOUT_SECONDS = 5
 # gitディレクトリ内の目印と、それが示す途中の操作。worktreeごとのgitディレクトリに置かれる。
 # rebase-applyは `git am` でも使われるため、`applying` の有無で区別する。
-OPERATION_MARKERS = [
+_OPERATION_MARKERS = [
     ('MERGE_HEAD', 'a merge'),
     ('rebase-merge', 'a rebase'),
     ('CHERRY_PICK_HEAD', 'a cherry-pick'),
     ('REVERT_HEAD', 'a revert'),
     ('BISECT_LOG', 'a bisect'),
 ]
-ADDITIONAL_CONTEXT = (
+_ADDITIONAL_CONTEXT = (
     'The Git repository at the session start is in the following state: {message}\n'
     'At the start of your first response, tell the user about this in the language you respond in. '
     'Do not continue, abort, or resolve the operation, and do not switch branches, unless the user asks you to. '
@@ -23,20 +23,20 @@ ADDITIONAL_CONTEXT = (
 )
 
 
-def run_git(cwd, *args):
+def _run_git(cwd, *args):
     # gitがない、タイムアウトした場合はNoneを返す。終了コードは呼び出し元で判定する。
     try:
         return subprocess.run(
             ['git', *args], cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True,
-            text=True, encoding='utf-8', errors='replace', timeout=GIT_TIMEOUT_SECONDS,
+            text=True, encoding='utf-8', errors='replace', timeout=_GIT_TIMEOUT_SECONDS,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
 
 
-def get_in_progress_operations(git_directory):
+def _get_in_progress_operations(git_directory):
     operations = [
-        description for marker, description in OPERATION_MARKERS
+        description for marker, description in _OPERATION_MARKERS
         if os.path.exists(os.path.join(git_directory, marker))
     ]
     rebase_apply = os.path.join(git_directory, 'rebase-apply')
@@ -45,20 +45,20 @@ def get_in_progress_operations(git_directory):
     return operations
 
 
-def get_git_state_messages(cwd):
-    result = run_git(cwd, 'rev-parse', '--absolute-git-dir')
+def _get_git_state_messages(cwd):
+    result = _run_git(cwd, 'rev-parse', '--absolute-git-dir')
     # gitがない、またはリポジトリ外の場合は何も知らせない。
     if result is None or result.returncode != 0 or not result.stdout.strip():
         return []
     git_directory = result.stdout.strip()
 
     messages = []
-    operations = get_in_progress_operations(git_directory)
+    operations = _get_in_progress_operations(git_directory)
     if operations:
         messages.append(f'{" and ".join(operations).capitalize()} is in progress.')
 
     # 未解決の衝突は `git ls-files -u` にステージ番号付きで現れる。1ファイルにつき最大3行あるため、パスで数える。
-    unmerged = run_git(cwd, '-c', 'core.quotePath=false', 'ls-files', '--unmerged')
+    unmerged = _run_git(cwd, '-c', 'core.quotePath=false', 'ls-files', '--unmerged')
     if unmerged is not None and unmerged.returncode == 0:
         paths = sorted({line.split('\t', 1)[1] for line in unmerged.stdout.splitlines() if '\t' in line})
         if paths:
@@ -67,9 +67,9 @@ def get_git_state_messages(cwd):
 
     # rebaseやbisectの途中はHEADが切り離されるのが通常のため、途中の操作がないときだけ知らせる。
     if not operations:
-        symbolic = run_git(cwd, 'symbolic-ref', '--quiet', 'HEAD')
+        symbolic = _run_git(cwd, 'symbolic-ref', '--quiet', 'HEAD')
         if symbolic is not None and symbolic.returncode == 1:
-            head = run_git(cwd, 'rev-parse', '--short', 'HEAD')
+            head = _run_git(cwd, 'rev-parse', '--short', 'HEAD')
             commit = head.stdout.strip() if head is not None and head.returncode == 0 else 'unknown'
             messages.append(
                 f'HEAD is detached at {commit}. New commits will not belong to any branch.'
@@ -100,7 +100,7 @@ def main():
         print(f'Failed to check the Git state: {ex}', file=sys.stderr)
         return 2
 
-    messages = get_git_state_messages(cwd)
+    messages = _get_git_state_messages(cwd)
     if not messages:
         return 0
     message = '\n'.join(messages)
@@ -108,7 +108,7 @@ def main():
     # 標準エラーはユーザーに表示されないことがある。sessionStartで解釈される出力はadditionalContextだけのため、
     # エージェントに渡してユーザーへ伝えさせ、正常終了する。
     print(json.dumps(
-        {'additionalContext': ADDITIONAL_CONTEXT.format(message=message)},
+        {'additionalContext': _ADDITIONAL_CONTEXT.format(message=message)},
         ensure_ascii=False, separators=(',', ':'),
     ))
     return 0

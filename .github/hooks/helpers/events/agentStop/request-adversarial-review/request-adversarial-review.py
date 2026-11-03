@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from typing import cast
 
 
-REVIEW_REASON = (
+_REVIEW_REASON = (
     'The user requested adversarial review with the ;; suffix, and git status '
     'reports working-tree changes. Before finishing, invoke the custom subagent '
     '"adversarial-review" defined in .github/agents/adversarial-review.agent.md. '
@@ -231,7 +231,7 @@ def main():
 
     # この標準出力を受け取ったhook呼び出し元は、decision:blockに従って停止したのち、
     # reasonに従って敵対的レビューエージェントを呼び出すことになる。
-    print(json.dumps({'decision': 'block', 'reason': REVIEW_REASON}, ensure_ascii=False))
+    print(json.dumps({'decision': 'block', 'reason': _REVIEW_REASON}, ensure_ascii=False))
 
     return 0
 

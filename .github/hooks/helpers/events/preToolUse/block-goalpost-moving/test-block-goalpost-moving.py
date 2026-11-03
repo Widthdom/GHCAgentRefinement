@@ -7,17 +7,17 @@ import unittest
 import uuid
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-goalpost-moving.py')
-recorder_path = os.path.join(
-    os.path.dirname(os.path.dirname(script_directory)), 'postToolUse', 'record-test-failure-values',
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-goalpost-moving.py')
+_recorder_path = os.path.join(
+    os.path.dirname(os.path.dirname(_script_directory)), 'postToolUse', 'record-test-failure-values',
     'record-test-failure-values.py',
 )
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-ORIGINAL = (
+_ORIGINAL = (
     'def test_add():\n'
     '    assert add(1, 2) == 4\n'
     '    assert greet("a") == "hello a"\n'
@@ -33,7 +33,7 @@ class BlockGoalpostMovingTests(unittest.TestCase):
         self.environment.update({'TMPDIR': self.root, 'TEMP': self.root, 'TMP': self.root})
         self.directory = os.path.join(self.root, 'workspace')
         os.makedirs(self.directory)
-        self.write_file('test_math.py', ORIGINAL)
+        self.write_file('test_math.py', _ORIGINAL)
         self.write_file('math.py', 'def add(a, b):\n    return 3\n')
         self.new_session()
 
@@ -58,7 +58,7 @@ class BlockGoalpostMovingTests(unittest.TestCase):
 
     def record_failure(self, output, command='python3 -m pytest'):
         # 記録側のhookを実際に通し、状態の形式の食い違いも検出する。
-        result = self.run_process(recorder_path, {
+        result = self.run_process(_recorder_path, {
             'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'bash',
             'toolArgs': {'command': command},
             'toolResult': {'resultType': 'success', 'textResultForLlm': output},
@@ -67,7 +67,7 @@ class BlockGoalpostMovingTests(unittest.TestCase):
 
     def run_call(self, tool_call):
         return self.run_process(
-            hook_path, {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']},
+            _hook_path, {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']},
         )
 
     def assert_allowed(self, result, message):
@@ -82,7 +82,7 @@ class BlockGoalpostMovingTests(unittest.TestCase):
             self.assertIn(part, output['permissionDecisionReason'], message)
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         relative_path = '.github/hooks/helpers/events/preToolUse/block-goalpost-moving/block-goalpost-moving.py'
         entries = [
@@ -103,7 +103,7 @@ class BlockGoalpostMovingTests(unittest.TestCase):
                                            'new_str': 'assert add(1, 2) == 3'})),
             ('str_replace_editor', {'command': 'str_replace', 'path': 'test_math.py',
                                     'old_str': 'assert add(1, 2) == 4', 'new_str': 'assert add(1, 2) == 3'}),
-            ('create', {'path': 'test_math.py', 'file_text': ORIGINAL.replace('== 4', '== 3')}),
+            ('create', {'path': 'test_math.py', 'file_text': _ORIGINAL.replace('== 4', '== 3')}),
             ('apply_patch', '*** Begin Patch\n*** Update File: test_math.py\n@@\n-    assert add(1, 2) == 4\n'
                             '+    assert add(1, 2) == 3\n*** End Patch\n'),
         ]
@@ -205,7 +205,7 @@ class BlockGoalpostMovingTests(unittest.TestCase):
             ('invalid utf-8', b'\xff'),
         ]:
             with self.subTest(name=name):
-                result = self.run_process(hook_path, hook_input)
+                result = self.run_process(_hook_path, hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertEqual(result.stdout, b'', name)
                 self.assertIn(b'Failed to check goalpost moving:', result.stderr)
@@ -225,7 +225,7 @@ class BlockGoalpostMovingTests(unittest.TestCase):
                 if content is not None:
                     with open(path, 'w', encoding='utf-8') as file:
                         file.write(content if isinstance(content, str) else json.dumps(content))
-                result = self.run_process(hook_path, valid_input, '--definitions-path', path)
+                result = self.run_process(_hook_path, valid_input, '--definitions-path', path)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to check goalpost moving:', result.stderr)
 

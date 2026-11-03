@@ -11,12 +11,12 @@ from contextlib import closing
 from typing import cast
 
 
-SHELL_TOOL_NAMES = {'bash', 'powershell'}
-UPDATE_COMMANDS_KEY = 'updateCommands'
+_SHELL_TOOL_NAMES = {'bash', 'powershell'}
+_UPDATE_COMMANDS_KEY = 'updateCommands'
 # コマンドを `;`・`&&`・`||`・`|`・改行で区切った単位ごとに照合し、`git push -u; npm test` などを結び付けない。
 # `2>&1` の `&` では区切らない。
-SEGMENT_SEPARATOR_PATTERN = re.compile(r'&&|\|\||[;|\n]')
-DENY_REASON = (
+_SEGMENT_SEPARATOR_PATTERN = re.compile(r'&&|\|\||[;|\n]')
+_DENY_REASON = (
     'Shell command denied: it would accept new snapshots or golden files in bulk ({kinds}). '
     'Accepting the current output rewrites every expected result to whatever the code produces now, '
     'so a regression becomes the new expectation and the tests pass without fixing anything. '
@@ -27,24 +27,24 @@ DENY_REASON = (
 )
 
 
-def load_update_commands(path):
+def _load_update_commands(path):
     # 戻り値は (名前, コンパイル済みの正規表現) のリスト。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
-    entries = definitions.get(UPDATE_COMMANDS_KEY) if isinstance(definitions, dict) else None
+    entries = definitions.get(_UPDATE_COMMANDS_KEY) if isinstance(definitions, dict) else None
     if not isinstance(entries, list) or not entries or not all(
         isinstance(entry, dict) and isinstance(entry.get('name'), str) and entry['name'].strip()
         and isinstance(entry.get('pattern'), str) and entry['pattern'].strip()
         for entry in entries
     ):
-        raise ValueError(f'snapshot update definitions require a non-empty array of {{name, pattern}} for {UPDATE_COMMANDS_KEY}.')
+        raise ValueError(f'snapshot update definitions require a non-empty array of {{name, pattern}} for {_UPDATE_COMMANDS_KEY}.')
     try:
         return [(entry['name'], re.compile(entry['pattern'])) for entry in entries]
     except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {UPDATE_COMMANDS_KEY}: {ex}') from None
+        raise ValueError(f'invalid regular expression in {_UPDATE_COMMANDS_KEY}: {ex}') from None
 
 
-def get_tool_args(raw_tool_args):
+def _get_tool_args(raw_tool_args):
     # argsはJSONオブジェクトのほか、JSON文字列で渡される場合もある。
     if isinstance(raw_tool_args, str):
         try:
@@ -54,16 +54,16 @@ def get_tool_args(raw_tool_args):
     return raw_tool_args
 
 
-def get_update_kinds(update_commands, command):
+def _get_update_kinds(update_commands, command):
     # 戻り値は、コマンドに含まれる一括更新の種類の名前（定義順・重複なし）。
-    segments = SEGMENT_SEPARATOR_PATTERN.split(command)
+    segments = _SEGMENT_SEPARATOR_PATTERN.split(command)
     return [
         name for name, pattern in update_commands
         if any(pattern.search(segment) for segment in segments)
     ]
 
 
-def record_denials(state_path, kinds):
+def _record_denials(state_path, kinds):
     # 戻り値は、今回初めて拒否する種類。同じ種類の拒否はセッションで1回だけにし、意図した更新なら再実行で通す。
     # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
     # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
@@ -92,7 +92,7 @@ def main(arguments=None):
     parsed_arguments = parser.parse_args(arguments)
 
     try:
-        update_commands = load_update_commands(parsed_arguments.definitions_path)
+        update_commands = _load_update_commands(parsed_arguments.definitions_path)
 
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
         if not hook_input_json.strip():
@@ -114,9 +114,9 @@ def main(arguments=None):
         if 'toolArgs' not in hook_input:
             raise ValueError('toolArgs is required.')
 
-        tool_args = get_tool_args(hook_input['toolArgs']) if tool_name.removeprefix('functions.') in SHELL_TOOL_NAMES else None
+        tool_args = _get_tool_args(hook_input['toolArgs']) if tool_name.removeprefix('functions.') in _SHELL_TOOL_NAMES else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
-        kinds = get_update_kinds(update_commands, command) if isinstance(command, str) else []
+        kinds = _get_update_kinds(update_commands, command) if isinstance(command, str) else []
 
         # 一括更新がなければ、状態ファイルを作らずに許可する。
         denied_kinds = []
@@ -127,13 +127,13 @@ def main(arguments=None):
                 tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-snapshot-rubber-stamp',
                 f'{parsed_session_id}.sqlite3',
             )
-            denied_kinds = record_denials(state_path, kinds)
+            denied_kinds = _record_denials(state_path, kinds)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check snapshot updates: {ex}', file=sys.stderr)
         return 2
 
     if denied_kinds:
-        reason = DENY_REASON.format(kinds='; '.join(denied_kinds))
+        reason = _DENY_REASON.format(kinds='; '.join(denied_kinds))
         print(reason, file=sys.stderr)
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference

@@ -7,7 +7,7 @@ import sys
 from typing import cast
 
 
-def is_non_empty_string(value):
+def _is_non_empty_string(value):
     # `isinstance` は Pythonの組み込み関数であり、C#の `is` に相当する。
     # `strip` は文字列型strのメソッドであり、文字列の両端から空白文字を削除する。空白のみの文字列は空文字列に変換される。C#の `Trim` に相当する。
     # bool は Pythonの組み込み関数である。
@@ -22,7 +22,7 @@ def is_non_empty_string(value):
 
 
 # 引数を拒否理由とするJSONを構築して標準出力する。
-def write_stdout_deny(reason):
+def _write_stdout_deny(reason):
     # ensure_ascii=False：日本語などを \uXXXX にせず、そのまま出力する。出力先はUTF-8に設定するため問題なし。
     # separators=(',', ':')：項目間やキーと値の間に余分な空白を入れない。（出力をコンパクトにするための指定で、省略してもJSONとしては正しく伝わる。）
     # 引用符・バックスラッシュ・改行など、JSONとして必要なエスケープは ensure_ascii=False で行われる
@@ -33,9 +33,9 @@ def write_stdout_deny(reason):
 
 
 # 引数を標準エラー出力するとともに、write_stdout_denyを呼び出す。
-def write_stderr_msg_and_deny(msg):
+def _write_stderr_msg_and_deny(msg):
     print(msg, file=sys.stderr)
-    write_stdout_deny(msg)
+    _write_stdout_deny(msg)
 
 
 def main(definitions_path=None):
@@ -69,12 +69,12 @@ def main(definitions_path=None):
     # ブロック対象定義ファイルが見つからない、または存在を確認できない場合は異常終了。
     # f'...' は formatted string literalのことで、文字列の中に {式} の値を埋め込める書き方。C#の $"..." に相当する。
     if not os.path.exists(parsed_args.defs_path):
-        write_stderr_msg_and_deny(f'Blocked command definitions not found or existence could not be verified: {parsed_args.defs_path}')
+        _write_stderr_msg_and_deny(f'Blocked command definitions not found or existence could not be verified: {parsed_args.defs_path}')
         return 2
 
     # ブロック対象定義ファイルパスがファイルではない、またはファイルであることを確認できない場合は異常終了。
     if not os.path.isfile(parsed_args.defs_path):
-        write_stderr_msg_and_deny(f'Blocked command definitions path is not a file or could not be verified as a file: {parsed_args.defs_path}')
+        _write_stderr_msg_and_deny(f'Blocked command definitions path is not a file or could not be verified as a file: {parsed_args.defs_path}')
         return 2
 
     # 定義ファイルはUTF-8のJSON配列として読み込む。UTF-8 BOMは許容する。
@@ -86,12 +86,12 @@ def main(definitions_path=None):
         with open(parsed_args.defs_path, encoding='utf-8-sig') as defs_json_array:
             definitions = json.load(defs_json_array)
     except (OSError, UnicodeError, json.JSONDecodeError) as ex:
-        write_stderr_msg_and_deny(f'Failed to parse blocked command definitions: {ex}')
+        _write_stderr_msg_and_deny(f'Failed to parse blocked command definitions: {ex}')
         return 2
 
     # blocked-command-definitions.jsonはJSON配列すなわち最外側が[]なので、前段のjson.loadによりdefinitionsはlistとなる。
     if not isinstance(definitions, list):
-        write_stderr_msg_and_deny('Blocked command definitions must be a JSON array.')
+        _write_stderr_msg_and_deny('Blocked command definitions must be a JSON array.')
         return 2
 
     # 各定義を検証する。
@@ -99,7 +99,7 @@ def main(definitions_path=None):
     for definition in definitions:
         # blocked-command-definitions.jsonのJSON配列要素は{}なので、前段のjson.loadによりdefinitionはdictとなる。
         if not isinstance(definition, dict):
-            write_stderr_msg_and_deny('Each blocked command definition must be a JSON object.')
+            _write_stderr_msg_and_deny('Each blocked command definition must be a JSON object.')
             return 2
 
         # 必須項目に欠落があれば異常終了。
@@ -108,9 +108,9 @@ def main(definitions_path=None):
         #   ここではis_non_empty_string(definition.get('pattern'))がfalseならis_non_empty_string(definition.get('reason'))は実行されない。
         if not all(
             # getはキーが無くてもNoneを返す。ここでdefinitions[key]のようにするとKeyErrorが発生する可能性がある。
-            is_non_empty_string(definition.get(key)) for key in ('name', 'pattern', 'reason')
+            _is_non_empty_string(definition.get(key)) for key in ('name', 'pattern', 'reason')
         ):
-            write_stderr_msg_and_deny('Each blocked command definition requires non-empty strings for name, pattern, and reason.')
+            _write_stderr_msg_and_deny('Each blocked command definition requires non-empty strings for name, pattern, and reason.')
             return 2
             
         # 正規表現が正しく書けているか検証する。
@@ -118,7 +118,7 @@ def main(definitions_path=None):
             # re：正規表現（regular expression）モジュール。
             compiled_pattern = re.compile(definition['pattern'])
         except re.PatternError as ex:
-            write_stderr_msg_and_deny(f"Invalid regular expression in blocked command definition '{definition['name']}': {ex}")
+            _write_stderr_msg_and_deny(f"Invalid regular expression in blocked command definition '{definition['name']}': {ex}")
             return 2
 
         # コンパイル済みの正規表現と理由をturpleとしてListに追加する。
@@ -136,17 +136,17 @@ def main(definitions_path=None):
         #   if not items:  # リストなどが空のとき
         #   if not data:   # 辞書などが空のとき
         if not hook_input_json.strip():
-            write_stderr_msg_and_deny('preToolUse hook input is empty.')
+            _write_stderr_msg_and_deny('preToolUse hook input is empty.')
             return 2
         hook_input = json.loads(hook_input_json)
     except (OSError, UnicodeError, json.JSONDecodeError) as ex:
-        write_stderr_msg_and_deny(f'Failed to parse preToolUse hook input: {ex}')
+        _write_stderr_msg_and_deny(f'Failed to parse preToolUse hook input: {ex}')
         return 2
 
     # 変換結果がJSONオブジェクト（最外側が{}）でなければ異常終了。
     #   文字列・数値・null・（最外側が[]である）配列などはここを通過させない。
     if not isinstance(hook_input, dict):
-        write_stderr_msg_and_deny('preToolUse hook input must be a JSON object.')
+        _write_stderr_msg_and_deny('preToolUse hook input must be a JSON object.')
         return 2
 
     # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
@@ -156,8 +156,8 @@ def main(definitions_path=None):
     #   }
     # toolNameが文字列でなければ異常終了。空白のみの文字列も許容しない。
     tool_name = hook_input.get('toolName')
-    if not is_non_empty_string(tool_name):
-        write_stderr_msg_and_deny('preToolUse hook requires a tool name.')
+    if not _is_non_empty_string(tool_name):
+        _write_stderr_msg_and_deny('preToolUse hook requires a tool name.')
         return 2
 
     # 以下に一致しない場合は許可する。大文字小文字は区別しない。
@@ -177,15 +177,15 @@ def main(definitions_path=None):
     else:
         command = None
 
-    if not is_non_empty_string(command):
-        write_stderr_msg_and_deny(f"preToolUse hook input for tool '{tool_name}' requires a non-empty command string.")
+    if not _is_non_empty_string(command):
+        _write_stderr_msg_and_deny(f"preToolUse hook input for tool '{tool_name}' requires a non-empty command string.")
         return 2
 
     # コマンドが各定義のパターンに一致するかを順に確認する。
     for compiled_pattern, reason in compiled_definitions:
         if compiled_pattern.search(command):
             # 拒否とその理由をJSON形式に変換して返却する。
-            write_stdout_deny(reason)
+            _write_stdout_deny(reason)
             return 0
 
     # 標準出力へ空のJSONオブジェクトを返すことで、「拒否する判断はない」ことを呼び出し元に伝える。

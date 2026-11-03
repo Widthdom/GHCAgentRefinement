@@ -10,10 +10,10 @@ import uuid
 from contextlib import closing
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'record-seen-files.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'record-seen-files.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
@@ -49,7 +49,7 @@ class RecordSeenFilesTests(unittest.TestCase):
         if raw is None:
             raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path], input=raw,
+            [sys.executable, _hook_path], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
         )
 
@@ -67,7 +67,7 @@ class RecordSeenFilesTests(unittest.TestCase):
         return hashlib.sha256(os.path.normcase(os.path.realpath(path)).encode('utf-8')).hexdigest()
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'postToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'postToolUse.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         relative_path = '.github/hooks/helpers/events/postToolUse/record-seen-files/record-seen-files.py'
         entries = [

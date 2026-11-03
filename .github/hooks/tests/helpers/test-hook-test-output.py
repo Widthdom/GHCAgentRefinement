@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hook_test_output import HookTestRunner, run_tests
 
 
-tests_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_tests_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class HookTestOutputTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class HookTestOutputTests(unittest.TestCase):
     def invoke(self, body, *arguments):
         source = (
             'import sys\n'
-            f'sys.path.insert(0, {os.path.join(tests_directory, "helpers")!r})\n'
+            f'sys.path.insert(0, {os.path.join(_tests_directory, "helpers")!r})\n'
             'import unittest\n'
             'from hook_test_output import run_tests\n'
             f'sys.argv = ["test-example.py", *{list(arguments)!r}]\n'
@@ -156,7 +156,7 @@ class AllHooksOutputTests(unittest.TestCase):
     def invoke(self, results, filenames=('test-first.py', 'test-second.py')):
         stdout = io.StringIO()
         stderr = io.StringIO()
-        helpers_directory = os.path.join(os.path.dirname(tests_directory), 'helpers')
+        helpers_directory = os.path.join(os.path.dirname(_tests_directory), 'helpers')
         exit_code = 0
         with (
             patch('os.walk', return_value=[(helpers_directory, [], filenames)]),
@@ -165,7 +165,7 @@ class AllHooksOutputTests(unittest.TestCase):
             contextlib.redirect_stderr(stderr),
         ):
             try:
-                runpy.run_path(os.path.join(tests_directory, 'test-all-hooks.py'))
+                runpy.run_path(os.path.join(_tests_directory, 'test-all-hooks.py'))
             except SystemExit as ex:
                 exit_code = ex.code
         return exit_code, stdout.getvalue(), stderr.getvalue(), run.call_count

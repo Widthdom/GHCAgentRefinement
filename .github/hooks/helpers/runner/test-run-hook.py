@@ -12,17 +12,17 @@ import uuid
 from unittest.mock import patch
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-helpers_directory = os.path.dirname(script_directory)
-hooks_directory = os.path.dirname(helpers_directory)
-runner_path = os.path.join(script_directory, 'run-hook.py')
-state_helper_path = os.path.join(helpers_directory, 'utilities', 'hook-activity-state', 'hook-activity-state.py')
-RUNNER = '.github/hooks/helpers/runner/run-hook.py'
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_helpers_directory = os.path.dirname(_script_directory)
+_hooks_directory = os.path.dirname(_helpers_directory)
+_runner_path = os.path.join(_script_directory, 'run-hook.py')
+_state_helper_path = os.path.join(_helpers_directory, 'utilities', 'hook-activity-state', 'hook-activity-state.py')
+_RUNNER = '.github/hooks/helpers/runner/run-hook.py'
 # Pythonが無い環境でも動く必要があるため、ランナーを通さないhook。
-DIRECT_HOOKS = ('block-commands', 'check-python')
+_DIRECT_HOOKS = ('block-commands', 'check-python')
 
 # 標準入力をそのまま返し、引数代わりの環境変数で動作を切り替える偽のhook。
-FAKE_HOOK = '''import os
+_FAKE_HOOK = '''import os
 import sys
 import time
 
@@ -64,10 +64,10 @@ class RunHookTests(unittest.TestCase):
         self.helpers = os.path.join(self.repository, '.github', 'hooks', 'helpers')
         os.makedirs(os.path.join(self.helpers, 'runner'))
         os.makedirs(os.path.join(self.helpers, 'utilities', 'hook-activity-state'))
-        shutil.copy(runner_path, os.path.join(self.helpers, 'runner', 'run-hook.py'))
-        shutil.copy(state_helper_path, os.path.join(self.helpers, 'utilities', 'hook-activity-state', 'hook-activity-state.py'))
+        shutil.copy(_runner_path, os.path.join(self.helpers, 'runner', 'run-hook.py'))
+        shutil.copy(_state_helper_path, os.path.join(self.helpers, 'utilities', 'hook-activity-state', 'hook-activity-state.py'))
         self.fake_hook = '.github/hooks/helpers/events/preToolUse/fake-hook/fake-hook.py'
-        self.write_file(self.fake_hook, FAKE_HOOK)
+        self.write_file(self.fake_hook, _FAKE_HOOK)
         self.temp_directory = os.path.join(self.root, 'temp')
         os.makedirs(self.temp_directory)
         self.session_id = str(uuid.uuid4())
@@ -125,7 +125,7 @@ class RunHookTests(unittest.TestCase):
 
     def test_runs_repository_specific_hook(self):
         repository_hook = '.github/hooks/helpers/-repo-events/preToolUse/repo-hook/repo-hook.py'
-        self.write_file(repository_hook, FAKE_HOOK)
+        self.write_file(repository_hook, _FAKE_HOOK)
         stdin = self.payload()
         result = self.run_hook(stdin, repository_hook)
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, stdin, b''))
@@ -202,9 +202,9 @@ class RunHookTests(unittest.TestCase):
         self.assertIn(b'Failed to record hook run for fake-hook: sessionId must be a valid UUID.', result.stderr)
 
     def test_rejects_invalid_arguments(self):
-        self.write_file('.github/hooks/helpers/events/preToolUse/fake-hook/other.py', FAKE_HOOK)
-        self.write_file('.github/hooks/helpers/other/fake-hook/fake-hook.py', FAKE_HOOK)
-        self.write_file('.github/hooks/-repo-events/preToolUse/fake-hook/fake-hook.py', FAKE_HOOK)
+        self.write_file('.github/hooks/helpers/events/preToolUse/fake-hook/other.py', _FAKE_HOOK)
+        self.write_file('.github/hooks/helpers/other/fake-hook/fake-hook.py', _FAKE_HOOK)
+        self.write_file('.github/hooks/-repo-events/preToolUse/fake-hook/fake-hook.py', _FAKE_HOOK)
         cases = (
             (('.github/hooks/-repo-events/preToolUse/fake-hook/fake-hook.py',), 'Failed to resolve hook script'),
             ((), 'Usage: run-hook.py'),
@@ -228,7 +228,7 @@ class RunHookTests(unittest.TestCase):
                 self.assertEqual(self.recorded_runs(), [])
 
     def test_get_fired_hooks_filters_by_time_and_event(self):
-        state = runpy.run_path(state_helper_path)
+        state = runpy.run_path(_state_helper_path)
         with patch.object(tempfile, 'tempdir', self.temp_directory):
             self.assertEqual(state['get_fired_hooks'](self.session_id, 0, ('agentStop',)), [])
             for started_at_ms, event_name, hook_name, fired in (
@@ -249,8 +249,8 @@ class RunHookTests(unittest.TestCase):
                     state['get_fired_hooks'](session_id, 0, ())
 
     def test_configuration(self):
-        for filename in sorted(name for name in os.listdir(hooks_directory) if name.endswith('.json')):
-            with open(os.path.join(hooks_directory, filename), encoding='utf-8') as file:
+        for filename in sorted(name for name in os.listdir(_hooks_directory) if name.endswith('.json')):
+            with open(os.path.join(_hooks_directory, filename), encoding='utf-8') as file:
                 configuration = json.load(file)
             # このリポジトリ専用のhookの定義（-repo-<event-name>.json）は helpers/-repo-events 配下のhookを起動する。
             events_name = '-repo-events' if filename.startswith('-repo-') else 'events'
@@ -259,15 +259,15 @@ class RunHookTests(unittest.TestCase):
                     hook_name = os.path.basename(os.path.dirname(entry['bash'].split()[-1]))
                     with self.subTest(filename=filename, event_name=event_name, hook_name=hook_name):
                         relative_path = f'.github/hooks/helpers/{events_name}/{event_name}/{hook_name}/{hook_name}.py'
-                        if hook_name in DIRECT_HOOKS:
-                            self.assertNotIn(RUNNER, entry['bash'])
-                            self.assertNotIn(RUNNER, entry['powershell'])
+                        if hook_name in _DIRECT_HOOKS:
+                            self.assertNotIn(_RUNNER, entry['bash'])
+                            self.assertNotIn(_RUNNER, entry['powershell'])
                         else:
-                            self.assertEqual(entry['bash'], f'python3 {RUNNER} {relative_path}')
-                            self.assertEqual(entry['powershell'], f'python {RUNNER} {relative_path}')
+                            self.assertEqual(entry['bash'], f'python3 {_RUNNER} {relative_path}')
+                            self.assertEqual(entry['powershell'], f'python {_RUNNER} {relative_path}')
 
 
 if __name__ == '__main__':
-    sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+    sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
     from hook_test_output import run_tests
     run_tests()

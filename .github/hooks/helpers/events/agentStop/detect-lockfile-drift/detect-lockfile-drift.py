@@ -12,15 +12,15 @@ from typing import cast
 
 
 # ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:Add|Update) File: (.+?)\s*$')
-PATCH_MOVE_PATTERN = re.compile(r'^\*\*\* Move to: (.+?)\s*$')
-FORMATS = {'json', 'toml', 'lines'}
-GIT_TIMEOUT_SECONDS = 5
-MAX_FINDINGS = 10
-REASON_PREFIX = 'The changes in this request edit dependency declarations without updating the lock file'
-BLOCK_REASON = (
-    REASON_PREFIX + ':\n{findings}\n'
+_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
+_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:Add|Update) File: (.+?)\s*$')
+_PATCH_MOVE_PATTERN = re.compile(r'^\*\*\* Move to: (.+?)\s*$')
+_FORMATS = {'json', 'toml', 'lines'}
+_GIT_TIMEOUT_SECONDS = 5
+_MAX_FINDINGS = 10
+_REASON_PREFIX = 'The changes in this request edit dependency declarations without updating the lock file'
+_BLOCK_REASON = (
+    _REASON_PREFIX + ':\n{findings}\n'
     'A lock file that no longer matches its manifest makes restores fail in frozen or locked mode (CI), or '
     'silently resolves different versions than the ones that were tested. Run the listed command to update the '
     'lock file and include the result, or revert the dependency change. If the lock file is intentionally left '
@@ -28,7 +28,7 @@ BLOCK_REASON = (
 )
 
 
-def load_definitions(path):
+def _load_definitions(path):
     # 戻り値は [{name, file, format, keys, lines, locks}]。正規表現はコンパイル済み。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
@@ -40,8 +40,8 @@ def load_definitions(path):
         if not isinstance(manifest, dict) or not isinstance(manifest.get('name'), str) or not manifest['name'].strip():
             raise ValueError('each manifest requires a non-empty name.')
         name = manifest['name']
-        if manifest.get('format') not in FORMATS:
-            raise ValueError(f'manifest {name} requires format to be one of {sorted(FORMATS)}.')
+        if manifest.get('format') not in _FORMATS:
+            raise ValueError(f'manifest {name} requires format to be one of {sorted(_FORMATS)}.')
         locks = manifest.get('lockFiles')
         if not isinstance(locks, list) or not locks or not all(
             isinstance(lock, dict) and isinstance(lock.get('file'), str) and lock['file'].strip()
@@ -67,18 +67,18 @@ def load_definitions(path):
     return loaded
 
 
-def collect_strings(value):
+def _collect_strings(value):
     if isinstance(value, str):
         yield value
     elif isinstance(value, dict):
         for item in value.values():
-            yield from collect_strings(item)
+            yield from _collect_strings(item)
     elif isinstance(value, list):
         for item in value:
-            yield from collect_strings(item)
+            yield from _collect_strings(item)
 
 
-def get_arguments(raw_arguments):
+def _get_arguments(raw_arguments):
     # argumentsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で記録される場合もある。
     if isinstance(raw_arguments, str):
         try:
@@ -88,13 +88,13 @@ def get_arguments(raw_arguments):
     return raw_arguments
 
 
-def get_written_paths(tool_name, arguments):
+def _get_written_paths(tool_name, arguments):
     # 戻り値は、編集系ツールが書き込むファイルのパスのリスト。削除するファイルは対象外とする。
     if tool_name == 'apply_patch':
         return [
             match.group(1)
-            for text in collect_strings(arguments) for line in text.splitlines()
-            if (match := PATCH_FILE_PATTERN.match(line) or PATCH_MOVE_PATTERN.match(line))
+            for text in _collect_strings(arguments) for line in text.splitlines()
+            if (match := _PATCH_FILE_PATTERN.match(line) or _PATCH_MOVE_PATTERN.match(line))
         ]
     if not isinstance(arguments, dict) or arguments.get('command') in ('view', 'undo_edit'):
         return []
@@ -102,7 +102,7 @@ def get_written_paths(tool_name, arguments):
     return [path] if isinstance(path, str) and path.strip() else []
 
 
-def get_turn_summary(transcript_path):
+def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・書き込んだファイル・本hookによる差し戻し済みかを集める。
     # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
     last_assistant_msg = None
@@ -122,7 +122,7 @@ def get_turn_summary(transcript_path):
                 last_assistant_msg = None
                 paths.clear()
                 already_requested = False
-            elif isinstance(content, str) and content.startswith(REASON_PREFIX):
+            elif isinstance(content, str) and content.startswith(_REASON_PREFIX):
                 already_requested = True
         elif event_type == 'assistant.message':
             content = data.get('content')
@@ -130,24 +130,24 @@ def get_turn_summary(transcript_path):
                 last_assistant_msg = content
         elif event_type == 'tool.execution_start':
             tool_name = data.get('toolName')
-            if isinstance(tool_name, str) and tool_name.removeprefix('functions.') in EDIT_TOOL_NAMES:
-                paths.extend(get_written_paths(tool_name.removeprefix('functions.'), get_arguments(data.get('arguments'))))
+            if isinstance(tool_name, str) and tool_name.removeprefix('functions.') in _EDIT_TOOL_NAMES:
+                paths.extend(_get_written_paths(tool_name.removeprefix('functions.'), _get_arguments(data.get('arguments'))))
     return last_assistant_msg, paths, already_requested
 
 
-def run_git(cwd, arguments):
+def _run_git(cwd, arguments):
     # 戻り値は (終了コード, 標準出力のバイト列)。gitがない、またはタイムアウトした場合はNone。
     try:
         result = subprocess.run(
             ['git', *arguments], cwd=cwd,
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=GIT_TIMEOUT_SECONDS, check=False,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=_GIT_TIMEOUT_SECONDS, check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
     return result.returncode, result.stdout
 
 
-def resolve_keys(value, parts):
+def _resolve_keys(value, parts):
     # ドット区切りのキーを辿る。`*` はその階層のすべてのキーに一致する。戻り値は (キー, 値) のリスト。
     if not parts:
         return [((), value)]
@@ -155,10 +155,10 @@ def resolve_keys(value, parts):
         return []
     head, rest = parts[0], parts[1:]
     keys = sorted(value) if head == '*' else ([head] if head in value else [])
-    return [((key, *path), found) for key in keys for path, found in resolve_keys(value[key], rest)]
+    return [((key, *path), found) for key in keys for path, found in _resolve_keys(value[key], rest)]
 
 
-def get_fingerprint(manifest, text):
+def _get_fingerprint(manifest, text):
     # 依存の宣言だけを取り出し、比較できる文字列にする。読めない内容はNone（判定しない）。
     if manifest['format'] == 'lines':
         lines = sorted(
@@ -172,12 +172,12 @@ def get_fingerprint(manifest, text):
         return None
     found = {}
     for key in manifest['keys']:
-        for path, value in resolve_keys(document, key.split('.')):
+        for path, value in _resolve_keys(document, key.split('.')):
             found['.'.join(path)] = value
     return json.dumps(found, ensure_ascii=False, sort_keys=True, default=str)
 
 
-def find_drifts(manifests, paths, cwd, repository_root):
+def _find_drifts(manifests, paths, cwd, repository_root):
     # 戻り値は (マニフェストの相対パス, [(ロックファイルの相対パス, コマンド)]) のリスト。
     drifts = []
     seen = set()
@@ -196,13 +196,13 @@ def find_drifts(manifests, paths, cwd, repository_root):
             continue
         relative_path = os.path.relpath(path, repository_root).replace(os.sep, '/')
         # 編集前の内容はHEADのものとする。HEADにないマニフェスト（新規作成）は比べる対象がないため判定しない。
-        head = run_git(repository_root, ['show', f'HEAD:{relative_path}'])
+        head = _run_git(repository_root, ['show', f'HEAD:{relative_path}'])
         if head is None or head[0] != 0:
             continue
         with open(path, encoding='utf-8-sig', errors='replace') as file:
             current = file.read()
-        before = get_fingerprint(manifest, head[1].decode('utf-8-sig', errors='replace'))
-        after = get_fingerprint(manifest, current)
+        before = _get_fingerprint(manifest, head[1].decode('utf-8-sig', errors='replace'))
+        after = _get_fingerprint(manifest, current)
         if before is None or after is None or before == after:
             continue
         # ロックファイルは同じディレクトリにあるものだけを見る。1つもなければロックファイルを使わない構成とみなす。
@@ -215,8 +215,8 @@ def find_drifts(manifests, paths, cwd, repository_root):
             continue
         for lock_relative_path, _ in locks:
             # git管理下でないロックファイルは新たに作ったものとみなし、HEADから変わったものとあわせて更新済みとする。
-            tracked = run_git(repository_root, ['ls-files', '--', lock_relative_path])
-            changed = run_git(repository_root, ['diff', '--quiet', 'HEAD', '--', lock_relative_path])
+            tracked = _run_git(repository_root, ['ls-files', '--', lock_relative_path])
+            changed = _run_git(repository_root, ['diff', '--quiet', 'HEAD', '--', lock_relative_path])
             if tracked is None or not tracked[1].strip() or changed is None or changed[0] != 0:
                 break
         else:
@@ -238,7 +238,7 @@ def main(arguments=None):
     parsed_arguments = parser.parse_args(arguments)
 
     try:
-        manifests = load_definitions(parsed_arguments.definitions_path)
+        manifests = _load_definitions(parsed_arguments.definitions_path)
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
         if not hook_input_json.strip():
             raise ValueError('agentStop hook input is empty.')
@@ -266,15 +266,15 @@ def main(arguments=None):
             str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
-        last_assistant_msg, paths, already_requested = get_turn_summary(transcript_path)
+        last_assistant_msg, paths, already_requested = _get_turn_summary(transcript_path)
         # 同じ依頼で差し戻すのは1回だけにし、意図して残す場合に停止できなくなるのを防ぐ。
         if last_assistant_msg is None or already_requested or not paths:
             return 0
         # HEADと比べるため、gitがない、またはリポジトリ外の場合は検査しない。
-        repository_root = run_git(cwd, ['rev-parse', '--show-toplevel'])
+        repository_root = _run_git(cwd, ['rev-parse', '--show-toplevel'])
         if repository_root is None or repository_root[0] != 0 or not repository_root[1].strip():
             return 0
-        drifts = find_drifts(
+        drifts = _find_drifts(
             manifests, paths, cwd, os.path.realpath(repository_root[1].decode('utf-8', errors='replace').strip()),
         )
     except (OSError, UnicodeError, ValueError) as ex:
@@ -284,10 +284,10 @@ def main(arguments=None):
     if drifts:
         findings = '\n'.join(
             f'- {manifest}: {", ".join(lock for lock, _ in locks)} unchanged; run `{locks[0][1]}`'
-            for manifest, locks in drifts[:MAX_FINDINGS]
+            for manifest, locks in drifts[:_MAX_FINDINGS]
         )
         print(json.dumps(
-            {'decision': 'block', 'reason': BLOCK_REASON.format(findings=findings)},
+            {'decision': 'block', 'reason': _BLOCK_REASON.format(findings=findings)},
             ensure_ascii=False, separators=(',', ':'),
         ))
     return 0

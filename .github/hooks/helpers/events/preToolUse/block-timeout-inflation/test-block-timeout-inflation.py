@@ -7,14 +7,14 @@ import unittest
 import uuid
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-timeout-inflation.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-timeout-inflation.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
-def edit(path, old, new):
+def _edit(path, old, new):
     return {'name': 'edit', 'args': {'path': path, 'old_str': old, 'new_str': new}}
 
 
@@ -42,7 +42,7 @@ class BlockTimeoutInflationTests(unittest.TestCase):
     def run_process(self, hook_input, *arguments):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path, *arguments], input=raw,
+            [sys.executable, _hook_path, *arguments], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
         )
 
@@ -67,7 +67,7 @@ class BlockTimeoutInflationTests(unittest.TestCase):
         return reason
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         entries = configuration['hooks']['preToolUse']
         relative_path = '.github/hooks/helpers/events/preToolUse/block-timeout-inflation/block-timeout-inflation.py'
@@ -98,7 +98,7 @@ class BlockTimeoutInflationTests(unittest.TestCase):
         ]:
             with self.subTest(old=old):
                 self.new_session()
-                result = self.run_call(edit(path, old, new))
+                result = self.run_call(_edit(path, old, new))
                 self.assert_denied(result, f'{path} would only raise timing values ("{old}" -> "{new}")')
 
     def test_other_changes_are_allowed(self):
@@ -122,17 +122,17 @@ class BlockTimeoutInflationTests(unittest.TestCase):
         ]:
             with self.subTest(old=old, new=new):
                 self.new_session()
-                self.assert_allowed(self.run_call(edit(path, old, new)))
+                self.assert_allowed(self.run_call(_edit(path, old, new)))
 
     def test_comments_and_blank_lines_do_not_count_as_logic(self):
-        call = edit('a.py', 'def f():\n    time.sleep(1)\n', 'def f():\n    # CIが遅いため延ばす\n\n    time.sleep(5)\n')
+        call = _edit('a.py', 'def f():\n    time.sleep(1)\n', 'def f():\n    # CIが遅いため延ばす\n\n    time.sleep(5)\n')
         self.assert_denied(self.run_call(call), '"time.sleep(1)" -> "time.sleep(5)"')
 
     def test_tool_formats(self):
         self.write_file('a.py', 'import time\n\ntime.sleep(1)\n')
         patch = '*** Begin Patch\n*** Update File: a.py\n import time\n-time.sleep(1)\n+time.sleep(10)\n*** End Patch'
         for name, tool_call in [
-            ('json string', {'name': 'functions.edit', 'args': json.dumps(edit('a.py', 'sleep(1)', 'sleep(10)')['args'])}),
+            ('json string', {'name': 'functions.edit', 'args': json.dumps(_edit('a.py', 'sleep(1)', 'sleep(10)')['args'])}),
             ('str_replace_editor', {'name': 'str_replace_editor', 'args': {
                 'command': 'str_replace', 'path': 'a.py', 'old_str': 'sleep(1)', 'new_str': 'sleep(10)'}}),
             ('apply_patch', {'name': 'apply_patch', 'args': patch}),
@@ -155,11 +155,11 @@ class BlockTimeoutInflationTests(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(self.root, 'ghc-agent-refinement')))
 
     def test_denies_only_once_per_file(self):
-        call = edit('a.py', 'time.sleep(1)', 'time.sleep(5)')
+        call = _edit('a.py', 'time.sleep(1)', 'time.sleep(5)')
         self.assert_denied(self.run_call(call))
         self.assert_allowed(self.run_call(call))
-        self.assert_allowed(self.run_call(edit('a.py', 'time.sleep(5)', 'time.sleep(9)')))
-        self.assert_denied(self.run_call(edit('b.py', 'time.sleep(1)', 'time.sleep(5)')))
+        self.assert_allowed(self.run_call(_edit('a.py', 'time.sleep(5)', 'time.sleep(9)')))
+        self.assert_denied(self.run_call(_edit('b.py', 'time.sleep(1)', 'time.sleep(5)')))
         self.new_session()
         self.assert_denied(self.run_call(call))
 
@@ -176,7 +176,7 @@ class BlockTimeoutInflationTests(unittest.TestCase):
         self.assertNotIn('retry_3', reason)
 
     def test_invalid_input(self):
-        call = {'toolName': 'edit', 'toolArgs': edit('a.py', 'sleep(1)', 'sleep(5)')['args']}
+        call = {'toolName': 'edit', 'toolArgs': _edit('a.py', 'sleep(1)', 'sleep(5)')['args']}
 
         def encode(value):
             return json.dumps(value).encode('utf-8')

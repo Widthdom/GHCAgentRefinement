@@ -11,10 +11,10 @@ from contextlib import closing
 from unittest.mock import patch
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'detect-edit-oscillation.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'detect-edit-oscillation.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
@@ -48,7 +48,7 @@ class DetectEditOscillationTests(unittest.TestCase):
         if raw is None:
             raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path], input=raw,
+            [sys.executable, _hook_path], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
         )
 
@@ -73,7 +73,7 @@ class DetectEditOscillationTests(unittest.TestCase):
             return connection.execute('SELECT file, content, notified FROM contents ORDER BY sequence').fetchall()
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'postToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'postToolUse.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         self.assertEqual(configuration['version'], 1)
         self.assertEqual(set(configuration['hooks']), {'postToolUse'})
@@ -175,8 +175,8 @@ class DetectEditOscillationTests(unittest.TestCase):
         self.assert_notification(self.edit('A', normalized), '対象.py')
 
     def test_window_and_clock_rollback_reset_history(self):
-        module = runpy.run_path(hook_path)
-        record = module['record_edits']
+        module = runpy.run_path(_hook_path)
+        record = module['_record_edits']
         os.makedirs(self.state_directory)
         # テスト時だけ時計を差し替え、10分ちょうどと期限超過を待たずに確認する。
         for first_seen, current, expected in ((1000, 1600, ['p']), (2000, 2601, []), (3000, 2999, [])):
@@ -247,7 +247,7 @@ class DetectEditOscillationTests(unittest.TestCase):
         processes = []
         for _ in range(6):
             process = subprocess.Popen(
-                [sys.executable, hook_path], stdin=subprocess.PIPE,
+                [sys.executable, _hook_path], stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment,
             )
             self.addCleanup(self.finish_process, process)

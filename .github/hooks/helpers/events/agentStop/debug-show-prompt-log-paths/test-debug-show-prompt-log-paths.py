@@ -10,10 +10,10 @@ import uuid
 from unittest.mock import patch
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'debug-show-prompt-log-paths.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'debug-show-prompt-log-paths.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
@@ -64,7 +64,7 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
             file.write('report')
         return path
 
-    def invoke(self, payload=None, raw=None, script=hook_path):
+    def invoke(self, payload=None, raw=None, script=_hook_path):
         if raw is None:
             raw = json.dumps(self.payload if payload is None else payload).encode('utf-8')
         return subprocess.run(
@@ -92,7 +92,7 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
         return paths
 
     def test_configuration_is_sorted(self):
-        with open(os.path.join(hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         entries = configuration['hooks']['agentStop']
         commands = [entry['bash'] for entry in entries]
@@ -181,7 +181,7 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
                 self.events.pop(0)
 
     def test_wait_for_current_stop_handles_partial_writes_and_times_out(self):
-        wait_for_stop = runpy.run_path(hook_path)['wait_for_stop']
+        wait_for_stop = runpy.run_path(_hook_path)['_wait_for_stop']
         self.events = [self.event('agentStop', 110, agentId='child')]
         self.write_events()
         with patch('time.monotonic', side_effect=[0, 5]), patch('time.sleep') as sleep:
@@ -204,13 +204,13 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
         for directory in (reporter_directory, logger_directory):
             os.makedirs(directory)
         for name in ('debug-show-prompt-log-paths.py', 'get-prompt-log-paths.py'):
-            shutil.copyfile(os.path.join(script_directory, name), os.path.join(reporter_directory, name))
+            shutil.copyfile(os.path.join(_script_directory, name), os.path.join(reporter_directory, name))
         for name in ('get-debug-mode', 'read-jsonl-objects'):
             os.makedirs(os.path.join(utilities, name))
-            shutil.copyfile(os.path.join(hooks_directory, 'helpers', 'utilities', name, f'{name}.py'),
+            shutil.copyfile(os.path.join(_hooks_directory, 'helpers', 'utilities', name, f'{name}.py'),
                             os.path.join(utilities, name, f'{name}.py'))
         logger = 'debug-log-transformed-prompt.py'
-        shutil.copyfile(os.path.join(hooks_directory, 'helpers', 'events', 'userPromptTransformed',
+        shutil.copyfile(os.path.join(_hooks_directory, 'helpers', 'events', 'userPromptTransformed',
                                     'debug-log-transformed-prompt', logger), os.path.join(logger_directory, logger))
         os.unlink(self.log_path)
         result = self.invoke({

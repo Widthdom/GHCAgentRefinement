@@ -7,15 +7,15 @@ import sys
 from typing import cast
 
 
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-SHELL_TOOL_NAMES = {'bash', 'powershell'}
+_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
+_SHELL_TOOL_NAMES = {'bash', 'powershell'}
 # パッチで追加・更新・削除するファイルと移動先。
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$', re.MULTILINE)
+_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$', re.MULTILINE)
 # 守るパス。hookの定義・実装・テストと、hookが保持する状態（変更の許可の記録を含む）。
-PROTECTED_PATH_PATTERN = re.compile(r'(?:^|[/\\])(?:\.github[/\\]hooks|ghc-agent-refinement[/\\]hook-states)(?:[/\\]|$)', re.IGNORECASE)
-PROTECTED_PATH_IN_COMMAND_PATTERN = re.compile(r'\.github[/\\]+hooks\b|ghc-agent-refinement[/\\]+hook-states\b', re.IGNORECASE)
+_PROTECTED_PATH_PATTERN = re.compile(r'(?:^|[/\\])(?:\.github[/\\]hooks|ghc-agent-refinement[/\\]hook-states)(?:[/\\]|$)', re.IGNORECASE)
+_PROTECTED_PATH_IN_COMMAND_PATTERN = re.compile(r'\.github[/\\]+hooks\b|ghc-agent-refinement[/\\]+hook-states\b', re.IGNORECASE)
 # シェルで、ファイルを変更・削除・移動する操作。読み取りやテストの実行（`cat`・`python test-x.py`・`git diff`）は含めない。
-SHELL_MODIFYING_PATTERNS = (
+_SHELL_MODIFYING_PATTERNS = (
     # 削除・移動・複製・作成・権限変更などのコマンドと、PowerShellのコマンドレット・別名
     re.compile(
         r'(?:^|[\s;|&(`])(?:rm|rmdir|unlink|mv|cp|ln|install|truncate|chmod|chown|touch|tee|dd|shred'
@@ -39,17 +39,17 @@ SHELL_MODIFYING_PATTERNS = (
         r'|os\.replace|shutil\.(?:move|copy\w*)|fs\.(?:rm|unlink|rename)\w*)\b|open\([^)]*[\'"][wax+]',
     ),
 )
-DENY_REASON = (
+_DENY_REASON = (
     'Hook change denied: {targets}. Hooks are the guardrails for this session, and the user has not asked to change '
     'hooks in this session. Do not modify, disable, or delete hook configurations, implementations, definitions, '
     'tests, or hook state files to get past a denial or a check; fix the underlying problem instead. If changing the '
     'hook is genuinely necessary, stop and explain to the user which hook and why, and ask them to request the hook '
     'change explicitly.'
 )
-MAX_COMMAND_LENGTH = 200
+_MAX_COMMAND_LENGTH = 200
 
 
-def get_tool_args(raw_tool_args):
+def _get_tool_args(raw_tool_args):
     # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
     if isinstance(raw_tool_args, str):
         try:
@@ -59,20 +59,20 @@ def get_tool_args(raw_tool_args):
     return raw_tool_args
 
 
-def collect_strings(value):
+def _collect_strings(value):
     if isinstance(value, str):
         yield value
     elif isinstance(value, dict):
         for item in value.values():
-            yield from collect_strings(item)
+            yield from _collect_strings(item)
     elif isinstance(value, list):
         for item in value:
-            yield from collect_strings(item)
+            yield from _collect_strings(item)
 
 
-def get_edited_paths(tool_name, tool_args):
+def _get_edited_paths(tool_name, tool_args):
     if tool_name == 'apply_patch':
-        return [match for text in collect_strings(tool_args) for match in PATCH_FILE_PATTERN.findall(text)]
+        return [match for text in _collect_strings(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)]
     if not isinstance(tool_args, dict):
         return []
     # str_replace_editorのviewは閲覧なので対象外とする。
@@ -82,7 +82,7 @@ def get_edited_paths(tool_name, tool_args):
     return [path] if isinstance(path, str) and path.strip() else []
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示す。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -93,23 +93,23 @@ def get_display_path(path, cwd):
     return path.replace(os.sep, '/')
 
 
-def get_targets(tool_name, tool_args, cwd):
+def _get_targets(tool_name, tool_args, cwd):
     # 戻り値は、拒否の理由で示す変更の対象（ファイルのパスまたはコマンド）のリスト。
-    if tool_name in EDIT_TOOL_NAMES:
+    if tool_name in _EDIT_TOOL_NAMES:
         targets = []
-        for path in get_edited_paths(tool_name, tool_args):
+        for path in _get_edited_paths(tool_name, tool_args):
             absolute = os.path.normpath(os.path.join(cwd, path))
-            if PROTECTED_PATH_PATTERN.search(absolute):
-                display_path = get_display_path(absolute, cwd)
+            if _PROTECTED_PATH_PATTERN.search(absolute):
+                display_path = _get_display_path(absolute, cwd)
                 if display_path not in targets:
                     targets.append(display_path)
         return targets
-    if tool_name in SHELL_TOOL_NAMES and isinstance(tool_args, dict):
+    if tool_name in _SHELL_TOOL_NAMES and isinstance(tool_args, dict):
         command = tool_args.get('command')
-        if (isinstance(command, str) and PROTECTED_PATH_IN_COMMAND_PATTERN.search(command)
-                and any(pattern.search(command) for pattern in SHELL_MODIFYING_PATTERNS)):
-            if len(command) > MAX_COMMAND_LENGTH:
-                command = command[:MAX_COMMAND_LENGTH] + '...'
+        if (isinstance(command, str) and _PROTECTED_PATH_IN_COMMAND_PATTERN.search(command)
+                and any(pattern.search(command) for pattern in _SHELL_MODIFYING_PATTERNS)):
+            if len(command) > _MAX_COMMAND_LENGTH:
+                command = command[:_MAX_COMMAND_LENGTH] + '...'
             return [f'command `{command}`']
     return []
 
@@ -143,8 +143,8 @@ def main():
         if 'toolArgs' not in hook_input:
             raise ValueError('toolArgs is required.')
 
-        targets = get_targets(
-            tool_name.removeprefix('functions.'), get_tool_args(hook_input['toolArgs']), os.path.normpath(cwd),
+        targets = _get_targets(
+            tool_name.removeprefix('functions.'), _get_tool_args(hook_input['toolArgs']), os.path.normpath(cwd),
         )
         if not targets or state['is_permitted'](state_path):
             return 0
@@ -152,7 +152,7 @@ def main():
         print(f'Failed to check hook tampering: {ex}', file=sys.stderr)
         return 2
 
-    reason = DENY_REASON.format(targets=', '.join(targets))
+    reason = _DENY_REASON.format(targets=', '.join(targets))
     print(reason, file=sys.stderr)
     # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
     # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference

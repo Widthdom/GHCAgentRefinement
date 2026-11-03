@@ -7,21 +7,21 @@ import tempfile
 import unittest
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'detect-phantom-references.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'detect-phantom-references.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
-HOOK_TIMESTAMP = 1777777777000
+_HOOK_TIMESTAMP = 1777777777000
 
 
-def user(content, delivery='idle'):
+def _user(content, delivery='idle'):
     return {'type': 'user.message', 'data': {'content': content, 'delivery': delivery}}
 
 
-def assistant(content):
+def _assistant(content):
     return {'type': 'assistant.message', 'data': {'content': content}}
 
 
@@ -48,7 +48,7 @@ class DetectPhantomReferencesTests(unittest.TestCase):
         self.write_file('src/new.py', 'new\n')
         self.payload = {
             'sessionId': '00000000-0000-4000-8000-000000000000',
-            'timestamp': HOOK_TIMESTAMP,
+            'timestamp': _HOOK_TIMESTAMP,
             'cwd': self.repository,
             'transcriptPath': self.transcript_path,
         }
@@ -72,18 +72,18 @@ class DetectPhantomReferencesTests(unittest.TestCase):
     def invoke(self, events=None, payload=None, raw=None):
         if events is not None:
             with open(self.transcript_path, 'w', encoding='utf-8', newline='\n') as file:
-                hook_start = {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': HOOK_TIMESTAMP}}}
+                hook_start = {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': _HOOK_TIMESTAMP}}}
                 for event in (*events, hook_start):
                     file.write(json.dumps(event, ensure_ascii=False) + '\n')
         if raw is None:
             raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path], input=raw,
+            [sys.executable, _hook_path], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
         )
 
     def respond(self, response, request='確認して', payload=None):
-        return self.invoke([user(request), assistant(response)], payload)
+        return self.invoke([_user(request), _assistant(response)], payload)
 
     def assert_silent(self, result):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
@@ -100,7 +100,7 @@ class DetectPhantomReferencesTests(unittest.TestCase):
         return output['reason']
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         entries = configuration['hooks']['agentStop']
         relative_path = '.github/hooks/helpers/events/agentStop/detect-phantom-references/detect-phantom-references.py'
@@ -227,18 +227,18 @@ class DetectPhantomReferencesTests(unittest.TestCase):
         self.assert_block(self.respond('`src/b.py` を見た。', payload=payload), 'src/b.py (not found)')
 
     def test_blocks_only_once_per_request(self):
-        first = [user('直して'), assistant('`src/missing.py` を直した。')]
+        first = [_user('直して'), _assistant('`src/missing.py` を直した。')]
         reason = self.assert_block(self.invoke(first), 'src/missing.py (not found)')
-        self.assert_silent(self.invoke([*first, user(reason, 'queued'), assistant('`src/missing.py` を直した。')]))
-        self.assert_silent(self.invoke([*first, user('割り込み', 'queued'), assistant('`src/app.py` を直した。')]))
+        self.assert_silent(self.invoke([*first, _user(reason, 'queued'), _assistant('`src/missing.py` を直した。')]))
+        self.assert_silent(self.invoke([*first, _user('割り込み', 'queued'), _assistant('`src/app.py` を直した。')]))
         self.assert_block(
-            self.invoke([*first, user(reason, 'queued'), user('次の依頼'), assistant('`src/missing.py`')]),
+            self.invoke([*first, _user(reason, 'queued'), _user('次の依頼'), _assistant('`src/missing.py`')]),
             'src/missing.py (not found)',
         )
 
     def test_skips_subagents_and_missing_responses(self):
         self.assert_silent(self.respond('`src/missing.py`', payload={**self.payload, 'agentId': 'child-agent'}))
-        self.assert_silent(self.invoke([assistant('`src/missing.py`'), user('次の依頼')]))
+        self.assert_silent(self.invoke([_assistant('`src/missing.py`'), _user('次の依頼')]))
 
     def test_invalid_input_reports_error(self):
         self.respond('`src/app.py`')

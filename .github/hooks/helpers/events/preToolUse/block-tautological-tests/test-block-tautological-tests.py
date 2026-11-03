@@ -7,22 +7,22 @@ import tempfile
 import unittest
 import uuid
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-tautological-tests.py')
-state_directory = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-tautological-tests')
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-tautological-tests.py')
+_state_directory = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-tautological-tests')
 
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-ORIGINAL = (
+_ORIGINAL = (
     'def test_add():\n'
     '    assert add(1, 2) == 3\n'
 )
 
 
-def run_hook(input_bytes, *arguments):
-    return subprocess.run([sys.executable, hook_path, *arguments], input=input_bytes, capture_output=True)
+def _run_hook(input_bytes, *arguments):
+    return subprocess.run([sys.executable, _hook_path, *arguments], input=input_bytes, capture_output=True)
 
 
 class BlockTautologicalTestsTests(unittest.TestCase):
@@ -30,7 +30,7 @@ class BlockTautologicalTestsTests(unittest.TestCase):
         self.directory = os.path.realpath(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.directory, ignore_errors=True)
         self.new_session()
-        self.write_file('test_math.py', ORIGINAL)
+        self.write_file('test_math.py', _ORIGINAL)
 
     def write_file(self, path, content):
         full_path = os.path.join(self.directory, path)
@@ -41,12 +41,12 @@ class BlockTautologicalTestsTests(unittest.TestCase):
     def new_session(self):
         # テストごとに別セッションとし、拒否の記録を持ち越さない。
         self.session_id = str(uuid.uuid4())
-        state_path = os.path.join(state_directory, f'{self.session_id}.sqlite3')
+        state_path = os.path.join(_state_directory, f'{self.session_id}.sqlite3')
         self.addCleanup(lambda: os.path.exists(state_path) and os.remove(state_path))
 
     def run_call(self, tool_name, tool_args):
         hook_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_name, 'toolArgs': tool_args}
-        return run_hook(json.dumps(hook_input).encode('utf-8'))
+        return _run_hook(json.dumps(hook_input).encode('utf-8'))
 
     def create(self, path, content):
         return self.run_call('create', {'path': path, 'file_text': content})
@@ -190,7 +190,7 @@ class BlockTautologicalTestsTests(unittest.TestCase):
         ]
         for input_bytes in inputs:
             with self.subTest(input_bytes=input_bytes):
-                result = run_hook(input_bytes)
+                result = _run_hook(input_bytes)
                 self.assertEqual(result.returncode, 2, input_bytes)
                 self.assertIn(b'Failed to check tautological tests', result.stderr)
 
@@ -201,7 +201,7 @@ class BlockTautologicalTestsTests(unittest.TestCase):
                 with open(definitions_path, 'w', encoding='utf-8') as file:
                     file.write(content)
                 hook_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'create', 'toolArgs': {}}
-                result = run_hook(json.dumps(hook_input).encode('utf-8'), '--definitions-path', definitions_path)
+                result = _run_hook(json.dumps(hook_input).encode('utf-8'), '--definitions-path', definitions_path)
                 self.assertEqual(result.returncode, 2, content)
 
 

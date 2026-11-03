@@ -7,8 +7,8 @@ import time
 from typing import cast
 
 
-WARNING_THRESHOLD = 500
-WARNING_MESSAGE = (
+_WARNING_THRESHOLD = 500
+_WARNING_MESSAGE = (
     '{count} temporary files under {root} (hook states and debug logs) have not been updated for more than '
     '48 hours. At the start of your first response, tell the user about this in the language you respond in and '
     'suggest running /clean-hook-temp-files to delete them. Do not delete them yourself.'
@@ -24,12 +24,12 @@ def main():
     temp_files = runpy.run_path(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hook-temp-files.py'))
     root = temp_files['get_temp_root']()
     count = len(temp_files['find_stale_files'](root, time.time()))
-    if count < WARNING_THRESHOLD:
+    if count < _WARNING_THRESHOLD:
         return 0
 
     # Copilot SDKはhookの出力のうちsystemMessageを解釈しないため、エージェントに渡してユーザーへ伝えさせる。
     print(json.dumps(
-        {'additionalContext': WARNING_MESSAGE.format(count=count, root=root)},
+        {'additionalContext': _WARNING_MESSAGE.format(count=count, root=root)},
         ensure_ascii=False, separators=(',', ':'),
     ))
     return 0

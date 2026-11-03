@@ -8,19 +8,19 @@ import sys
 from typing import cast
 
 
-SHELL_TOOL_NAMES = {'bash', 'powershell'}
+_SHELL_TOOL_NAMES = {'bash', 'powershell'}
 # 行頭の装飾（pytestの `E`、差分の `-`・`+`）を許容する。
-LINE_PREFIX = r'^\s*(?:E\s+)?[-+]?\s*'
+_LINE_PREFIX = r'^\s*(?:E\s+)?[-+]?\s*'
 # 期待値の行と、その直後3行以内の実際の値の行（Jest・xUnit・NUnit・AssertJ・testifyなど）。
-EXPECTED_LINE_PATTERN = re.compile(LINE_PREFIX + r'expected(?:\s+value)?\s*:\s*(.+?)\s*$', re.IGNORECASE)
-ACTUAL_LINE_PATTERN = re.compile(
-    LINE_PREFIX + r'(?:received|actual|but\s+was)(?:\s+value)?\s*:\s*(.+?)\s*$', re.IGNORECASE,
+_EXPECTED_LINE_PATTERN = re.compile(_LINE_PREFIX + r'expected(?:\s+value)?\s*:\s*(.+?)\s*$', re.IGNORECASE)
+_ACTUAL_LINE_PATTERN = re.compile(
+    _LINE_PREFIX + r'(?:received|actual|but\s+was)(?:\s+value)?\s*:\s*(.+?)\s*$', re.IGNORECASE,
 )
-ACTUAL_LINE_DISTANCE = 3
+_ACTUAL_LINE_DISTANCE = 3
 # 1行に期待値と実際の値が並ぶ形式。グループは (期待値, 実際の値) の順に並べ替えて扱う。
 #   JUnit：expected:<4> but was:<3>
 #   Go：got 3, want 4 / want 4, got 3
-INLINE_PATTERNS = (
+_INLINE_PATTERNS = (
     (re.compile(r'expected:\s*<(.+?)>\s*but\s+was:\s*<(.+?)>', re.IGNORECASE), False),
     (re.compile(r'\bwant:?\s+(.+?),?\s+got:?\s+(.+?)\s*$', re.IGNORECASE), False),
     (re.compile(r'\bgot:?\s+(.+?),?\s+want:?\s+(.+?)\s*$', re.IGNORECASE), True),
@@ -28,45 +28,45 @@ INLINE_PATTERNS = (
 # どちらが期待値か出力からは決まらない形式。両方の向きを記録する。
 #   unittest：AssertionError: 3 != 4
 #   pytest：E       assert 3 == 4
-SYMMETRIC_PATTERNS = (
+_SYMMETRIC_PATTERNS = (
     re.compile(r'^\s*(?:E\s+)?AssertionError:\s*(.+?)\s+!=\s+(.+?)\s*$'),
     re.compile(r'^\s*E\s+assert\s+(.+?)\s+==\s+(.+?)\s*$'),
 )
 # Rustのassert_eq!：left: 3 / right: 4（旧形式は left: `3`, / right: `4`）。
-LEFT_LINE_PATTERN = re.compile(r'^\s*left:\s*(.+?)\s*$')
-RIGHT_LINE_PATTERN = re.compile(r'^\s*right:\s*(.+?)\s*$')
-MAX_PAIRS = 100
+_LEFT_LINE_PATTERN = re.compile(r'^\s*left:\s*(.+?)\s*$')
+_RIGHT_LINE_PATTERN = re.compile(r'^\s*right:\s*(.+?)\s*$')
+_MAX_PAIRS = 100
 
 
-def find_following(lines, start, pattern):
-    for line in lines[start + 1:start + 1 + ACTUAL_LINE_DISTANCE]:
+def _find_following(lines, start, pattern):
+    for line in lines[start + 1:start + 1 + _ACTUAL_LINE_DISTANCE]:
         match = pattern.match(line)
         if match:
             return match.group(1)
     return None
 
 
-def parse_failure_values(text):
+def _parse_failure_values(text):
     # 戻り値は、テストの出力から読み取った (期待値, 実際の値) の組の集合（正規化前）。
     pairs = set()
     lines = text.splitlines()
     for index, line in enumerate(lines):
-        match = EXPECTED_LINE_PATTERN.match(line)
+        match = _EXPECTED_LINE_PATTERN.match(line)
         if match:
-            actual = find_following(lines, index, ACTUAL_LINE_PATTERN)
+            actual = _find_following(lines, index, _ACTUAL_LINE_PATTERN)
             if actual is not None:
                 pairs.add((match.group(1), actual))
-        for pattern, reversed_groups in INLINE_PATTERNS:
+        for pattern, reversed_groups in _INLINE_PATTERNS:
             for found in pattern.finditer(line):
                 first, second = found.groups()
                 pairs.add((second, first) if reversed_groups else (first, second))
-        for pattern in SYMMETRIC_PATTERNS:
+        for pattern in _SYMMETRIC_PATTERNS:
             match = pattern.match(line)
             if match:
                 pairs.update({match.groups(), match.groups()[::-1]})
-        match = LEFT_LINE_PATTERN.match(line)
+        match = _LEFT_LINE_PATTERN.match(line)
         if match:
-            right = find_following(lines, index, RIGHT_LINE_PATTERN)
+            right = _find_following(lines, index, _RIGHT_LINE_PATTERN)
             if right is not None:
                 pairs.update({(match.group(1), right), (right, match.group(1))})
     return pairs
@@ -103,7 +103,7 @@ def main():
         if 'toolArgs' not in hook_input:
             raise ValueError('toolArgs is required.')
 
-        if tool_name.removeprefix('functions.') not in SHELL_TOOL_NAMES:
+        if tool_name.removeprefix('functions.') not in _SHELL_TOOL_NAMES:
             return 0
         tool_args = hook_input['toolArgs']
         if isinstance(tool_args, str):
@@ -118,11 +118,11 @@ def main():
         tool_result = hook_input.get('toolResult')
         output = tool_result.get('textResultForLlm') if isinstance(tool_result, dict) else None
         pairs = set()
-        for expected, actual in parse_failure_values(output if isinstance(output, str) else ''):
+        for expected, actual in _parse_failure_values(output if isinstance(output, str) else ''):
             expected, actual = state['normalize_value'](expected), state['normalize_value'](actual)
             if expected is not None and actual is not None and expected != actual:
                 pairs.add((expected, actual))
-        pairs = sorted(pairs)[:MAX_PAIRS]
+        pairs = sorted(pairs)[:_MAX_PAIRS]
         keys = [state['get_pair_key'](expected, actual) for expected, actual in pairs]
         expected_keys = {state['get_value_key'](expected) for expected, _ in pairs}
 

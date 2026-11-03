@@ -5,20 +5,20 @@ import os
 # 仮実装を残す応答を差し戻すagentStop hook（detect-stub-placeholders）が共有する。
 
 
-def normalize_lines(text):
+def _normalize_lines(text):
     # インデントの違いで既存の内容との照合が外れないよう、各行の前後の空白を除く。
     return {line.strip() for line in text.splitlines()}
 
 
-def read_lines(path):
+def _read_lines(path):
     try:
         with open(path, encoding='utf-8', errors='replace') as file:
-            return normalize_lines(file.read())
+            return _normalize_lines(file.read())
     except OSError:
         return None
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示す。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -29,7 +29,7 @@ def get_display_path(path, cwd):
     return path.replace(os.sep, '/')
 
 
-def get_line(text, position):
+def _get_line(text, position):
     start = text.rfind('\n', 0, position) + 1
     end = text.find('\n', position)
     return text[start:None if end < 0 else end].strip()
@@ -49,18 +49,18 @@ def find_introduced_lines_by_regex(changes, cwd, excluded_file_patterns, named_r
     for change in changes:
         full_path = os.path.realpath(os.path.join(cwd, change['path']))
         # パターンの照合と表示は、OSによらず `/` 区切りのパスで行う。
-        display_path = get_display_path(full_path, real_cwd)
+        display_path = _get_display_path(full_path, real_cwd)
         if any(pattern.search(display_path) for pattern in excluded_file_patterns):
             continue
         written = change['written']
-        removed_lines = normalize_lines(change['removed'])
+        removed_lines = _normalize_lines(change['removed'])
         for name, regex in named_regexes:
             for match in regex.finditer(written):
-                line = get_line(written, match.start())
+                line = _get_line(written, match.start())
                 if line in removed_lines or (display_path, line) in found:
                     continue
                 if full_path not in current_lines:
-                    current_lines[full_path] = read_lines(full_path) if os.path.isfile(full_path) else None
+                    current_lines[full_path] = _read_lines(full_path) if os.path.isfile(full_path) else None
                 lines = current_lines[full_path]
                 if lines is not None and line in lines:
                     found.add((display_path, line))

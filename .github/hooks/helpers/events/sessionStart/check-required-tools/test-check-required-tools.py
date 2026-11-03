@@ -9,25 +9,25 @@ import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'check-required-tools.py')
-definitions_path = os.path.join(script_directory, 'required-tool-definitions.json')
-hook = runpy.run_path(hook_path)
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'check-required-tools.py')
+_definitions_path = os.path.join(_script_directory, 'required-tool-definitions.json')
+_hook = runpy.run_path(_hook_path)
 
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-COMMANDS = ('ast-grep', 'git', 'jq', 'rg')
-SATISFIED = {'ast-grep': 'ast-grep 0.39.5\n', 'git': 'git version 2.47.1\n', 'jq': 'jq-1.7.1\n', 'rg': 'ripgrep 14.1.1\n'}
+_COMMANDS = ('ast-grep', 'git', 'jq', 'rg')
+_SATISFIED = {'ast-grep': 'ast-grep 0.39.5\n', 'git': 'git version 2.47.1\n', 'jq': 'jq-1.7.1\n', 'rg': 'ripgrep 14.1.1\n'}
 # 条件を満たさない場合の、コマンドごとの案内。
-REQUIREMENTS = {
+_REQUIREMENTS = {
     'ast-grep': 'ast-grep is required, and it must be available as the ast-grep command.',
     'git': 'Git 2.34.1 or later is required, and it must be available as the git command.',
     'jq': 'jq 1.6 or later is required, and it must be available as the jq command.',
     'rg': 'ripgrep 13.0.0 or later is required, and it must be available as the rg command.',
 }
-INSTALL_MESSAGES = {
+_INSTALL_MESSAGES = {
     'win32': {
         'ast-grep': 'Install it with: winget install --id ast-grep.ast-grep --exact --source winget',
         'git': 'Install it with: winget install --id Git.Git --exact --source winget',
@@ -47,12 +47,12 @@ INSTALL_MESSAGES = {
         'rg': 'Installation guide: https://github.com/BurntSushi/ripgrep#installation',
     },
 }
-RESTART = 'After installation, restart the application or terminal running this hook to refresh PATH.'
+_RESTART = 'After installation, restart the application or terminal running this hook to refresh PATH.'
 
 
-def run_main(platform='linux', results=None, arguments=()):
+def _run_main(platform='linux', results=None, arguments=()):
     # resultsはコマンドごとの `--version` の標準出力、または起動時に送出する例外。指定のないコマンドは条件を満たす。
-    results = {**SATISFIED, **(results or {})}
+    results = {**_SATISFIED, **(results or {})}
 
     def fake_run(command, **_):
         result = results[command[0]]
@@ -64,33 +64,33 @@ def run_main(platform='linux', results=None, arguments=()):
     stdout = io.StringIO()
     stderr = io.StringIO()
     with (
-        patch.object(hook['subprocess'], 'run', run),
-        patch.object(hook['sys'], 'platform', platform),
+        patch.object(_hook['subprocess'], 'run', run),
+        patch.object(_hook['sys'], 'platform', platform),
         patch.object(stdout, 'reconfigure', create=True),
         patch.object(stderr, 'reconfigure', create=True),
         contextlib.redirect_stdout(stdout),
         contextlib.redirect_stderr(stderr),
     ):
-        exit_code = hook['main'](list(arguments))
+        exit_code = _hook['main'](list(arguments))
     return exit_code, stderr.getvalue(), stdout.getvalue(), run
 
 
-def expected_message(platform, commands):
-    lines = [line for command in commands for line in (REQUIREMENTS[command], INSTALL_MESSAGES[platform][command])]
-    return '\n'.join([*lines, RESTART])
+def _expected_message(platform, commands):
+    lines = [line for command in commands for line in (_REQUIREMENTS[command], _INSTALL_MESSAGES[platform][command])]
+    return '\n'.join([*lines, _RESTART])
 
 
 class CheckRequiredToolsTests(unittest.TestCase):
     def assert_notified(self, result, platform, commands):
         # 案内を標準エラーに出し、同じ案内をadditionalContextでエージェントに渡して正常終了すること。
         exit_code, stderr, stdout, _ = result
-        expected = expected_message(platform, commands)
+        expected = _expected_message(platform, commands)
         self.assertEqual(exit_code, 0)
         self.assertEqual(stderr, f'{expected}\n')
-        self.assertEqual(json.loads(stdout), {'additionalContext': hook['ADDITIONAL_CONTEXT'].format(message=expected)})
+        self.assertEqual(json.loads(stdout), {'additionalContext': _hook['_ADDITIONAL_CONTEXT'].format(message=expected)})
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'sessionStart.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'sessionStart.json'), encoding='utf-8') as file:
             entries = json.load(file)['hooks']['sessionStart']
         relative_path = '.github/hooks/helpers/events/sessionStart/check-required-tools/check-required-tools.py'
         matching = [entry for entry in entries if relative_path in entry.get('bash', '')]
@@ -99,10 +99,10 @@ class CheckRequiredToolsTests(unittest.TestCase):
         self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
 
     def test_all_satisfied(self):
-        exit_code, stderr, stdout, run = run_main()
+        exit_code, stderr, stdout, run = _run_main()
         self.assertEqual((exit_code, stderr, stdout), (0, '', ''))
         self.assertEqual(
-            [call.args[0] for call in run.call_args_list], [[command, '--version'] for command in COMMANDS],
+            [call.args[0] for call in run.call_args_list], [[command, '--version'] for command in _COMMANDS],
         )
         run.assert_called_with(['rg', '--version'], capture_output=True, text=True, errors='replace', check=True)
 
@@ -118,7 +118,7 @@ class CheckRequiredToolsTests(unittest.TestCase):
         }.items():
             for output in outputs:
                 with self.subTest(command=command, output=output):
-                    self.assertEqual(run_main(results={command: output})[:3], (0, '', ''))
+                    self.assertEqual(_run_main(results={command: output})[:3], (0, '', ''))
 
     def test_unsatisfied_cases(self):
         for command, output in (
@@ -127,20 +127,20 @@ class CheckRequiredToolsTests(unittest.TestCase):
             ('jq', FileNotFoundError()), ('rg', subprocess.CalledProcessError(1, ['rg', '--version'])),
         ):
             with self.subTest(command=command, output=output):
-                self.assert_notified(run_main(results={command: output}), 'linux', [command])
+                self.assert_notified(_run_main(results={command: output}), 'linux', [command])
 
     def test_installation_messages(self):
         # 足りないツールの案内は定義の順に1つにまとめ、再起動の案内は最後に1回だけ付ける。
-        missing = {command: FileNotFoundError() for command in COMMANDS}
-        for platform in INSTALL_MESSAGES:
+        missing = {command: FileNotFoundError() for command in _COMMANDS}
+        for platform in _INSTALL_MESSAGES:
             with self.subTest(platform=platform):
-                self.assert_notified(run_main(platform, missing), platform, COMMANDS)
-        self.assert_notified(run_main(results={'git': FileNotFoundError(), 'rg': 'old\n'}), 'linux', ['git', 'rg'])
+                self.assert_notified(_run_main(platform, missing), platform, _COMMANDS)
+        self.assert_notified(_run_main(results={'git': FileNotFoundError(), 'rg': 'old\n'}), 'linux', ['git', 'rg'])
 
     def test_invalid_definitions(self):
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, 'definitions.json')
-            with open(definitions_path, encoding='utf-8') as file:
+            with open(_definitions_path, encoding='utf-8') as file:
                 valid_tool = json.load(file)['tools'][0]
             for name, content in (
                 ('broken json', '{'),
@@ -154,7 +154,7 @@ class CheckRequiredToolsTests(unittest.TestCase):
                 with self.subTest(name=name):
                     with open(path, 'w', encoding='utf-8') as file:
                         file.write(content)
-                    exit_code, stderr, stdout, run = run_main(arguments=('--definitions-path', path))
+                    exit_code, stderr, stdout, run = _run_main(arguments=('--definitions-path', path))
                     self.assertEqual((exit_code, stdout), (2, ''))
                     self.assertIn('Failed to load required tool definitions', stderr)
                     run.assert_not_called()
@@ -164,7 +164,7 @@ class CheckRequiredToolsTests(unittest.TestCase):
             environment = {**os.environ, 'PATH': empty_directory}
             # WindowsはPATHのほかにSystem32なども探すため、そこにあるツールは見つからない状態を作れない。
             missing = []
-            for command in COMMANDS:
+            for command in _COMMANDS:
                 try:
                     subprocess.run([command, '--version'], capture_output=True, cwd=empty_directory, env=environment)
                 except OSError:
@@ -172,14 +172,14 @@ class CheckRequiredToolsTests(unittest.TestCase):
             if not missing:
                 self.skipTest('All tools are found outside PATH, for example in System32.')
             result = subprocess.run(
-                [sys.executable, hook_path], input=b'{"sessionId":"test"}', capture_output=True,
+                [sys.executable, _hook_path], input=b'{"sessionId":"test"}', capture_output=True,
                 cwd=empty_directory, env=environment,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             for name, output in (('stdout', result.stdout), ('stderr', result.stderr)):
                 self.assertFalse(output.startswith(b'\xef\xbb\xbf'), name)
                 for command in missing:
-                    self.assertIn(REQUIREMENTS[command].encode('utf-8'), output, name)
+                    self.assertIn(_REQUIREMENTS[command].encode('utf-8'), output, name)
             self.assertIn('additionalContext', json.loads(result.stdout.decode('utf-8')))
 
 

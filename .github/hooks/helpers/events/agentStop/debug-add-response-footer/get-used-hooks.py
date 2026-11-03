@@ -62,11 +62,11 @@ def get_used_hooks(transcript_path, hooks_path):
 if __name__ == '__main__':
     import argparse
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--transcript-path', required=True)
-    parser.add_argument('--hooks-path', required=True)
-    arguments = parser.parse_args()
+    _parser = argparse.ArgumentParser()
+    _parser.add_argument('--transcript-path', required=True)
+    _parser.add_argument('--hooks-path', required=True)
+    _arguments = _parser.parse_args()
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')
-    for used_hook in get_used_hooks(arguments.transcript_path, arguments.hooks_path):
+    for used_hook in get_used_hooks(_arguments.transcript_path, _arguments.hooks_path):
         print(used_hook)

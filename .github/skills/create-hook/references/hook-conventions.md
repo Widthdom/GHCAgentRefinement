@@ -25,3 +25,4 @@
     - mermaidの図に書くhookの内容は全角14文字以内にする（半角は全角の半分として数える）。表の内容列も図と同じ文言にする。
 13. ユーザーがこのリポジトリ専用のhookとして作成するよう指示した場合は、配置先に `-repo-` を付ける。hook定義は `.github/hooks/-repo-<event-name>.json`、hookのファイルは `.github/hooks/helpers/-repo-events/<event-name>/<hook-name>/` に置き、JSONのコマンドではこの実行スクリプトをhookランナーに渡す。項目12の「発動フロー」は `.github/-repo-README.md` に記載する。skillの手順や他の項目にある `.github/hooks/<event-name>.json`・`helpers/events`・`.github/README.md` は、これらに読み替える。hook名には `-repo-` を付けない。指示がない場合は共通のhookとして作成する。
     - 名前が `-` で始まるファイル・フォルダーをコマンドの引数に単独で渡すと、オプションとして解釈される。`./-repo-preToolUse.json` のように `./` を付けるか、`--` の後に渡す。
+14. Pythonスクリプトでは、モジュールの外から参照しない最上位の変数・関数・クラスの名前を `_` で始める。`runpy.run_path` の戻り値や `import` を通じて他のスクリプトから参照する名前、エントリーポイントの `main`、`unittest.TestCase` のサブクラスには付けない。自身のテストからだけ参照する名前には付け、テストでも `_` 付きの名前で参照する。モジュール直下の `for`・`with` で束縛する一時変数は対象外とする。

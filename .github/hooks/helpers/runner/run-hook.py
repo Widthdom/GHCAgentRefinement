@@ -9,28 +9,28 @@ import traceback
 from typing import cast
 
 
-runner_directory = os.path.dirname(os.path.abspath(__file__))
-helpers_directory = os.path.dirname(runner_directory)
+_runner_directory = os.path.dirname(os.path.abspath(__file__))
+_helpers_directory = os.path.dirname(_runner_directory)
 # 共通hookは helpers/events、このリポジトリ専用のhookは helpers/-repo-events に置く。
-events_directories = (
-    os.path.join(helpers_directory, 'events'),
-    os.path.join(helpers_directory, '-repo-events'),
+_events_directories = (
+    os.path.join(_helpers_directory, 'events'),
+    os.path.join(_helpers_directory, '-repo-events'),
 )
 # helpers → hooks → .github → リポジトリルート
-repository_root = os.path.dirname(os.path.dirname(os.path.dirname(helpers_directory)))
+_repository_root = os.path.dirname(os.path.dirname(os.path.dirname(_helpers_directory)))
 # Pythonの標準入出力は、Windowsでは改行コードを変換し、それ以外では変換しない。hookの実行時も同じにする。
-STANDARD_STREAM_NEWLINE = None if os.name == 'nt' else '\n'
+_STANDARD_STREAM_NEWLINE = None if os.name == 'nt' else '\n'
 
 
 def _resolve_hook_script(argument):
     # 実行スクリプトは helpers/events または helpers/-repo-events の <イベント名>/<hook名>/<hook名>.py に限る。
-    script_path = os.path.normpath(os.path.join(repository_root, argument))
+    script_path = os.path.normpath(os.path.join(_repository_root, argument))
     hook_directory = os.path.dirname(script_path)
     event_directory = os.path.dirname(hook_directory)
     hook_name = os.path.basename(hook_directory)
     if (
         os.path.normcase(os.path.dirname(event_directory)) not in {
-            os.path.normcase(directory) for directory in events_directories
+            os.path.normcase(directory) for directory in _events_directories
         }
         or os.path.basename(script_path) != f'{hook_name}.py'
     ):
@@ -70,7 +70,7 @@ def _is_fired(exit_code, output_bytes):
 
 def _new_stream(buffer, original):
     return io.TextIOWrapper(
-        buffer, encoding=original.encoding, errors=original.errors, newline=STANDARD_STREAM_NEWLINE,
+        buffer, encoding=original.encoding, errors=original.errors, newline=_STANDARD_STREAM_NEWLINE,
     )
 
 
@@ -152,7 +152,7 @@ def main():
     if session_id is not None:
         # 記録に失敗してもhookの判定は変えず、終了コードはhookのものを返す。原因は標準エラーに出力する。
         try:
-            runpy.run_path(os.path.join(helpers_directory, 'utilities', 'hook-activity-state', 'hook-activity-state.py'))['record_hook_run'](
+            runpy.run_path(os.path.join(_helpers_directory, 'utilities', 'hook-activity-state', 'hook-activity-state.py'))['record_hook_run'](
                 session_id, event_name, hook_name, started_at_ms, _is_fired(exit_code, output_bytes),
             )
         except (OSError, ValueError, sqlite3.Error) as ex:

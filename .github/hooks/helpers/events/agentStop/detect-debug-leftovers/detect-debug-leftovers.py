@@ -9,20 +9,20 @@ from pathlib import Path
 from typing import cast
 
 
-EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
-DEBUG_PATTERNS_KEY = 'debugPatterns'
-REASON_PREFIX = 'The changes in this request leave debugging code'
-MAX_FINDINGS = 10
-MAX_SNIPPET_LENGTH = 80
-BLOCK_REASON = (
-    REASON_PREFIX + ':\n{findings}\n'
+_EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
+_DEBUG_PATTERNS_KEY = 'debugPatterns'
+_REASON_PREFIX = 'The changes in this request leave debugging code'
+_MAX_FINDINGS = 10
+_MAX_SNIPPET_LENGTH = 80
+_BLOCK_REASON = (
+    _REASON_PREFIX + ':\n{findings}\n'
     'Debug output and debugger calls added while investigating should not remain: they clutter output, can leak '
     'data, and a debugger call stops the program. Remove them now. If one is intended (for example, the output of a '
     'command-line tool or logging the user asked for), keep it and say so in the response.'
 )
 
 
-def compile_patterns(patterns, key):
+def _compile_patterns(patterns, key):
     # 行全体に一致させる定義（`debugger` 文など）のため、行頭・行末は各行に一致させる。
     try:
         return [re.compile(pattern, re.MULTILINE) for pattern in patterns]
@@ -30,18 +30,18 @@ def compile_patterns(patterns, key):
         raise ValueError(f'invalid regular expression in {key}: {ex}') from None
 
 
-def load_definitions(path):
+def _load_definitions(path):
     # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
     if not isinstance(definitions, dict):
         raise ValueError('debug leftover definitions must be a JSON object.')
-    excluded = definitions.get(EXCLUDED_FILE_PATTERNS_KEY)
+    excluded = definitions.get(_EXCLUDED_FILE_PATTERNS_KEY)
     if not isinstance(excluded, list) or not all(isinstance(item, str) and item.strip() for item in excluded):
         raise ValueError(
-            f'debug leftover definitions require an array of non-empty strings for {EXCLUDED_FILE_PATTERNS_KEY}.'
+            f'debug leftover definitions require an array of non-empty strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
         )
-    debug_definitions = definitions.get(DEBUG_PATTERNS_KEY)
+    debug_definitions = definitions.get(_DEBUG_PATTERNS_KEY)
     if not isinstance(debug_definitions, list) or not debug_definitions or not all(
         isinstance(definition, dict) and all(
             isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'pattern')
@@ -50,16 +50,16 @@ def load_definitions(path):
     ):
         raise ValueError(
             'debug leftover definitions require a non-empty array of objects with non-empty strings for name and '
-            f'pattern in {DEBUG_PATTERNS_KEY}.'
+            f'pattern in {_DEBUG_PATTERNS_KEY}.'
         )
-    debug_patterns = compile_patterns([definition['pattern'] for definition in debug_definitions], DEBUG_PATTERNS_KEY)
+    debug_patterns = _compile_patterns([definition['pattern'] for definition in debug_definitions], _DEBUG_PATTERNS_KEY)
     return (
-        compile_patterns(excluded, EXCLUDED_FILE_PATTERNS_KEY),
+        _compile_patterns(excluded, _EXCLUDED_FILE_PATTERNS_KEY),
         [(definition['name'], pattern) for definition, pattern in zip(debug_definitions, debug_patterns)],
     )
 
 
-def get_turn_summary(transcript_path):
+def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・編集・本hookによる差し戻し済みかを集める。
     # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
     # 編集ツールの引数の解析は、共通utilityで行う。
@@ -83,7 +83,7 @@ def get_turn_summary(transcript_path):
                 last_assistant_msg = None
                 changes.clear()
                 already_requested = False
-            elif isinstance(content, str) and content.startswith(REASON_PREFIX):
+            elif isinstance(content, str) and content.startswith(_REASON_PREFIX):
                 already_requested = True
         elif event_type == 'assistant.message':
             content = data.get('content')
@@ -96,10 +96,10 @@ def get_turn_summary(transcript_path):
     return last_assistant_msg, changes, already_requested
 
 
-def format_finding(finding):
+def _format_finding(finding):
     display_path, name, line = finding
-    if len(line) > MAX_SNIPPET_LENGTH:
-        line = line[:MAX_SNIPPET_LENGTH] + '...'
+    if len(line) > _MAX_SNIPPET_LENGTH:
+        line = line[:_MAX_SNIPPET_LENGTH] + '...'
     return f'- {display_path}: {name} ("{line}")'
 
 
@@ -117,7 +117,7 @@ def main(arguments=None):
     parsed_arguments = parser.parse_args(arguments)
 
     try:
-        excluded_file_patterns, debug_patterns = load_definitions(parsed_arguments.definitions_path)
+        excluded_file_patterns, debug_patterns = _load_definitions(parsed_arguments.definitions_path)
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
         if not hook_input_json.strip():
             raise ValueError('agentStop hook input is empty.')
@@ -145,7 +145,7 @@ def main(arguments=None):
             str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
-        last_assistant_msg, changes, already_requested = get_turn_summary(transcript_path)
+        last_assistant_msg, changes, already_requested = _get_turn_summary(transcript_path)
         # 同じ依頼で差し戻すのは1回だけにし、意図して残す場合に停止できなくなるのを防ぐ。
         if last_assistant_msg is None or already_requested or not changes:
             return 0
@@ -160,7 +160,7 @@ def main(arguments=None):
         return 2
 
     if findings:
-        reason = BLOCK_REASON.format(findings='\n'.join(format_finding(finding) for finding in findings[:MAX_FINDINGS]))
+        reason = _BLOCK_REASON.format(findings='\n'.join(_format_finding(finding) for finding in findings[:_MAX_FINDINGS]))
         print(json.dumps({'decision': 'block', 'reason': reason}, ensure_ascii=False, separators=(',', ':')))
     return 0
 

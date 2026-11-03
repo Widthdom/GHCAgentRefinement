@@ -1,12 +1,12 @@
 # Hooks used (inferred from event history)
-HOOKS_HEADER = 'Hooks used (inferred from event history)'
+_HOOKS_HEADER = 'Hooks used (inferred from event history)'
 # Skills used (inferred from event history)
-SKILLS_HEADER = 'Skills used (inferred from event history)'
+_SKILLS_HEADER = 'Skills used (inferred from event history)'
 # Hooks fired (recorded by hook runner, excluding agentStop hooks)
-FIRED_HOOKS_HEADER = 'Hooks fired (recorded by hook runner, excluding agentStop hooks)'
+_FIRED_HOOKS_HEADER = 'Hooks fired (recorded by hook runner, excluding agentStop hooks)'
 # Current time
-TIME_HEADER = 'Current time'
-FOOTER_BOUNDARY = '\u200B'
+_TIME_HEADER = 'Current time'
+_FOOTER_BOUNDARY = '\u200B'
 
 
 def format_response_footer(hooks, fired_hooks, skills, current_jst):
@@ -15,14 +15,14 @@ def format_response_footer(hooks, fired_hooks, skills, current_jst):
     skill_lines = '\n'.join(f'- {skill}' for skill in skills)
 
     footer = (
-        f'{FOOTER_BOUNDARY}\n'
-        f'## {HOOKS_HEADER}:\n'
+        f'{_FOOTER_BOUNDARY}\n'
+        f'## {_HOOKS_HEADER}:\n'
         f'{hook_lines}\n'
-        f'## {FIRED_HOOKS_HEADER}:\n'
+        f'## {_FIRED_HOOKS_HEADER}:\n'
         f'{fired_hook_lines}\n'
-        f'## {SKILLS_HEADER}:\n'
+        f'## {_SKILLS_HEADER}:\n'
         f'{skill_lines}\n'
-        f'## {TIME_HEADER}\n'
+        f'## {_TIME_HEADER}\n'
         f'{current_jst}'
     )
     return footer + '\n\n'
@@ -32,15 +32,15 @@ if __name__ == '__main__':
     import argparse
     import sys
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--hooks', nargs='+', required=True)
-    parser.add_argument('--fired-hooks', nargs='+', required=True)
-    parser.add_argument('--skills', nargs='+', required=True)
-    parser.add_argument('--current-jst', required=True)
-    arguments = parser.parse_args()
+    _parser = argparse.ArgumentParser()
+    _parser.add_argument('--hooks', nargs='+', required=True)
+    _parser.add_argument('--fired-hooks', nargs='+', required=True)
+    _parser.add_argument('--skills', nargs='+', required=True)
+    _parser.add_argument('--current-jst', required=True)
+    _arguments = _parser.parse_args()
     # Write bytes to preserve line endings.
     sys.stdout.buffer.write(
         format_response_footer(
-            arguments.hooks, arguments.fired_hooks, arguments.skills, arguments.current_jst,
+            _arguments.hooks, _arguments.fired_hooks, _arguments.skills, _arguments.current_jst,
         ).encode('utf-8')
     )

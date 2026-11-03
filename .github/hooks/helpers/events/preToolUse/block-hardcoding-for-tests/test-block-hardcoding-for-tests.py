@@ -7,18 +7,18 @@ import unittest
 import uuid
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-hardcoding-for-tests.py')
-recorder_path = os.path.join(
-    os.path.dirname(os.path.dirname(script_directory)), 'postToolUse', 'record-test-failure-values',
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-hardcoding-for-tests.py')
+_recorder_path = os.path.join(
+    os.path.dirname(os.path.dirname(_script_directory)), 'postToolUse', 'record-test-failure-values',
     'record-test-failure-values.py',
 )
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-IMPLEMENTATION = 'def add(a, b):\n    return a - b\n'
-SPECIAL_CASE = 'def add(a, b):\n    if a == 1 and b == 2:\n        return 4\n    return a - b\n'
+_IMPLEMENTATION = 'def add(a, b):\n    return a - b\n'
+_SPECIAL_CASE = 'def add(a, b):\n    if a == 1 and b == 2:\n        return 4\n    return a - b\n'
 
 
 class BlockHardcodingForTestsTests(unittest.TestCase):
@@ -30,7 +30,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
         self.environment.update({'TMPDIR': self.root, 'TEMP': self.root, 'TMP': self.root})
         self.directory = os.path.join(self.root, 'workspace')
         os.makedirs(self.directory)
-        self.write_file('math.py', IMPLEMENTATION)
+        self.write_file('math.py', _IMPLEMENTATION)
         self.write_file('test_math.py', 'def test_add():\n    assert add(1, 2) == 4\n')
         self.new_session()
 
@@ -55,7 +55,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
 
     def record_failure(self, output, command='npx jest'):
         # 記録側のhookを実際に通し、状態の形式の食い違いも検出する。
-        result = self.run_process(recorder_path, {
+        result = self.run_process(_recorder_path, {
             'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'bash',
             'toolArgs': {'command': command},
             'toolResult': {'resultType': 'success', 'textResultForLlm': output},
@@ -64,7 +64,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
 
     def run_call(self, tool_call):
         return self.run_process(
-            hook_path, {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']},
+            _hook_path, {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']},
         )
 
     def assert_allowed(self, result, message):
@@ -79,7 +79,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
             self.assertIn(part, output['permissionDecisionReason'], message)
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         relative_path = '.github/hooks/helpers/events/preToolUse/block-hardcoding-for-tests/block-hardcoding-for-tests.py'
         entries = [
@@ -102,8 +102,8 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
             ('str_replace_editor', {'command': 'str_replace', 'path': 'math.py', 'old_str': '    return a - b',
                                     'new_str': '    if a == 1 and b == 2:\n        return 4\n    return a - b'}),
             ('insert', {'path': 'math.py', 'insert_line': 1, 'new_str': '    if a == 1:\n        return 4\n'}),
-            ('create', {'path': 'math.py', 'file_text': SPECIAL_CASE}),
-            ('create new file', {'path': 'src/new_math.py', 'file_text': SPECIAL_CASE}),
+            ('create', {'path': 'math.py', 'file_text': _SPECIAL_CASE}),
+            ('create new file', {'path': 'src/new_math.py', 'file_text': _SPECIAL_CASE}),
             ('apply_patch', '*** Begin Patch\n*** Update File: math.py\n@@\n def add(a, b):\n'
                             '+    if a == 1 and b == 2:\n+        return 4\n     return a - b\n*** End Patch\n'),
         ]
@@ -172,7 +172,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
                 self.assert_allowed(self.run_call({'name': 'edit', 'args': args}), name)
 
     def test_no_recorded_failure_is_allowed(self):
-        call = {'name': 'create', 'args': {'path': 'math.py', 'file_text': SPECIAL_CASE}}
+        call = {'name': 'create', 'args': {'path': 'math.py', 'file_text': _SPECIAL_CASE}}
         self.assert_allowed(self.run_call(call), 'No state file.')
         self.assertFalse(os.path.exists(self.state_path), 'The check must not create a state file.')
         self.record_failure('Expected: 4\nReceived: -1\n')
@@ -181,11 +181,11 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
 
     def test_denies_only_once_per_file(self):
         self.record_failure('Expected: 4\nReceived: -1\n')
-        call = {'name': 'create', 'args': {'path': 'math.py', 'file_text': SPECIAL_CASE}}
+        call = {'name': 'create', 'args': {'path': 'math.py', 'file_text': _SPECIAL_CASE}}
         self.assert_denied(self.run_call(call), ['math.py'], 'first')
         self.assert_allowed(self.run_call(call), 'The same file must not be denied twice.')
         self.assert_denied(
-            self.run_call({'name': 'create', 'args': {'path': 'other.py', 'file_text': SPECIAL_CASE}}),
+            self.run_call({'name': 'create', 'args': {'path': 'other.py', 'file_text': _SPECIAL_CASE}}),
             ['other.py'], 'Another file must still be denied once.',
         )
 
@@ -193,7 +193,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
         # block-goalpost-movingの拒否済み記録とは別に数える。
         self.record_failure('Expected: 4\nReceived: -1\n')
         goalpost_path = os.path.join(
-            os.path.dirname(script_directory), 'block-goalpost-moving', 'block-goalpost-moving.py',
+            os.path.dirname(_script_directory), 'block-goalpost-moving', 'block-goalpost-moving.py',
         )
         result = self.run_process(goalpost_path, {
             'sessionId': self.session_id, 'cwd': self.directory,
@@ -201,7 +201,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
         })
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
         self.assert_denied(
-            self.run_call({'name': 'create', 'args': {'path': 'math.py', 'file_text': SPECIAL_CASE}}),
+            self.run_call({'name': 'create', 'args': {'path': 'math.py', 'file_text': _SPECIAL_CASE}}),
             ['math.py'], 'The state shared with block-goalpost-moving must still work.',
         )
 
@@ -209,7 +209,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
         self.record_failure('Expected: 4\nReceived: -1\n')
         result = self.run_call({'name': 'apply_patch', 'args': (
             '*** Begin Patch\n*** Add File: math.py\n'
-            + ''.join(f'+{line}\n' for line in SPECIAL_CASE.splitlines())
+            + ''.join(f'+{line}\n' for line in _SPECIAL_CASE.splitlines())
             + '*** Add File: src/calc.ts\n+if (a === 1) return 4;\n*** End Patch\n'
         )})
         self.assert_denied(result, ['math.py', 'calc.ts'], 'patch')
@@ -243,7 +243,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
             ('invalid utf-8', b'\xff'),
         ]:
             with self.subTest(name=name):
-                result = self.run_process(hook_path, hook_input)
+                result = self.run_process(_hook_path, hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertEqual(result.stdout, b'', name)
                 self.assertIn(b'Failed to check hardcoding for tests:', result.stderr)
@@ -263,7 +263,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
                 if content is not None:
                     with open(path, 'w', encoding='utf-8') as file:
                         file.write(content if isinstance(content, str) else json.dumps(content))
-                result = self.run_process(hook_path, valid_input, '--definitions-path', path)
+                result = self.run_process(_hook_path, valid_input, '--definitions-path', path)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to check hardcoding for tests:', result.stderr)
 

@@ -8,7 +8,7 @@ import uuid
 from typing import cast
 
 
-def wait_for_stop(transcript_path, session_id, timestamp):
+def _wait_for_stop(transcript_path, session_id, timestamp):
     # トランスクリプトの非同期書き込みを待つ。別のhookの待機処理には依存しない。
     # 単体で入力を渡す場合など、timestampがないときは待たずに読み取る。
     if type(timestamp) is not int:
@@ -68,7 +68,7 @@ def main():
         transcript_path = hook_input.get('transcriptPath')
         if not isinstance(transcript_path, str) or not os.path.isabs(transcript_path):
             raise ValueError('transcriptPath must be an absolute path string.')
-        wait_for_stop(transcript_path, parsed_session_id, hook_input.get('timestamp'))
+        _wait_for_stop(transcript_path, parsed_session_id, hook_input.get('timestamp'))
         get_prompt_log_paths = runpy.run_path(
             os.path.join(script_directory, 'get-prompt-log-paths.py'),
         )['get_prompt_log_paths']

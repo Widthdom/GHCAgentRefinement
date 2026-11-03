@@ -6,16 +6,16 @@ import sys
 import tempfile
 import unittest
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'detect-rename-leftovers.py')
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'detect-rename-leftovers.py')
 
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
-def run_hook(input_bytes):
-    return subprocess.run([sys.executable, hook_path], input=input_bytes, capture_output=True)
+def _run_hook(input_bytes):
+    return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True)
 
 
 class DetectRenameLeftoversTests(unittest.TestCase):
@@ -37,7 +37,7 @@ class DetectRenameLeftoversTests(unittest.TestCase):
             'sessionId': '00000000-0000-4000-8000-000000000000', 'cwd': cwd or self.directory,
             'toolName': tool_name, 'toolArgs': tool_args, 'toolResult': {'resultType': 'success'},
         }
-        return run_hook(json.dumps(hook_input).encode('utf-8'))
+        return _run_hook(json.dumps(hook_input).encode('utf-8'))
 
     def edit(self, path, old, new, cwd=None):
         return self.run_call('edit', {'path': path, 'old_str': old, 'new_str': new}, cwd)
@@ -167,7 +167,7 @@ class DetectRenameLeftoversTests(unittest.TestCase):
         ]
         for input_bytes in inputs:
             with self.subTest(input_bytes=input_bytes):
-                result = run_hook(input_bytes)
+                result = _run_hook(input_bytes)
                 self.assertEqual(result.returncode, 2, input_bytes)
                 self.assertIn(b'Failed to detect rename leftovers', result.stderr)
 

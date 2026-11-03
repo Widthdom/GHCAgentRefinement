@@ -7,12 +7,12 @@ import tempfile
 import unittest
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_name = 'give-subagents-instructions'
-hook_path = os.path.join(script_directory, f'{hook_name}.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-real_instructions_path = os.path.join(os.path.dirname(hooks_directory), 'copilot-instructions.md')
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_name = 'give-subagents-instructions'
+_hook_path = os.path.join(_script_directory, f'{_hook_name}.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+_real_instructions_path = os.path.join(os.path.dirname(_hooks_directory), 'copilot-instructions.md')
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
@@ -25,7 +25,7 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
             'parentAgentId': '80cbbcbb-550a-458e-b40e-6734f4c890d8',
             'prompt': '既存hookの構成を調査して報告して',
             'timestamp': 0,
-            'cwd': os.path.dirname(os.path.dirname(hooks_directory)),
+            'cwd': os.path.dirname(os.path.dirname(_hooks_directory)),
         }
         self.parent_payload = {key: value for key, value in self.subagent_payload.items() if key not in (
             'agentId', 'agentType', 'parentAgentId',
@@ -35,10 +35,10 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
         # 指示ファイルを差し替えるため、.githubからの相対位置を保ってスクリプトを一時ディレクトリへ複製する。
         root = tempfile.mkdtemp(prefix='ghc-give-subagents-instructions-test-')
         self.addCleanup(shutil.rmtree, root)
-        directory = os.path.join(root, '.github', 'hooks', 'helpers', 'events', 'userPromptSubmitted', hook_name)
+        directory = os.path.join(root, '.github', 'hooks', 'helpers', 'events', 'userPromptSubmitted', _hook_name)
         os.makedirs(directory)
-        shutil.copy(hook_path, directory)
-        return os.path.join(directory, f'{hook_name}.py'), os.path.join(root, '.github', 'copilot-instructions.md')
+        shutil.copy(_hook_path, directory)
+        return os.path.join(directory, f'{_hook_name}.py'), os.path.join(root, '.github', 'copilot-instructions.md')
 
     @staticmethod
     def invoke(script_path, payload=None, raw=None):
@@ -56,9 +56,9 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout.decode('utf-8')), {'additionalContext': expected})
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'userPromptSubmitted.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'userPromptSubmitted.json'), encoding='utf-8') as file:
             configuration = json.load(file)
-        relative_path = f'.github/hooks/helpers/events/userPromptSubmitted/{hook_name}/{hook_name}.py'
+        relative_path = f'.github/hooks/helpers/events/userPromptSubmitted/{_hook_name}/{_hook_name}.py'
         entries = [
             entry for entry in configuration['hooks']['userPromptSubmitted']
             if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
@@ -68,9 +68,9 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
         self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
 
     def test_passes_real_instructions_to_subagent(self):
-        with open(real_instructions_path, 'rb') as file:
+        with open(_real_instructions_path, 'rb') as file:
             expected = file.read().decode('utf-8-sig')
-        self.assert_context(self.invoke(hook_path, self.subagent_payload), expected)
+        self.assert_context(self.invoke(_hook_path, self.subagent_payload), expected)
 
     def test_preserves_instructions_content(self):
         cases = (
@@ -119,7 +119,7 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
             invalid.append(json.dumps({**self.subagent_payload, 'agentId': value}).encode('utf-8'))
         for raw in invalid:
             with self.subTest(raw=raw):
-                result = self.invoke(hook_path, raw=raw)
+                result = self.invoke(_hook_path, raw=raw)
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(result.stdout, b'')
                 self.assertIn(b'Failed to parse userPromptSubmitted hook input:', result.stderr)

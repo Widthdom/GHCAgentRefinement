@@ -9,8 +9,8 @@ import sys
 from typing import cast
 
 
-SHELL_TOOL_PATTERN = re.compile(r'^(?:functions\.)?(bash|powershell)$', re.IGNORECASE)
-DENY_REASON = (
+_SHELL_TOOL_PATTERN = re.compile(r'^(?:functions\.)?(bash|powershell)$', re.IGNORECASE)
+_DENY_REASON = (
     'Shell command denied: it writes to the following git-tracked files: {files}. '
     'Writing files through the shell bypasses the hooks for file edit tools '
     '(read-before-edit check, line-ending preservation, skill wrapper check). '
@@ -20,45 +20,45 @@ DENY_REASON = (
 )
 
 # bashのリダイレクトのうち、ファイルへ書き込むもの。`>&` は複製先が数字や `-` でなければ書き込みとみなす。
-BASH_WRITE_OPERATORS = {'>', '>>', '>|', '&>', '&>>', '<>'}
+_BASH_WRITE_OPERATORS = {'>', '>>', '>|', '&>', '&>>', '<>'}
 # 直後の語を読み込み元やヒアドキュメントの区切り語として読み飛ばすもの。
-BASH_SKIP_OPERATORS = {'<', '<<', '<<-', '<<<', '<&', '>&'}
-BASH_PUNCTUATION = set('();<>|&')
-BASH_WRAPPERS = {'builtin', 'command', 'env', 'exec', 'nohup', 'sudo', 'time', 'xargs'}
-BASH_CD_COMMANDS = {'cd', 'pushd'}
+_BASH_SKIP_OPERATORS = {'<', '<<', '<<-', '<<<', '<&', '>&'}
+_BASH_PUNCTUATION = set('();<>|&')
+_BASH_WRAPPERS = {'builtin', 'command', 'env', 'exec', 'nohup', 'sudo', 'time', 'xargs'}
+_BASH_CD_COMMANDS = {'cd', 'pushd'}
 # `<<<` は文字列を渡すだけなので、ヒアドキュメントとみなさない。
-HEREDOC_PATTERN = re.compile(
+_HEREDOC_PATTERN = re.compile(
     r'(?<!<)<<(?!<)(-?)\s*(?:\'([^\'\n]*)\'|"([^"\n]*)"|\\?([^\s;&|()<>\'"]+))'
 )
 # sedは `-i`・`-i.bak`・`-ni`・`--in-place[=SUFFIX]`、perlは `-i`・`-pi`・`-i.bak` で上書き編集する。
-SED_IN_PLACE_PATTERN = re.compile(r'^(?:-[A-Za-z]*i|--in-place(?:=|$))')
-PERL_IN_PLACE_PATTERN = re.compile(r'^-[nplaswTtUWX0-9]*i')
+_SED_IN_PLACE_PATTERN = re.compile(r'^(?:-[A-Za-z]*i|--in-place(?:=|$))')
+_PERL_IN_PLACE_PATTERN = re.compile(r'^-[nplaswTtUWX0-9]*i')
 
-POWERSHELL_WRITE_COMMANDS = {
+_POWERSHELL_WRITE_COMMANDS = {
     'ac', 'add-content', 'clc', 'clear-content', 'out-file', 'sc', 'set-content', 'tee', 'tee-object',
 }
-POWERSHELL_CD_COMMANDS = {'cd', 'chdir', 'push-location', 'pushd', 'set-location', 'sl'}
+_POWERSHELL_CD_COMMANDS = {'cd', 'chdir', 'push-location', 'pushd', 'set-location', 'sl'}
 # `2>&1` などの複製は書き込みではない。
-POWERSHELL_REDIRECT_PATTERN = re.compile(r'[1-6*]?>>?(&[1-6])?')
-POWERSHELL_SEPARATORS = set(';|(){}&\n')
-POWERSHELL_FILE_API_PATTERN = re.compile(
+_POWERSHELL_REDIRECT_PATTERN = re.compile(r'[1-6*]?>>?(&[1-6])?')
+_POWERSHELL_SEPARATORS = set(';|(){}&\n')
+_POWERSHELL_FILE_API_PATTERN = re.compile(
     r'\[(?:System\.)?IO\.File\]::(?:WriteAll(?:Text|Lines|Bytes)|AppendAll(?:Text|Lines))\s*\(\s*'
     r'(?:\'((?:[^\']|\'\')*)\'|"([^"`$]*)")',
     re.IGNORECASE,
 )
 
 
-def is_bash_punctuation(token):
-    return bool(token) and all(character in BASH_PUNCTUATION for character in token)
+def _is_bash_punctuation(token):
+    return bool(token) and all(character in _BASH_PUNCTUATION for character in token)
 
 
-def split_bash(text):
+def _split_bash(text):
     lexer = shlex.shlex(text, posix=True, punctuation_chars=True)
     lexer.whitespace_split = True
     return list(lexer)
 
 
-def get_bash_lines(command):
+def _get_bash_lines(command):
     # 引用符が閉じるまでと行末の `\` は次の行とつなげ、論理行ごとに字句へ分ける。
     # ヒアドキュメントの本文は書き込み先ではないため読み飛ばす。
     heredocs = []
@@ -74,39 +74,39 @@ def get_bash_lines(command):
             buffer = buffer[:-1]
             continue
         try:
-            tokens = split_bash(buffer)
+            tokens = _split_bash(buffer)
         except ValueError:
             buffer += '\n'
             continue
         yield tokens
-        for match in HEREDOC_PATTERN.finditer(buffer):
+        for match in _HEREDOC_PATTERN.finditer(buffer):
             heredocs.append((next(group for group in match.groups()[1:] if group is not None), match.group(1) == '-'))
         buffer = ''
     # 引用符が閉じないまま終わった部分は判定できないため対象外とする。
 
 
-def tokenize_bash(command):
+def _tokenize_bash(command):
     # 戻り値は ('word', 語)・('write', 書き込み先)・('separator', 区切り) の列。
     items = []
-    for tokens in get_bash_lines(command):
+    for tokens in _get_bash_lines(command):
         index = 0
         while index < len(tokens):
             token = tokens[index]
             following = tokens[index + 1] if index + 1 < len(tokens) else None
-            if token.isdigit() and (following in BASH_WRITE_OPERATORS or following in BASH_SKIP_OPERATORS):
+            if token.isdigit() and (following in _BASH_WRITE_OPERATORS or following in _BASH_SKIP_OPERATORS):
                 # `2>` のファイル記述子は引数ではない。
                 index += 1
                 continue
-            is_write = token in BASH_WRITE_OPERATORS or (
+            is_write = token in _BASH_WRITE_OPERATORS or (
                 token == '>&' and following is not None and not re.fullmatch(r'\d+|-', following)
             )
-            if is_write or token in BASH_SKIP_OPERATORS:
-                if following is not None and not is_bash_punctuation(following):
+            if is_write or token in _BASH_SKIP_OPERATORS:
+                if following is not None and not _is_bash_punctuation(following):
                     if is_write:
                         items.append(('write', following))
                     index += 2
                     continue
-            if is_bash_punctuation(token):
+            if _is_bash_punctuation(token):
                 items.append(('separator', token))
             else:
                 items.append(('word', token))
@@ -115,7 +115,7 @@ def tokenize_bash(command):
     return items
 
 
-def read_powershell_quoted(command, index):
+def _read_powershell_quoted(command, index):
     # 戻り値は (引用符を外した文字列, 閉じ引用符の次の位置)。
     quote = command[index]
     index += 1
@@ -137,7 +137,7 @@ def read_powershell_quoted(command, index):
     return ''.join(text), index
 
 
-def tokenize_powershell(command):
+def _tokenize_powershell(command):
     # 戻り値はtokenize_bashと同じ形式。
     items = []
     index = 0
@@ -184,13 +184,13 @@ def tokenize_powershell(command):
                 pending_write = False
                 index = len(command) if end is None else end.end()
                 continue
-            redirect = POWERSHELL_REDIRECT_PATTERN.match(command, index)
+            redirect = _POWERSHELL_REDIRECT_PATTERN.match(command, index)
             if redirect and redirect.group(0).lstrip('123456*').startswith('>'):
                 # 複製でなければ、次の語を書き込み先とする。
                 pending_write = redirect.group(1) is None
                 index = redirect.end()
                 continue
-        if character in POWERSHELL_SEPARATORS:
+        if character in _POWERSHELL_SEPARATORS:
             finish_word()
             pending_write = False
             items.append(('separator', character))
@@ -200,7 +200,7 @@ def tokenize_powershell(command):
             finish_word()
             continue
         if character in '\'"':
-            text, index = read_powershell_quoted(command, index)
+            text, index = _read_powershell_quoted(command, index)
             word = (word or '') + text
             continue
         word = (word or '') + character
@@ -210,14 +210,14 @@ def tokenize_powershell(command):
     return items
 
 
-def get_command_name(word, shell):
+def _get_command_name(word, shell):
     name = re.split(r'[\\/]', word)[-1]
     if shell == 'powershell' or name.lower().endswith('.exe'):
         name = name.lower().removesuffix('.exe')
     return name
 
 
-def split_command(words, shell):
+def _split_command(words, shell):
     # 戻り値は (コマンド名, 引数のリスト)。bashでは変数代入と、sudoなどの前置きを読み飛ばす。
     index = 0
     if shell == 'bash':
@@ -227,17 +227,17 @@ def split_command(words, shell):
             if re.match(r'^[A-Za-z_]\w*=', word) or (after_wrapper and word.startswith('-')):
                 index += 1
                 continue
-            if get_command_name(word, shell) in BASH_WRAPPERS:
+            if _get_command_name(word, shell) in _BASH_WRAPPERS:
                 after_wrapper = True
                 index += 1
                 continue
             break
     if index >= len(words):
         return None, []
-    return get_command_name(words[index], shell), words[index + 1:]
+    return _get_command_name(words[index], shell), words[index + 1:]
 
 
-def get_powershell_operands(args):
+def _get_powershell_operands(args):
     # パラメーター名を除いた値。`-Path:value` の値も含め、配列の `,` は分ける。
     operands = []
     for arg in args:
@@ -249,25 +249,25 @@ def get_powershell_operands(args):
     return operands
 
 
-def get_written_operands(name, args, shell):
+def _get_written_operands(name, args, shell):
     # 書き込み先を絞り込まず、オプション以外の語をすべて候補とする。git管理ファイルとの照合で絞られる。
-    if shell == 'powershell' and name in POWERSHELL_WRITE_COMMANDS:
-        return get_powershell_operands(args)
+    if shell == 'powershell' and name in _POWERSHELL_WRITE_COMMANDS:
+        return _get_powershell_operands(args)
     operands = [arg for arg in args if not arg.startswith('-')]
-    if name == 'sed' and any(SED_IN_PLACE_PATTERN.match(arg) for arg in args):
+    if name == 'sed' and any(_SED_IN_PLACE_PATTERN.match(arg) for arg in args):
         return operands
-    if name == 'perl' and any(PERL_IN_PLACE_PATTERN.match(arg) for arg in args):
+    if name == 'perl' and any(_PERL_IN_PLACE_PATTERN.match(arg) for arg in args):
         return operands
     if shell == 'bash' and name == 'tee':
         return operands
     return []
 
 
-def get_changed_directory(name, args, shell, current):
+def _get_changed_directory(name, args, shell, current):
     # 移動先が1つの文字列で示された場合だけ、後続のコマンドの基準を移す。
-    if shell == 'powershell' and name in POWERSHELL_CD_COMMANDS:
-        operands = get_powershell_operands(args)
-    elif shell == 'bash' and name in BASH_CD_COMMANDS:
+    if shell == 'powershell' and name in _POWERSHELL_CD_COMMANDS:
+        operands = _get_powershell_operands(args)
+    elif shell == 'bash' and name in _BASH_CD_COMMANDS:
         operands = [arg for arg in args if not arg.startswith('-')]
     else:
         return current
@@ -276,9 +276,9 @@ def get_changed_directory(name, args, shell, current):
     return os.path.normpath(os.path.join(current, os.path.expanduser(operands[0])))
 
 
-def get_write_targets(command, shell, cwd):
+def _get_write_targets(command, shell, cwd):
     # 戻り値は (基準ディレクトリ, 書き込み先の表記) のリスト。
-    items = tokenize_bash(command) if shell == 'bash' else tokenize_powershell(command)
+    items = _tokenize_bash(command) if shell == 'bash' else _tokenize_powershell(command)
     targets = []
     current = cwd
     words = []
@@ -288,19 +288,19 @@ def get_write_targets(command, shell, cwd):
         elif kind == 'word':
             words.append(text)
         else:
-            name, args = split_command(words, shell)
+            name, args = _split_command(words, shell)
             if name is not None:
-                targets.extend((current, operand) for operand in get_written_operands(name, args, shell))
-                current = get_changed_directory(name, args, shell, current)
+                targets.extend((current, operand) for operand in _get_written_operands(name, args, shell))
+                current = _get_changed_directory(name, args, shell, current)
             words = []
     if shell == 'powershell':
-        for match in POWERSHELL_FILE_API_PATTERN.finditer(command):
+        for match in _POWERSHELL_FILE_API_PATTERN.finditer(command):
             single_quoted, double_quoted = match.groups()
             targets.append((cwd, single_quoted.replace("''", "'") if single_quoted is not None else double_quoted))
     return targets
 
 
-def resolve_paths(base, text):
+def _resolve_paths(base, text):
     # 変数やコマンド置換を含む表記は、展開後の値がわからないため対象外とする。
     if not text.strip() or '$' in text or '`' in text:
         return []
@@ -312,7 +312,7 @@ def resolve_paths(base, text):
     return [os.path.normpath(path)]
 
 
-def get_tracked_files(paths):
+def _get_tracked_files(paths):
     # 既存のファイルを親ディレクトリごとにまとめ、gitの管理対象かを調べる。
     # 大文字小文字を区別しないファイルシステムでも照合できるよう、一覧をnormcaseで比べる。
     by_directory = {}
@@ -339,7 +339,7 @@ def get_tracked_files(paths):
     return tracked
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。大文字小文字は表記のまま示す。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -350,7 +350,7 @@ def get_display_path(path, cwd):
     return path
 
 
-def get_tool_args(raw_tool_args):
+def _get_tool_args(raw_tool_args):
     # argsはJSONオブジェクトのほか、JSON文字列で渡される場合もある。
     if isinstance(raw_tool_args, str):
         try:
@@ -387,26 +387,26 @@ def main():
             raise ValueError('toolArgs is required.')
 
         paths = set()
-        match = SHELL_TOOL_PATTERN.match(tool_name)
-        tool_args = get_tool_args(hook_input['toolArgs']) if match else None
+        match = _SHELL_TOOL_PATTERN.match(tool_name)
+        tool_args = _get_tool_args(hook_input['toolArgs']) if match else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         if match and isinstance(command, str):
-            for base, text in get_write_targets(command, match.group(1).lower(), cwd):
-                paths.update(resolve_paths(base, text))
-        tracked = get_tracked_files(paths)
+            for base, text in _get_write_targets(command, match.group(1).lower(), cwd):
+                paths.update(_resolve_paths(base, text))
+        tracked = _get_tracked_files(paths)
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to check shell file edits: {ex}', file=sys.stderr)
         return 2
 
     if tracked:
         # 大文字小文字だけが異なる表記は、同じファイルとして1つにまとめる。
-        display_paths = {os.path.normcase(path): get_display_path(path, cwd) for path in sorted(tracked)}
+        display_paths = {os.path.normcase(path): _get_display_path(path, cwd) for path in sorted(tracked)}
         files = ', '.join(sorted(display_paths.values()))
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
         print(json.dumps({
             'permissionDecision': 'deny',
-            'permissionDecisionReason': DENY_REASON.format(files=files),
+            'permissionDecisionReason': _DENY_REASON.format(files=files),
         }, ensure_ascii=False))
     return 0
 

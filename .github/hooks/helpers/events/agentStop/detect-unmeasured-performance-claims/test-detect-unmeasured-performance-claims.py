@@ -6,27 +6,27 @@ import tempfile
 import unittest
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'detect-unmeasured-performance-claims.py')
-definitions_path = os.path.join(script_directory, 'performance-claim-definitions.json')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'detect-unmeasured-performance-claims.py')
+_definitions_path = os.path.join(_script_directory, 'performance-claim-definitions.json')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
-HOOK_TIMESTAMP = 1777777777000
-REASON_PREFIX = 'The final response claims a performance improvement'
+_HOOK_TIMESTAMP = 1777777777000
+_REASON_PREFIX = 'The final response claims a performance improvement'
 
 
-def user(content, delivery='idle'):
+def _user(content, delivery='idle'):
     return {'type': 'user.message', 'data': {'content': content, 'delivery': delivery}}
 
 
-def assistant(content):
+def _assistant(content):
     return {'type': 'assistant.message', 'data': {'content': content}}
 
 
-def shell(call_id, command, exit_code, tool_name='bash'):
+def _shell(call_id, command, exit_code, tool_name='bash'):
     complete = {'toolCallId': call_id, 'success': exit_code is not None}
     if exit_code is not None:
         complete['shellExecution'] = {'exitCode': exit_code}
@@ -36,8 +36,8 @@ def shell(call_id, command, exit_code, tool_name='bash'):
     ]
 
 
-def agent_stop_start():
-    return {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': HOOK_TIMESTAMP}}}
+def _agent_stop_start():
+    return {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': _HOOK_TIMESTAMP}}}
 
 
 class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
@@ -48,7 +48,7 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
         self.transcript_path = os.path.join(self.root, 'events.jsonl')
         self.payload = {
             'sessionId': '00000000-0000-4000-8000-000000000000',
-            'timestamp': HOOK_TIMESTAMP,
+            'timestamp': _HOOK_TIMESTAMP,
             'cwd': self.root,
             'transcriptPath': self.transcript_path,
         }
@@ -56,12 +56,12 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
     def invoke(self, events=None, payload=None, raw=None, arguments=()):
         if events is not None:
             with open(self.transcript_path, 'w', encoding='utf-8', newline='\n') as file:
-                for event in [*events, agent_stop_start()]:
+                for event in [*events, _agent_stop_start()]:
                     file.write(json.dumps(event, ensure_ascii=False) + '\n')
         if raw is None:
             raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path, *arguments], input=raw,
+            [sys.executable, _hook_path, *arguments], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
         )
 
@@ -74,19 +74,19 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
         output = json.loads(result.stdout.decode('utf-8'))
         self.assertEqual(output['decision'], 'block')
-        self.assertTrue(output['reason'].startswith(REASON_PREFIX))
+        self.assertTrue(output['reason'].startswith(_REASON_PREFIX))
         for fragment in fragments:
             self.assertIn(fragment, output['reason'])
         return output['reason']
 
     def test_definitions_are_valid_json(self):
-        with open(definitions_path, encoding='utf-8') as file:
+        with open(_definitions_path, encoding='utf-8') as file:
             definitions = json.load(file)
         for key in ('claimPatterns', 'hedgePatterns', 'measurementCommandPatterns'):
             self.assertTrue(definitions[key], key)
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         entries = configuration['hooks']['agentStop']
         relative_path = ('.github/hooks/helpers/events/agentStop/detect-unmeasured-performance-claims/'
@@ -115,7 +115,7 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
         for claim in claims:
             with self.subTest(claim=claim):
                 self.assert_block(
-                    self.invoke([user('速くして'), *shell('c1', 'python3 -m pytest', 0), assistant(f'対応した。\n{claim}')]),
+                    self.invoke([_user('速くして'), *_shell('c1', 'python3 -m pytest', 0), _assistant(f'対応した。\n{claim}')]),
                     claim.rstrip('。'),
                 )
 
@@ -135,19 +135,19 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
         for command in commands:
             with self.subTest(command=command):
                 self.assert_silent(self.invoke([
-                    user('速くして'), *shell('c1', command, 0, tool_name='powershell' if 'Measure' in command else 'bash'),
-                    assistant('3倍高速になった。'),
+                    _user('速くして'), *_shell('c1', command, 0, tool_name='powershell' if 'Measure' in command else 'bash'),
+                    _assistant('3倍高速になった。'),
                 ]), command)
 
     def test_failed_or_missing_measurements_do_not_count(self):
         cases = [
-            ('failed benchmark', shell('c1', 'cargo bench', 101)),
-            ('denied benchmark', shell('c1', 'cargo bench', None)),
-            ('unrelated command', shell('c1', 'python3 -m pytest', 0)),
+            ('failed benchmark', _shell('c1', 'cargo bench', 101)),
+            ('denied benchmark', _shell('c1', 'cargo bench', None)),
+            ('unrelated command', _shell('c1', 'python3 -m pytest', 0)),
         ]
         for name, events in cases:
             with self.subTest(name=name):
-                self.assert_block(self.invoke([user('速くして'), *events, assistant('3倍高速になった。')]))
+                self.assert_block(self.invoke([_user('速くして'), *events, _assistant('3倍高速になった。')]))
 
     def test_hedged_or_non_claims_are_silent(self):
         responses = [
@@ -165,32 +165,32 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
         ]
         for response in responses:
             with self.subTest(response=response):
-                self.assert_silent(self.invoke([user('速くして'), assistant(response)]), response)
+                self.assert_silent(self.invoke([_user('速くして'), _assistant(response)]), response)
 
     def test_measurement_before_latest_request_does_not_count(self):
         self.assert_block(self.invoke([
-            user('計測して'), *shell('c1', 'hyperfine "python3 main.py"', 0), assistant('計測した。'),
-            user('速くして'), assistant('高速化した。'),
+            _user('計測して'), *_shell('c1', 'hyperfine "python3 main.py"', 0), _assistant('計測した。'),
+            _user('速くして'), _assistant('高速化した。'),
         ]))
 
     def test_blocks_only_once_per_request(self):
-        events = [user('速くして'), assistant('高速化した。')]
+        events = [_user('速くして'), _assistant('高速化した。')]
         reason = self.assert_block(self.invoke(events))
-        self.assert_silent(self.invoke([*events, user(reason, delivery='queued'), assistant('高速化した。')]))
-        self.assert_block(self.invoke([*events, user('次'), assistant('さらに高速化した。')]))
+        self.assert_silent(self.invoke([*events, _user(reason, delivery='queued'), _assistant('高速化した。')]))
+        self.assert_block(self.invoke([*events, _user('次'), _assistant('さらに高速化した。')]))
 
     def test_long_claim_is_truncated(self):
-        reason = self.assert_block(self.invoke([user('速くして'), assistant('高速化した' + 'あ' * 200 + '。')]))
+        reason = self.assert_block(self.invoke([_user('速くして'), _assistant('高速化した' + 'あ' * 200 + '。')]))
         self.assertIn('...', reason)
 
     def test_skips_when_not_applicable(self):
         with self.subTest(name='subagent'):
-            self.assert_silent(self.invoke([user('x'), assistant('高速化した。')], payload={**self.payload, 'agentId': 'a'}))
+            self.assert_silent(self.invoke([_user('x'), _assistant('高速化した。')], payload={**self.payload, 'agentId': 'a'}))
         with self.subTest(name='no final response'):
-            self.assert_silent(self.invoke([user('速くして')]))
+            self.assert_silent(self.invoke([_user('速くして')]))
 
     def test_invalid_input_exits_with_error(self):
-        self.invoke([user('x'), assistant('y')])
+        self.invoke([_user('x'), _assistant('y')])
         cases = [
             ('empty input', b''),
             ('invalid JSON', b'{'),
@@ -216,7 +216,7 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
             ('missing hedges', {key: value for key, value in valid.items() if key != 'hedgePatterns'}),
             ('invalid regex', {**valid, 'measurementCommandPatterns': ['(']}),
         ]
-        self.invoke([user('x'), assistant('y')])
+        self.invoke([_user('x'), _assistant('y')])
         for name, definitions in cases:
             with self.subTest(name=name):
                 path = os.path.join(self.root, 'definitions.json')

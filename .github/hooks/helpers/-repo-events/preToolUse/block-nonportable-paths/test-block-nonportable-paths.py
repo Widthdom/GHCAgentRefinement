@@ -9,10 +9,10 @@ import unittest
 from unittest.mock import patch
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-nonportable-paths.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-nonportable-paths.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
@@ -31,7 +31,7 @@ class BlockNonportablePathsTests(unittest.TestCase):
     def run_input(self, value):
         raw = value if isinstance(value, bytes) else json.dumps(value).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path], input=raw,
+            [sys.executable, _hook_path], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
         )
 
@@ -54,7 +54,7 @@ class BlockNonportablePathsTests(unittest.TestCase):
             self.assertIn(part, output['permissionDecisionReason'])
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, '-repo-preToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, '-repo-preToolUse.json'), encoding='utf-8') as file:
             entries = json.load(file)['hooks']['preToolUse']
         relative = '.github/hooks/helpers/-repo-events/preToolUse/block-nonportable-paths/block-nonportable-paths.py'
         matching = [entry for entry in entries if entry['bash'].endswith(' ' + relative)]
@@ -68,7 +68,7 @@ class BlockNonportablePathsTests(unittest.TestCase):
             self.assertIsNotNone(re.fullmatch(entry['matcher'], name))
         self.assertIsNone(re.fullmatch(entry['matcher'], 'bash'))
         self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
-        with open(os.path.join(hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
             self.assertNotIn(relative, file.read())
 
     def test_reserved_names(self):
@@ -92,8 +92,8 @@ class BlockNonportablePathsTests(unittest.TestCase):
                 self.assert_denied(self.run_call('create', {'path': name}), 'nonportable destination')
 
     def test_backslash_is_forbidden_inside_a_name(self):
-        helpers = runpy.run_path(hook_path)
-        self.assertIn('forbidden on Windows', helpers['invalid_name_reason']('bad\\name.txt'))
+        helpers = runpy.run_path(_hook_path)
+        self.assertIn('forbidden on Windows', helpers['_invalid_name_reason']('bad\\name.txt'))
 
     def test_portable_names(self):
         for path in ('normal.txt', 'nested/space inside.txt', '.config', 'COM0.txt', 'COM10.txt', 'LPT10', 'console.py'):
@@ -185,10 +185,10 @@ class BlockNonportablePathsTests(unittest.TestCase):
         self.assert_allowed(self.run_call('bash', {'command': 'echo untouched'}))
 
     def test_existing_invalid_name_is_not_rechecked(self):
-        helpers = runpy.run_path(hook_path)
+        helpers = runpy.run_path(_hook_path)
         # Simulate a legacy name without creating a Windows-incompatible fixture.
         with patch.object(helpers['os'], 'listdir', return_value=['NUL.txt']):
-            self.assertEqual(helpers['check_paths'](self.directory, ['NUL.txt'], set()), [])
+            self.assertEqual(helpers['_check_paths'](self.directory, ['NUL.txt'], set()), [])
 
     def test_tool_formats(self):
         for tool in ('edit', 'functions.create', 'insert', 'str_replace_editor'):
@@ -244,10 +244,10 @@ class BlockNonportablePathsTests(unittest.TestCase):
                 self.assertIn(b'Failed to check portable paths:', result.stderr)
 
     def test_filesystem_errors_are_reported(self):
-        helpers = runpy.run_path(hook_path)
+        helpers = runpy.run_path(_hook_path)
         with patch.object(helpers['os'], 'listdir', side_effect=PermissionError('not readable')):
             with self.assertRaises(PermissionError):
-                helpers['check_paths'](self.directory, ['new.txt'], set())
+                helpers['_check_paths'](self.directory, ['new.txt'], set())
 
     def test_repeated_invalid_operation_is_still_denied(self):
         for _ in range(2):
