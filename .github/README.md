@@ -28,7 +28,7 @@ flowchart LR
 
     LoopStart[/作業開始\]
 
-    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>・危険コマンド実行抑止<br/>・省略記号による内容消失抑止<br/>・エラーの握りつぶし抑止<br/>・生成ファイル直接編集抑止<br/>・秘密情報書き込み抑止<br/>・shellによるファイル編集抑止<br/>・テストの骨抜き抑止<br/>・除外設定による隠蔽抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・スナップショット一括承認抑止<br/>・テスト通過用ハードコード抑止<br/>・日付の時限爆弾テスト抑止<br/>・待ち時間の水増し抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・依頼のないhook改変抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・未確認の依存追加抑止<br/>・未読ファイル編集抑止</div>"]
+    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>□危険な操作の抑止<br/>・危険コマンド実行抑止<br/>・shellによるファイル編集抑止<br/>・未読ファイル編集抑止<br/>・生成ファイル直接編集抑止<br/>・省略記号による内容消失抑止<br/>・依頼のないhook改変抑止<br/>□不正な内容の書き込み抑止<br/>・秘密情報書き込み抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・未確認の依存追加抑止<br/>□失敗の隠蔽抑止<br/>・エラーの握りつぶし抑止<br/>・除外設定による隠蔽抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・待ち時間の水増し抑止<br/>□テストの不正抑止<br/>・テストの骨抜き抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・スナップショット一括承認抑止<br/>・テスト通過用ハードコード抑止<br/>・日付の時限爆弾テスト抑止</div>"]
 
     runTool["ツール実行"]
 
@@ -76,11 +76,12 @@ flowchart LR
 
 <table>
   <thead>
-    <tr><th>イベント</th><th>条件</th><th>内容</th><th>hook</th></tr>
+    <tr><th>イベント</th><th>条件</th><th>カテゴリ</th><th>内容</th><th>hook</th></tr>
   </thead>
   <tbody>
     <tr>
       <td rowspan="9">sessionStart</td>
+      <td rowspan="9"></td>
       <td rowspan="9"></td>
       <td>copilot-instructions.md読込</td>
       <td><a href="./hooks/helpers/events/sessionStart/load-copilot-instructions/README.md">load-copilot-instructions</a></td>
@@ -108,6 +109,7 @@ flowchart LR
     <tr>
       <td rowspan="4">userPromptSubmitted</td>
       <td rowspan="3">メインエージェントへの依頼時</td>
+      <td rowspan="3"></td>
       <td>デバッグモード設定</td>
       <td><a href="./hooks/helpers/events/userPromptSubmitted/set-debug-mode/README.md">set-debug-mode</a></td>
     </tr>
@@ -121,48 +123,82 @@ flowchart LR
     </tr>
     <tr>
       <td>サブエージェントへの依頼時</td>
+      <td></td>
       <td>copilot-instructions.md連携</td>
       <td><a href="./hooks/helpers/events/userPromptSubmitted/give-subagents-instructions/README.md">give-subagents-instructions</a></td>
     </tr>
     <tr>
       <td>userPromptTransformed</td>
       <td>デバッグモード有効時</td>
+      <td></td>
       <td>プロンプト変換ログ保存</td>
       <td><a href="./hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/README.md">debug-log-transformed-prompt</a></td>
     </tr>
     <tr>
       <td rowspan="20">preToolUse</td>
       <td rowspan="20"></td>
+      <td rowspan="6">危険な操作の抑止</td>
       <td>危険コマンド実行抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-commands/README.md">block-commands</a></td>
-    </tr>
-    <tr>
-      <td>省略記号による内容消失抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-elided-rewrites/README.md">block-elided-rewrites</a></td>
-    </tr>
-    <tr>
-      <td>エラーの握りつぶし抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-error-swallowing/README.md">block-error-swallowing</a></td>
-    </tr>
-    <tr>
-      <td>生成ファイル直接編集抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-generated-file-edits/README.md">block-generated-file-edits</a></td>
-    </tr>
-    <tr>
-      <td>秘密情報書き込み抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-secret-writes/README.md">block-secret-writes</a></td>
     </tr>
     <tr>
       <td>shellによるファイル編集抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-shell-file-edits/README.md">block-shell-file-edits</a></td>
     </tr>
     <tr>
-      <td>テストの骨抜き抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-test-weakening/README.md">block-test-weakening</a></td>
+      <td>未読ファイル編集抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/require-read-before-edit/README.md">require-read-before-edit</a></td>
+    </tr>
+    <tr>
+      <td>生成ファイル直接編集抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-generated-file-edits/README.md">block-generated-file-edits</a></td>
+    </tr>
+    <tr>
+      <td>省略記号による内容消失抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-elided-rewrites/README.md">block-elided-rewrites</a></td>
+    </tr>
+    <tr>
+      <td>依頼のないhook改変抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-hook-tampering/README.md">block-hook-tampering</a></td>
+    </tr>
+    <tr>
+      <td rowspan="4">不正な内容の書き込み抑止</td>
+      <td>秘密情報書き込み抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-secret-writes/README.md">block-secret-writes</a></td>
+    </tr>
+    <tr>
+      <td>不可視文字の書き込み抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-invisible-characters/README.md">block-invisible-characters</a></td>
+    </tr>
+    <tr>
+      <td>文字化けの書き込み抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-mojibake-writes/README.md">block-mojibake-writes</a></td>
+    </tr>
+    <tr>
+      <td>未確認の依存追加抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-unverified-dependencies/README.md">block-unverified-dependencies</a></td>
+    </tr>
+    <tr>
+      <td rowspan="4">失敗の隠蔽抑止</td>
+      <td>エラーの握りつぶし抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-error-swallowing/README.md">block-error-swallowing</a></td>
     </tr>
     <tr>
       <td>除外設定による隠蔽抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-exclusion-escapes/README.md">block-exclusion-escapes</a></td>
+    </tr>
+    <tr>
+      <td>パイプでの終了コード隠蔽抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-masked-exit-codes/README.md">block-masked-exit-codes</a></td>
+    </tr>
+    <tr>
+      <td>待ち時間の水増し抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-timeout-inflation/README.md">block-timeout-inflation</a></td>
+    </tr>
+    <tr>
+      <td rowspan="6">テストの不正抑止</td>
+      <td>テストの骨抜き抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-test-weakening/README.md">block-test-weakening</a></td>
     </tr>
     <tr>
       <td>自己比較テスト抑止</td>
@@ -185,35 +221,8 @@ flowchart LR
       <td><a href="./hooks/helpers/events/preToolUse/block-time-bomb-literals/README.md">block-time-bomb-literals</a></td>
     </tr>
     <tr>
-      <td>待ち時間の水増し抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-timeout-inflation/README.md">block-timeout-inflation</a></td>
-    </tr>
-    <tr>
-      <td>不可視文字の書き込み抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-invisible-characters/README.md">block-invisible-characters</a></td>
-    </tr>
-    <tr>
-      <td>文字化けの書き込み抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-mojibake-writes/README.md">block-mojibake-writes</a></td>
-    </tr>
-    <tr>
-      <td>依頼のないhook改変抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-hook-tampering/README.md">block-hook-tampering</a></td>
-    </tr>
-    <tr>
-      <td>パイプでの終了コード隠蔽抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-masked-exit-codes/README.md">block-masked-exit-codes</a></td>
-    </tr>
-    <tr>
-      <td>未確認の依存追加抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-unverified-dependencies/README.md">block-unverified-dependencies</a></td>
-    </tr>
-    <tr>
-      <td>未読ファイル編集抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/require-read-before-edit/README.md">require-read-before-edit</a></td>
-    </tr>
-    <tr>
       <td rowspan="8">postToolUse</td>
+      <td rowspan="8"></td>
       <td rowspan="8"></td>
       <td>既読ファイルの記録</td>
       <td><a href="./hooks/helpers/events/postToolUse/record-seen-files/README.md">record-seen-files</a></td>
@@ -249,11 +258,13 @@ flowchart LR
     <tr>
       <td>postToolUseFailure</td>
       <td></td>
+      <td></td>
       <td>失敗の繰り返し検知</td>
       <td><a href="./hooks/helpers/events/postToolUseFailure/detect-repeated-failures/README.md">detect-repeated-failures</a></td>
     </tr>
     <tr>
       <td rowspan="16">agentStop</td>
+      <td rowspan="13"></td>
       <td rowspan="13"></td>
       <td>hookのテスト実行催促</td>
       <td><a href="./hooks/helpers/events/agentStop/require-hook-tests/README.md">require-hook-tests</a></td>
@@ -308,6 +319,7 @@ flowchart LR
     </tr>
     <tr>
       <td rowspan="2">デバッグモード有効時</td>
+      <td rowspan="2"></td>
       <td>プロンプト変換ログ保存先表示</td>
       <td><a href="./hooks/helpers/events/agentStop/debug-show-prompt-log-paths/README.md">debug-show-prompt-log-paths</a></td>
     </tr>
@@ -317,6 +329,7 @@ flowchart LR
     </tr>
     <tr>
       <td>敵対的レビューモード有効時</td>
+      <td></td>
       <td>敵対的レビュー要請</td>
       <td><a href="./hooks/helpers/events/agentStop/request-adversarial-review/README.md">request-adversarial-review</a></td>
     </tr>
