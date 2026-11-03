@@ -4,18 +4,6 @@
     "sessionStart": [
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-ast-grep/check-ast-grep.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-ast-grep/check-ast-grep.py",
-        "timeoutSec": 10
-      },
-      {
-        "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-git/check-git.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-git/check-git.py",
-        "timeoutSec": 10
-      },
-      {
-        "type": "command",
         "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-git-state/check-git-state.py",
         "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-git-state/check-git-state.py",
         "timeoutSec": 10
@@ -28,20 +16,14 @@
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-jq/check-jq.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-jq/check-jq.py",
-        "timeoutSec": 10
-      },
-      {
-        "type": "command",
         "bash": "bash .github/hooks/helpers/events/sessionStart/check-python/check-python.sh",
         "powershell": "& ./.github/hooks/helpers/events/sessionStart/check-python/check-python.cmd",
         "timeoutSec": 10
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-ripgrep/check-ripgrep.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-ripgrep/check-ripgrep.py",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-required-tools/check-required-tools.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-required-tools/check-required-tools.py",
         "timeoutSec": 10
       },
       {

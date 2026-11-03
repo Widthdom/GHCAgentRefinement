@@ -327,7 +327,7 @@ def get_tracked_files(paths):
                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=5,
             )
         except (OSError, subprocess.TimeoutExpired):
-            # gitがない場合は判定できないため許可する。gitの導入はcheck-git hookが案内する。
+            # gitがない場合は判定できないため許可する。gitの導入はcheck-required-tools hookが案内する。
             continue
         if result.returncode != 0:
             continue
