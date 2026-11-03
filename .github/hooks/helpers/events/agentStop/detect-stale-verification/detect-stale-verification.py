@@ -12,18 +12,6 @@ EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patc
 SHELL_TOOL_NAMES = {'bash', 'powershell'}
 # パッチで追加・更新・削除するファイルと移動先。
 PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$', re.MULTILINE)
-# テスト実行とみなすコマンド。verify-completion-claims hookと同じ基準で、`latest` などの語中は除く。
-TEST_COMMAND_PATTERN = re.compile(
-    r'(?<![a-z0-9])(?:tests?|pytest|unittest|jest|vitest|mocha|rspec|phpunit|ctest|tox|pester)(?![a-z])',
-    re.IGNORECASE,
-)
-# 「テストが通った」という主張。verify-completion-claims hookと同じ基準で、直後に否定が続く場合は除く。
-JAPANESE_NEGATION = r'(?![^。\n]{0,6}?(?:ない|ません|なかった|ず))'
-TEST_CLAIM_PATTERNS = (
-    re.compile(r'テスト[^。\n]{0,20}?(?:通過|通っ|通り|成功|パス|合格)' + JAPANESE_NEGATION),
-    re.compile(r'\b(?:all\s+)?tests?\s+(?:(?:are|were|now|all)\s+)*(?:pass(?:ed|es|ing)?|succeed(?:ed|s)?)\b', re.IGNORECASE),
-)
-FENCED_CODE_PATTERN = re.compile(r'^(```|~~~).*?^\1', re.MULTILINE | re.DOTALL)
 # 説明だけのファイル。変更してもテストの結果は変わらないため対象外とする。
 DOCUMENT_EXTENSIONS = ('.md', '.markdown', '.rst', '.txt', '.adoc')
 # hookのファイル。変更後のテストはrequire-hook-tests hookが主張の有無によらず求めるため、重ねて差し戻さない。
@@ -111,12 +99,6 @@ def get_turn_events(transcript_path):
     return events, last_assistant_msg, already_requested
 
 
-def claims_tests_passed(response):
-    # コードブロック内の出力例やコマンドは主張とみなさない。
-    text = FENCED_CODE_PATTERN.sub('', response)
-    return any(pattern.search(text) for pattern in TEST_CLAIM_PATTERNS)
-
-
 def get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示す。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
@@ -129,12 +111,12 @@ def get_display_path(path, cwd):
     return absolute.replace(os.sep, '/')
 
 
-def get_stale_edits(events, cwd):
+def get_stale_edits(events, cwd, is_test_command):
     # 最後のテスト実行が成功し、その後に対象のファイルを変更していれば、(テストコマンド, 変更したファイル) を返す。
     # 最後のテスト実行が失敗・未実行の場合は、verify-completion-claims hookが扱うため対象外とする。
     last_test_index = None
     for index, (kind, value) in enumerate(events):
-        if kind == 'shell' and TEST_COMMAND_PATTERN.search(value[0]):
+        if kind == 'shell' and is_test_command(value[0]):
             last_test_index = index
     if last_test_index is None:
         return None
@@ -215,6 +197,10 @@ def main():
         return 2
 
     try:
+        # テストの実行かどうかの判定は、共通utilityで行う。
+        check_test_runs = runpy.run_path(
+            str(Path(__file__).resolve().parents[3] / 'utilities' / 'check-test-runs' / 'check-test-runs.py')
+        )
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と最後のツール実行の結果を書き込み済みにする。
         runpy.run_path(
             str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
@@ -226,10 +212,11 @@ def main():
         return 2
 
     # 同じ依頼で差し戻すのは1回だけにし、テストを実行できない場合に停止できなくなるのを防ぐ。
-    if last_assistant_msg is None or already_requested or not claims_tests_passed(last_assistant_msg):
+    if (last_assistant_msg is None or already_requested
+            or not check_test_runs['claims_tests_passed'](last_assistant_msg)):
         return 0
 
-    stale = get_stale_edits(events, cwd)
+    stale = get_stale_edits(events, cwd, check_test_runs['is_test_command'])
     if stale is not None:
         print(json.dumps(
             {'decision': 'block', 'reason': get_block_reason(*stale)},

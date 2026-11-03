@@ -3,6 +3,7 @@ import io
 import json
 import os
 import re
+import runpy
 import shlex
 import sqlite3
 import sys
@@ -14,13 +15,9 @@ from typing import cast
 
 # powershellはパイプラインの終了コードの扱いが異なるため、bashだけを対象にする。
 SHELL_TOOL_PATTERN = re.compile(r'^(?:functions\.)?bash$', re.IGNORECASE)
-# 終了コードが成否を表すコマンド（テスト・ビルド・静的検査）。`latest` などの語中は除く。
-# テストの語はverify-completion-claims hookがテストコマンドとみなすものと揃える。
-CHECKED_COMMAND_PATTERN = re.compile(
-    r'(?<![a-z0-9])(?:tests?|pytest|unittest|jest|vitest|mocha|rspec|phpunit|ctest|tox|pester'
-    r'|build|msbuild|make|tsc|lint|eslint|ruff|mypy|clippy)(?![a-z])',
-    re.IGNORECASE,
-)
+# 終了コードが成否を表すコマンドのうち、テスト以外（ビルド・静的検査）の語。
+# テストの語は、check-test-runs utilityがテストの実行とみなす語を使う。
+BUILD_AND_LINT_COMMAND_WORDS = ('build', 'msbuild', 'make', 'tsc', 'lint', 'eslint', 'ruff', 'mypy', 'clippy')
 # 出力やファイルを読むだけのコマンド。`grep test` や `ls build` をテスト・ビルドとみなさない。
 READER_COMMANDS = {
     'ag', 'awk', 'cat', 'cut', 'diff', 'du', 'echo', 'egrep', 'fd', 'fgrep', 'file', 'find', 'git', 'grep',
@@ -139,14 +136,14 @@ def get_command_words(words):
     return words[index:]
 
 
-def is_checked_command(words):
+def is_checked_command(words, checked_command_pattern):
     command_words = get_command_words(words)
     if not command_words or os.path.basename(command_words[0]) in READER_COMMANDS:
         return False
-    return bool(CHECKED_COMMAND_PATTERN.search(' '.join(command_words)))
+    return bool(checked_command_pattern.search(' '.join(command_words)))
 
 
-def get_masked_commands(command):
+def get_masked_commands(command, checked_command_pattern):
     # 最後の段以外にテスト・ビルドがあり、pipefailが無効なパイプラインのテスト・ビルドを返す。
     # `PIPESTATUS` を参照している場合は、各段の終了コードを確かめているとみなす。
     if 'PIPESTATUS' in command:
@@ -155,7 +152,7 @@ def get_masked_commands(command):
     for segments, pipefail in get_pipelines(command):
         if pipefail or len(segments) < 2:
             continue
-        masked.extend(' '.join(segment) for segment in segments[:-1] if is_checked_command(segment))
+        masked.extend(' '.join(segment) for segment in segments[:-1] if is_checked_command(segment, checked_command_pattern))
     return masked
 
 
@@ -198,6 +195,14 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
 
     try:
+        # 終了コードが成否を表すコマンド（テスト・ビルド・静的検査）。`latest` などの語中は除く。
+        check_test_runs = runpy.run_path(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+            'utilities', 'check-test-runs', 'check-test-runs.py',
+        ))
+        checked_command_pattern = check_test_runs['compile_command_pattern'](
+            (*check_test_runs['TEST_COMMAND_WORDS'], *BUILD_AND_LINT_COMMAND_WORDS)
+        )
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
         if not hook_input_json.strip():
             raise ValueError('hook input is empty.')
@@ -222,7 +227,7 @@ def main():
         command_keys = []
         tool_args = get_tool_args(hook_input['toolArgs']) if SHELL_TOOL_PATTERN.match(tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
-        commands = get_masked_commands(command) if isinstance(command, str) else []
+        commands = get_masked_commands(command, checked_command_pattern) if isinstance(command, str) else []
         if commands:
             masked.extend(commands)
             # 状態にはコマンドを保存せず、照合用のSHA-256だけを保存する。
