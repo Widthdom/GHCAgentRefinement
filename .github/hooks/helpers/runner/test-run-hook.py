@@ -16,7 +16,7 @@ script_directory = os.path.dirname(os.path.abspath(__file__))
 helpers_directory = os.path.dirname(script_directory)
 hooks_directory = os.path.dirname(helpers_directory)
 runner_path = os.path.join(script_directory, 'run-hook.py')
-state_helper_path = os.path.join(helpers_directory, 'utilities', 'hook-activity-state.py')
+state_helper_path = os.path.join(helpers_directory, 'utilities', 'hook-activity-state', 'hook-activity-state.py')
 RUNNER = '.github/hooks/helpers/runner/run-hook.py'
 # Pythonが無い環境でも動く必要があるため、ランナーを通さないhook。
 DIRECT_HOOKS = ('block-commands', 'check-python')
@@ -63,9 +63,9 @@ class RunHookTests(unittest.TestCase):
         self.repository = os.path.join(self.root, 'repository')
         self.helpers = os.path.join(self.repository, '.github', 'hooks', 'helpers')
         os.makedirs(os.path.join(self.helpers, 'runner'))
-        os.makedirs(os.path.join(self.helpers, 'utilities'))
+        os.makedirs(os.path.join(self.helpers, 'utilities', 'hook-activity-state'))
         shutil.copy(runner_path, os.path.join(self.helpers, 'runner', 'run-hook.py'))
-        shutil.copy(state_helper_path, os.path.join(self.helpers, 'utilities', 'hook-activity-state.py'))
+        shutil.copy(state_helper_path, os.path.join(self.helpers, 'utilities', 'hook-activity-state', 'hook-activity-state.py'))
         self.fake_hook = '.github/hooks/helpers/events/preToolUse/fake-hook/fake-hook.py'
         self.write_file(self.fake_hook, FAKE_HOOK)
         self.temp_directory = os.path.join(self.root, 'temp')

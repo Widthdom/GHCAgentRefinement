@@ -13,7 +13,7 @@ def get_used_skills(transcript_path):
     used_skills = []
 
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects.py')
+        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):

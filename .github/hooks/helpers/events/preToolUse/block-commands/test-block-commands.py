@@ -340,7 +340,7 @@ class BlockCommandsTests(unittest.TestCase):
                     copied_script_directory = os.path.join(
                         helpers_directory, 'events', 'preToolUse', 'block-commands',
                     )
-                    copied_utilities_directory = os.path.join(helpers_directory, 'utilities')
+                    copied_utilities_directory = os.path.join(helpers_directory, 'utilities', 'check-python-version')
                     os.makedirs(copied_script_directory)
                     os.makedirs(copied_utilities_directory)
                     for filename in ('block-commands.cmd', 'block-commands.py', 'blocked-command-definitions.json'):
@@ -350,7 +350,10 @@ class BlockCommandsTests(unittest.TestCase):
                                 os.path.join(copied_script_directory, filename),
                             )
                     shutil.copyfile(
-                        os.path.join(script_directory, '..', '..', '..', 'utilities', 'check-python-version.py'),
+                        os.path.join(
+                            script_directory, '..', '..', '..', 'utilities', 'check-python-version',
+                            'check-python-version.py',
+                        ),
                         os.path.join(copied_utilities_directory, 'check-python-version.py'),
                     )
                     copied_wrapper_path = os.path.join(copied_script_directory, 'block-commands.cmd')

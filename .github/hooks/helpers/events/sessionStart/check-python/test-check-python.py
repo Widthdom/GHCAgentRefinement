@@ -11,7 +11,7 @@ from unittest.mock import patch
 script_directory = os.path.dirname(os.path.abspath(__file__))
 hook_path = os.path.join(script_directory, 'check-python.sh')
 version_check_path = os.path.abspath(
-    os.path.join(script_directory, '../../../utilities/check-python-version.py')
+    os.path.join(script_directory, '../../../utilities/check-python-version/check-python-version.py')
 )
 
 
@@ -141,7 +141,7 @@ class CheckPythonTests(unittest.TestCase):
                         copied_script_directory = os.path.join(
                             helpers_directory, 'events', 'sessionStart', 'check-python',
                         )
-                        copied_utilities_directory = os.path.join(helpers_directory, 'utilities')
+                        copied_utilities_directory = os.path.join(helpers_directory, 'utilities', 'check-python-version')
                         os.makedirs(copied_script_directory)
                         os.makedirs(copied_utilities_directory)
                         copied_hook_path = os.path.join(copied_script_directory, 'check-python.cmd')

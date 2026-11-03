@@ -9,17 +9,6 @@ from typing import cast
 
 
 SHELL_TOOL_NAMES = {'bash', 'powershell'}
-# テスト実行とみなすコマンド。`test-all-hooks.py`・`npm test`・`pytest` などを含み、`latest` などの語中は除く。
-TEST_COMMAND_PATTERN = re.compile(
-    r'(?<![a-z0-9])(?:tests?|pytest|unittest|jest|vitest|mocha|rspec|phpunit|ctest|tox|pester)(?![a-z])',
-    re.IGNORECASE,
-)
-# 直後に否定が続く場合は主張とみなさない（例：「通っていない」「成功しなかった」）。
-JAPANESE_NEGATION = r'(?![^。\n]{0,6}?(?:ない|ません|なかった|ず))'
-TEST_CLAIM_PATTERNS = (
-    re.compile(r'テスト[^。\n]{0,20}?(?:通過|通っ|通り|成功|パス|合格)' + JAPANESE_NEGATION),
-    re.compile(r'\b(?:all\s+)?tests?\s+(?:(?:are|were|now|all)\s+)*(?:pass(?:ed|es|ing)?|succeed(?:ed|s)?)\b', re.IGNORECASE),
-)
 VERIFICATION_CLAIM_PATTERNS = (
     re.compile(r'動作確認(?:済|しました|した|が取れ|できた)'),
     re.compile(r'(?:動く|動作する|機能する)ことを確認(?:済|しました|した|できた)'),
@@ -44,7 +33,7 @@ def get_turn_summary(transcript_path):
     exit_codes = {}
     already_requested = False
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects.py')
+        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -86,19 +75,19 @@ def get_turn_summary(transcript_path):
     return last_assistant_msg, shell_runs, already_requested
 
 
-def get_claim_kind(response):
+def get_claim_kind(response, check_test_runs):
+    if check_test_runs['claims_tests_passed'](response):
+        return 'test'
     # コードブロック内の出力例やコマンドは主張とみなさない。
     text = FENCED_CODE_PATTERN.sub('', response)
-    if any(pattern.search(text) for pattern in TEST_CLAIM_PATTERNS):
-        return 'test'
     if any(pattern.search(text) for pattern in VERIFICATION_CLAIM_PATTERNS):
         return 'verification'
     return None
 
 
-def get_block_reason(claim_kind, shell_runs):
+def get_block_reason(claim_kind, shell_runs, check_test_runs):
     if claim_kind == 'test':
-        test_runs = [run for run in shell_runs if TEST_COMMAND_PATTERN.search(run[0])]
+        test_runs = [run for run in shell_runs if check_test_runs['is_test_command'](run[0])]
         if not test_runs:
             return (
                 f'{REASON_PREFIX} that tests passed, but no test command was run '
@@ -155,9 +144,13 @@ def main():
         return 2
 
     try:
+        # テストの実行かどうかの判定は、共通utilityで行う。
+        check_test_runs = runpy.run_path(
+            str(Path(__file__).resolve().parents[3] / 'utilities' / 'check-test-runs' / 'check-test-runs.py')
+        )
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答とシェル実行の結果を書き込み済みにする。
         runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event.py')
+            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, shell_runs, already_requested = get_turn_summary(transcript_path)
@@ -169,7 +162,7 @@ def main():
     if last_assistant_msg is None or already_requested:
         return 0
 
-    reason = get_block_reason(get_claim_kind(last_assistant_msg), shell_runs)
+    reason = get_block_reason(get_claim_kind(last_assistant_msg, check_test_runs), shell_runs, check_test_runs)
     if reason is not None:
         print(json.dumps({'decision': 'block', 'reason': reason}, ensure_ascii=False, separators=(',', ':')))
     return 0

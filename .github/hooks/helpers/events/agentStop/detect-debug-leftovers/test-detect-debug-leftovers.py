@@ -190,6 +190,9 @@ class DetectDebugLeftoversTests(unittest.TestCase):
     def test_reports_each_line_once_and_limits_findings(self):
         reason = self.assert_block(self.invoke(self.created('a.js', 'console.log(">>> here");\n')))
         self.assertEqual(reason.count('>>> here'), 1)
+        # 同じ行でも、別のファイルに残っていればそれぞれ報告する。
+        events = [*self.created('a.js', 'debugger;\n')[:2], *self.created('b.js', 'debugger;\n')[1:]]
+        self.assert_block(self.invoke(events), '- a.js: debugger statement', '- b.js: debugger statement')
         content = ''.join(f'console.log("item {index} ");\n' for index in range(12))
         reason = self.assert_block(self.invoke(self.created('a.js', content)), 'item 9 ')
         self.assertNotIn('item 10 ', reason)

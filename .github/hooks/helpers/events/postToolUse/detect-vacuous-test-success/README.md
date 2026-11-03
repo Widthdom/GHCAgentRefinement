@@ -10,7 +10,7 @@ postToolUse（bash・powershellツールが成功した直後）
 
 ## 処理詳細
 
-1. ツール引数の `command` がテストの実行（`pytest`・`npm test`・`test-*.py` など）でなければ何もしない。基準は [verify-completion-claims](../../agentStop/verify-completion-claims/README.md) hookと同じ。
+1. ツール引数の `command` がテストの実行（`pytest`・`npm test`・`test-*.py` など）でなければ何もしない。テストの実行かどうかは、[check-test-runs.py](../../../utilities/check-test-runs/check-test-runs.py) の基準で判定する。
 2. ツールの結果（`toolResult.textResultForLlm`）から色付けのエスケープシーケンスを除き、テストの件数の集計行を読み取って、実行した件数とスキップした件数を合計する（[読み取る形式](#読み取る形式)を参照）。
 3. 集計行がなければ、テストが1件も実行されなかったと分かる出力（`no tests ran`・`No tests found` など）を探し、あれば実行・スキップとも0件とする。どちらもなければ判断できないため、記録を変えずに終了する。
 4. 同じコマンド（前後の空白を除いた文字列が一致するもの）について、このセッションで前回記録した件数を取り出し、今回の件数で置き換える。

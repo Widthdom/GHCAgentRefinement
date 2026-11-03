@@ -5,6 +5,7 @@ import io
 import json
 import os
 import re
+import runpy
 import sqlite3
 import sys
 import tempfile
@@ -13,15 +14,6 @@ from contextlib import closing
 from typing import cast
 
 
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-# 置換前の内容を表す引数。書き込む内容ではないため、追加した行の判定から除く。
-REMOVED_TEXT_KEYS = {'old_str', 'old_string'}
-# 書き込む内容ではない引数。
-IGNORED_KEYS = {'path', 'command'}
-# 内容を丸ごと書き込む引数。上書きではファイルの現在の内容と比べる。
-FULL_CONTENT_KEYS = ('file_text', 'content')
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
 TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
 # 文字列の中の日付（`2026-11-03`・`2026/11/03`）。バージョン番号（`1.2026-...`）の一部は除く。
 ISO_DATE_PATTERN = re.compile(r'(?<![\d.])(20\d{2})([-/])(\d{1,2})\2(\d{1,2})(?!\d)')
@@ -93,70 +85,6 @@ def load_definitions(path):
         except re.PatternError as ex:
             raise ValueError(f'invalid regular expression in {key}: {ex}') from None
     return loaded
-
-
-def get_tool_args(raw_tool_args):
-    # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
-
-
-def collect_strings(value, ignored_keys=frozenset()):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            if key not in ignored_keys:
-                yield from collect_strings(item, ignored_keys)
-    elif isinstance(value, list):
-        for item in value:
-            yield from collect_strings(item, ignored_keys)
-
-
-def get_patch_writes(text):
-    # パッチをファイルごとに分け、追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。
-    # 削除するファイルは書き込みではないため対象外とする。
-    writes = []
-    for line in text.splitlines():
-        match = PATCH_FILE_PATTERN.match(line)
-        if match:
-            writes.append({'path': match.group(2), 'written': [], 'removed': [], 'deleted': match.group(1) == 'Delete'})
-        elif writes and line.startswith('+'):
-            writes[-1]['written'].append(line[1:])
-        elif writes and line.startswith('-'):
-            writes[-1]['removed'].append(line[1:])
-    return [
-        {'path': write['path'], 'written': '\n'.join(write['written']), 'removed': '\n'.join(write['removed']),
-         'full_content': None}
-        for write in writes if not write['deleted']
-    ]
-
-
-def get_writes(tool_name, tool_args):
-    # 戻り値は {path, written（書き込む内容）, removed（置換前の内容）, full_content（丸ごと書き込む内容）} のリスト。
-    if tool_name == 'apply_patch':
-        return [write for text in collect_strings(tool_args) for write in get_patch_writes(text)]
-    if not isinstance(tool_args, dict):
-        return []
-    # str_replace_editorのviewは閲覧なので対象外とする。
-    if tool_name == 'str_replace_editor' and tool_args.get('command') in ('view', 'undo_edit'):
-        return []
-    path = tool_args.get('path')
-    if not isinstance(path, str) or not path.strip():
-        return []
-    full_content = None
-    if tool_name == 'create' or (tool_name == 'str_replace_editor' and tool_args.get('command') == 'create'):
-        full_content = next((tool_args[key] for key in FULL_CONTENT_KEYS if isinstance(tool_args.get(key), str)), None)
-    return [{
-        'path': path,
-        'written': '\n'.join(collect_strings(tool_args, IGNORED_KEYS | REMOVED_TEXT_KEYS)),
-        'removed': '\n'.join(text for key in REMOVED_TEXT_KEYS for text in collect_strings(tool_args.get(key))),
-        'full_content': full_content,
-    }]
 
 
 def read_existing(path):
@@ -293,13 +221,17 @@ def main(arguments=None):
         if 'toolArgs' not in hook_input:
             raise ValueError('toolArgs is required.')
 
-        tool_name = tool_name.removeprefix('functions.')
-        writes = get_writes(tool_name, get_tool_args(hook_input['toolArgs'])) if tool_name in EDIT_TOOL_NAMES else []
+        # 編集ツールの引数の解析は、共通utilityで行う。
+        extract_edit_tool_changes = runpy.run_path(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+            'utilities', 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+        ))['extract_edit_tool_changes']
+        changes = extract_edit_tool_changes(tool_name, hook_input['toolArgs'])
 
         real_cwd = os.path.realpath(cwd)
         candidates = []
-        for write in writes:
-            path = os.path.realpath(os.path.join(cwd, write['path']))
+        for change in changes:
+            path = os.path.realpath(os.path.join(cwd, change['path']))
             display_path = get_display_path(path, real_cwd)
             # テストファイルのパターンはOSによらず `/` 区切りのパスに対して照合する。
             if not any(pattern.search(display_path) for pattern in test_file_patterns):
@@ -307,12 +239,12 @@ def main(arguments=None):
             current = (read_existing(path) if os.path.isfile(path) else None) or ''
             # 上書きではファイル全体と現在の内容、それ以外では書き込む内容と置換前の内容を比べる。
             # 現在時刻の参照は、編集後のファイルにあればよいため、現在の内容と書き込む内容の両方から探す。
-            if write['full_content'] is not None:
-                added = get_added_text(current, write['full_content'])
-                content = write['full_content']
+            if change['full_content'] is not None:
+                added = get_added_text(current, change['full_content'])
+                content = change['full_content']
             else:
-                added = get_added_text(write['removed'], write['written'])
-                content = current + '\n' + write['written']
+                added = get_added_text(change['removed'], change['written'])
+                content = current + '\n' + change['written']
             time_bomb = find_time_bomb(definitions, today, added, content)
             if time_bomb:
                 candidates.append((path, display_path, time_bomb))

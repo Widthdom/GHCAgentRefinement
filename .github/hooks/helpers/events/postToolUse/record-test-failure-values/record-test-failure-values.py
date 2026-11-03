@@ -9,11 +9,6 @@ from typing import cast
 
 
 SHELL_TOOL_NAMES = {'bash', 'powershell'}
-# テスト実行とみなすコマンド。verify-completion-claims hookと同じ基準で、`latest` などの語中は除く。
-TEST_COMMAND_PATTERN = re.compile(
-    r'(?<![a-z0-9])(?:tests?|pytest|unittest|jest|vitest|mocha|rspec|phpunit|ctest|tox|pester)(?![a-z])',
-    re.IGNORECASE,
-)
 # 行頭の装飾（pytestの `E`、差分の `-`・`+`）を許容する。
 LINE_PREFIX = r'^\s*(?:E\s+)?[-+]?\s*'
 # 期待値の行と、その直後3行以内の実際の値の行（Jest・xUnit・NUnit・AssertJ・testifyなど）。
@@ -83,10 +78,15 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
 
     try:
+        # テストの実行かどうかの判定は、共通utilityで行う。
+        is_test_command = runpy.run_path(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+            'utilities', 'check-test-runs', 'check-test-runs.py',
+        ))['is_test_command']
         # 拒否側のpreToolUse hookと状態の形式・保存先を共有する。
         state = runpy.run_path(os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'assertion-failure-values-state.py',
+            'utilities', 'assertion-failure-values-state', 'assertion-failure-values-state.py',
         ))
 
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
@@ -112,7 +112,7 @@ def main():
             except ValueError:
                 return 0
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
-        if not isinstance(command, str) or not TEST_COMMAND_PATTERN.search(command):
+        if not isinstance(command, str) or not is_test_command(command):
             return 0
 
         tool_result = hook_input.get('toolResult')

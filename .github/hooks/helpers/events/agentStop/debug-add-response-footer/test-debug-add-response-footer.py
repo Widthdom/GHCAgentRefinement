@@ -305,7 +305,7 @@ class DebugResponseFooterTests(unittest.TestCase):
 
 
         current_jst = runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'get-current-jst.py')
+            str(Path(__file__).resolve().parents[3] / 'utilities' / 'get-current-jst' / 'get-current-jst.py')
         )['current_jst']
 
         formatted_footer = runpy.run_path(str(Path(script_directory) / 'format-response-footer.py'))['format_response_footer'](
@@ -425,7 +425,7 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         # userPromptSubmittedのhook.startはuser.messageより前に記録されるため、そこからを今回のターンとする。
         record_hook_run = runpy.run_path(
-            str(Path(script_directory).parents[2] / 'utilities' / 'hook-activity-state.py')
+            str(Path(script_directory).parents[2] / 'utilities' / 'hook-activity-state' / 'hook-activity-state.py')
         )['record_hook_run']
         with patch.object(tempfile, 'tempdir', self.temp_dir):
             for timestamp, event_name, hook_name, fired in (
@@ -593,7 +593,7 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         _write_all_text(flush_transcript, '\n' + _to_compressed_json(start_event) + '\n{"type":')
 
-        waiter = runpy.run_path(str(Path(script_directory).parents[2] / 'utilities' / 'wait-for-agent-stop-event.py'))
+        waiter = runpy.run_path(str(Path(script_directory).parents[2] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py'))
         is_event_recorded = waiter['_is_agent_stop_event_recorded']
         wait_for_event = waiter['wait_for_agent_stop_event']
 

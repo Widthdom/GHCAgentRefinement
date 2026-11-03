@@ -6,7 +6,7 @@
 # 2：標準エラー出力
 
 # 1>/dev/null 2>&1：標準出力の出力先を/dev/nullにし、標準エラー出力も標準出力と同じ出力先（左記により/dev/null）にする
-python3 "${0%/*}/../../../utilities/check-python-version.py" 1>/dev/null 2>&1
+python3 "${0%/*}/../../../utilities/check-python-version/check-python-version.py" 1>/dev/null 2>&1
 if [ "$?" -ne 0 ]; then
     requirement='Python 3.14 or later is required, and it must be available as the python3 command.'
     # macOS の場合は Homebrew でのインストールを推奨

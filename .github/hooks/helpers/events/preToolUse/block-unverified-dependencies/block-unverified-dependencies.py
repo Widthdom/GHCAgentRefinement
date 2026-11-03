@@ -13,14 +13,6 @@ import sys
 from typing import cast
 
 
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-# 置換前の内容を表す引数。書き込む内容ではないため検査せず、既存の内容として照合に使う。
-REMOVED_TEXT_KEYS = {'old_str', 'old_string'}
-# 書き込む内容ではない引数。
-IGNORED_KEYS = {'path', 'command'}
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
-
 # 依存を書くファイルの種類。ファイル名（`/` 区切りのパスの末尾）で判定する。
 NUGET_MANIFEST_PATTERN = re.compile(r'(?i)\.(?:csproj|fsproj|vbproj|props|targets)$')
 REQUIREMENTS_PATTERN = re.compile(r'(?i)(?:^|/)(?:requirements[^/]*\.(?:txt|in)|requirements/[^/]+\.(?:txt|in))$')
@@ -71,64 +63,6 @@ DENY_REASON = (
     'Do not install a package just to check that it exists. '
     'If you cannot reach the registry, tell the user which dependency you want to add and why instead.'
 )
-
-
-def get_tool_args(raw_tool_args):
-    # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
-
-
-def collect_strings(value, ignored_keys=frozenset()):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            if key not in ignored_keys:
-                yield from collect_strings(item, ignored_keys)
-    elif isinstance(value, list):
-        for item in value:
-            yield from collect_strings(item, ignored_keys)
-
-
-def get_patch_writes(text):
-    # パッチをファイルごとに分け、追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。
-    writes = []
-    for line in text.splitlines():
-        match = PATCH_FILE_PATTERN.match(line)
-        if match:
-            writes.append({'path': match.group(2), 'written': [], 'removed': [], 'deleted': match.group(1) == 'Delete'})
-        elif writes and line.startswith('+'):
-            writes[-1]['written'].append(line[1:])
-        elif writes and line.startswith('-'):
-            writes[-1]['removed'].append(line[1:])
-    return [
-        {'path': write['path'], 'written': '\n'.join(write['written']), 'removed': '\n'.join(write['removed'])}
-        for write in writes if not write['deleted']
-    ]
-
-
-def get_writes(tool_name, tool_args):
-    # 戻り値は {path, written（書き込む内容）, removed（置換前の内容）} のリスト。
-    if tool_name == 'apply_patch':
-        return [write for text in collect_strings(tool_args) for write in get_patch_writes(text)]
-    if not isinstance(tool_args, dict):
-        return []
-    # str_replace_editorのviewは閲覧なので対象外とする。
-    if tool_name == 'str_replace_editor' and tool_args.get('command') == 'view':
-        return []
-    path = tool_args.get('path')
-    if not isinstance(path, str) or not path.strip():
-        return []
-    return [{
-        'path': path,
-        'written': '\n'.join(collect_strings(tool_args, IGNORED_KEYS | REMOVED_TEXT_KEYS)),
-        'removed': '\n'.join(text for key in REMOVED_TEXT_KEYS for text in collect_strings(tool_args.get(key))),
-    }]
 
 
 def read_text(path):
@@ -475,7 +409,7 @@ def main():
             raise ValueError('hook input must be a JSON object.')
         state = runpy.run_path(os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'verified-packages-state.py',
+            'utilities', 'verified-packages-state', 'verified-packages-state.py',
         ))
         state_path = state['get_state_path'](hook_input.get('sessionId'))
         cwd = hook_input.get('cwd')
@@ -490,23 +424,25 @@ def main():
         if 'toolArgs' not in hook_input:
             raise ValueError('toolArgs is required.')
 
-        tool_name = tool_name.removeprefix('functions.')
-        if tool_name not in EDIT_TOOL_NAMES:
-            return 0
+        # 編集ツールの引数の解析は、共通utilityで行う。
+        extract_edit_tool_changes = runpy.run_path(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+            'utilities', 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+        ))['extract_edit_tool_changes']
         real_cwd = os.path.realpath(cwd)
         added = []
-        for write in get_writes(tool_name, get_tool_args(hook_input['toolArgs'])):
-            path = os.path.realpath(os.path.join(cwd, write['path']))
+        for change in extract_edit_tool_changes(tool_name, hook_input['toolArgs']):
+            path = os.path.realpath(os.path.join(cwd, change['path']))
             kind = get_kind(path.replace(os.sep, '/'))
             if kind is None:
                 continue
             # 既存の内容（置換前の内容とファイルの現在の内容）にある依存は、移動や周辺の編集とみなす。
             existing = {
                 (ecosystem, normalize_name(state, ecosystem, name), version)
-                for ecosystem, name, version in extract_dependencies(kind, '\n'.join([write['removed'], read_text(path)]))
+                for ecosystem, name, version in extract_dependencies(kind, '\n'.join([change['removed'], read_text(path)]))
             }
             existing_names = {(ecosystem, name) for ecosystem, name, _ in existing}
-            for ecosystem, name, version in extract_dependencies(kind, write['written']):
+            for ecosystem, name, version in extract_dependencies(kind, change['written']):
                 normalized = normalize_name(state, ecosystem, name)
                 if (ecosystem, normalized, version) in existing:
                     continue

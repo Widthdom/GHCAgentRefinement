@@ -10,9 +10,10 @@ agentStop（エージェントの応答終了時）
 1. [debug-leftover-definitions.json](./debug-leftover-definitions.json) から、対象外のファイルのパス（`excludedFilePatterns`）と、デバッグ用のコードの正規表現（`debugPatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（Copilotはトランスクリプトへ非同期に追記するため、発動直後は最終応答が未書き込みのことがある）。
 3. ユーザーの最新の依頼以降について、最終応答と、編集系ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）の書き込む内容と置換前の内容を集める。
-   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・`old_str` を除く引数の文字列を書き込む内容、`old_str` を置換前の内容とする（`str_replace_editor` の `view` は除く）。
+   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・`old_str` を除く引数の文字列を書き込む内容、`old_str` を置換前の内容とする（`str_replace_editor` の `view`・`undo_edit` は除く）。
    - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。
-4. cwdからの相対パス（`/` 区切り）が `excludedFilePatterns` に一致しないファイルについて、書き込む内容のうち `debugPatterns` に一致する行を探す。前後の空白を除いて同じ行が置換前の内容にあるもの（元からあるもの）と、ファイルの現在の内容にないもの（後の編集で消えたもの）は除く。
+   - 各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
+4. cwdからの相対パス（`/` 区切り）が `excludedFilePatterns` に一致しないファイルについて、書き込む内容のうち `debugPatterns` に一致する行を探す。前後の空白を除いて同じ行が置換前の内容にあるもの（元からあるもの）と、ファイルの現在の内容にないもの（後の編集で消えたもの）は除く。同じファイルの同じ行は、複数の種類に一致しても1件にまとめる。この照合は [find-introduced-lines-by-regex.py](../../../utilities/find-introduced-lines-by-regex/find-introduced-lines-by-regex.py) で行う。
 5. 該当する行があれば、cwd配下のファイルはcwdからの相対パス（`/` 区切り）で最大10件を列挙し、削除するか、意図した出力なら応答でその旨を示すよう求める英語の理由とともに `{"decision":"block","reason":"..."}` を標準出力して差し戻す。
 
 ## 検出する内容

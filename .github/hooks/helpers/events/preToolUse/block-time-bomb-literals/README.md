@@ -11,6 +11,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
    - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・置換前の内容（`old_str`）を除く引数の文字列（`str_replace_editor` の `view`・`undo_edit` は除く）。`create` での上書きはファイルの現在の内容と比べる。
    - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）と削除行（`-`）。`*** Delete File:` は対象外とする。
+   - 各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
 3. cwdからの相対パス（`/` 区切り）が `testFilePatterns` に一致するファイルについて、置換前の内容にない行（書き加えた行）から日付のリテラルを探す。
 4. 書き加えた日付が範囲内で、編集後のファイル（現在の内容と書き込む内容）に `clockPatterns` があり、`frozenClockPatterns` がなければ拒否の候補とする。
 5. 候補のうち、このセッションで同じファイルをまだ拒否していないものがあれば、現在時刻から日付を求めるか時計を固定するよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。

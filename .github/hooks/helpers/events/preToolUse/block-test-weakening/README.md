@@ -9,8 +9,9 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 処理詳細
 1. [test-weakening-definitions.json](./test-weakening-definitions.json) から、テストファイルのパス（`testFilePatterns`）、アサーション（`assertionPatterns`）、テストを弱める行（`weakeningPatterns`）の正規表現を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
-   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・置換前の内容（`old_str`）を除く引数の文字列（`str_replace_editor` の `view` は除く）
+   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・置換前の内容（`old_str`）を除く引数の文字列（`str_replace_editor` の `view`・`undo_edit` は除く）
    - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）と削除行（`-`）、`*** Delete File:` のファイル
+   - 各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
 3. cwdからの相対パス（`/` 区切り）が `testFilePatterns` のいずれかに一致するファイルについて、次のいずれかに該当すれば拒否の候補とする。
    - 骨抜き：書き込む内容に、`weakeningPatterns` に一致する行がある。ただし、同じ行が既存の内容（置換前の内容、パッチの削除行、ファイルの現在の内容）にあれば除く。
    - アサーションの減少：`assertionPatterns` に一致する行の数が、置換前の内容より書き込む内容で少ない。`create` での上書きはファイルの現在の内容と、削除は現在の内容と空の内容とを比べる。

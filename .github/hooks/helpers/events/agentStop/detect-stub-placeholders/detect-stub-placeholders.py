@@ -9,13 +9,6 @@ from pathlib import Path
 from typing import cast
 
 
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-# 置換前の内容を表す引数。書き込む内容ではないため検査せず、既存の内容として照合に使う。
-REMOVED_TEXT_KEYS = {'old_str', 'old_string'}
-# 書き込む内容ではない引数。
-IGNORED_KEYS = {'path', 'command'}
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
 EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
 PLACEHOLDER_PATTERNS_KEY = 'placeholderPatterns'
 DISCLOSURE_PATTERNS_KEY = 'disclosurePatterns'
@@ -71,72 +64,18 @@ def load_definitions(path):
     )
 
 
-def collect_strings(value, ignored_keys=frozenset()):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            if key not in ignored_keys:
-                yield from collect_strings(item, ignored_keys)
-    elif isinstance(value, list):
-        for item in value:
-            yield from collect_strings(item, ignored_keys)
-
-
-def get_patch_writes(text):
-    # パッチをファイルごとに分け、追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。
-    writes = []
-    for line in text.splitlines():
-        match = PATCH_FILE_PATTERN.match(line)
-        if match:
-            writes.append({'path': match.group(2), 'written': [], 'removed': [], 'deleted': match.group(1) == 'Delete'})
-        elif writes and line.startswith('+'):
-            writes[-1]['written'].append(line[1:])
-        elif writes and line.startswith('-'):
-            writes[-1]['removed'].append(line[1:])
-    return [
-        (write['path'], '\n'.join(write['written']), '\n'.join(write['removed']))
-        for write in writes if not write['deleted']
-    ]
-
-
-def get_writes(tool_name, arguments):
-    # 戻り値は (パス, 書き込む内容, 置換前の内容) のリスト。
-    if tool_name == 'apply_patch':
-        return [write for text in collect_strings(arguments) for write in get_patch_writes(text)]
-    if not isinstance(arguments, dict):
-        return []
-    # str_replace_editorのviewは閲覧なので対象外とする。
-    if tool_name == 'str_replace_editor' and arguments.get('command') == 'view':
-        return []
-    path = arguments.get('path')
-    if not isinstance(path, str) or not path.strip():
-        return []
-    return [(
-        path,
-        '\n'.join(collect_strings(arguments, IGNORED_KEYS | REMOVED_TEXT_KEYS)),
-        '\n'.join(text for key in REMOVED_TEXT_KEYS for text in collect_strings(arguments.get(key))),
-    )]
-
-
-def get_arguments(raw_arguments):
-    # argumentsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で記録される場合もある。
-    if isinstance(raw_arguments, str):
-        try:
-            return json.loads(raw_arguments)
-        except ValueError:
-            return raw_arguments
-    return raw_arguments
-
-
 def get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・編集・本hookによる差し戻し済みかを集める。
     # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
+    # 編集ツールの引数の解析は、共通utilityで行う。
+    extract_edit_tool_changes = runpy.run_path(
+        str(Path(__file__).resolve().parents[3] / 'utilities' / 'extract-edit-tool-changes' / 'extract-edit-tool-changes.py')
+    )['extract_edit_tool_changes']
     last_assistant_msg = None
-    writes = []
+    changes = []
     already_requested = False
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects.py')
+        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -147,7 +86,7 @@ def get_turn_summary(transcript_path):
             content = data.get('content')
             if data.get('delivery') != 'queued':
                 last_assistant_msg = None
-                writes.clear()
+                changes.clear()
                 already_requested = False
             elif isinstance(content, str) and content.startswith(REASON_PREFIX):
                 already_requested = True
@@ -157,62 +96,9 @@ def get_turn_summary(transcript_path):
                 last_assistant_msg = content
         elif event_type == 'tool.execution_start':
             tool_name = data.get('toolName')
-            if isinstance(tool_name, str) and tool_name.removeprefix('functions.') in EDIT_TOOL_NAMES:
-                writes.extend(get_writes(tool_name.removeprefix('functions.'), get_arguments(data.get('arguments'))))
-    return last_assistant_msg, writes, already_requested
-
-
-def normalize_lines(text):
-    # インデントの違いで既存の内容との照合が外れないよう、各行の前後の空白を除く。
-    return {line.strip() for line in text.splitlines()}
-
-
-def read_lines(path):
-    try:
-        with open(path, encoding='utf-8', errors='replace') as file:
-            return normalize_lines(file.read())
-    except OSError:
-        return None
-
-
-def get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path
-
-
-def find_placeholders(writes, cwd, excluded_file_patterns, placeholder_patterns):
-    # 戻り値は (表示パス, 種類, 該当行) のリスト。
-    # 置換前の内容に同じ行があるもの（元からあるもの）と、最終的にファイルから消えたものは除く。
-    findings = []
-    current_lines = {}
-    real_cwd = os.path.realpath(cwd)
-    for path, written, removed in writes:
-        full_path = os.path.realpath(os.path.join(cwd, path))
-        # パターンの照合と理由での表示は、OSによらず `/` 区切りのパスで行う。
-        display_path = get_display_path(full_path, real_cwd).replace(os.sep, '/')
-        if any(pattern.search(display_path) for pattern in excluded_file_patterns):
-            continue
-        removed_lines = normalize_lines(removed)
-        for name, pattern in placeholder_patterns:
-            for match in pattern.finditer(written):
-                start = written.rfind('\n', 0, match.start()) + 1
-                end = written.find('\n', match.start())
-                line = written[start:None if end < 0 else end].strip()
-                if line in removed_lines:
-                    continue
-                if full_path not in current_lines:
-                    current_lines[full_path] = read_lines(full_path) if os.path.isfile(full_path) else None
-                lines = current_lines[full_path]
-                finding = (display_path, name, line)
-                if lines is not None and line in lines and finding not in findings:
-                    findings.append(finding)
-    return findings
+            if isinstance(tool_name, str):
+                changes.extend(extract_edit_tool_changes(tool_name, data.get('arguments')))
+    return last_assistant_msg, changes, already_requested
 
 
 def format_finding(finding):
@@ -263,17 +149,22 @@ def main(arguments=None):
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
         runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event.py')
+            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
-        last_assistant_msg, writes, already_requested = get_turn_summary(transcript_path)
+        last_assistant_msg, changes, already_requested = get_turn_summary(transcript_path)
         # 同じ依頼で差し戻すのは1回だけにし、意図して残す場合に停止できなくなるのを防ぐ。
-        if last_assistant_msg is None or already_requested or not writes:
+        if last_assistant_msg is None or already_requested or not changes:
             return 0
         # 応答で未実装の箇所に触れていれば、ユーザーに伝わっているとみなす。
         if any(pattern.search(last_assistant_msg) for pattern in disclosure_patterns):
             return 0
-        findings = find_placeholders(writes, cwd, excluded_file_patterns, placeholder_patterns)
+        # 新たに持ち込んだ行の照合は、共通utilityで行う。
+        find_introduced_lines_by_regex = runpy.run_path(str(
+            Path(__file__).resolve().parents[3] / 'utilities' / 'find-introduced-lines-by-regex'
+            / 'find-introduced-lines-by-regex.py'
+        ))['find_introduced_lines_by_regex']
+        findings = find_introduced_lines_by_regex(changes, cwd, excluded_file_patterns, placeholder_patterns)
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to detect stub placeholders: {ex}', file=sys.stderr)
         return 2

@@ -10,7 +10,7 @@ def get_prompt_log_paths(transcript_path, session_id):
     script_directory = os.path.dirname(os.path.abspath(__file__))
     helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(script_directory)))
     read_jsonl_objects = runpy.run_path(
-        os.path.join(helpers_directory, 'utilities', 'read-jsonl-objects.py'),
+        os.path.join(helpers_directory, 'utilities', 'read-jsonl-objects', 'read-jsonl-objects.py'),
     )['read_jsonl_objects']
     timestamps = set()
     response_started = False

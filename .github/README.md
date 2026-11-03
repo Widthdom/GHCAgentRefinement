@@ -80,9 +80,9 @@ flowchart LR
   </thead>
   <tbody>
     <tr>
-      <td rowspan="9">sessionStart</td>
-      <td rowspan="9"></td>
-      <td rowspan="9"></td>
+      <td rowspan="6">sessionStart</td>
+      <td rowspan="6"></td>
+      <td rowspan="6"></td>
       <td>copilot-instructions.md読込</td>
       <td><a href="./hooks/helpers/events/sessionStart/load-copilot-instructions/README.md">load-copilot-instructions</a></td>
     </tr>
@@ -91,13 +91,10 @@ flowchart LR
       <td><a href="./hooks/helpers/events/sessionStart/check-target-session/README.md">check-target-session</a></td>
     </tr>
     <tr>
-      <td rowspan="5">各種ツール導入状況確認</td>
+      <td rowspan="2">各種ツール導入状況確認</td>
       <td><a href="./hooks/helpers/events/sessionStart/check-python/README.md">check-python</a></td>
     </tr>
-    <tr><td><a href="./hooks/helpers/events/sessionStart/check-ast-grep/README.md">check-ast-grep</a></td></tr>
-    <tr><td><a href="./hooks/helpers/events/sessionStart/check-git/README.md">check-git</a></td></tr>
-    <tr><td><a href="./hooks/helpers/events/sessionStart/check-jq/README.md">check-jq</a></td></tr>
-    <tr><td><a href="./hooks/helpers/events/sessionStart/check-ripgrep/README.md">check-ripgrep</a></td></tr>
+    <tr><td><a href="./hooks/helpers/events/sessionStart/check-required-tools/README.md">check-required-tools</a></td></tr>
     <tr>
       <td>一時ファイル蓄積状況確認</td>
       <td><a href="./hooks/helpers/events/sessionStart/check-hook-temp-files/README.md">check-hook-temp-files</a></td>

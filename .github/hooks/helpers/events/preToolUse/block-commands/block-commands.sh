@@ -6,7 +6,7 @@
 # 2：標準エラー出力
 
 # 1>/dev/null 2>&1：標準出力の出力先を/dev/nullにし、標準エラー出力も標準出力と同じ出力先（左記により/dev/null）にする
-python3 "${0%/*}/../../../utilities/check-python-version.py" 1>/dev/null 2>&1
+python3 "${0%/*}/../../../utilities/check-python-version/check-python-version.py" 1>/dev/null 2>&1
 if [ "$?" -ne 0 ]; then
     echo 'Python 3.14 or later is required to enforce the repository command policy. Tool execution denied.' >&2
     # JSON 形式で標準出力することで、hook実行元に対して許可拒否とその理由を伝える

@@ -4,6 +4,7 @@ import io
 import json
 import os
 import re
+import runpy
 import sqlite3
 import sys
 import tempfile
@@ -12,13 +13,6 @@ from contextlib import closing
 from typing import cast
 
 
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-# 置換前の内容を表す引数。書き込む内容ではないため検査せず、既存の内容として照合に使う。
-REMOVED_TEXT_KEYS = {'old_str', 'old_string'}
-# 書き込む内容ではない引数。
-IGNORED_KEYS = {'path', 'command'}
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
 EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
 SWALLOWING_PATTERNS_KEY = 'swallowingPatterns'
 MAX_SNIPPETS = 3
@@ -69,74 +63,6 @@ def load_definitions(path):
         compile_patterns(excluded, EXCLUDED_FILE_PATTERNS_KEY),
         [(definition['name'], pattern) for definition, pattern in zip(swallowing_definitions, swallowing_patterns)],
     )
-
-
-def get_tool_args(raw_tool_args):
-    # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
-
-
-def collect_strings(value, ignored_keys=frozenset()):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            if key not in ignored_keys:
-                yield from collect_strings(item, ignored_keys)
-    elif isinstance(value, list):
-        for item in value:
-            yield from collect_strings(item, ignored_keys)
-
-
-def get_patch_writes(text):
-    # パッチをファイルごとに分け、追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。
-    # 削除するファイルには何も書き込まないため対象外とする。
-    writes = []
-    for line in text.splitlines():
-        match = PATCH_FILE_PATTERN.match(line)
-        if match:
-            writes.append({'path': match.group(2), 'written': [], 'removed': [], 'deleted': match.group(1) == 'Delete'})
-        elif writes and line.startswith('+'):
-            writes[-1]['written'].append(line[1:])
-        elif writes and line.startswith('-'):
-            writes[-1]['removed'].append(line[1:])
-    return [
-        {'path': write['path'], 'written': '\n'.join(write['written']), 'removed': '\n'.join(write['removed']),
-         'replacement': None}
-        for write in writes if not write['deleted']
-    ]
-
-
-def get_replacement(tool_args):
-    # 置換前後の内容が1組なら返す。置換後のファイル全体で、`except:` の次の行だけを `pass` にする編集も検出するため。
-    old = next((tool_args[key] for key in REMOVED_TEXT_KEYS if isinstance(tool_args.get(key), str)), None)
-    new = next((tool_args[key] for key in ('new_str', 'new_string') if isinstance(tool_args.get(key), str)), None)
-    return (old, new) if old and new is not None else None
-
-
-def get_writes(tool_name, tool_args):
-    # 戻り値は {path, written（書き込む内容）, removed（置換前の内容）, replacement（置換前後の内容の組）} のリスト。
-    if tool_name == 'apply_patch':
-        return [write for text in collect_strings(tool_args) for write in get_patch_writes(text)]
-    if not isinstance(tool_args, dict):
-        return []
-    # str_replace_editorのviewは閲覧なので対象外とする。
-    if tool_name == 'str_replace_editor' and tool_args.get('command') == 'view':
-        return []
-    path = tool_args.get('path')
-    if not isinstance(path, str) or not path.strip():
-        return []
-    return [{
-        'path': path,
-        'written': '\n'.join(collect_strings(tool_args, IGNORED_KEYS | REMOVED_TEXT_KEYS)),
-        'removed': '\n'.join(text for key in REMOVED_TEXT_KEYS for text in collect_strings(tool_args.get(key))),
-        'replacement': get_replacement(tool_args),
-    }]
 
 
 def read_existing(path):
@@ -246,29 +172,32 @@ def main(arguments=None):
 
         real_cwd = os.path.realpath(cwd)
         candidates = []
-        tool_name = tool_name.removeprefix('functions.')
-        if tool_name in EDIT_TOOL_NAMES:
-            for write in get_writes(tool_name, get_tool_args(hook_input['toolArgs'])):
-                path = os.path.realpath(os.path.join(cwd, write['path']))
-                display_path = get_display_path(path, real_cwd)
-                # パターンはOSによらず `/` 区切りのパスに対して照合する。
-                if any(pattern.search(display_path.replace(os.sep, '/')) for pattern in excluded_file_patterns):
-                    continue
-                current = (read_existing(path) if os.path.isfile(path) else None) or ''
-                # 置換を適用できればファイル全体を、できなければ書き込む内容を、それぞれ既存の内容と比べる。
-                replacement = write['replacement']
-                if replacement and replacement[0] in current:
-                    written, existing = current.replace(*replacement, 1), current
-                else:
-                    written, existing = write['written'], '\n'.join([write['removed'], current])
-                kinds, snippets = find_swallowing(swallowing_patterns, written, existing)
-                if snippets:
-                    # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-                    file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
-                    candidates.append((file_key, FINDING.format(
-                        file=display_path, kinds=', '.join(kinds),
-                        snippets=', '.join(format_snippet(snippet) for snippet in snippets[:MAX_SNIPPETS]),
-                    )))
+        # 編集ツールの引数の解析は、共通utilityで行う。
+        extract_edit_tool_changes = runpy.run_path(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+            'utilities', 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+        ))['extract_edit_tool_changes']
+        for change in extract_edit_tool_changes(tool_name, hook_input['toolArgs']):
+            path = os.path.realpath(os.path.join(cwd, change['path']))
+            display_path = get_display_path(path, real_cwd)
+            # パターンはOSによらず `/` 区切りのパスに対して照合する。
+            if any(pattern.search(display_path.replace(os.sep, '/')) for pattern in excluded_file_patterns):
+                continue
+            current = (read_existing(path) if os.path.isfile(path) else None) or ''
+            # 置換を適用できればファイル全体を、できなければ書き込む内容を、それぞれ既存の内容と比べる。
+            replacement = change['replacement']
+            if replacement and replacement[0] in current:
+                written, existing = current.replace(*replacement, 1), current
+            else:
+                written, existing = change['written'], '\n'.join([change['removed'], current])
+            kinds, snippets = find_swallowing(swallowing_patterns, written, existing)
+            if snippets:
+                # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
+                file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
+                candidates.append((file_key, FINDING.format(
+                    file=display_path, kinds=', '.join(kinds),
+                    snippets=', '.join(format_snippet(snippet) for snippet in snippets[:MAX_SNIPPETS]),
+                )))
 
         reasons = []
         if candidates:

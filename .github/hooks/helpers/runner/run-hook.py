@@ -152,7 +152,7 @@ def main():
     if session_id is not None:
         # 記録に失敗してもhookの判定は変えず、終了コードはhookのものを返す。原因は標準エラーに出力する。
         try:
-            runpy.run_path(os.path.join(helpers_directory, 'utilities', 'hook-activity-state.py'))['record_hook_run'](
+            runpy.run_path(os.path.join(helpers_directory, 'utilities', 'hook-activity-state', 'hook-activity-state.py'))['record_hook_run'](
                 session_id, event_name, hook_name, started_at_ms, _is_fired(exit_code, output_bytes),
             )
         except (OSError, ValueError, sqlite3.Error) as ex:

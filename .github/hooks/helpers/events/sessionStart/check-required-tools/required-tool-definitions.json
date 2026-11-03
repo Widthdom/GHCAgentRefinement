@@ -1,0 +1,48 @@
+{
+  "tools": [
+    {
+      "name": "ast-grep",
+      "command": "ast-grep",
+      "versionPattern": "ast-grep (\\d+)\\.(\\d+)\\.(\\d+)",
+      "minimumVersion": null,
+      "install": {
+        "win32": "Install it with: winget install --id ast-grep.ast-grep --exact --source winget",
+        "darwin": "Install it with: brew install ast-grep",
+        "other": "Installation guide: https://github.com/ast-grep/ast-grep#installation"
+      }
+    },
+    {
+      "name": "Git",
+      "command": "git",
+      "versionPattern": "git version (\\d+)\\.(\\d+)\\.(\\d+)",
+      "minimumVersion": "2.34.1",
+      "install": {
+        "win32": "Install it with: winget install --id Git.Git --exact --source winget",
+        "darwin": "Install it with: brew install git",
+        "other": "Installation guide: https://git-scm.com/install/linux"
+      }
+    },
+    {
+      "name": "jq",
+      "command": "jq",
+      "versionPattern": "jq-(\\d+)\\.(\\d+)(?:\\.(\\d+))?",
+      "minimumVersion": "1.6",
+      "install": {
+        "win32": "Install it with: winget install --id jqlang.jq --exact --source winget",
+        "darwin": "Install it with: brew install jq",
+        "other": "Installation guide: https://github.com/jqlang/jq#installation"
+      }
+    },
+    {
+      "name": "ripgrep",
+      "command": "rg",
+      "versionPattern": "ripgrep (\\d+)\\.(\\d+)\\.(\\d+)",
+      "minimumVersion": "13.0.0",
+      "install": {
+        "win32": "Install it with: winget install --id BurntSushi.ripgrep.MSVC --exact --source winget",
+        "darwin": "Install it with: brew install ripgrep",
+        "other": "Installation guide: https://github.com/BurntSushi/ripgrep#installation"
+      }
+    }
+  ]
+}

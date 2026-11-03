@@ -31,4 +31,4 @@ postToolUse（ツール `view`・`edit`・`create`・`insert`・`str_replace_edi
   - [require-read-before-edit](../../preToolUse/require-read-before-edit/README.md)：読まずに編集しようとしたかを判定する。
   - [detect-unread-speculation](../../agentStop/detect-unread-speculation/README.md)：最終応答で読んでいないファイルの中身を推測で語ったかを判定する。
 - 閲覧に加えて編集の成功も記録する。置換やパッチの適用には現在の内容との一致が必要で、作成したファイルは内容を自分で書いているため。
-- 状態は [known-files-state.py](../../../utilities/known-files-state.py) でrequire-read-before-edit hook・detect-unread-speculation hookと共有し、ファイルパスは保存せず照合用のSHA-256だけを保存する。
+- 状態は [known-files-state.py](../../../utilities/known-files-state/known-files-state.py) でrequire-read-before-edit hook・detect-unread-speculation hookと共有し、ファイルパスは保存せず照合用のSHA-256だけを保存する。

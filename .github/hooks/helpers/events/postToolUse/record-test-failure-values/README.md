@@ -10,7 +10,7 @@ postToolUse（ツール `bash`・`powershell` が成功した直後）
 
 ## 処理詳細
 
-1. ツール引数の `command` がテストの実行（`pytest`・`npm test`・`test-*.py` など）でなければ何もしない。基準は [verify-completion-claims](../../agentStop/verify-completion-claims/README.md) hookと同じ。
+1. ツール引数の `command` がテストの実行（`pytest`・`npm test`・`test-*.py` など）でなければ何もしない。テストの実行かどうかは、[check-test-runs.py](../../../utilities/check-test-runs/check-test-runs.py) の基準で判定する。
 2. ツールの結果（`toolResult.textResultForLlm`）から、失敗したアサーションの期待値と実際の値の組を読み取る。
 3. 値を正規化し（前後の空白・末尾のカンマ・1組の引用符を除く）、組と期待値をこのセッションの最新のテスト実行の結果として記録する。前回の記録は消す。
 
@@ -43,4 +43,4 @@ postToolUse（ツール `bash`・`powershell` が成功した直後）
 
 - [block-goalpost-moving](../../preToolUse/block-goalpost-moving/README.md) hookと [block-hardcoding-for-tests](../../preToolUse/block-hardcoding-for-tests/README.md) hookが使う記録。単独では何も出力しない。
 - テストの失敗はコマンドの非ゼロ終了で表され、ツール自体は成功扱いになるため、postToolUseFailureではなくpostToolUseで記録する。
-- 状態は [assertion-failure-values-state.py](../../../utilities/assertion-failure-values-state.py) でblock-goalpost-moving hook・block-hardcoding-for-tests hookと共有する。値そのものは保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/test-failure-values/<セッションID>.sqlite3` に保存する。読み取れる組がなく、消す記録もなければ状態ファイルを作らない。
+- 状態は [assertion-failure-values-state.py](../../../utilities/assertion-failure-values-state/assertion-failure-values-state.py) でblock-goalpost-moving hook・block-hardcoding-for-tests hookと共有する。値そのものは保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/test-failure-values/<セッションID>.sqlite3` に保存する。読み取れる組がなく、消す記録もなければ状態ファイルを作らない。
