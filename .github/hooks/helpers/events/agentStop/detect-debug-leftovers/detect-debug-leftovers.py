@@ -96,59 +96,6 @@ def get_turn_summary(transcript_path):
     return last_assistant_msg, changes, already_requested
 
 
-def normalize_lines(text):
-    # インデントの違いで既存の内容との照合が外れないよう、各行の前後の空白を除く。
-    return {line.strip() for line in text.splitlines()}
-
-
-def read_lines(path):
-    try:
-        with open(path, encoding='utf-8', errors='replace') as file:
-            return normalize_lines(file.read())
-    except OSError:
-        return None
-
-
-def get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path
-
-
-def find_debug_leftovers(changes, cwd, excluded_file_patterns, debug_patterns):
-    # 戻り値は (表示パス, 種類, 該当行) のリスト。
-    # 置換前の内容に同じ行があるもの（元からあるもの）と、最終的にファイルから消えたものは除く。
-    findings = []
-    current_lines = {}
-    real_cwd = os.path.realpath(cwd)
-    for change in changes:
-        path, written, removed = change['path'], change['written'], change['removed']
-        full_path = os.path.realpath(os.path.join(cwd, path))
-        # パターンの照合と理由での表示は、OSによらず `/` 区切りのパスで行う。
-        display_path = get_display_path(full_path, real_cwd).replace(os.sep, '/')
-        if any(pattern.search(display_path) for pattern in excluded_file_patterns):
-            continue
-        removed_lines = normalize_lines(removed)
-        for name, pattern in debug_patterns:
-            for match in pattern.finditer(written):
-                start = written.rfind('\n', 0, match.start()) + 1
-                end = written.find('\n', match.start())
-                line = written[start:None if end < 0 else end].strip()
-                if line in removed_lines or any(finding[2] == line for finding in findings):
-                    continue
-                if full_path not in current_lines:
-                    current_lines[full_path] = read_lines(full_path) if os.path.isfile(full_path) else None
-                lines = current_lines[full_path]
-                if lines is not None and line in lines:
-                    findings.append((display_path, name, line))
-    return findings
-
-
 def format_finding(finding):
     display_path, name, line = finding
     if len(line) > MAX_SNIPPET_LENGTH:
@@ -202,7 +149,12 @@ def main(arguments=None):
         # 同じ依頼で差し戻すのは1回だけにし、意図して残す場合に停止できなくなるのを防ぐ。
         if last_assistant_msg is None or already_requested or not changes:
             return 0
-        findings = find_debug_leftovers(changes, cwd, excluded_file_patterns, debug_patterns)
+        # 新たに持ち込んだ行の照合は、共通utilityで行う。
+        find_introduced_lines_by_regex = runpy.run_path(str(
+            Path(__file__).resolve().parents[3] / 'utilities' / 'find-introduced-lines-by-regex'
+            / 'find-introduced-lines-by-regex.py'
+        ))['find_introduced_lines_by_regex']
+        findings = find_introduced_lines_by_regex(changes, cwd, excluded_file_patterns, debug_patterns)
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to detect debug leftovers: {ex}', file=sys.stderr)
         return 2

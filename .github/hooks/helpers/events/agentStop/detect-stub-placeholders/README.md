@@ -14,7 +14,7 @@ agentStop（エージェントの応答終了時）
    - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。
    - 各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
 4. 最終応答が `disclosurePatterns` に一致する（「未実装」「スタブ」「TODO」「not implemented」などに触れている）場合は終了する。
-5. cwdからの相対パス（`/` 区切り）が `excludedFilePatterns` に一致しないファイルについて、書き込む内容のうち `placeholderPatterns` に一致する行を探す。前後の空白を除いて同じ行が置換前の内容にあるもの（元からあるもの）と、ファイルの現在の内容にないもの（後の編集で消えたもの）は除く。
+5. cwdからの相対パス（`/` 区切り）が `excludedFilePatterns` に一致しないファイルについて、書き込む内容のうち `placeholderPatterns` に一致する行を探す。前後の空白を除いて同じ行が置換前の内容にあるもの（元からあるもの）と、ファイルの現在の内容にないもの（後の編集で消えたもの）は除く。同じファイルの同じ行は、複数の種類に一致しても1件にまとめる。この照合は [find-introduced-lines-by-regex.py](../../../utilities/find-introduced-lines-by-regex/find-introduced-lines-by-regex.py) で行う。
 6. 該当する行があれば、cwd配下のファイルはcwdからの相対パス（`/` 区切り）で最大10件を列挙し、実装するか、残す箇所と理由を応答に明記するよう求める英語の理由とともに `{"decision":"block","reason":"..."}` を標準出力して差し戻す。
 
 ## 検出する内容
