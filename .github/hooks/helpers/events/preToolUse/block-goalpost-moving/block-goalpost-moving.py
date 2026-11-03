@@ -9,17 +9,17 @@ import sys
 from typing import cast
 
 
-TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
+_TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
 # 行の中のリテラル（文字列・数値・真偽値・null）。書き換え前後の行は、リテラル以外の部分が一致するものを対応させる。
-LITERAL_PATTERN = re.compile(
+_LITERAL_PATTERN = re.compile(
     r'"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|`[^`\n]*`'
     r'|(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])'
     r'|\b(?:True|False|None|true|false|null|nil|undefined)\b'
 )
-LITERAL_PLACEHOLDER = '\0'
-MAX_DISPLAY_LENGTH = 40
-FINDING = '{file} would replace the expected value {old} with {new}'
-DENY_REASON = (
+_LITERAL_PLACEHOLDER = '\0'
+_MAX_DISPLAY_LENGTH = 40
+_FINDING = '{file} would replace the expected value {old} with {new}'
+_DENY_REASON = (
     'Edit denied: {findings}, which is the actual value reported by the last failing test run. '
     'Changing the expectation to match the current output makes the test pass without fixing the behavior. '
     'Fix the implementation, or keep the test as it is and report the failure to the user. '
@@ -28,22 +28,22 @@ DENY_REASON = (
 )
 
 
-def load_test_file_patterns(path):
+def _load_test_file_patterns(path):
     # テストファイルの判定はblock-test-weakening hookの定義を共有し、二重管理しない。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
-    patterns = definitions.get(TEST_FILE_PATTERNS_KEY) if isinstance(definitions, dict) else None
+    patterns = definitions.get(_TEST_FILE_PATTERNS_KEY) if isinstance(definitions, dict) else None
     if not isinstance(patterns, list) or not patterns or not all(
         isinstance(pattern, str) and pattern.strip() for pattern in patterns
     ):
-        raise ValueError(f'test file definitions require a non-empty array of non-empty strings for {TEST_FILE_PATTERNS_KEY}.')
+        raise ValueError(f'test file definitions require a non-empty array of non-empty strings for {_TEST_FILE_PATTERNS_KEY}.')
     try:
         return [re.compile(pattern) for pattern in patterns]
     except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {TEST_FILE_PATTERNS_KEY}: {ex}') from None
+        raise ValueError(f'invalid regular expression in {_TEST_FILE_PATTERNS_KEY}: {ex}') from None
 
 
-def read_existing(path):
+def _read_existing(path):
     try:
         with open(path, encoding='utf-8', errors='replace') as file:
             return file.read()
@@ -51,7 +51,7 @@ def read_existing(path):
         return None
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -62,26 +62,26 @@ def get_display_path(path, cwd):
     return path
 
 
-def is_test_file(test_file_patterns, display_path):
+def _is_test_file(test_file_patterns, display_path):
     # パターンはOSによらず `/` 区切りのパスに対して照合する。
     slash_path = display_path.replace(os.sep, '/')
     return any(pattern.search(slash_path) for pattern in test_file_patterns)
 
 
-def split_literals(line):
-    return LITERAL_PATTERN.sub(LITERAL_PLACEHOLDER, line).strip(), LITERAL_PATTERN.findall(line)
+def _split_literals(line):
+    return _LITERAL_PATTERN.sub(_LITERAL_PLACEHOLDER, line).strip(), _LITERAL_PATTERN.findall(line)
 
 
-def find_swap(state, pair_keys, removed, written):
+def _find_swap(state, pair_keys, removed, written):
     # リテラル以外が一致する書き換え前後の行の組で、同じ位置のリテラルが期待値から実際の値に変わったものを探す。
     # 戻り値は最初に見つけた (書き換え前の値, 書き換え後の値)。見つからなければNone。
     removed_by_skeleton = {}
     for line in set(removed.splitlines()):
-        skeleton, literals = split_literals(line)
+        skeleton, literals = _split_literals(line)
         if literals:
             removed_by_skeleton.setdefault(skeleton, []).append(literals)
     for line in written.splitlines():
-        skeleton, new_literals = split_literals(line)
+        skeleton, new_literals = _split_literals(line)
         for old_literals in removed_by_skeleton.get(skeleton, []):
             if len(old_literals) != len(new_literals):
                 continue
@@ -96,8 +96,8 @@ def find_swap(state, pair_keys, removed, written):
     return None
 
 
-def shorten(value):
-    return value if len(value) <= MAX_DISPLAY_LENGTH else value[:MAX_DISPLAY_LENGTH] + '...'
+def _shorten(value):
+    return value if len(value) <= _MAX_DISPLAY_LENGTH else value[:_MAX_DISPLAY_LENGTH] + '...'
 
 
 def main(arguments=None):
@@ -117,7 +117,7 @@ def main(arguments=None):
     parsed_arguments = parser.parse_args(arguments)
 
     try:
-        test_file_patterns = load_test_file_patterns(parsed_arguments.definitions_path)
+        test_file_patterns = _load_test_file_patterns(parsed_arguments.definitions_path)
         # 記録側のpostToolUse hookと状態の形式・保存先を共有する。
         state = runpy.run_path(os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(script_directory))),
@@ -163,27 +163,27 @@ def main(arguments=None):
             for change in changes:
                 path = os.path.realpath(os.path.join(cwd, change['path']))
                 # テストファイルの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
-                display_path = get_display_path(path, real_cwd)
-                if not is_test_file(test_file_patterns, display_path):
+                display_path = _get_display_path(path, real_cwd)
+                if not _is_test_file(test_file_patterns, display_path):
                     continue
                 # 上書きではファイル全体、それ以外では置換前の内容と比べる。
-                current = (read_existing(path) if os.path.isfile(path) else None) or ''
+                current = (_read_existing(path) if os.path.isfile(path) else None) or ''
                 if change['full_content'] is not None and current:
                     removed, written = current, change['full_content']
                 else:
                     removed, written = change['removed'], change['written']
-                swap = find_swap(state, pair_keys, removed, written)
+                swap = _find_swap(state, pair_keys, removed, written)
                 # 同じファイルの拒否は1回だけにし、意図した編集なら再実行で通す。
                 if swap and connection.execute(
                     'INSERT OR IGNORE INTO denials (file) VALUES (?)', (state['get_file_key'](path),),
                 ).rowcount:
-                    findings.append(FINDING.format(file=display_path, old=shorten(swap[0]), new=shorten(swap[1])))
+                    findings.append(_FINDING.format(file=display_path, old=_shorten(swap[0]), new=_shorten(swap[1])))
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check goalpost moving: {ex}', file=sys.stderr)
         return 2
 
     if findings:
-        reason = DENY_REASON.format(findings='; '.join(findings))
+        reason = _DENY_REASON.format(findings='; '.join(findings))
         print(reason, file=sys.stderr)
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference

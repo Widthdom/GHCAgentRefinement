@@ -13,12 +13,12 @@ from typing import cast
 
 
 # SDKがファイル書き込みとして扱う組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$', re.MULTILINE)
-WINDOW_SECONDS = 600
+_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
+_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$', re.MULTILINE)
+_WINDOW_SECONDS = 600
 # 削除済み・ファイル以外を表す内容ハッシュ。SHA-256の16進表記とは衝突しない。
-MISSING_CONTENT = 'missing'
-OSCILLATION_CONTEXT = (
+_MISSING_CONTENT = 'missing'
+_OSCILLATION_CONTEXT = (
     'The following files have just returned to content they already had earlier '
     'within the last ten minutes, after being changed in between: {files}. '
     'You may be oscillating between alternative edits instead of making progress. '
@@ -29,7 +29,7 @@ OSCILLATION_CONTEXT = (
 )
 
 
-def get_tool_args(raw_tool_args):
+def _get_tool_args(raw_tool_args):
     # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列で渡される場合もある。
     if isinstance(raw_tool_args, str):
         try:
@@ -39,21 +39,21 @@ def get_tool_args(raw_tool_args):
     return raw_tool_args
 
 
-def collect_strings(value):
+def _collect_strings(value):
     if isinstance(value, str):
         yield value
     elif isinstance(value, dict):
         for item in value.values():
-            yield from collect_strings(item)
+            yield from _collect_strings(item)
     elif isinstance(value, list):
         for item in value:
-            yield from collect_strings(item)
+            yield from _collect_strings(item)
 
 
-def get_edited_paths(tool_name, tool_args, cwd):
+def _get_edited_paths(tool_name, tool_args, cwd):
     if tool_name == 'apply_patch':
         # パッチ本文の `*** Update File: <path>` などの行から対象を集める。移動元も削除扱いで含める。
-        paths = [match for text in collect_strings(tool_args) for match in PATCH_FILE_PATTERN.findall(text)]
+        paths = [match for text in _collect_strings(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)]
     else:
         path = tool_args.get('path') if isinstance(tool_args, dict) else None
         paths = [path] if isinstance(path, str) and path.strip() else []
@@ -61,14 +61,14 @@ def get_edited_paths(tool_name, tool_args, cwd):
     return sorted({os.path.normcase(os.path.realpath(os.path.join(cwd, path))) for path in paths})
 
 
-def get_content_hash(path):
+def _get_content_hash(path):
     if not os.path.isfile(path):
-        return MISSING_CONTENT
+        return _MISSING_CONTENT
     with open(path, 'rb') as file:
         return hashlib.sha256(file.read()).hexdigest()
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、助言を短くする。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -79,7 +79,7 @@ def get_display_path(path, cwd):
     return path
 
 
-def record_edits(state_path, edits):
+def _record_edits(state_path, edits):
     # 戻り値は、変更を挟んで以前と同じ内容に戻ったファイルパスのリスト。
     oscillated_paths = []
     # SQLiteのトランザクションで、並列に編集しても履歴の更新を取りこぼさない。
@@ -101,7 +101,7 @@ def record_edits(state_path, edits):
             # 古い内容と、時計が巻き戻った場合の未来の記録は引き継がない。
             connection.execute(
                 'DELETE FROM contents WHERE last_seen < ? OR last_seen > ?',
-                (now - WINDOW_SECONDS, now),
+                (now - _WINDOW_SECONDS, now),
             )
             # 内容の新旧はファイルをまたいだ連番で決める。同時刻の記録でも順序が崩れない。
             sequence = connection.execute('SELECT COALESCE(MAX(sequence), 0) + 1 FROM contents').fetchone()[0]
@@ -162,15 +162,15 @@ def main():
             raise ValueError('toolArgs is required.')
 
         tool_name = hook_input['toolName'].removeprefix('functions.')
-        if tool_name not in EDIT_TOOL_NAMES:
+        if tool_name not in _EDIT_TOOL_NAMES:
             return 0
-        paths = get_edited_paths(tool_name, get_tool_args(hook_input['toolArgs']), hook_input['cwd'])
+        paths = _get_edited_paths(tool_name, _get_tool_args(hook_input['toolArgs']), hook_input['cwd'])
         if not paths:
             return 0
 
         # 編集後のファイル内容を読む。パスと内容は保存せず、比較用のSHA-256だけを保存する。
         edits = [
-            (path, hashlib.sha256(path.encode('utf-8')).hexdigest(), get_content_hash(path))
+            (path, hashlib.sha256(path.encode('utf-8')).hexdigest(), _get_content_hash(path))
             for path in paths
         ]
 
@@ -181,17 +181,17 @@ def main():
         )
         os.makedirs(state_directory, exist_ok=True)
         state_path = os.path.join(state_directory, f'{parsed_session_id}.sqlite3')
-        oscillated_paths = record_edits(state_path, edits)
+        oscillated_paths = _record_edits(state_path, edits)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to detect edit oscillation: {ex}', file=sys.stderr)
         return 2
 
     if oscillated_paths:
         cwd = os.path.normcase(os.path.realpath(hook_input['cwd']))
-        files = ', '.join(get_display_path(path, cwd) for path in oscillated_paths)
+        files = ', '.join(_get_display_path(path, cwd) for path in oscillated_paths)
         # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({'additionalContext': OSCILLATION_CONTEXT.format(files=files)}, ensure_ascii=False))
+        print(json.dumps({'additionalContext': _OSCILLATION_CONTEXT.format(files=files)}, ensure_ascii=False))
     return 0
 
 

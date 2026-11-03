@@ -8,15 +8,15 @@ from typing import cast
 
 
 # hookの変更に触れたとみなす語。hookの名前（フォルダー名）は別にリポジトリから集める。
-HOOK_REQUEST_PATTERN = re.compile(
+_HOOK_REQUEST_PATTERN = re.compile(
     r'hooks?|フック|\.github[/\\]hooks|pre-?tool-?use|post-?tool-?use|agent-?stop|session-?start'
     r'|user-?prompt-?(?:submitted|transformed)',
     re.IGNORECASE,
 )
-EVENTS_DIRECTORY_NAMES = ('events', '-repo-events')
+_EVENTS_DIRECTORY_NAMES = ('events', '-repo-events')
 
 
-def find_hooks_directory(cwd):
+def _find_hooks_directory(cwd):
     # cwdから親へたどり、最初に見つかった `.github/hooks` を返す。なければNone。
     current = os.path.abspath(cwd)
     while True:
@@ -29,13 +29,13 @@ def find_hooks_directory(cwd):
         current = parent
 
 
-def get_hook_names(cwd):
+def _get_hook_names(cwd):
     # `helpers/events/<event>/<hook>/`・`helpers/-repo-events/<event>/<hook>/` のhook名を集める。
-    hooks_directory = find_hooks_directory(cwd)
+    hooks_directory = _find_hooks_directory(cwd)
     if hooks_directory is None:
         return set()
     names = set()
-    for events_directory_name in EVENTS_DIRECTORY_NAMES:
+    for events_directory_name in _EVENTS_DIRECTORY_NAMES:
         events_directory = os.path.join(hooks_directory, 'helpers', events_directory_name)
         if not os.path.isdir(events_directory):
             continue
@@ -48,8 +48,8 @@ def get_hook_names(cwd):
     return names
 
 
-def mentions_hooks(prompt, hook_names):
-    if HOOK_REQUEST_PATTERN.search(prompt):
+def _mentions_hooks(prompt, hook_names):
+    if _HOOK_REQUEST_PATTERN.search(prompt):
         return True
     lowered = prompt.lower()
     return any(name.lower() in lowered for name in hook_names)
@@ -88,7 +88,7 @@ def main():
 
         # 一度触れたら、このセッションの間は変更を認めたままにする。
         # 「続けて」「1の順に対応して」など、hookに触れない後続の依頼で作業を止めないため。
-        if mentions_hooks(prompt, get_hook_names(cwd)):
+        if _mentions_hooks(prompt, _get_hook_names(cwd)):
             state['save_permitted'](state_path)
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to record hook change request: {ex}', file=sys.stderr)

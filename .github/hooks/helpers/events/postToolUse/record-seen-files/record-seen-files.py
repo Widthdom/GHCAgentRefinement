@@ -11,15 +11,15 @@ from typing import cast
 # 成功すればファイルの内容を把握したとみなせる組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
 #   view・str_replace_editorのview：内容を読んだ。
 #   編集系：置換やパッチの適用には現在の内容との一致が必要で、作成したファイルは内容を自分で書いた。
-READ_TOOL_NAMES = {'view', 'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
+_READ_TOOL_NAMES = {'view', 'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 # パッチの適用後に存在するファイル。削除したファイルと移動元は記録しない。
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update) File|Move to): (.+?)\s*$', re.MULTILINE)
+_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update) File|Move to): (.+?)\s*$', re.MULTILINE)
 
 
-def get_read_paths(tool_name, tool_args, state):
+def _get_read_paths(tool_name, tool_args, state):
     if tool_name == 'apply_patch':
         return [
-            match for text in state['collect_strings'](tool_args) for match in PATCH_FILE_PATTERN.findall(text)
+            match for text in state['collect_strings'](tool_args) for match in _PATCH_FILE_PATTERN.findall(text)
         ]
     path = tool_args.get('path') if isinstance(tool_args, dict) else None
     return [path] if isinstance(path, str) and path.strip() else []
@@ -55,11 +55,11 @@ def main():
             raise ValueError('toolArgs is required.')
 
         tool_name = hook_input['toolName'].removeprefix('functions.')
-        if tool_name not in READ_TOOL_NAMES:
+        if tool_name not in _READ_TOOL_NAMES:
             return 0
         tool_args = state['get_tool_args'](hook_input['toolArgs'])
         paths = {
-            state['normalize_path'](hook_input['cwd'], path) for path in get_read_paths(tool_name, tool_args, state)
+            state['normalize_path'](hook_input['cwd'], path) for path in _get_read_paths(tool_name, tool_args, state)
         }
         # ディレクトリの一覧表示や、消えたファイルは記録しない。
         keys = sorted(state['get_file_key'](path) for path in paths if os.path.isfile(path))

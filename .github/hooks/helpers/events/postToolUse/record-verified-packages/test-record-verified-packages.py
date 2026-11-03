@@ -6,39 +6,39 @@ import sys
 import unittest
 import uuid
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'record-verified-packages.py')
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'record-verified-packages.py')
 
-helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(script_directory)))
-hooks_directory = os.path.dirname(helpers_directory)
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
+_hooks_directory = os.path.dirname(_helpers_directory)
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-state = runpy.run_path(os.path.join(helpers_directory, 'utilities', 'verified-packages-state', 'verified-packages-state.py'))
+_state = runpy.run_path(os.path.join(_helpers_directory, 'utilities', 'verified-packages-state', 'verified-packages-state.py'))
 
 
-def run_hook(input_bytes):
-    return subprocess.run([sys.executable, hook_path], input=input_bytes, capture_output=True)
+def _run_hook(input_bytes):
+    return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True)
 
 
 class RecordVerifiedPackagesTests(unittest.TestCase):
     def setUp(self):
-        self.new_session()
+        self.__new_session()
 
-    def new_session(self):
+    def __new_session(self):
         # テストごとに別セッションとし、確認の記録を持ち越さない。
-        self.session_id = str(uuid.uuid4())
-        self.state_path = state['get_state_path'](self.session_id)
-        self.addCleanup(lambda path=self.state_path: os.path.exists(path) and os.remove(path))
+        self.__session_id = str(uuid.uuid4())
+        self.__state_path = _state['get_state_path'](self.__session_id)
+        self.addCleanup(lambda path=self.__state_path: os.path.exists(path) and os.remove(path))
 
-    def run_call(self, tool_name, tool_args, output):
+    def __run_call(self, tool_name, tool_args, output):
         hook_input = {
-            'sessionId': self.session_id, 'cwd': os.getcwd(), 'toolName': tool_name, 'toolArgs': tool_args,
+            'sessionId': self.__session_id, 'cwd': os.getcwd(), 'toolName': tool_name, 'toolArgs': tool_args,
             'toolResult': {'resultType': 'success', 'textResultForLlm': output},
         }
-        result = run_hook(json.dumps(hook_input).encode('utf-8'))
+        result = _run_hook(json.dumps(hook_input).encode('utf-8'))
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
-        return state['get_verified'](self.state_path)
+        return _state['get_verified'](self.__state_path)
 
     def test_registry_queries_are_recorded(self):
         cases = [
@@ -59,8 +59,8 @@ class RecordVerifiedPackagesTests(unittest.TestCase):
         ]
         for command, output, expected in cases:
             with self.subTest(command=command):
-                self.new_session()
-                self.assertEqual(self.run_call('bash', {'command': command}, output), {expected}, command)
+                self.__new_session()
+                self.assertEqual(self.__run_call('bash', {'command': command}, output), {expected}, command)
 
     def test_failed_queries_are_not_recorded(self):
         cases = [
@@ -79,8 +79,8 @@ class RecordVerifiedPackagesTests(unittest.TestCase):
         ]
         for command, output in cases:
             with self.subTest(command=command):
-                self.new_session()
-                self.assertEqual(self.run_call('powershell', {'command': command}, output), set(), command)
+                self.__new_session()
+                self.assertEqual(self.__run_call('powershell', {'command': command}, output), set(), command)
 
     def test_registry_pages_are_recorded(self):
         cases = [
@@ -95,8 +95,8 @@ class RecordVerifiedPackagesTests(unittest.TestCase):
         ]
         for url, expected in cases:
             with self.subTest(url=url):
-                self.new_session()
-                self.assertEqual(self.run_call('web_fetch', {'url': url}, 'Package page content'), {expected}, url)
+                self.__new_session()
+                self.assertEqual(self.__run_call('web_fetch', {'url': url}, 'Package page content'), {expected}, url)
 
     def test_missing_registry_pages_are_not_recorded(self):
         cases = [
@@ -107,25 +107,25 @@ class RecordVerifiedPackagesTests(unittest.TestCase):
         ]
         for url, output in cases:
             with self.subTest(url=url):
-                self.new_session()
-                self.assertEqual(self.run_call('functions.web_fetch', {'url': url}, output), set(), url)
+                self.__new_session()
+                self.assertEqual(self.__run_call('functions.web_fetch', {'url': url}, output), set(), url)
 
     def test_other_tools_are_skipped(self):
-        self.assertEqual(self.run_call('view', {'path': 'requirements.txt'}, 'requests'), set())
-        self.assertEqual(self.run_call('bash', 'not json', 'requests'), set())
-        self.assertFalse(os.path.exists(self.state_path))
+        self.assertEqual(self.__run_call('view', {'path': 'requirements.txt'}, 'requests'), set())
+        self.assertEqual(self.__run_call('bash', 'not json', 'requests'), set())
+        self.assertFalse(os.path.exists(self.__state_path))
 
     def test_invalid_input_fails(self):
         inputs = [
             b'',
             b'[]',
             json.dumps({'sessionId': 'x', 'toolName': 'bash', 'toolArgs': {}}).encode(),
-            json.dumps({'sessionId': self.session_id, 'toolArgs': {}}).encode(),
-            json.dumps({'sessionId': self.session_id, 'toolName': 'bash'}).encode(),
+            json.dumps({'sessionId': self.__session_id, 'toolArgs': {}}).encode(),
+            json.dumps({'sessionId': self.__session_id, 'toolName': 'bash'}).encode(),
         ]
         for input_bytes in inputs:
             with self.subTest(input_bytes=input_bytes):
-                result = run_hook(input_bytes)
+                result = _run_hook(input_bytes)
                 self.assertEqual(result.returncode, 2, input_bytes)
                 self.assertIn(b'Failed to record verified packages', result.stderr)
 

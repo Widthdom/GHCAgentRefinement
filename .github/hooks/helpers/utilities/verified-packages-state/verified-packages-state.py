@@ -14,11 +14,11 @@ from contextlib import closing, contextmanager
 #   pypi：PyPIの配布名。
 #   npm：npmのパッケージ名。
 #   python-module：Pythonでimportできると確かめたモジュールの最上位の名前。
-NUGET = 'nuget'
-PYPI = 'pypi'
-NPM = 'npm'
-PYTHON_MODULE = 'python-module'
-ECOSYSTEMS = (NUGET, PYPI, NPM, PYTHON_MODULE)
+_NUGET = 'nuget'
+_PYPI = 'pypi'
+_NPM = 'npm'
+_PYTHON_MODULE = 'python-module'
+_ECOSYSTEMS = (_NUGET, _PYPI, _NPM, _PYTHON_MODULE)
 
 
 def get_state_path(session_id):
@@ -37,15 +37,15 @@ def get_state_path(session_id):
 
 def normalize_name(ecosystem, name):
     # NuGetとnpmは大文字小文字を区別しない。PyPIはPEP 503の規則で `-`・`_`・`.` の連続を `-` にそろえる。
-    if ecosystem == PYPI:
+    if ecosystem == _PYPI:
         return re.sub(r'[-_.]+', '-', name).lower()
-    if ecosystem in (NUGET, NPM):
+    if ecosystem in (_NUGET, _NPM):
         return name.lower()
     return name
 
 
 @contextmanager
-def open_state(state_path):
+def _open_state(state_path):
     # SQLiteのトランザクションで、並列のツール呼び出しでも状態の更新を取りこぼさない。
     # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
     os.makedirs(os.path.dirname(state_path), exist_ok=True)
@@ -60,7 +60,7 @@ def open_state(state_path):
 
 def record_verified(state_path, packages):
     # packages：(エコシステム, 名前) のリスト。
-    with open_state(state_path) as connection:
+    with _open_state(state_path) as connection:
         connection.executemany(
             'INSERT OR IGNORE INTO verified (ecosystem, name) VALUES (?, ?)',
             [(ecosystem, normalize_name(ecosystem, name)) for ecosystem, name in packages],

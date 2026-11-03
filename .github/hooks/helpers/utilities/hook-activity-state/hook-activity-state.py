@@ -10,7 +10,7 @@ from contextlib import closing
 # 機能した（fired）とは、終了コードが0以外か、標準出力が空・空白・空のJSONオブジェクト（{}）以外だったことを指す。
 
 
-def get_state_path(session_id):
+def _get_state_path(session_id):
     # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。DBファイル自体は自動削除しない。
     if not isinstance(session_id, str) or not session_id.strip():
         raise ValueError('sessionId must be a non-empty UUID string.')
@@ -29,7 +29,7 @@ def _connect(state_path):
 
 
 def record_hook_run(session_id, event_name, hook_name, started_at_ms, fired):
-    state_path = get_state_path(session_id)
+    state_path = _get_state_path(session_id)
     os.makedirs(os.path.dirname(state_path), exist_ok=True)
     with _connect(state_path) as connection, connection:
         connection.execute(
@@ -47,7 +47,7 @@ def record_hook_run(session_id, event_name, hook_name, started_at_ms, fired):
 
 def get_fired_hooks(session_id, since_ms, excluded_events):
     # since_ms以降に起動して機能したhook名を、重複なしの名前順で返す。
-    state_path = get_state_path(session_id)
+    state_path = _get_state_path(session_id)
     if not os.path.isfile(state_path):
         return []
     excluded_events = tuple(excluded_events)

@@ -3,7 +3,7 @@ from collections import Counter
 from datetime import datetime
 
 # Match the hooks, fired hooks, skills, and current time headings.
-FOOTER_PATTERN = (
+_FOOTER_PATTERN = (
     r'(?s)## Hooks used \(inferred from event history\):\r?\n'
     r'(?P<hooks>(?:- [^\r\n]+\r?\n)+)'
     r'## Hooks fired \(recorded by hook runner, excluding agentStop hooks\):\r?\n'
@@ -27,7 +27,7 @@ def _get_items(footer_match, group_name):
 
 
 def test_response_footer(response, expected_hooks, expected_fired_hooks, expected_skills, current_jst):
-    footer_match = re.search(FOOTER_PATTERN, response)
+    footer_match = re.search(_FOOTER_PATTERN, response)
     if not footer_match:
         return False
 
@@ -49,17 +49,17 @@ def test_response_footer(response, expected_hooks, expected_fired_hooks, expecte
 if __name__ == '__main__':
     import argparse
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--response', required=True)
-    parser.add_argument('--expected-hooks', nargs='+', required=True)
-    parser.add_argument('--expected-fired-hooks', nargs='+', required=True)
-    parser.add_argument('--expected-skills', nargs='+', required=True)
-    parser.add_argument('--current-jst', required=True)
-    arguments = parser.parse_args()
+    _parser = argparse.ArgumentParser()
+    _parser.add_argument('--response', required=True)
+    _parser.add_argument('--expected-hooks', nargs='+', required=True)
+    _parser.add_argument('--expected-fired-hooks', nargs='+', required=True)
+    _parser.add_argument('--expected-skills', nargs='+', required=True)
+    _parser.add_argument('--current-jst', required=True)
+    _arguments = _parser.parse_args()
     print(test_response_footer(
-        arguments.response,
-        arguments.expected_hooks,
-        arguments.expected_fired_hooks,
-        arguments.expected_skills,
-        arguments.current_jst,
+        _arguments.response,
+        _arguments.expected_hooks,
+        _arguments.expected_fired_hooks,
+        _arguments.expected_skills,
+        _arguments.current_jst,
     ))

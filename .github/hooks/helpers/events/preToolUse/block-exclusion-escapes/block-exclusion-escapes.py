@@ -15,20 +15,20 @@ from typing import cast
 
 
 # ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
-PATCH_MOVE_PATTERN = re.compile(r'^\*\*\* Move to: (.+?)\s*$')
+_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
+_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
+_PATCH_MOVE_PATTERN = re.compile(r'^\*\*\* Move to: (.+?)\s*$')
 # キーワードの直後が値の代入（`exclude = [...]`・`"exclude": [...]`・`omit:`）である場合だけ値を読む。
 # 値が次の行から始まる場合（INIの継続行・YAMLのリスト）は、その行がインデントされていることを求める。
-ASSIGNMENT_PATTERN = re.compile(r'["\']?[ \t]*[:=][ \t]*(?:\r?\n[ \t]+)?')
-QUOTED_PATTERN = re.compile(r'"((?:\\.|[^"\\\n])*)"|\'((?:\\.|[^\'\\\n])*)\'|`([^`\n]*)`')
-OPENING_BRACKETS = {'[': ']', '(': ')', '{': '}'}
+_ASSIGNMENT_PATTERN = re.compile(r'["\']?[ \t]*[:=][ \t]*(?:\r?\n[ \t]+)?')
+_QUOTED_PATTERN = re.compile(r'"((?:\\.|[^"\\\n])*)"|\'((?:\\.|[^\'\\\n])*)\'|`([^`\n]*)`')
+_OPENING_BRACKETS = {'[': ']', '(': ')', '{': '}'}
 # 正規表現のエスケープ（Jestの `slow\.test\.js`）を外す文字。
-ESCAPED_CHARACTER_PATTERN = re.compile(r'\\([./\-_])')
-MAX_FINDINGS = 3
-GIT_TIMEOUT_SECONDS = 5
-FINDING = '{file} adds the exclusion "{entry}", which matches the tracked file {matched}'
-DENY_REASON = (
+_ESCAPED_CHARACTER_PATTERN = re.compile(r'\\([./\-_])')
+_MAX_FINDINGS = 3
+_GIT_TIMEOUT_SECONDS = 5
+_FINDING = '{file} adds the exclusion "{entry}", which matches the tracked file {matched}'
+_DENY_REASON = (
     'Edit denied: {findings}. Adding existing code or tests to an ignore or exclusion list hides it from the '
     'test runner, linter, compiler, or coverage instead of fixing it, so the failure disappears while the problem '
     'remains. Fix the failing code or test instead, or keep it visible and report the failure to the user. '
@@ -38,12 +38,12 @@ DENY_REASON = (
 )
 
 
-class UndeterminedContent(Exception):
+class _UndeterminedContent(Exception):
     # 編集後の内容を特定できない場合（置換前の内容が見つからないなど）。ツール自体が失敗するため検査しない。
     pass
 
 
-def compile_patterns(values, key):
+def _compile_patterns(values, key):
     if not isinstance(values, list) or not all(isinstance(value, str) and value.strip() for value in values):
         raise ValueError(f'exclusion definitions require an array of non-empty strings for {key}.')
     try:
@@ -52,13 +52,13 @@ def compile_patterns(values, key):
         raise ValueError(f'invalid regular expression in {key}: {ex}') from None
 
 
-def load_definitions(path):
+def _load_definitions(path):
     # 戻り値は {ignore_files: [正規表現], config_files: [{name, file, values, keywords}]}。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
     if not isinstance(definitions, dict):
         raise ValueError('exclusion definitions must be a JSON object.')
-    ignore_files = compile_patterns(definitions.get('ignoreFiles'), 'ignoreFiles')
+    ignore_files = _compile_patterns(definitions.get('ignoreFiles'), 'ignoreFiles')
     entries = definitions.get('configFiles')
     if not isinstance(entries, list) or not entries:
         raise ValueError('exclusion definitions require a non-empty array for configFiles.')
@@ -66,22 +66,22 @@ def load_definitions(path):
     for entry in entries:
         if not isinstance(entry, dict) or not isinstance(entry.get('name'), str) or not entry['name'].strip():
             raise ValueError('each configFiles entry requires a non-empty name.')
-        values = compile_patterns(entry.get('valuePatterns'), 'valuePatterns')
+        values = _compile_patterns(entry.get('valuePatterns'), 'valuePatterns')
         if any(pattern.groups != 1 for pattern in values):
             raise ValueError('each valuePatterns entry requires exactly one capturing group.')
-        keywords = compile_patterns(entry.get('keywordPatterns'), 'keywordPatterns')
+        keywords = _compile_patterns(entry.get('keywordPatterns'), 'keywordPatterns')
         if not values and not keywords:
             raise ValueError(f'configFiles entry {entry["name"]} requires valuePatterns or keywordPatterns.')
         config_files.append({
             'name': entry['name'],
-            'file': compile_patterns([entry.get('filePattern')], 'filePattern')[0],
+            'file': _compile_patterns([entry.get('filePattern')], 'filePattern')[0],
             'values': values,
             'keywords': keywords,
         })
     return {'ignore_files': ignore_files, 'config_files': config_files}
 
 
-def get_tool_args(raw_tool_args):
+def _get_tool_args(raw_tool_args):
     # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
     if isinstance(raw_tool_args, str):
         try:
@@ -91,7 +91,7 @@ def get_tool_args(raw_tool_args):
     return raw_tool_args
 
 
-def read_current(path):
+def _read_current(path):
     # 改行コードを変換せずに読み、置換前の内容と照合できるようにする。ファイルがなければNone。
     if not os.path.isfile(path):
         return None
@@ -99,22 +99,22 @@ def read_current(path):
         with open(path, encoding='utf-8-sig', newline='') as file:
             return file.read()
     except UnicodeDecodeError:
-        raise UndeterminedContent() from None
+        raise _UndeterminedContent() from None
 
 
-def replace_once(current, old, new):
+def _replace_once(current, old, new):
     if current is None or not isinstance(old, str) or not old or old not in current:
-        raise UndeterminedContent()
+        raise _UndeterminedContent()
     return current.replace(old, new if isinstance(new, str) else '', 1)
 
 
-def insert_after_line(current, line_number, text):
+def _insert_after_line(current, line_number, text):
     # insert_line行目の後に挿入する。0はファイルの先頭。
     if current is None or type(line_number) is not int or not isinstance(text, str):
-        raise UndeterminedContent()
+        raise _UndeterminedContent()
     lines = current.splitlines(keepends=True)
     if not 0 <= line_number <= len(lines):
-        raise UndeterminedContent()
+        raise _UndeterminedContent()
     if line_number and not lines[line_number - 1].endswith(('\n', '\r')):
         lines[line_number - 1] += '\n'
     if not text.endswith(('\n', '\r')):
@@ -122,20 +122,20 @@ def insert_after_line(current, line_number, text):
     return ''.join(lines[:line_number] + [text] + lines[line_number:])
 
 
-def get_edited_content(tool_name, tool_args, current):
+def _get_edited_content(tool_name, tool_args, current):
     # 編集ツールの引数から、編集後のファイル全体の内容を求める。
     command = tool_args.get('command')
     if tool_name == 'create' or command == 'create':
         file_text = next((tool_args[key] for key in ('file_text', 'content') if isinstance(tool_args.get(key), str)), None)
         if file_text is None:
-            raise UndeterminedContent()
+            raise _UndeterminedContent()
         return file_text
     if tool_name == 'insert' or command == 'insert':
-        return insert_after_line(current, tool_args.get('insert_line'), tool_args.get('new_str'))
-    return replace_once(current, tool_args.get('old_str'), tool_args.get('new_str'))
+        return _insert_after_line(current, tool_args.get('insert_line'), tool_args.get('new_str'))
+    return _replace_once(current, tool_args.get('old_str'), tool_args.get('new_str'))
 
 
-def find_lines(lines, target, start):
+def _find_lines(lines, target, start):
     # target（行のリスト）がlinesに現れる位置をstart以降から探す。末尾の空白の違いは許容する。
     for normalize in (lambda line: line, str.rstrip):
         normalized_target = [normalize(line) for line in target]
@@ -145,10 +145,10 @@ def find_lines(lines, target, start):
     return -1
 
 
-def apply_update(current, patch_lines):
+def _apply_update(current, patch_lines):
     # `*** Update File:` のパッチを `@@` で区切ったハンクごとに適用する。
     if current is None:
-        raise UndeterminedContent()
+        raise _UndeterminedContent()
     lines = current.splitlines()
     hunks = [[]]
     for line in patch_lines:
@@ -163,22 +163,22 @@ def apply_update(current, patch_lines):
         # 空行はパッチ上で先頭の空白が落ちた文脈行として扱う。
         old = [line[1:] for line in hunk if line[:1] in (' ', '-', '')]
         new = [line[1:] for line in hunk if line[:1] in (' ', '+', '')]
-        index = find_lines(lines, old, cursor) if old else len(lines)
+        index = _find_lines(lines, old, cursor) if old else len(lines)
         if index < 0:
-            raise UndeterminedContent()
+            raise _UndeterminedContent()
         lines[index:index + len(old)] = new
         cursor = index + len(new)
     return '\n'.join(lines) + '\n'
 
 
-def get_patch_edits(text, cwd):
+def _get_patch_edits(text, cwd):
     # 戻り値は (書き込み先のパス, 編集前の内容, 編集後の内容) のリスト。削除するファイルは対象外とする。
     files = []
     for line in text.splitlines():
-        match = PATCH_FILE_PATTERN.match(line)
+        match = _PATCH_FILE_PATTERN.match(line)
         if match:
             files.append({'kind': match.group(1), 'path': match.group(2), 'target': match.group(2), 'lines': []})
-        elif files and (move := PATCH_MOVE_PATTERN.match(line)):
+        elif files and (move := _PATCH_MOVE_PATTERN.match(line)):
             files[-1]['target'] = move.group(1)
         elif files and line != '*** End Patch':
             files[-1]['lines'].append(line)
@@ -193,21 +193,21 @@ def get_patch_edits(text, cwd):
                 after = '\n'.join(line[1:] for line in file['lines'] if line.startswith('+')) + '\n'
             else:
                 # 移動を伴う場合も、移動元の内容を編集前とする。
-                before = read_current(os.path.abspath(os.path.join(cwd, file['path'])))
-                after = apply_update(before, file['lines'])
-        except UndeterminedContent:
+                before = _read_current(os.path.abspath(os.path.join(cwd, file['path'])))
+                after = _apply_update(before, file['lines'])
+        except _UndeterminedContent:
             continue
         edits.append((target, before or '', after))
     return edits
 
 
-def get_edits(tool_name, tool_args, cwd):
+def _get_edits(tool_name, tool_args, cwd):
     # 戻り値は (書き込み先のパス, 編集前の内容, 編集後の内容) のリスト。
     if tool_name == 'apply_patch':
         texts = [tool_args] if isinstance(tool_args, str) else [
             value for value in (tool_args.values() if isinstance(tool_args, dict) else []) if isinstance(value, str)
         ]
-        return [edit for text in texts for edit in get_patch_edits(text, cwd)]
+        return [edit for text in texts for edit in _get_patch_edits(text, cwd)]
     if not isinstance(tool_args, dict) or tool_args.get('command') in ('view', 'undo_edit'):
         return []
     path = tool_args.get('path')
@@ -215,13 +215,13 @@ def get_edits(tool_name, tool_args, cwd):
         return []
     path = os.path.abspath(os.path.join(cwd, path))
     try:
-        current = read_current(path)
-        return [(path, current or '', get_edited_content(tool_name, tool_args, current))]
-    except UndeterminedContent:
+        current = _read_current(path)
+        return [(path, current or '', _get_edited_content(tool_name, tool_args, current))]
+    except _UndeterminedContent:
         return []
 
 
-def take_bracketed(text, start):
+def _take_bracketed(text, start):
     # text[start]の括弧から、対応する閉じ括弧までを返す。引用符の中の括弧は数えない。
     closing_stack = []
     quote = None
@@ -235,8 +235,8 @@ def take_bracketed(text, start):
                 quote = None
         elif character in '"\'`':
             quote = character
-        elif character in OPENING_BRACKETS:
-            closing_stack.append(OPENING_BRACKETS[character])
+        elif character in _OPENING_BRACKETS:
+            closing_stack.append(_OPENING_BRACKETS[character])
         elif closing_stack and character == closing_stack[-1]:
             closing_stack.pop()
             if not closing_stack:
@@ -245,14 +245,14 @@ def take_bracketed(text, start):
     return text[start:]
 
 
-def take_value(text, start):
+def _take_value(text, start):
     # 代入の値を返す。括弧・引用符で始まればその範囲、それ以外は行末までと、続くインデントされた行（INI・YAML）。
     if start >= len(text):
         return ''
-    if text[start] in OPENING_BRACKETS:
-        return take_bracketed(text, start)
+    if text[start] in _OPENING_BRACKETS:
+        return _take_bracketed(text, start)
     if text[start] in '"\'`':
-        match = QUOTED_PATTERN.match(text, start)
+        match = _QUOTED_PATTERN.match(text, start)
         return match.group(0) if match else ''
     lines = text[start:].splitlines()
     value = [lines[0]]
@@ -263,21 +263,21 @@ def take_value(text, start):
     return '\n'.join(value)
 
 
-def get_tokens(value):
+def _get_tokens(value):
     # 引用符があれば引用符の中の文字列、なければ空白・カンマ・YAMLの `-` で区切った語を返す。
-    quoted = [next(group for group in match.groups() if group is not None) for match in QUOTED_PATTERN.finditer(value)]
+    quoted = [next(group for group in match.groups() if group is not None) for match in _QUOTED_PATTERN.finditer(value)]
     if quoted:
         return quoted
     return [token for token in re.split(r'[\s,]+', value) if token and token != '-']
 
 
-def normalize_entry(entry):
+def _normalize_entry(entry):
     # 除外の指定を、設定ファイルのディレクトリからの `/` 区切りのパスやglobにそろえる。否定（`!`）や空はNone。
     entry = entry.strip()
     if not entry or entry.startswith('!') or entry.startswith('#'):
         return None
     entry = entry.replace('\\\\', '\\')
-    entry = ESCAPED_CHARACTER_PATTERN.sub(r'\1', entry).replace('\\', '/')
+    entry = _ESCAPED_CHARACTER_PATTERN.sub(r'\1', entry).replace('\\', '/')
     entry = entry.split('::', 1)[0].removeprefix('<rootDir>').removeprefix('^').removesuffix('$')
     while True:
         stripped = entry.removeprefix('./').removeprefix('/').removeprefix('**/')
@@ -288,22 +288,22 @@ def normalize_entry(entry):
     return entry if entry and entry != '.' else None
 
 
-def get_exclusions(config, text):
+def _get_exclusions(config, text):
     # 戻り値は、設定に書かれた除外の指定（正規化済み）の集合。
     entries = []
     for pattern in config.get('values', []):
         entries.extend(match.group(1) for match in pattern.finditer(text))
     for pattern in config.get('keywords', []):
         for match in pattern.finditer(text):
-            assignment = ASSIGNMENT_PATTERN.match(text, match.end())
+            assignment = _ASSIGNMENT_PATTERN.match(text, match.end())
             if assignment:
-                entries.extend(get_tokens(take_value(text, assignment.end())))
+                entries.extend(_get_tokens(_take_value(text, assignment.end())))
     if config.get('ignore_file'):
         entries.extend(line for line in text.splitlines())
-    return {normalized for entry in entries if (normalized := normalize_entry(entry))}
+    return {normalized for entry in entries if (normalized := _normalize_entry(entry))}
 
 
-def get_config(definitions, path):
+def _get_config(definitions, path):
     # 戻り値は、パスが対象の設定ファイルなら照合方法、そうでなければNone。
     name = os.path.basename(path)
     if any(pattern.search(name) for pattern in definitions['ignore_files']):
@@ -311,13 +311,13 @@ def get_config(definitions, path):
     return next((config for config in definitions['config_files'] if config['file'].search(name)), None)
 
 
-def get_tracked_files(directory):
+def _get_tracked_files(directory):
     # 戻り値は、directory配下のgit管理下のファイルの、directoryからの `/` 区切りの相対パス。
     # gitがない、またはgit管理下でなければNoneを返して検査しない。
     try:
         result = subprocess.run(
             ['git', '-C', directory, 'ls-files', '-z'],
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=GIT_TIMEOUT_SECONDS, check=False,
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=_GIT_TIMEOUT_SECONDS, check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -326,7 +326,7 @@ def get_tracked_files(directory):
     return [path for path in result.stdout.decode('utf-8', errors='replace').split('\0') if path]
 
 
-def find_matched_file(entry, files):
+def _find_matched_file(entry, files):
     # 除外の指定に一致する最初のファイルを返す。globでなければ、パスの先頭・途中のディレクトリやファイル名として照合する。
     is_glob = any(character in entry for character in '*?[')
     # fnmatchの `*` は `/` にも一致する。`**/` が0階層に一致する場合も照合する（`src/**/*.ts` と `src/a.ts`）。
@@ -341,7 +341,7 @@ def find_matched_file(entry, files):
     return None
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルは、OSによらず `/` 区切りの相対パスで示す。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -352,7 +352,7 @@ def get_display_path(path, cwd):
     return path.replace(os.sep, '/')
 
 
-def record_denial(state_path, path):
+def _record_denial(state_path, path):
     # 戻り値は、このファイルを今回初めて拒否するか。同じファイルの拒否はセッションで1回だけにする。
     # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
     # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
@@ -379,7 +379,7 @@ def main(arguments=None):
     parsed_arguments = parser.parse_args(arguments)
 
     try:
-        definitions = load_definitions(parsed_arguments.definitions_path)
+        definitions = _load_definitions(parsed_arguments.definitions_path)
 
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
         if not hook_input_json.strip():
@@ -407,25 +407,25 @@ def main(arguments=None):
             raise ValueError('toolArgs is required.')
 
         tool_name = tool_name.removeprefix('functions.')
-        edits = get_edits(tool_name, get_tool_args(hook_input['toolArgs']), cwd) if tool_name in EDIT_TOOL_NAMES else []
+        edits = _get_edits(tool_name, _get_tool_args(hook_input['toolArgs']), cwd) if tool_name in _EDIT_TOOL_NAMES else []
 
         candidates = []
         tracked_files_by_directory = {}
         for path, before, after in edits:
-            config = get_config(definitions, path)
+            config = _get_config(definitions, path)
             if config is None:
                 continue
-            added = sorted(get_exclusions(config, after) - get_exclusions(config, before))
+            added = sorted(_get_exclusions(config, after) - _get_exclusions(config, before))
             if not added:
                 continue
             # 除外の指定は、設定ファイルのディレクトリからの相対パスとして照合する。
             directory = os.path.dirname(path)
             if directory not in tracked_files_by_directory:
-                tracked_files_by_directory[directory] = get_tracked_files(directory) if os.path.isdir(directory) else None
+                tracked_files_by_directory[directory] = _get_tracked_files(directory) if os.path.isdir(directory) else None
             tracked_files = tracked_files_by_directory[directory]
             if not tracked_files:
                 continue
-            matches = [(entry, matched) for entry in added if (matched := find_matched_file(entry, tracked_files))]
+            matches = [(entry, matched) for entry in added if (matched := _find_matched_file(entry, tracked_files))]
             if matches:
                 candidates.append((path, matches))
 
@@ -439,22 +439,22 @@ def main(arguments=None):
             )
             real_cwd = os.path.realpath(cwd)
             for path, matches in candidates:
-                if not record_denial(state_path, os.path.realpath(path)):
+                if not _record_denial(state_path, os.path.realpath(path)):
                     continue
-                display_path = get_display_path(os.path.realpath(path), real_cwd)
+                display_path = _get_display_path(os.path.realpath(path), real_cwd)
                 directory = os.path.dirname(display_path)
                 for entry, matched in matches:
                     matched_path = f'{directory}/{matched}' if directory else matched
-                    findings.append(FINDING.format(file=display_path, entry=entry, matched=matched_path))
+                    findings.append(_FINDING.format(file=display_path, entry=entry, matched=matched_path))
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check exclusion escapes: {ex}', file=sys.stderr)
         return 2
 
     if findings:
-        shown = findings[:MAX_FINDINGS]
-        if len(findings) > MAX_FINDINGS:
-            shown.append(f'and {len(findings) - MAX_FINDINGS} more')
-        reason = DENY_REASON.format(findings='; '.join(shown))
+        shown = findings[:_MAX_FINDINGS]
+        if len(findings) > _MAX_FINDINGS:
+            shown.append(f'and {len(findings) - _MAX_FINDINGS} more')
+        reason = _DENY_REASON.format(findings='; '.join(shown))
         print(reason, file=sys.stderr)
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference

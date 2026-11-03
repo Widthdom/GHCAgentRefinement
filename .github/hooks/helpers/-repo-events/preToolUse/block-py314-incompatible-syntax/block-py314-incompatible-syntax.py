@@ -9,28 +9,28 @@ from typing import cast
 
 
 # 判定の基準とするPythonのバージョン。これより新しい文法も、古い文法（Python 2の構文など）も拒否する。
-TARGET_VERSION = (3, 14)
+_TARGET_VERSION = (3, 14)
 # Pythonのソースとして扱う拡張子。
-PYTHON_EXTENSIONS = {'.py', '.pyi', '.pyw'}
+_PYTHON_EXTENSIONS = {'.py', '.pyi', '.pyw'}
 # ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
-PATCH_MOVE_PATTERN = re.compile(r'^\*\*\* Move to: (.+?)\s*$')
-MAX_FINDINGS = 3
-FINDING = '{file} line {line}: {message}'
-DENY_REASON = (
+_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
+_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
+_PATCH_MOVE_PATTERN = re.compile(r'^\*\*\* Move to: (.+?)\s*$')
+_MAX_FINDINGS = 3
+_FINDING = '{file} line {line}: {message}'
+_DENY_REASON = (
     'Edit denied: the resulting Python source would not compile on Python 3.14 ({findings}). This repository '
     'targets Python 3.14, so do not use syntax that 3.14 rejects, such as syntax added in later versions or '
     'removed Python 2 syntax. Fix the code so the whole file compiles on Python 3.14 and retry.'
 )
 
 
-class UndeterminedContent(Exception):
+class _UndeterminedContent(Exception):
     # 編集後の内容を特定できない場合（置換前の内容が見つからないなど）。ツール自体が失敗するため検査しない。
     pass
 
 
-def get_tool_args(raw_tool_args):
+def _get_tool_args(raw_tool_args):
     # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
     if isinstance(raw_tool_args, str):
         try:
@@ -40,7 +40,7 @@ def get_tool_args(raw_tool_args):
     return raw_tool_args
 
 
-def read_current(path):
+def _read_current(path):
     # 改行コードを変換せずに読み、置換前の内容と照合できるようにする。ファイルがなければNone。
     if not os.path.isfile(path):
         return None
@@ -48,22 +48,22 @@ def read_current(path):
         with open(path, encoding='utf-8-sig', newline='') as file:
             return file.read()
     except UnicodeDecodeError:
-        raise UndeterminedContent() from None
+        raise _UndeterminedContent() from None
 
 
-def replace_once(current, old, new):
+def _replace_once(current, old, new):
     if current is None or not isinstance(old, str) or not old or old not in current:
-        raise UndeterminedContent()
+        raise _UndeterminedContent()
     return current.replace(old, new if isinstance(new, str) else '', 1)
 
 
-def insert_after_line(current, line_number, text):
+def _insert_after_line(current, line_number, text):
     # insert_line行目の後に挿入する。0はファイルの先頭。
     if current is None or type(line_number) is not int or not isinstance(text, str):
-        raise UndeterminedContent()
+        raise _UndeterminedContent()
     lines = current.splitlines(keepends=True)
     if not 0 <= line_number <= len(lines):
-        raise UndeterminedContent()
+        raise _UndeterminedContent()
     if line_number and not lines[line_number - 1].endswith(('\n', '\r')):
         lines[line_number - 1] += '\n'
     if not text.endswith(('\n', '\r')):
@@ -71,21 +71,21 @@ def insert_after_line(current, line_number, text):
     return ''.join(lines[:line_number] + [text] + lines[line_number:])
 
 
-def get_edited_content(tool_name, tool_args, path):
+def _get_edited_content(tool_name, tool_args, path):
     # 編集ツールの引数から、編集後のファイル全体の内容を求める。
     command = tool_args.get('command')
     if tool_name == 'create' or command == 'create':
         file_text = tool_args.get('file_text')
         if not isinstance(file_text, str):
-            raise UndeterminedContent()
+            raise _UndeterminedContent()
         return file_text
-    current = read_current(path)
+    current = _read_current(path)
     if tool_name == 'insert' or command == 'insert':
-        return insert_after_line(current, tool_args.get('insert_line'), tool_args.get('new_str'))
-    return replace_once(current, tool_args.get('old_str'), tool_args.get('new_str'))
+        return _insert_after_line(current, tool_args.get('insert_line'), tool_args.get('new_str'))
+    return _replace_once(current, tool_args.get('old_str'), tool_args.get('new_str'))
 
 
-def find_lines(lines, target, start):
+def _find_lines(lines, target, start):
     # target（行のリスト）がlinesに現れる位置をstart以降から探す。末尾の空白の違いは許容する。
     for normalize in (lambda line: line, str.rstrip):
         normalized_target = [normalize(line) for line in target]
@@ -95,10 +95,10 @@ def find_lines(lines, target, start):
     return -1
 
 
-def apply_update(current, patch_lines):
+def _apply_update(current, patch_lines):
     # `*** Update File:` のパッチを `@@` で区切ったハンクごとに適用する。
     if current is None:
-        raise UndeterminedContent()
+        raise _UndeterminedContent()
     lines = current.splitlines()
     hunks = [[]]
     for line in patch_lines:
@@ -113,79 +113,79 @@ def apply_update(current, patch_lines):
         # 空行はパッチ上で先頭の空白が落ちた文脈行として扱う。
         old = [line[1:] for line in hunk if line[:1] in (' ', '-', '')]
         new = [line[1:] for line in hunk if line[:1] in (' ', '+', '')]
-        index = find_lines(lines, old, cursor) if old else len(lines)
+        index = _find_lines(lines, old, cursor) if old else len(lines)
         if index < 0:
-            raise UndeterminedContent()
+            raise _UndeterminedContent()
         lines[index:index + len(old)] = new
         cursor = index + len(new)
     return '\n'.join(lines) + '\n'
 
 
-def get_patch_contents(text, cwd):
+def _get_patch_contents(text, cwd):
     # 戻り値は (書き込み先のパス, 編集後の内容) のリスト。削除するファイルは対象外とする。
     files = []
     for line in text.splitlines():
-        match = PATCH_FILE_PATTERN.match(line)
+        match = _PATCH_FILE_PATTERN.match(line)
         if match:
             files.append({'kind': match.group(1), 'path': match.group(2), 'target': match.group(2), 'lines': []})
-        elif files and (move := PATCH_MOVE_PATTERN.match(line)):
+        elif files and (move := _PATCH_MOVE_PATTERN.match(line)):
             files[-1]['target'] = move.group(1)
         elif files and line != '*** End Patch':
             files[-1]['lines'].append(line)
     contents = []
     for file in files:
         target = os.path.abspath(os.path.join(cwd, file['target']))
-        if file['kind'] == 'Delete' or not is_python_path(target):
+        if file['kind'] == 'Delete' or not _is_python_path(target):
             continue
         try:
             if file['kind'] == 'Add':
                 content = '\n'.join(line[1:] for line in file['lines'] if line.startswith('+')) + '\n'
             else:
                 source = os.path.abspath(os.path.join(cwd, file['path']))
-                content = apply_update(read_current(source), file['lines'])
-        except UndeterminedContent:
+                content = _apply_update(_read_current(source), file['lines'])
+        except _UndeterminedContent:
             continue
         contents.append((target, content))
     return contents
 
 
-def get_contents(tool_name, tool_args, cwd):
+def _get_contents(tool_name, tool_args, cwd):
     # 戻り値は (書き込み先のパス, 編集後の内容) のリスト。
     if tool_name == 'apply_patch':
         texts = [tool_args] if isinstance(tool_args, str) else [
             value for value in (tool_args.values() if isinstance(tool_args, dict) else []) if isinstance(value, str)
         ]
-        return [content for text in texts for content in get_patch_contents(text, cwd)]
+        return [content for text in texts for content in _get_patch_contents(text, cwd)]
     if not isinstance(tool_args, dict) or tool_args.get('command') in ('view', 'undo_edit'):
         return []
     path = tool_args.get('path')
     if not isinstance(path, str) or not path.strip():
         return []
     path = os.path.abspath(os.path.join(cwd, path))
-    if not is_python_path(path):
+    if not _is_python_path(path):
         return []
     try:
-        return [(path, get_edited_content(tool_name, tool_args, path))]
-    except UndeterminedContent:
+        return [(path, _get_edited_content(tool_name, tool_args, path))]
+    except _UndeterminedContent:
         return []
 
 
-def is_python_path(path):
-    return os.path.splitext(path)[1].lower() in PYTHON_EXTENSIONS
+def _is_python_path(path):
+    return os.path.splitext(path)[1].lower() in _PYTHON_EXTENSIONS
 
 
-def get_syntax_error(source, path):
+def _get_syntax_error(source, path):
     # 構文解析に加え、コンパイルで検出される誤り（関数外のreturnなど）も対象とする。警告は対象外。
     try:
         with warnings.catch_warnings(action='ignore'):
-            tree = ast.parse(source, path, feature_version=TARGET_VERSION)
+            tree = ast.parse(source, path, feature_version=_TARGET_VERSION)
             compile(tree, path, 'exec', dont_inherit=True)
     except SyntaxError as ex:
         return ex
     return None
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルは、OSによらず `/` 区切りの相対パスで示す。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -222,31 +222,31 @@ def main():
 
         findings = []
         tool_name = tool_name.removeprefix('functions.')
-        if tool_name in EDIT_TOOL_NAMES:
+        if tool_name in _EDIT_TOOL_NAMES:
             cwd = os.path.abspath(cwd)
-            for path, content in get_contents(tool_name, get_tool_args(hook_input['toolArgs']), cwd):
+            for path, content in _get_contents(tool_name, _get_tool_args(hook_input['toolArgs']), cwd):
                 # 実行中のPythonが基準より古いと、基準の文法を誤って拒否するため判定しない。
-                if sys.version_info < TARGET_VERSION:
-                    raise ValueError(f'Python {TARGET_VERSION[0]}.{TARGET_VERSION[1]} or later is required.')
-                error = get_syntax_error(content, path)
+                if sys.version_info < _TARGET_VERSION:
+                    raise ValueError(f'Python {_TARGET_VERSION[0]}.{_TARGET_VERSION[1]} or later is required.')
+                error = _get_syntax_error(content, path)
                 if error is None:
                     continue
                 # 既にコンパイルできないファイルの編集は、修正途中の場合もあるため拒否しない。
                 try:
-                    current = read_current(path)
-                except UndeterminedContent:
+                    current = _read_current(path)
+                except _UndeterminedContent:
                     current = None
-                if current is not None and get_syntax_error(current, path) is not None:
+                if current is not None and _get_syntax_error(current, path) is not None:
                     continue
-                findings.append(FINDING.format(
-                    file=get_display_path(path, cwd), line=error.lineno, message=error.msg,
+                findings.append(_FINDING.format(
+                    file=_get_display_path(path, cwd), line=error.lineno, message=error.msg,
                 ))
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to check Python 3.14 syntax: {ex}', file=sys.stderr)
         return 2
 
     if findings:
-        reason = DENY_REASON.format(findings='; '.join(findings[:MAX_FINDINGS]))
+        reason = _DENY_REASON.format(findings='; '.join(findings[:_MAX_FINDINGS]))
         print(reason, file=sys.stderr)
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference

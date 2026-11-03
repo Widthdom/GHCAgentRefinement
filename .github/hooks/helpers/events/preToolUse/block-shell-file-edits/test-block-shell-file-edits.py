@@ -6,10 +6,10 @@ import tempfile
 import unittest
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-shell-file-edits.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-shell-file-edits.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
@@ -17,42 +17,42 @@ class BlockShellFileEditsTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-block-shell-file-edits-test-')
         self.addCleanup(temporary.cleanup)
-        self.root = os.path.realpath(temporary.name)
-        self.workspace = os.path.join(self.root, 'workspace')
-        os.makedirs(os.path.join(self.workspace, 'sub'))
+        self.__root = os.path.realpath(temporary.name)
+        self.__workspace = os.path.join(self.__root, 'workspace')
+        os.makedirs(os.path.join(self.__workspace, 'sub'))
         for path in ('対象.txt', 'other.txt', 'untracked.txt', os.path.join('sub', 'nested.txt')):
-            with open(os.path.join(self.workspace, path), 'w', encoding='utf-8') as file:
+            with open(os.path.join(self.__workspace, path), 'w', encoding='utf-8') as file:
                 file.write('a\n')
-        subprocess.run(['git', 'init', '-q', self.workspace], check=True)
+        subprocess.run(['git', 'init', '-q', self.__workspace], check=True)
         subprocess.run(
-            ['git', '-C', self.workspace, 'add', '--', '対象.txt', 'other.txt', 'sub/nested.txt'], check=True,
+            ['git', '-C', self.__workspace, 'add', '--', '対象.txt', 'other.txt', 'sub/nested.txt'], check=True,
         )
-        self.outside = os.path.join(self.root, 'outside.txt')
-        with open(self.outside, 'w', encoding='utf-8') as file:
+        self.__outside = os.path.join(self.__root, 'outside.txt')
+        with open(self.__outside, 'w', encoding='utf-8') as file:
             file.write('a\n')
 
-    def payload(self, tool_call):
+    def __payload(self, tool_call):
         return {
             'sessionId': 'test-session',
-            'cwd': self.workspace,
+            'cwd': self.__workspace,
             'toolName': tool_call[0],
             'toolArgs': tool_call[1],
         }
 
-    def run_hook(self, payload=None, raw=None):
+    def __run_hook(self, payload=None, raw=None):
         if raw is None:
             raw = json.dumps(payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path], input=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
+            [sys.executable, _hook_path], input=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
         )
 
-    def invoke(self, tool_call):
-        return self.run_hook(self.payload(tool_call))
+    def __invoke(self, tool_call):
+        return self.__run_hook(self.__payload(tool_call))
 
-    def assert_allowed(self, result):
+    def __assert_allowed(self, result):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
 
-    def assert_denied(self, result, files):
+    def __assert_denied(self, result, files):
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
         self.assertEqual(result.stderr, b'')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
@@ -62,7 +62,7 @@ class BlockShellFileEditsTests(unittest.TestCase):
         self.assertIn(f'writes to the following git-tracked files: {files}.', output['permissionDecisionReason'])
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         relative_path = '.github/hooks/helpers/events/preToolUse/block-shell-file-edits/block-shell-file-edits.py'
         entries = [
@@ -99,11 +99,11 @@ class BlockShellFileEditsTests(unittest.TestCase):
             "cat > 対象.txt <<'EOF'\nbody\nEOF",
             'echo hi # comment\nsed -i s/a/b/ 対象.txt',
             'echo "multi\nline" \\\n  > 対象.txt',
-            f"echo x > '{os.path.join(self.workspace, '対象.txt')}'",
+            f"echo x > '{os.path.join(self.__workspace, '対象.txt')}'",
         )
         for command in commands:
             with self.subTest(command=command):
-                self.assert_denied(self.invoke(('bash', {'command': command})), '対象.txt')
+                self.__assert_denied(self.__invoke(('bash', {'command': command})), '対象.txt')
 
     def test_denies_powershell_writes_to_tracked_files(self):
         commands = (
@@ -125,11 +125,11 @@ class BlockShellFileEditsTests(unittest.TestCase):
         )
         for command in commands:
             with self.subTest(command=command):
-                self.assert_denied(self.invoke(('powershell', {'command': command})), '対象.txt')
+                self.__assert_denied(self.__invoke(('powershell', {'command': command})), '対象.txt')
 
     @unittest.skipUnless(os.name == 'nt', 'powershellツールはWindowsで使われ、`\\` をパスの区切りとするのはWindowsだけのため。')
     def test_denies_powershell_writes_with_backslash_paths(self):
-        self.assert_denied(self.invoke(('powershell', {'command': 'Clear-Content .\\対象.txt'})), '対象.txt')
+        self.__assert_denied(self.__invoke(('powershell', {'command': 'Clear-Content .\\対象.txt'})), '対象.txt')
 
     def test_follows_directory_changes(self):
         # 理由のパスは、OSによらず `/` 区切りで示される。
@@ -141,23 +141,23 @@ class BlockShellFileEditsTests(unittest.TestCase):
         )
         for tool_name, command in cases:
             with self.subTest(command=command):
-                self.assert_denied(self.invoke((tool_name, {'command': command})), nested)
+                self.__assert_denied(self.__invoke((tool_name, {'command': command})), nested)
         # 移動先がわからない場合は基準を移さない。
-        self.assert_allowed(self.invoke(('bash', {'command': 'cd "$DIR" && echo x > nested.txt'})))
+        self.__assert_allowed(self.__invoke(('bash', {'command': 'cd "$DIR" && echo x > nested.txt'})))
 
     def test_lists_multiple_files_and_tool_formats(self):
-        self.assert_denied(self.invoke(('functions.bash', json.dumps({'command': 'echo x > other.txt'}))), 'other.txt')
-        self.assert_allowed(self.invoke(('view', {'path': '対象.txt'})))
-        result = self.invoke(('PowerShell', {'command': "Set-Content 対象.txt x; Set-Content 'other.txt' y"}))
-        self.assert_denied(result, ', '.join(sorted(['other.txt', '対象.txt'])))
-        result = self.invoke(('bash', {'command': 'echo x > other.txt; echo x | tee sub/nested.txt untracked.txt'}))
-        self.assert_denied(result, ', '.join(sorted(['other.txt', 'sub/nested.txt'])))
+        self.__assert_denied(self.__invoke(('functions.bash', json.dumps({'command': 'echo x > other.txt'}))), 'other.txt')
+        self.__assert_allowed(self.__invoke(('view', {'path': '対象.txt'})))
+        result = self.__invoke(('PowerShell', {'command': "Set-Content 対象.txt x; Set-Content 'other.txt' y"}))
+        self.__assert_denied(result, ', '.join(sorted(['other.txt', '対象.txt'])))
+        result = self.__invoke(('bash', {'command': 'echo x > other.txt; echo x | tee sub/nested.txt untracked.txt'}))
+        self.__assert_denied(result, ', '.join(sorted(['other.txt', 'sub/nested.txt'])))
 
     def test_allows_commands_that_do_not_write_tracked_files(self):
         cases = (
             ('bash', 'echo x > untracked.txt'),
             ('bash', 'echo x > new.txt'),
-            ('bash', f"echo x > '{self.outside}'"),
+            ('bash', f"echo x > '{self.__outside}'"),
             ('bash', 'make > /dev/null 2>&1'),
             ('bash', 'make 2>&1 | tail'),
             ('bash', 'cat 対象.txt; grep a < 対象.txt'),
@@ -183,7 +183,7 @@ class BlockShellFileEditsTests(unittest.TestCase):
         )
         for tool_name, command in cases:
             with self.subTest(command=command):
-                self.assert_allowed(self.invoke((tool_name, {'command': command})))
+                self.__assert_allowed(self.__invoke((tool_name, {'command': command})))
 
     def test_allows_other_tools_and_missing_commands(self):
         cases = (
@@ -195,15 +195,15 @@ class BlockShellFileEditsTests(unittest.TestCase):
         )
         for tool_call in cases:
             with self.subTest(tool_call=tool_call):
-                self.assert_allowed(self.invoke(tool_call))
+                self.__assert_allowed(self.__invoke(tool_call))
 
     def test_allows_outside_git_repository(self):
-        payload = self.payload(('bash', {'command': 'echo x > outside.txt'}))
-        payload['cwd'] = self.root
-        self.assert_allowed(self.run_hook(payload))
+        payload = self.__payload(('bash', {'command': 'echo x > outside.txt'}))
+        payload['cwd'] = self.__root
+        self.__assert_allowed(self.__run_hook(payload))
 
     def test_invalid_input_reports_error(self):
-        base = self.payload(('bash', {'command': 'echo x'}))
+        base = self.__payload(('bash', {'command': 'echo x'}))
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'true', b'{"cwd":"\xff"}']
         for field in ('cwd', 'toolName', 'toolArgs'):
             payload = base.copy()
@@ -215,7 +215,7 @@ class BlockShellFileEditsTests(unittest.TestCase):
             invalid.append(json.dumps({**base, 'toolName': value}).encode('utf-8'))
         for raw in invalid:
             with self.subTest(raw=raw):
-                result = self.run_hook(raw=raw)
+                result = self.__run_hook(raw=raw)
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(result.stdout, b'')
                 self.assertIn(b'Failed to check shell file edits:', result.stderr)

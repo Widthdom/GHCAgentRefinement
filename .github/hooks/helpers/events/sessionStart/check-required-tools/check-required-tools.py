@@ -7,16 +7,16 @@ import subprocess
 import sys
 from typing import cast
 
-ADDITIONAL_CONTEXT = (
+_ADDITIONAL_CONTEXT = (
     '{message}\n'
     'At the start of your first response, tell the user about this in the language you respond in, '
     'including how to install the tools. Do not install them yourself.'
 )
-RESTART_MESSAGE = 'After installation, restart the application or terminal running this hook to refresh PATH.'
-PLATFORMS = ('win32', 'darwin', 'other')
+_RESTART_MESSAGE = 'After installation, restart the application or terminal running this hook to refresh PATH.'
+_PLATFORMS = ('win32', 'darwin', 'other')
 
 
-def parse_version(text):
+def _parse_version(text):
     # 例：'2.34.1'、'1.6'（パッチ番号を省略した版は0とみなす）。
     if not isinstance(text, str) or not re.fullmatch(r'\d+(?:\.\d+){0,2}', text):
         raise ValueError(f'invalid version: {text!r}')
@@ -24,7 +24,7 @@ def parse_version(text):
     return tuple(numbers + [0] * (3 - len(numbers)))
 
 
-def load_definitions(path):
+def _load_definitions(path):
     # 戻り値は {name, command, version_pattern, minimum_version（Noneなら存在だけを確かめる）, install} のリスト。
     with open(path, encoding='utf-8') as file:
         definitions = json.load(file)
@@ -39,9 +39,9 @@ def load_definitions(path):
             raise ValueError('each required tool requires non-empty strings for name, command, and versionPattern.')
         install = tool.get('install')
         if not isinstance(install, dict) or not all(
-            isinstance(install.get(platform), str) and install[platform].strip() for platform in PLATFORMS
+            isinstance(install.get(platform), str) and install[platform].strip() for platform in _PLATFORMS
         ):
-            raise ValueError(f'required tool {tool["name"]} requires install messages for {", ".join(PLATFORMS)}.')
+            raise ValueError(f'required tool {tool["name"]} requires install messages for {", ".join(_PLATFORMS)}.')
         try:
             version_pattern = re.compile(tool['versionPattern'])
         except re.error as ex:
@@ -51,14 +51,14 @@ def load_definitions(path):
             'name': tool['name'],
             'command': tool['command'],
             'version_pattern': version_pattern,
-            'minimum_version': None if minimum_version is None else parse_version(minimum_version),
+            'minimum_version': None if minimum_version is None else _parse_version(minimum_version),
             'minimum_version_text': minimum_version,
             'install': install,
         })
     return loaded
 
 
-def is_requirement_satisfied(tool):
+def _is_requirement_satisfied(tool):
     try:
         # capture_output：標準出力と標準エラーをキャプチャするための引数。
         #   Trueに設定すると、subprocess.runの戻り値のstdoutおよびstderr属性に出力が格納される。末尾の.stdoutによってその標準出力を取得している。
@@ -79,7 +79,7 @@ def is_requirement_satisfied(tool):
     return version + (0,) * (3 - len(version)) >= tool['minimum_version']
 
 
-def get_requirement_message(tool):
+def _get_requirement_message(tool):
     platform = sys.platform if sys.platform in ('win32', 'darwin') else 'other'
     minimum = f' {tool["minimum_version_text"]} or later' if tool['minimum_version'] is not None else ''
     return (
@@ -101,21 +101,21 @@ def main(arguments=None):
     )
     parsed_arguments = parser.parse_args(arguments)
     try:
-        tools = load_definitions(parsed_arguments.definitions_path)
+        tools = _load_definitions(parsed_arguments.definitions_path)
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to load required tool definitions: {ex}', file=sys.stderr)
         return 2
 
-    missing = [get_requirement_message(tool) for tool in tools if not is_requirement_satisfied(tool)]
+    missing = [_get_requirement_message(tool) for tool in tools if not _is_requirement_satisfied(tool)]
     if not missing:
         return 0
 
-    message = '\n'.join([*missing, RESTART_MESSAGE])
+    message = '\n'.join([*missing, _RESTART_MESSAGE])
     print(message, file=sys.stderr)
     # 標準エラーはユーザーに表示されないことがある。sessionStartで解釈される出力はadditionalContextだけで、
     # 標準出力は終了コード0のときだけ読まれるため、エージェントに渡してユーザーへ伝えさせ、正常終了する。
     print(json.dumps(
-        {'additionalContext': ADDITIONAL_CONTEXT.format(message=message)},
+        {'additionalContext': _ADDITIONAL_CONTEXT.format(message=message)},
         ensure_ascii=False, separators=(',', ':'),
     ))
     return 0

@@ -8,78 +8,78 @@ import sys
 from typing import cast
 
 
-SHELL_TOOL_NAMES = {'bash', 'powershell'}
-WEB_FETCH_TOOL_NAMES = {'web_fetch'}
-NUGET = 'nuget'
-PYPI = 'pypi'
-NPM = 'npm'
-PYTHON_MODULE = 'python-module'
-NAME = r'(?P<name>(?:@[\w.-]+/)?[A-Za-z0-9_][\w.-]*)'
+_SHELL_TOOL_NAMES = {'bash', 'powershell'}
+_WEB_FETCH_TOOL_NAMES = {'web_fetch'}
+_NUGET = 'nuget'
+_PYPI = 'pypi'
+_NPM = 'npm'
+_PYTHON_MODULE = 'python-module'
+_NAME = r'(?P<name>(?:@[\w.-]+/)?[A-Za-z0-9_][\w.-]*)'
 # 1つのコマンドの区切り。区切りの後は別のコマンドとして照合する。
-COMMAND_SEPARATOR_PATTERN = re.compile(r'&&|\|\||[;|\n]')
+_COMMAND_SEPARATOR_PATTERN = re.compile(r'&&|\|\||[;|\n]')
 # レジストリへの問い合わせと、レジストリから取得して依存に加えるコマンド。オプションは名前の前後のどちらにも置ける。
-OPTIONS = r'(?:\s+-{1,2}[\w-]+(?:[=\s]+(?!-)[^\s-]\S*)?)*'
-COMMAND_PATTERNS = [
-    (NUGET, re.compile(rf'\bdotnet\s+package\s+search{OPTIONS}\s+{NAME}')),
-    (NUGET, re.compile(rf'\bdotnet\s+add\s+(?:(?!package\b)\S+\s+)?package\s+{NAME}')),
-    (NUGET, re.compile(rf'\bnuget(?:\.exe)?\s+(?:list|search){OPTIONS}\s+{NAME}')),
-    (PYPI, re.compile(rf'\bpip(?:3(?:\.\d+)?)?\s+index\s+versions{OPTIONS}\s+{NAME}')),
-    (PYPI, re.compile(rf'\bpip(?:3(?:\.\d+)?)?\s+download{OPTIONS}\s+{NAME}')),
-    (PYPI, re.compile(rf'\buv\s+add{OPTIONS}\s+{NAME}')),
-    (NPM, re.compile(rf'\b(?:npm|pnpm|yarn)\s+(?:view|info|show|v){OPTIONS}\s+{NAME}')),
-    (NPM, re.compile(rf'\bpnpm\s+add{OPTIONS}\s+{NAME}')),
-    (PYTHON_MODULE, re.compile(r'\bpython(?:3(?:\.\d+)?)?(?:\.exe)?\s+-c\s+["\']\s*import\s+(?P<name>[A-Za-z_]\w*)\s*["\']')),
+_OPTIONS = r'(?:\s+-{1,2}[\w-]+(?:[=\s]+(?!-)[^\s-]\S*)?)*'
+_COMMAND_PATTERNS = [
+    (_NUGET, re.compile(rf'\bdotnet\s+package\s+search{_OPTIONS}\s+{_NAME}')),
+    (_NUGET, re.compile(rf'\bdotnet\s+add\s+(?:(?!package\b)\S+\s+)?package\s+{_NAME}')),
+    (_NUGET, re.compile(rf'\bnuget(?:\.exe)?\s+(?:list|search){_OPTIONS}\s+{_NAME}')),
+    (_PYPI, re.compile(rf'\bpip(?:3(?:\.\d+)?)?\s+index\s+versions{_OPTIONS}\s+{_NAME}')),
+    (_PYPI, re.compile(rf'\bpip(?:3(?:\.\d+)?)?\s+download{_OPTIONS}\s+{_NAME}')),
+    (_PYPI, re.compile(rf'\buv\s+add{_OPTIONS}\s+{_NAME}')),
+    (_NPM, re.compile(rf'\b(?:npm|pnpm|yarn)\s+(?:view|info|show|v){_OPTIONS}\s+{_NAME}')),
+    (_NPM, re.compile(rf'\bpnpm\s+add{_OPTIONS}\s+{_NAME}')),
+    (_PYTHON_MODULE, re.compile(r'\bpython(?:3(?:\.\d+)?)?(?:\.exe)?\s+-c\s+["\']\s*import\s+(?P<name>[A-Za-z_]\w*)\s*["\']')),
 ]
 # レジストリが見つからないと答えた出力。
-NOT_FOUND_PATTERN = re.compile(
+_NOT_FOUND_PATTERN = re.compile(
     r'(?i)no results|not found|\bE404\b|\b404\b|no matching distribution|could not find|unable to find package|'
     r'\bNU1101\b|no solution found|\bERR!|No module named|ModuleNotFoundError|ImportError|does not exist'
 )
-URL_PATTERNS = [
-    (NUGET, re.compile(r'^https?://(?:www\.)?nuget\.org/packages/(?P<name>[^/?#]+)', re.IGNORECASE)),
-    (NUGET, re.compile(r'^https?://api\.nuget\.org/v3(?:-flatcontainer|/registration[^/]*)/(?P<name>[^/?#]+)/', re.IGNORECASE)),
-    (PYPI, re.compile(r'^https?://pypi\.org/(?:project|pypi|simple)/(?P<name>[^/?#]+)', re.IGNORECASE)),
-    (NPM, re.compile(r'^https?://(?:www\.)?npmjs\.com/package/(?P<name>(?:@[^/?#]+/)?[^/?#]+)', re.IGNORECASE)),
-    (NPM, re.compile(r'^https?://registry\.npmjs\.org/(?P<name>(?:@[^/?#]+(?:/|%2[fF]))?[^/?#@]+)', re.IGNORECASE)),
+_URL_PATTERNS = [
+    (_NUGET, re.compile(r'^https?://(?:www\.)?nuget\.org/packages/(?P<name>[^/?#]+)', re.IGNORECASE)),
+    (_NUGET, re.compile(r'^https?://api\.nuget\.org/v3(?:-flatcontainer|/registration[^/]*)/(?P<name>[^/?#]+)/', re.IGNORECASE)),
+    (_PYPI, re.compile(r'^https?://pypi\.org/(?:project|pypi|simple)/(?P<name>[^/?#]+)', re.IGNORECASE)),
+    (_NPM, re.compile(r'^https?://(?:www\.)?npmjs\.com/package/(?P<name>(?:@[^/?#]+/)?[^/?#]+)', re.IGNORECASE)),
+    (_NPM, re.compile(r'^https?://registry\.npmjs\.org/(?P<name>(?:@[^/?#]+(?:/|%2[fF]))?[^/?#@]+)', re.IGNORECASE)),
 ]
-WEB_NOT_FOUND_PATTERN = re.compile(r'(?i)\b404\b|not found|does not exist')
+_WEB_NOT_FOUND_PATTERN = re.compile(r'(?i)\b404\b|not found|does not exist')
 
 
-def strip_version(ecosystem, name):
+def _strip_version(ecosystem, name):
     # `name@1.2.3`・`name==1.2.3` のようにバージョンを付けた指定から名前だけを取り出す。
-    if ecosystem == NPM:
+    if ecosystem == _NPM:
         scope, separator, rest = name.partition('/') if name.startswith('@') else ('', '', name)
         return f'{scope}{separator}{rest.split("@")[0]}'
-    if ecosystem == PYPI:
+    if ecosystem == _PYPI:
         return re.split(r'[<>=!~\[;]', name)[0]
     return name
 
 
-def get_command_packages(command, output):
+def _get_command_packages(command, output):
     # 戻り値は、出力が名前を含み、見つからない旨を含まないコマンドの (エコシステム, 名前) のリスト。
-    if NOT_FOUND_PATTERN.search(output):
+    if _NOT_FOUND_PATTERN.search(output):
         return []
     packages = []
-    for segment in COMMAND_SEPARATOR_PATTERN.split(command):
-        for ecosystem, pattern in COMMAND_PATTERNS:
+    for segment in _COMMAND_SEPARATOR_PATTERN.split(command):
+        for ecosystem, pattern in _COMMAND_PATTERNS:
             match = pattern.search(segment)
             if not match:
                 continue
-            name = strip_version(ecosystem, match.group('name'))
+            name = _strip_version(ecosystem, match.group('name'))
             # `python -c "import x"` は成功しても何も出力しない。それ以外は、出力に名前があることを確かめる。
-            if name and (ecosystem == PYTHON_MODULE or name.lower() in output.lower()):
+            if name and (ecosystem == _PYTHON_MODULE or name.lower() in output.lower()):
                 packages.append((ecosystem, name))
     return packages
 
 
-def get_url_packages(url, output):
-    if not output.strip() or WEB_NOT_FOUND_PATTERN.search(output[:2000]):
+def _get_url_packages(url, output):
+    if not output.strip() or _WEB_NOT_FOUND_PATTERN.search(output[:2000]):
         return []
-    for ecosystem, pattern in URL_PATTERNS:
+    for ecosystem, pattern in _URL_PATTERNS:
         match = pattern.match(url.strip())
         if match:
             name = match.group('name').replace('%2f', '/').replace('%2F', '/')
-            return [(ecosystem, strip_version(ecosystem, name))]
+            return [(ecosystem, _strip_version(ecosystem, name))]
     return []
 
 
@@ -121,10 +121,10 @@ def main():
         output = output if isinstance(output, str) else ''
 
         packages = []
-        if tool_name in SHELL_TOOL_NAMES and isinstance(tool_args.get('command'), str):
-            packages = get_command_packages(tool_args['command'], output)
-        elif tool_name in WEB_FETCH_TOOL_NAMES and isinstance(tool_args.get('url'), str):
-            packages = get_url_packages(tool_args['url'], output)
+        if tool_name in _SHELL_TOOL_NAMES and isinstance(tool_args.get('command'), str):
+            packages = _get_command_packages(tool_args['command'], output)
+        elif tool_name in _WEB_FETCH_TOOL_NAMES and isinstance(tool_args.get('url'), str):
+            packages = _get_url_packages(tool_args['url'], output)
         if packages:
             state['record_verified'](state_path, packages)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:

@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hook_test_output import HookTestRunner, run_tests
 
 
-tests_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_tests_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class HookTestOutputTests(unittest.TestCase):
@@ -33,10 +33,10 @@ class HookTestOutputTests(unittest.TestCase):
         self.assertTrue(stream.getvalue().startswith('..\n'))
         self.assertTrue(stream.getvalue().endswith('OK\n'))
 
-    def invoke(self, body, *arguments):
+    def __invoke(self, body, *arguments):
         source = (
             'import sys\n'
-            f'sys.path.insert(0, {os.path.join(tests_directory, "helpers")!r})\n'
+            f'sys.path.insert(0, {os.path.join(_tests_directory, "helpers")!r})\n'
             'import unittest\n'
             'from hook_test_output import run_tests\n'
             f'sys.argv = ["test-example.py", *{list(arguments)!r}]\n'
@@ -50,7 +50,7 @@ class HookTestOutputTests(unittest.TestCase):
         )
 
     def test_success(self):
-        result = self.invoke(
+        result = self.__invoke(
             '    def test_first(self): pass\n'
             '    def test_second(self): pass'
         )
@@ -59,7 +59,7 @@ class HookTestOutputTests(unittest.TestCase):
         self.assertRegex(result.stderr, r'^\.\.\n-+\nRan 2 tests in \d+\.\d{3}s\n\nOK\n$')
 
     def test_failure(self):
-        result = self.invoke('    def test_failure(self): self.fail("failure detail")')
+        result = self.__invoke('    def test_failure(self): self.fail("failure detail")')
         self.assertEqual(result.returncode, 1)
         self.assertEqual(result.stdout, '')
         self.assertIn('FAIL: test_failure', result.stderr)
@@ -68,7 +68,7 @@ class HookTestOutputTests(unittest.TestCase):
         self.assertTrue(result.stderr.endswith('NG\n'))
 
     def test_error(self):
-        result = self.invoke('    def test_error(self): raise ValueError("error detail")')
+        result = self.__invoke('    def test_error(self): raise ValueError("error detail")')
         self.assertEqual(result.returncode, 1)
         self.assertEqual(result.stdout, '')
         self.assertIn('ERROR: test_error', result.stderr)
@@ -77,7 +77,7 @@ class HookTestOutputTests(unittest.TestCase):
         self.assertTrue(result.stderr.endswith('NG\n'))
 
     def test_skip(self):
-        result = self.invoke(
+        result = self.__invoke(
             '    @unittest.skip("skip reason")\n'
             '    def test_skip(self): pass\n'
             '    def test_success(self): pass'
@@ -90,7 +90,7 @@ class HookTestOutputTests(unittest.TestCase):
         self.assertNotIn('NG', result.stderr)
 
     def test_verbose_skip(self):
-        result = self.invoke(
+        result = self.__invoke(
             '    @unittest.skip("skip reason")\n'
             '    def test_skip(self): pass',
             '-v',
@@ -100,7 +100,7 @@ class HookTestOutputTests(unittest.TestCase):
         self.assertTrue(result.stderr.endswith('OK (skipped=1)\n'))
 
     def test_unexpected_success(self):
-        result = self.invoke(
+        result = self.__invoke(
             '    @unittest.expectedFailure\n'
             '    def test_unexpected_success(self): pass'
         )
@@ -110,7 +110,7 @@ class HookTestOutputTests(unittest.TestCase):
         self.assertTrue(result.stderr.endswith('NG\n'))
 
     def test_subtest_failure(self):
-        result = self.invoke(
+        result = self.__invoke(
             '    def test_subtest(self):\n'
             '        with self.subTest(value=1): self.fail("subtest detail")'
         )
@@ -121,7 +121,7 @@ class HookTestOutputTests(unittest.TestCase):
         self.assertTrue(result.stderr.endswith('NG\n'))
 
     def test_selection(self):
-        result = self.invoke(
+        result = self.__invoke(
             '    def test_first(self): pass\n'
             '    def test_second(self): self.fail("not selected")',
             'ExampleTests.test_first',
@@ -132,7 +132,7 @@ class HookTestOutputTests(unittest.TestCase):
         self.assertTrue(result.stderr.endswith('OK\n'))
 
     def test_failfast(self):
-        result = self.invoke(
+        result = self.__invoke(
             '    def test_first(self): self.fail("first failure")\n'
             '    def test_second(self): self.fail("second failure")',
             '-f',
@@ -143,7 +143,7 @@ class HookTestOutputTests(unittest.TestCase):
         self.assertTrue(result.stderr.endswith('NG\n'))
 
     def test_expected_failure(self):
-        result = self.invoke(
+        result = self.__invoke(
             '    @unittest.expectedFailure\n'
             '    def test_expected_failure(self): self.fail("expected")',
         )
@@ -153,10 +153,10 @@ class HookTestOutputTests(unittest.TestCase):
 
 
 class AllHooksOutputTests(unittest.TestCase):
-    def invoke(self, results, filenames=('test-first.py', 'test-second.py')):
+    def __invoke(self, results, filenames=('test-first.py', 'test-second.py')):
         stdout = io.StringIO()
         stderr = io.StringIO()
-        helpers_directory = os.path.join(os.path.dirname(tests_directory), 'helpers')
+        helpers_directory = os.path.join(os.path.dirname(_tests_directory), 'helpers')
         exit_code = 0
         with (
             patch('os.walk', return_value=[(helpers_directory, [], filenames)]),
@@ -165,13 +165,13 @@ class AllHooksOutputTests(unittest.TestCase):
             contextlib.redirect_stderr(stderr),
         ):
             try:
-                runpy.run_path(os.path.join(tests_directory, 'test-all-hooks.py'))
+                runpy.run_path(os.path.join(_tests_directory, 'test-all-hooks.py'))
             except SystemExit as ex:
                 exit_code = ex.code
         return exit_code, stdout.getvalue(), stderr.getvalue(), run.call_count
 
     def test_success(self):
-        result = self.invoke([
+        result = self.__invoke([
             subprocess.CompletedProcess([], 0), subprocess.CompletedProcess([], 0),
         ])
         self.assertEqual(result[0], 0)
@@ -180,7 +180,7 @@ class AllHooksOutputTests(unittest.TestCase):
         self.assertEqual(result[3], 2)
 
     def test_failure_continues_other_files(self):
-        result = self.invoke([
+        result = self.__invoke([
             subprocess.CompletedProcess([], 1), subprocess.CompletedProcess([], 0),
         ])
         self.assertEqual(result[0], 2)
@@ -190,7 +190,7 @@ class AllHooksOutputTests(unittest.TestCase):
         self.assertEqual(result[3], 2)
 
     def test_start_failure(self):
-        result = self.invoke([OSError('start detail'), subprocess.CompletedProcess([], 0)])
+        result = self.__invoke([OSError('start detail'), subprocess.CompletedProcess([], 0)])
         self.assertEqual(result[0], 2)
         self.assertIn('start detail', result[2])
         self.assertIn('could not start', result[2])
@@ -198,7 +198,7 @@ class AllHooksOutputTests(unittest.TestCase):
         self.assertEqual(result[3], 2)
 
     def test_no_test_files(self):
-        result = self.invoke([], filenames=())
+        result = self.__invoke([], filenames=())
         self.assertEqual(result[0], 2)
         self.assertEqual(result[1], '')
         self.assertIn('No hook tests found', result[2])

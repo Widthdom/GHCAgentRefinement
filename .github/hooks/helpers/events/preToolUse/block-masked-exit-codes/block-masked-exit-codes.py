@@ -14,29 +14,29 @@ from typing import cast
 
 
 # powershellはパイプラインの終了コードの扱いが異なるため、bashだけを対象にする。
-SHELL_TOOL_PATTERN = re.compile(r'^(?:functions\.)?bash$', re.IGNORECASE)
+_SHELL_TOOL_PATTERN = re.compile(r'^(?:functions\.)?bash$', re.IGNORECASE)
 # 終了コードが成否を表すコマンドのうち、テスト以外（ビルド・静的検査）の語。
 # テストの語は、check-test-runs utilityがテストの実行とみなす語を使う。
-BUILD_AND_LINT_COMMAND_WORDS = ('build', 'msbuild', 'make', 'tsc', 'lint', 'eslint', 'ruff', 'mypy', 'clippy')
+_BUILD_AND_LINT_COMMAND_WORDS = ('build', 'msbuild', 'make', 'tsc', 'lint', 'eslint', 'ruff', 'mypy', 'clippy')
 # 出力やファイルを読むだけのコマンド。`grep test` や `ls build` をテスト・ビルドとみなさない。
-READER_COMMANDS = {
+_READER_COMMANDS = {
     'ag', 'awk', 'cat', 'cut', 'diff', 'du', 'echo', 'egrep', 'fd', 'fgrep', 'file', 'find', 'git', 'grep',
     'head', 'jq', 'less', 'ls', 'more', 'printf', 'rg', 'sed', 'sort', 'stat', 'tail', 'tr', 'tree', 'uniq',
     'wc', 'which', 'yq',
 }
 # 後続の語が実際のコマンドになるもの。`timeout` は次の時間指定も読み飛ばす。
-WRAPPER_COMMANDS = {'builtin', 'command', 'env', 'exec', 'nice', 'nohup', 'sudo', 'time', 'xargs'}
-ASSIGNMENT_PATTERN = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=')
-PIPE_OPERATORS = {'|', '|&'}
-REDIRECT_OPERATORS = {'>', '>>', '>|', '&>', '&>>', '<', '<<', '<<-', '<<<', '<&', '>&', '<>'}
+_WRAPPER_COMMANDS = {'builtin', 'command', 'env', 'exec', 'nice', 'nohup', 'sudo', 'time', 'xargs'}
+_ASSIGNMENT_PATTERN = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=')
+_PIPE_OPERATORS = {'|', '|&'}
+_REDIRECT_OPERATORS = {'>', '>>', '>|', '&>', '&>>', '<', '<<', '<<-', '<<<', '<&', '>&', '<>'}
 # `<<<` は文字列を渡すだけなので、ヒアドキュメントとみなさない。
-HEREDOC_PATTERN = re.compile(
+_HEREDOC_PATTERN = re.compile(
     r'(?<!<)<<(?!<)(-?)\s*(?:\'([^\'\n]*)\'|"([^"\n]*)"|\\?([^\s;&|()<>\'"]+))'
 )
 # `set -o pipefail`・`set -euo pipefail` などの `o` を含むオプションの直後の語がpipefailなら設定とみなす。
-SET_OPTION_PATTERN = re.compile(r'^([-+])[A-Za-z]*o$')
-MAX_COMMAND_LENGTH = 120
-DENY_REASON = (
+_SET_OPTION_PATTERN = re.compile(r'^([-+])[A-Za-z]*o$')
+_MAX_COMMAND_LENGTH = 120
+_DENY_REASON = (
     'Shell command denied: a pipe hides the exit status of {commands}. '
     'Without pipefail, a pipeline exits with the status of its last command (tail, grep, tee, etc.), '
     'so a failing test or build is reported as a success, and the result cannot be used as evidence. '
@@ -46,13 +46,13 @@ DENY_REASON = (
 )
 
 
-def split_bash(text):
+def _split_bash(text):
     lexer = shlex.shlex(text, posix=True, punctuation_chars=True)
     lexer.whitespace_split = True
     return list(lexer)
 
 
-def get_bash_lines(command):
+def _get_bash_lines(command):
     # 引用符が閉じるまでと行末の `\` は次の行とつなげ、論理行ごとに字句へ分ける。
     # ヒアドキュメントの本文はコマンドではないため読み飛ばす。
     heredocs = []
@@ -68,33 +68,33 @@ def get_bash_lines(command):
             buffer = buffer[:-1]
             continue
         try:
-            tokens = split_bash(buffer)
+            tokens = _split_bash(buffer)
         except ValueError:
             buffer += '\n'
             continue
         yield tokens
-        for match in HEREDOC_PATTERN.finditer(buffer):
+        for match in _HEREDOC_PATTERN.finditer(buffer):
             heredocs.append((next(group for group in match.groups()[1:] if group is not None), match.group(1) == '-'))
         buffer = ''
     # 引用符が閉じないまま終わった部分は判定できないため対象外とする。
 
 
-def get_pipelines(command):
+def _get_pipelines(command):
     # 戻り値は (パイプラインの各段の語のリストのリスト, 直前までにpipefailが有効か) の列。
     pipefail = False
-    for tokens in get_bash_lines(command):
+    for tokens in _get_bash_lines(command):
         segments = [[]]
         index = 0
         while index <= len(tokens):
             token = tokens[index] if index < len(tokens) else ';'
             index += 1
-            if token in REDIRECT_OPERATORS:
+            if token in _REDIRECT_OPERATORS:
                 # `2>&1` の記述子、リダイレクト先、ヒアドキュメントの区切り語はコマンドの語ではない。
                 if segments[-1] and segments[-1][-1].isdigit():
                     segments[-1].pop()
                 index += 1
                 continue
-            if token in PIPE_OPERATORS:
+            if token in _PIPE_OPERATORS:
                 segments.append([])
                 continue
             if all(character in '();&|<>' for character in token):
@@ -103,31 +103,31 @@ def get_pipelines(command):
                 if segments:
                     yield segments, pipefail
                     if len(segments) == 1:
-                        pipefail = get_pipefail(segments[0], pipefail)
+                        pipefail = _get_pipefail(segments[0], pipefail)
                 segments = [[]]
                 continue
             segments[-1].append(token)
 
 
-def get_pipefail(words, current):
+def _get_pipefail(words, current):
     # `set -o pipefail` で有効、`set +o pipefail` で無効にする。
     if words[0] != 'set':
         return current
     for option, following in zip(words[1:], words[2:]):
-        match = SET_OPTION_PATTERN.match(option)
+        match = _SET_OPTION_PATTERN.match(option)
         if match and following == 'pipefail':
             current = match.group(1) == '-'
     return current
 
 
-def get_command_words(words):
+def _get_command_words(words):
     # 環境変数の代入とラッパーを読み飛ばし、実際に実行するコマンド以降の語を返す。
     index = 0
     while index < len(words):
         word = words[index]
-        if ASSIGNMENT_PATTERN.match(word) or word.startswith('-'):
+        if _ASSIGNMENT_PATTERN.match(word) or word.startswith('-'):
             index += 1
-        elif word in WRAPPER_COMMANDS:
+        elif word in _WRAPPER_COMMANDS:
             index += 1
         elif word == 'timeout':
             index += 2
@@ -136,33 +136,33 @@ def get_command_words(words):
     return words[index:]
 
 
-def is_checked_command(words, checked_command_pattern):
-    command_words = get_command_words(words)
-    if not command_words or os.path.basename(command_words[0]) in READER_COMMANDS:
+def _is_checked_command(words, checked_command_pattern):
+    command_words = _get_command_words(words)
+    if not command_words or os.path.basename(command_words[0]) in _READER_COMMANDS:
         return False
     return bool(checked_command_pattern.search(' '.join(command_words)))
 
 
-def get_masked_commands(command, checked_command_pattern):
+def _get_masked_commands(command, checked_command_pattern):
     # 最後の段以外にテスト・ビルドがあり、pipefailが無効なパイプラインのテスト・ビルドを返す。
     # `PIPESTATUS` を参照している場合は、各段の終了コードを確かめているとみなす。
     if 'PIPESTATUS' in command:
         return []
     masked = []
-    for segments, pipefail in get_pipelines(command):
+    for segments, pipefail in _get_pipelines(command):
         if pipefail or len(segments) < 2:
             continue
-        masked.extend(' '.join(segment) for segment in segments[:-1] if is_checked_command(segment, checked_command_pattern))
+        masked.extend(' '.join(segment) for segment in segments[:-1] if _is_checked_command(segment, checked_command_pattern))
     return masked
 
 
-def format_command(command):
-    if len(command) > MAX_COMMAND_LENGTH:
-        command = command[:MAX_COMMAND_LENGTH] + '...'
+def _format_command(command):
+    if len(command) > _MAX_COMMAND_LENGTH:
+        command = command[:_MAX_COMMAND_LENGTH] + '...'
     return f'"{command}"'
 
 
-def record_denials(state_path, command_keys):
+def _record_denials(state_path, command_keys):
     # 戻り値は、今回初めて拒否するコマンドがあるか。同じコマンドの拒否は1回だけにし、意図した実行なら再実行で通す。
     # 前のツール呼び出しで `set -o pipefail` を済ませた場合など、hookから見えない事情で作業を止めないため。
     # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
@@ -179,7 +179,7 @@ def record_denials(state_path, command_keys):
     return denied
 
 
-def get_tool_args(raw_tool_args):
+def _get_tool_args(raw_tool_args):
     # argsはJSONオブジェクトのほか、JSON文字列で渡される場合もある。
     if isinstance(raw_tool_args, str):
         try:
@@ -201,7 +201,7 @@ def main():
             'utilities', 'check-test-runs', 'check-test-runs.py',
         ))
         checked_command_pattern = check_test_runs['compile_command_pattern'](
-            (*check_test_runs['TEST_COMMAND_WORDS'], *BUILD_AND_LINT_COMMAND_WORDS)
+            (*check_test_runs['TEST_COMMAND_WORDS'], *_BUILD_AND_LINT_COMMAND_WORDS)
         )
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
         if not hook_input_json.strip():
@@ -225,9 +225,9 @@ def main():
 
         masked = []
         command_keys = []
-        tool_args = get_tool_args(hook_input['toolArgs']) if SHELL_TOOL_PATTERN.match(tool_name) else None
+        tool_args = _get_tool_args(hook_input['toolArgs']) if _SHELL_TOOL_PATTERN.match(tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
-        commands = get_masked_commands(command, checked_command_pattern) if isinstance(command, str) else []
+        commands = _get_masked_commands(command, checked_command_pattern) if isinstance(command, str) else []
         if commands:
             masked.extend(commands)
             # 状態にはコマンドを保存せず、照合用のSHA-256だけを保存する。
@@ -241,18 +241,18 @@ def main():
                 tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-masked-exit-codes',
                 f'{parsed_session_id}.sqlite3',
             )
-            denied = record_denials(state_path, command_keys)
+            denied = _record_denials(state_path, command_keys)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check masked exit codes: {ex}', file=sys.stderr)
         return 2
 
     if denied:
-        commands = ', '.join(format_command(command) for command in dict.fromkeys(masked))
+        commands = ', '.join(_format_command(command) for command in dict.fromkeys(masked))
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
         print(json.dumps({
             'permissionDecision': 'deny',
-            'permissionDecisionReason': DENY_REASON.format(commands=commands),
+            'permissionDecisionReason': _DENY_REASON.format(commands=commands),
         }, ensure_ascii=False))
     return 0
 

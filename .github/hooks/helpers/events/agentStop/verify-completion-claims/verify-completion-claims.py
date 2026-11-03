@@ -8,23 +8,23 @@ from pathlib import Path
 from typing import cast
 
 
-SHELL_TOOL_NAMES = {'bash', 'powershell'}
-VERIFICATION_CLAIM_PATTERNS = (
+_SHELL_TOOL_NAMES = {'bash', 'powershell'}
+_VERIFICATION_CLAIM_PATTERNS = (
     re.compile(r'動作確認(?:済|しました|した|が取れ|できた)'),
     re.compile(r'(?:動く|動作する|機能する)ことを確認(?:済|しました|した|できた)'),
     re.compile(r'\b(?:verified|confirmed)\s+(?:that\s+)?(?:it|this|the\s+\w+)\s+works\b', re.IGNORECASE),
 )
-FENCED_CODE_PATTERN = re.compile(r'^(```|~~~).*?^\1', re.MULTILINE | re.DOTALL)
-REASON_PREFIX = 'The final response claims'
-EVIDENCE_REQUEST = (
+_FENCED_CODE_PATTERN = re.compile(r'^(```|~~~).*?^\1', re.MULTILINE | re.DOTALL)
+_REASON_PREFIX = 'The final response claims'
+_EVIDENCE_REQUEST = (
     'Run the relevant command now and report its actual result. If you cannot run it, '
     'correct the claim and state explicitly that it was not verified. '
     'Do not claim success without evidence.'
 )
-MAX_COMMAND_LENGTH = 200
+_MAX_COMMAND_LENGTH = 200
 
 
-def get_turn_summary(transcript_path):
+def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・シェル実行・本hookによる差し戻し済みかを集める。
     # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
     last_assistant_msg = None
@@ -48,7 +48,7 @@ def get_turn_summary(transcript_path):
                 shell_call_ids.clear()
                 exit_codes.clear()
                 already_requested = False
-            elif isinstance(content, str) and content.startswith(REASON_PREFIX):
+            elif isinstance(content, str) and content.startswith(_REASON_PREFIX):
                 already_requested = True
         elif event_type == 'assistant.message':
             content = data.get('content')
@@ -58,7 +58,7 @@ def get_turn_summary(transcript_path):
             tool_name = data.get('toolName')
             arguments = data.get('arguments')
             call_id = data.get('toolCallId')
-            if (isinstance(tool_name, str) and tool_name.removeprefix('functions.') in SHELL_TOOL_NAMES
+            if (isinstance(tool_name, str) and tool_name.removeprefix('functions.') in _SHELL_TOOL_NAMES
                     and isinstance(call_id, str) and isinstance(arguments, dict)
                     and isinstance(arguments.get('command'), str)):
                 shell_commands[call_id] = arguments['command']
@@ -75,38 +75,38 @@ def get_turn_summary(transcript_path):
     return last_assistant_msg, shell_runs, already_requested
 
 
-def get_claim_kind(response, check_test_runs):
+def _get_claim_kind(response, check_test_runs):
     if check_test_runs['claims_tests_passed'](response):
         return 'test'
     # コードブロック内の出力例やコマンドは主張とみなさない。
-    text = FENCED_CODE_PATTERN.sub('', response)
-    if any(pattern.search(text) for pattern in VERIFICATION_CLAIM_PATTERNS):
+    text = _FENCED_CODE_PATTERN.sub('', response)
+    if any(pattern.search(text) for pattern in _VERIFICATION_CLAIM_PATTERNS):
         return 'verification'
     return None
 
 
-def get_block_reason(claim_kind, shell_runs, check_test_runs):
+def _get_block_reason(claim_kind, shell_runs, check_test_runs):
     if claim_kind == 'test':
         test_runs = [run for run in shell_runs if check_test_runs['is_test_command'](run[0])]
         if not test_runs:
             return (
-                f'{REASON_PREFIX} that tests passed, but no test command was run '
-                f"since the user's latest request. {EVIDENCE_REQUEST}"
+                f'{_REASON_PREFIX} that tests passed, but no test command was run '
+                f"since the user's latest request. {_EVIDENCE_REQUEST}"
             )
         command, exit_code = test_runs[-1]
         if exit_code != 0:
-            if len(command) > MAX_COMMAND_LENGTH:
-                command = command[:MAX_COMMAND_LENGTH] + '...'
+            if len(command) > _MAX_COMMAND_LENGTH:
+                command = command[:_MAX_COMMAND_LENGTH] + '...'
             result = 'did not complete' if exit_code is None else f'exited with code {exit_code}'
             return (
-                f"{REASON_PREFIX} that tests passed, but the last test command since the user's "
-                f'latest request {result}: {command}\n{EVIDENCE_REQUEST}'
+                f"{_REASON_PREFIX} that tests passed, but the last test command since the user's "
+                f'latest request {result}: {command}\n{_EVIDENCE_REQUEST}'
             )
         return None
     if claim_kind == 'verification' and not shell_runs:
         return (
-            f'{REASON_PREFIX} that the behavior was verified, but no command was run '
-            f"since the user's latest request. {EVIDENCE_REQUEST}"
+            f'{_REASON_PREFIX} that the behavior was verified, but no command was run '
+            f"since the user's latest request. {_EVIDENCE_REQUEST}"
         )
     return None
 
@@ -153,7 +153,7 @@ def main():
             str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
-        last_assistant_msg, shell_runs, already_requested = get_turn_summary(transcript_path)
+        last_assistant_msg, shell_runs, already_requested = _get_turn_summary(transcript_path)
     except (OSError, ValueError) as ex:
         print(f'Failed to inspect completion claims: {ex}', file=sys.stderr)
         return 2
@@ -162,7 +162,7 @@ def main():
     if last_assistant_msg is None or already_requested:
         return 0
 
-    reason = get_block_reason(get_claim_kind(last_assistant_msg, check_test_runs), shell_runs, check_test_runs)
+    reason = _get_block_reason(_get_claim_kind(last_assistant_msg, check_test_runs), shell_runs, check_test_runs)
     if reason is not None:
         print(json.dumps({'decision': 'block', 'reason': reason}, ensure_ascii=False, separators=(',', ':')))
     return 0

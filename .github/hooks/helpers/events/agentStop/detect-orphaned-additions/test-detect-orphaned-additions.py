@@ -6,88 +6,88 @@ import tempfile
 import unittest
 
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'detect-orphaned-additions.py')
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'detect-orphaned-additions.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
-HOOK_TIMESTAMP = 1777777777000
-REASON_PREFIX = 'The changes in this request add definitions that nothing uses'
+_HOOK_TIMESTAMP = 1777777777000
+_REASON_PREFIX = 'The changes in this request add definitions that nothing uses'
 
 
-def user(content, delivery='idle'):
+def _user(content, delivery='idle'):
     return {'type': 'user.message', 'data': {'content': content, 'delivery': delivery}}
 
 
-def assistant(content):
+def _assistant(content):
     return {'type': 'assistant.message', 'data': {'content': content}}
 
 
-def tool(name, arguments, call_id='c1'):
+def _tool(name, arguments, call_id='c1'):
     return {'type': 'tool.execution_start', 'data': {'toolCallId': call_id, 'toolName': name, 'arguments': arguments}}
 
 
-def agent_stop_start():
-    return {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': HOOK_TIMESTAMP}}}
+def _agent_stop_start():
+    return {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': _HOOK_TIMESTAMP}}}
 
 
 class DetectOrphanedAdditionsTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-orphaned-additions-test-')
         self.addCleanup(temporary.cleanup)
-        self.root = os.path.realpath(temporary.name)
-        self.workspace = os.path.join(self.root, 'workspace')
-        os.makedirs(self.workspace)
-        subprocess.run(['git', 'init', '-q', self.workspace], check=True)
-        self.transcript_path = os.path.join(self.root, 'events.jsonl')
-        self.payload = {
+        self.__root = os.path.realpath(temporary.name)
+        self.__workspace = os.path.join(self.__root, 'workspace')
+        os.makedirs(self.__workspace)
+        subprocess.run(['git', 'init', '-q', self.__workspace], check=True)
+        self.__transcript_path = os.path.join(self.__root, 'events.jsonl')
+        self.__payload = {
             'sessionId': '00000000-0000-4000-8000-000000000000',
-            'timestamp': HOOK_TIMESTAMP,
-            'cwd': self.workspace,
-            'transcriptPath': self.transcript_path,
+            'timestamp': _HOOK_TIMESTAMP,
+            'cwd': self.__workspace,
+            'transcriptPath': self.__transcript_path,
         }
 
-    def write_file(self, path, content, base=None):
-        full_path = os.path.join(base or self.workspace, path)
+    def __write_file(self, path, content, base=None):
+        full_path = os.path.join(base or self.__workspace, path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(content)
 
-    def invoke(self, events=None, payload=None, raw=None, arguments=()):
+    def __invoke(self, events=None, payload=None, raw=None, arguments=()):
         if events is not None:
-            with open(self.transcript_path, 'w', encoding='utf-8', newline='\n') as file:
-                for event in [*events, agent_stop_start()]:
+            with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
+                for event in [*events, _agent_stop_start()]:
                     file.write(json.dumps(event, ensure_ascii=False) + '\n')
         if raw is None:
-            raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
+            raw = json.dumps(self.__payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
-            [sys.executable, hook_path, *arguments], input=raw,
+            [sys.executable, _hook_path, *arguments], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
         )
 
-    def created(self, path, content, response='追加した。'):
+    def __created(self, path, content, response='追加した。'):
         # ファイルを作成した依頼のトランスクリプト。
-        self.write_file(path, content)
-        return [user('追加して'), tool('create', {'path': path, 'file_text': content}), assistant(response)]
+        self.__write_file(path, content)
+        return [_user('追加して'), _tool('create', {'path': path, 'file_text': content}), _assistant(response)]
 
-    def assert_silent(self, result):
+    def __assert_silent(self, result):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
 
-    def assert_block(self, result, *fragments):
+    def __assert_block(self, result, *fragments):
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
         self.assertEqual(result.stderr, b'')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
         output = json.loads(result.stdout.decode('utf-8'))
         self.assertEqual(output['decision'], 'block')
-        self.assertTrue(output['reason'].startswith(REASON_PREFIX))
+        self.assertTrue(output['reason'].startswith(_REASON_PREFIX))
         for fragment in fragments:
             self.assertIn(fragment, output['reason'])
         return output['reason']
 
     def test_configuration(self):
-        with open(os.path.join(hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
+        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         entries = configuration['hooks']['agentStop']
         relative_path = '.github/hooks/helpers/events/agentStop/detect-orphaned-additions/detect-orphaned-additions.py'
@@ -113,27 +113,27 @@ class DetectOrphanedAdditionsTests(unittest.TestCase):
             ('src/calc.go', 'package calc\n\nfunc (c *Calc) Reset() {\n}\n', 'Reset', 3),
         ]:
             with self.subTest(name=name):
-                result = self.invoke(self.created(path, content))
-                self.assert_block(result, f'- {path}:{line_number}: {name} (no references)')
+                result = self.__invoke(self.__created(path, content))
+                self.__assert_block(result, f'- {path}:{line_number}: {name} (no references)')
 
     def test_allows_referenced_definitions(self):
         # 別ファイル（未追跡を含む）や同じファイルの別の行からの参照があれば対象外。
-        self.write_file('src/app.py', 'from calc import helper\n\nprint(helper(1))\n')
-        self.assert_silent(self.invoke(self.created('src/calc.py', 'def helper(x):\n    return x\n')))
+        self.__write_file('src/app.py', 'from calc import helper\n\nprint(helper(1))\n')
+        self.__assert_silent(self.__invoke(self.__created('src/calc.py', 'def helper(x):\n    return x\n')))
         content = 'def _inner(x):\n    return x\n\n\ndef run():\n    return _inner(1)\n'
-        self.write_file('src/app.py', 'from calc import run\n')
-        self.assert_silent(self.invoke(self.created('src/calc.py', content)))
+        self.__write_file('src/app.py', 'from calc import run\n')
+        self.__assert_silent(self.__invoke(self.__created('src/calc.py', content)))
 
     def test_reports_definitions_referenced_only_from_tests(self):
-        self.write_file('tests/test_calc.py', 'from calc import helper\n\nassert helper(1) == 1\n')
-        self.write_file('docs/usage.md', 'Call `helper` from your code.\n')
-        result = self.invoke(self.created('src/calc.py', 'def helper(x):\n    return x\n'))
-        self.assert_block(result, '- src/calc.py:1: helper (referenced only from tests)')
+        self.__write_file('tests/test_calc.py', 'from calc import helper\n\nassert helper(1) == 1\n')
+        self.__write_file('docs/usage.md', 'Call `helper` from your code.\n')
+        result = self.__invoke(self.__created('src/calc.py', 'def helper(x):\n    return x\n'))
+        self.__assert_block(result, '- src/calc.py:1: helper (referenced only from tests)')
 
     def test_ignores_references_in_documents(self):
-        self.write_file('README.md', 'Use helper(x).\n')
-        result = self.invoke(self.created('src/calc.py', 'def helper(x):\n    return x\n'))
-        self.assert_block(result, '- src/calc.py:1: helper (no references)')
+        self.__write_file('README.md', 'Use helper(x).\n')
+        result = self.__invoke(self.__created('src/calc.py', 'def helper(x):\n    return x\n'))
+        self.__assert_block(result, '- src/calc.py:1: helper (no references)')
 
     def test_skips_entry_points_and_framework_callbacks(self):
         for path, content in [
@@ -156,71 +156,71 @@ class DetectOrphanedAdditionsTests(unittest.TestCase):
         ]:
             with self.subTest(path=path, content=content):
                 # 型名そのものは対象にしないよう、別ファイルから参照しておく。
-                self.write_file('src/Usage.cs', 'var a = new A(1);\n')
-                self.assert_silent(self.invoke(self.created(path, content)))
+                self.__write_file('src/Usage.cs', 'var a = new A(1);\n')
+                self.__assert_silent(self.__invoke(self.__created(path, content)))
 
     def test_edit_and_patch_arguments(self):
-        self.write_file('src/calc.py', 'def existing():\n    pass\n\n\ndef added(x):\n    return x\n')
-        self.write_file('src/calc.ts', 'export function fresh() {\n}\n')
-        self.write_file('src/main.py', 'from calc import existing\n')
+        self.__write_file('src/calc.py', 'def existing():\n    pass\n\n\ndef added(x):\n    return x\n')
+        self.__write_file('src/calc.ts', 'export function fresh() {\n}\n')
+        self.__write_file('src/main.py', 'from calc import existing\n')
         patch = '*** Begin Patch\n*** Add File: src/calc.ts\n+export function fresh() {\n+}\n*** End Patch'
         events = [
-            user('追加して'),
-            tool('functions.edit', json.dumps({
+            _user('追加して'),
+            _tool('functions.edit', json.dumps({
                 'path': 'src/calc.py', 'old_str': '    pass\n', 'new_str': '    pass\n\n\ndef added(x):\n    return x\n',
             })),
-            tool('apply_patch', patch, call_id='c2'),
-            assistant('Done.'),
+            _tool('apply_patch', patch, call_id='c2'),
+            _assistant('Done.'),
         ]
-        self.assert_block(
-            self.invoke(events), '- src/calc.py:5: added (no references)', '- src/calc.ts:1: fresh (no references)',
+        self.__assert_block(
+            self.__invoke(events), '- src/calc.py:5: added (no references)', '- src/calc.ts:1: fresh (no references)',
         )
 
     def test_ignores_existing_removed_and_unrelated_writes(self):
-        self.write_file('src/kept.py', 'def kept():\n    pass\n')
-        self.write_file('src/gone.py', 'x = 1\n')
+        self.__write_file('src/kept.py', 'def kept():\n    pass\n')
+        self.__write_file('src/gone.py', 'x = 1\n')
         events = [
-            user('直して'),
+            _user('直して'),
             # 置換前の内容にもある定義は、元からあるものとみなす。
-            tool('edit', {'path': 'src/kept.py', 'old_str': 'def kept():\n    return 1', 'new_str': 'def kept():\n    pass'}),
+            _tool('edit', {'path': 'src/kept.py', 'old_str': 'def kept():\n    return 1', 'new_str': 'def kept():\n    pass'}),
             # 後の編集でファイルから消えた定義は対象外。
-            tool('create', {'path': 'src/gone.py', 'file_text': 'def gone():\n    pass\n'}, 'c2'),
+            _tool('create', {'path': 'src/gone.py', 'file_text': 'def gone():\n    pass\n'}, 'c2'),
             # 閲覧、削除されたファイルへの書き込み、シェルは対象外。
-            tool('str_replace_editor', {'command': 'view', 'path': 'src/kept.py', 'new_str': 'def viewed():'}, 'c3'),
-            tool('create', {'path': 'src/deleted.py', 'file_text': 'def deleted():\n    pass\n'}, 'c4'),
-            tool('bash', {'command': 'echo "def shell():" > src/shell.py'}, 'c5'),
-            assistant('直した。'),
+            _tool('str_replace_editor', {'command': 'view', 'path': 'src/kept.py', 'new_str': 'def viewed():'}, 'c3'),
+            _tool('create', {'path': 'src/deleted.py', 'file_text': 'def deleted():\n    pass\n'}, 'c4'),
+            _tool('bash', {'command': 'echo "def shell():" > src/shell.py'}, 'c5'),
+            _assistant('直した。'),
         ]
-        self.assert_silent(self.invoke(events))
+        self.__assert_silent(self.__invoke(events))
 
     def test_skips_files_outside_repository_and_without_git(self):
-        outside = os.path.join(self.root, 'outside')
-        self.write_file('calc.py', 'def helper(x):\n    return x\n', base=outside)
-        events = [user('追加して'), tool('create', {'path': os.path.join(outside, 'calc.py')}), assistant('追加した。')]
-        self.assert_silent(self.invoke(events))
-        self.assert_silent(self.invoke(events, payload={**self.payload, 'cwd': outside}))
+        outside = os.path.join(self.__root, 'outside')
+        self.__write_file('calc.py', 'def helper(x):\n    return x\n', base=outside)
+        events = [_user('追加して'), _tool('create', {'path': os.path.join(outside, 'calc.py')}), _assistant('追加した。')]
+        self.__assert_silent(self.__invoke(events))
+        self.__assert_silent(self.__invoke(events, payload={**self.__payload, 'cwd': outside}))
 
     def test_only_latest_request_is_checked(self):
-        events = [*self.created('src/calc.py', 'def helper(x):\n    return x\n'), user('READMEを直して'), assistant('直した。')]
-        self.assert_silent(self.invoke(events))
+        events = [*self.__created('src/calc.py', 'def helper(x):\n    return x\n'), _user('READMEを直して'), _assistant('直した。')]
+        self.__assert_silent(self.__invoke(events))
 
     def test_blocks_only_once_per_request(self):
-        events = self.created('src/calc.py', 'def helper(x):\n    return x\n')
-        reason = self.assert_block(self.invoke(events))
-        self.assert_silent(self.invoke([*events, user(reason, delivery='queued'), assistant('公開APIとして残す。')]))
+        events = self.__created('src/calc.py', 'def helper(x):\n    return x\n')
+        reason = self.__assert_block(self.__invoke(events))
+        self.__assert_silent(self.__invoke([*events, _user(reason, delivery='queued'), _assistant('公開APIとして残す。')]))
         # 割り込みのメッセージは依頼の区切りにならない。
-        self.assert_block(self.invoke([*events, user('急いで', delivery='queued'), assistant('追加した。')]))
+        self.__assert_block(self.__invoke([*events, _user('急いで', delivery='queued'), _assistant('追加した。')]))
 
     def test_skips_subagents_and_turns_without_response(self):
-        events = self.created('src/calc.py', 'def helper(x):\n    return x\n')
-        self.assert_silent(self.invoke(events, payload={**self.payload, 'agentId': 'sub'}))
-        self.assert_silent(self.invoke(events[:2]))
+        events = self.__created('src/calc.py', 'def helper(x):\n    return x\n')
+        self.__assert_silent(self.__invoke(events, payload={**self.__payload, 'agentId': 'sub'}))
+        self.__assert_silent(self.__invoke(events[:2]))
 
     def test_reports_each_definition_once_and_limits_findings(self):
-        reason = self.assert_block(self.invoke(self.created('src/calc.py', 'def helper(x):\n    return x\n')))
+        reason = self.__assert_block(self.__invoke(self.__created('src/calc.py', 'def helper(x):\n    return x\n')))
         self.assertEqual(reason.count('helper'), 1)
         content = ''.join(f'def item_{index:02}():\n    pass\n' for index in range(12))
-        reason = self.assert_block(self.invoke(self.created('src/calc.py', content)), 'item_09')
+        reason = self.__assert_block(self.__invoke(self.__created('src/calc.py', content)), 'item_09')
         self.assertNotIn('item_10', reason)
 
     def test_invalid_input(self):
@@ -229,18 +229,18 @@ class DetectOrphanedAdditionsTests(unittest.TestCase):
             ('broken json', b'{'),
             ('invalid utf-8', b'\xff'),
             ('not object', b'[]'),
-            ('missing cwd', json.dumps({'transcriptPath': self.transcript_path}).encode('utf-8')),
-            ('relative cwd', json.dumps({'cwd': 'x', 'transcriptPath': self.transcript_path}).encode('utf-8')),
-            ('missing transcript', json.dumps({'cwd': self.workspace}).encode('utf-8')),
-            ('transcript not file', json.dumps({'cwd': self.workspace, 'transcriptPath': self.workspace}).encode('utf-8')),
+            ('missing cwd', json.dumps({'transcriptPath': self.__transcript_path}).encode('utf-8')),
+            ('relative cwd', json.dumps({'cwd': 'x', 'transcriptPath': self.__transcript_path}).encode('utf-8')),
+            ('missing transcript', json.dumps({'cwd': self.__workspace}).encode('utf-8')),
+            ('transcript not file', json.dumps({'cwd': self.__workspace, 'transcriptPath': self.__workspace}).encode('utf-8')),
         ]:
             with self.subTest(name=name):
-                result = self.invoke(raw=raw)
+                result = self.__invoke(raw=raw)
                 self.assertEqual((result.returncode, result.stdout), (2, b''), name)
                 self.assertIn(b'Failed to detect orphaned additions:', result.stderr)
-        with open(self.transcript_path, 'w', encoding='utf-8') as file:
+        with open(self.__transcript_path, 'w', encoding='utf-8') as file:
             file.write('{broken\n')
-        result = self.invoke()
+        result = self.__invoke()
         self.assertEqual((result.returncode, result.stdout), (2, b''))
 
     def test_invalid_definitions(self):
@@ -258,20 +258,20 @@ class DetectOrphanedAdditionsTests(unittest.TestCase):
             ('invalid regex', json.dumps({**valid, 'excludedNamePatterns': ['(']})),
         ]:
             with self.subTest(name=name):
-                definitions_path = os.path.join(self.root, 'definitions.json')
+                definitions_path = os.path.join(self.__root, 'definitions.json')
                 with open(definitions_path, 'w', encoding='utf-8') as file:
                     file.write(content)
-                result = self.invoke(
-                    self.created('src/calc.py', 'def helper():\n    pass\n'),
+                result = self.__invoke(
+                    self.__created('src/calc.py', 'def helper():\n    pass\n'),
                     arguments=('--definitions-path', definitions_path),
                 )
                 self.assertEqual((result.returncode, result.stdout), (2, b''), name)
                 self.assertIn(b'Failed to detect orphaned additions:', result.stderr)
-        test_definitions_path = os.path.join(self.root, 'test-definitions.json')
+        test_definitions_path = os.path.join(self.__root, 'test-definitions.json')
         with open(test_definitions_path, 'w', encoding='utf-8') as file:
             file.write(json.dumps({'testFilePatterns': []}))
-        result = self.invoke(
-            self.created('src/calc.py', 'def helper():\n    pass\n'),
+        result = self.__invoke(
+            self.__created('src/calc.py', 'def helper():\n    pass\n'),
             arguments=('--test-definitions-path', test_definitions_path),
         )
         self.assertEqual((result.returncode, result.stdout), (2, b''))

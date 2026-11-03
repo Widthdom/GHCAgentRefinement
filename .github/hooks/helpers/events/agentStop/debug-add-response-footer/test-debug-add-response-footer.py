@@ -13,8 +13,8 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 from pathlib import Path
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'debug-add-response-footer.py')
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'debug-add-response-footer.py')
 
 
 def _to_compressed_json(value):
@@ -30,38 +30,38 @@ def _new_session_id():
     return str(uuid.uuid4())
 
 
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
 class DebugResponseFooterTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix='ghc-agent-refinement-footer-test-')
-        self.addCleanup(self.temporary.cleanup)
-        self.temp_dir = self.temporary.name
-        self.debug_state_dir = os.path.join(self.temp_dir, 'ghc-agent-refinement', 'hook-states', 'debug-mode')
-        os.makedirs(self.debug_state_dir)
-        self.enabled_session_id = _new_session_id()
-        self.enabled_state_path = os.path.join(self.debug_state_dir, f'{self.enabled_session_id}.json')
-        _write_all_text(self.enabled_state_path, _to_compressed_json({'enabled': True}))
-        self.valid_transcript = os.path.join(self.temp_dir, 'valid-transcript.jsonl')
-        _write_all_text(self.valid_transcript, _to_compressed_json({
+        self.__temporary = tempfile.TemporaryDirectory(prefix='ghc-agent-refinement-footer-test-')
+        self.addCleanup(self.__temporary.cleanup)
+        self.__temp_dir = self.__temporary.name
+        self.__debug_state_dir = os.path.join(self.__temp_dir, 'ghc-agent-refinement', 'hook-states', 'debug-mode')
+        os.makedirs(self.__debug_state_dir)
+        self.__enabled_session_id = _new_session_id()
+        self.__enabled_state_path = os.path.join(self.__debug_state_dir, f'{self.__enabled_session_id}.json')
+        _write_all_text(self.__enabled_state_path, _to_compressed_json({'enabled': True}))
+        self.__valid_transcript = os.path.join(self.__temp_dir, 'valid-transcript.jsonl')
+        _write_all_text(self.__valid_transcript, _to_compressed_json({
             'type': 'assistant.message', 'data': {'content': 'Hello world'},
         }) + '\n')
-        self.valid_block_json = _to_compressed_json({
-            'sessionId': self.enabled_session_id, 'transcriptPath': self.valid_transcript,
+        self.__valid_block_json = _to_compressed_json({
+            'sessionId': self.__enabled_session_id, 'transcriptPath': self.__valid_transcript,
         })
 
-    def _invoke_hook_input(self, input_json):
+    def __invoke_hook_input(self, input_json):
         environment = os.environ.copy()
         environment.update({
-            'TMPDIR': self.temp_dir,
-            'TMP': self.temp_dir,
-            'TEMP': self.temp_dir,
+            'TMPDIR': self.__temp_dir,
+            'TMP': self.__temp_dir,
+            'TEMP': self.__temp_dir,
         })
         completed = subprocess.run(
-            [sys.executable, hook_path],
+            [sys.executable, _hook_path],
             input=input_json if isinstance(input_json, bytes) else input_json.encode('utf-8'),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -84,15 +84,15 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         for case in invalid_inputs:
             with self.subTest(case=case):
-                exit_code, output, error = self._invoke_hook_input(case['Json'])
+                exit_code, output, error = self.__invoke_hook_input(case['Json'])
                 if exit_code != 2 or output or case['Error'] not in error:
                     raise AssertionError(f"Expected exit 2 for '{case['Name']}', got {exit_code}. Output: {output}, Error: {error}")
 
         valid_guid = _new_session_id()
 
-        self.valid_transcript = os.path.join(self.temp_dir, 'valid-transcript.jsonl')
+        self.__valid_transcript = os.path.join(self.__temp_dir, 'valid-transcript.jsonl')
 
-        _write_all_text(self.valid_transcript, _to_compressed_json({
+        _write_all_text(self.__valid_transcript, _to_compressed_json({
             'type': 'assistant.message',
             'data': {'content': 'Hello world'},
         }) + '\n')
@@ -103,9 +103,9 @@ class DebugResponseFooterTests(unittest.TestCase):
             {'Name': 'Whitespace transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid, 'transcriptPath': '   '}),
              'Error': 'agentStop hook transcriptPath must not be empty or whitespace.'},
             {'Name': 'Nonexistent transcriptPath', 'Json': _to_compressed_json(
-                {'sessionId': valid_guid, 'transcriptPath': os.path.join(self.temp_dir, 'not-found.jsonl')}),
+                {'sessionId': valid_guid, 'transcriptPath': os.path.join(self.__temp_dir, 'not-found.jsonl')}),
              'Error': 'Transcript path is not a file'},
-            {'Name': 'Directory transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid, 'transcriptPath': self.temp_dir}),
+            {'Name': 'Directory transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid, 'transcriptPath': self.__temp_dir}),
              'Error': 'Transcript path is not a file'},
             {'Name': 'Non-string snake_case transcript_path', 'Json': _to_compressed_json(
                 {'sessionId': valid_guid, 'transcript_path': []}),
@@ -113,23 +113,23 @@ class DebugResponseFooterTests(unittest.TestCase):
             {'Name': 'Non-string transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid, 'transcriptPath': []}),
              'Error': 'agentStop hook transcriptPath must be a string.'},
             {'Name': 'Invalid transcriptPath with valid snake_case path', 'Json': _to_compressed_json(
-                {'sessionId': valid_guid, 'transcriptPath': None, 'transcript_path': self.valid_transcript}),
+                {'sessionId': valid_guid, 'transcriptPath': None, 'transcript_path': self.__valid_transcript}),
              'Error': 'agentStop hook transcriptPath must be a string.'},
-            {'Name': 'Missing sessionId', 'Json': _to_compressed_json({'transcriptPath': self.valid_transcript}),
+            {'Name': 'Missing sessionId', 'Json': _to_compressed_json({'transcriptPath': self.__valid_transcript}),
              'Error': 'agentStop hook sessionId must be a string.'},
-            {'Name': 'Non-string sessionId', 'Json': _to_compressed_json({'sessionId': [valid_guid], 'transcriptPath': self.valid_transcript}),
+            {'Name': 'Non-string sessionId', 'Json': _to_compressed_json({'sessionId': [valid_guid], 'transcriptPath': self.__valid_transcript}),
              'Error': 'agentStop hook sessionId must be a string.'},
-            {'Name': 'Whitespace sessionId', 'Json': _to_compressed_json({'sessionId': ' \t', 'transcriptPath': self.valid_transcript}),
+            {'Name': 'Whitespace sessionId', 'Json': _to_compressed_json({'sessionId': ' \t', 'transcriptPath': self.__valid_transcript}),
              'Error': 'agentStop hook sessionId must not be empty or whitespace.'},
-            {'Name': 'Invalid sessionId', 'Json': _to_compressed_json({'sessionId': 'not-a-guid', 'transcriptPath': self.valid_transcript}),
+            {'Name': 'Invalid sessionId', 'Json': _to_compressed_json({'sessionId': 'not-a-guid', 'transcriptPath': self.__valid_transcript}),
              'Error': 'agentStop hook sessionId must be a valid UUID.'},
-            {'Name': 'Case-sensitive sessionId', 'Json': _to_compressed_json({'SessionId': valid_guid, 'transcriptPath': self.valid_transcript}),
+            {'Name': 'Case-sensitive sessionId', 'Json': _to_compressed_json({'SessionId': valid_guid, 'transcriptPath': self.__valid_transcript}),
              'Error': 'agentStop hook sessionId must be a string.'},
         ]
 
         for case in missing_path_cases:
             with self.subTest(case=case):
-                exit_code, output, error = self._invoke_hook_input(case['Json'])
+                exit_code, output, error = self.__invoke_hook_input(case['Json'])
                 if exit_code != 2 or output or case['Error'] not in error:
                     raise AssertionError(f"Expected exit 2 for '{case['Name']}', got {exit_code}. Error: {error}")
 
@@ -137,10 +137,10 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         no_state_json = _to_compressed_json({
             'sessionId': non_existent_session_id,
-            'transcriptPath': self.valid_transcript,
+            'transcriptPath': self.__valid_transcript,
         })
 
-        exit_code, output, error = self._invoke_hook_input(no_state_json)
+        exit_code, output, error = self.__invoke_hook_input(no_state_json)
 
         if exit_code != 0 or output.strip():
             raise AssertionError(
@@ -149,16 +149,16 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         corrupt_session_id = _new_session_id()
 
-        corrupt_state_path = os.path.join(self.debug_state_dir, f'{corrupt_session_id}.json')
+        corrupt_state_path = os.path.join(self.__debug_state_dir, f'{corrupt_session_id}.json')
 
         _write_all_text(corrupt_state_path, '{corrupt-json')
 
         corrupt_state_json = _to_compressed_json({
             'sessionId': corrupt_session_id,
-            'transcriptPath': self.valid_transcript,
+            'transcriptPath': self.__valid_transcript,
         })
 
-        exit_code, output, error = self._invoke_hook_input(corrupt_state_json)
+        exit_code, output, error = self.__invoke_hook_input(corrupt_state_json)
 
         if exit_code != 2 or output or 'Debug-mode state file is not valid JSON:' not in error:
             raise AssertionError(f'Expected exit 2 for corrupt state file. Got exit {exit_code}, Error: {error}')
@@ -167,7 +167,7 @@ class DebugResponseFooterTests(unittest.TestCase):
         with open(corrupt_state_path, 'wb') as file:
             file.write(b'{"enabled":"\xff"}')
 
-        exit_code, output, error = self._invoke_hook_input(corrupt_state_json)
+        exit_code, output, error = self.__invoke_hook_input(corrupt_state_json)
 
         if exit_code != 2 or output or 'Debug-mode state file is not valid UTF-8:' not in error:
             raise AssertionError(f'Expected exit 2 for non-UTF-8 state file. Got exit {exit_code}, Error: {error}')
@@ -183,11 +183,11 @@ class DebugResponseFooterTests(unittest.TestCase):
         for case in non_bool_cases:
             with self.subTest(case=case):
                 session_id = _new_session_id()
-                state_path = os.path.join(self.debug_state_dir, f'{session_id}.json')
+                state_path = os.path.join(self.__debug_state_dir, f'{session_id}.json')
                 _write_all_text(state_path, _to_compressed_json({'enabled': case['Value']}))
 
-                input_json = _to_compressed_json({'sessionId': session_id, 'transcriptPath': self.valid_transcript})
-                exit_code, output, error = self._invoke_hook_input(input_json)
+                input_json = _to_compressed_json({'sessionId': session_id, 'transcriptPath': self.__valid_transcript})
+                exit_code, output, error = self.__invoke_hook_input(input_json)
                 if exit_code != 0 or output.strip():
                     raise AssertionError(
                         f"Expected exit 0 and empty output for non-bool enabled '{case['Name']}'. "
@@ -195,54 +195,54 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         disabled_session_id = _new_session_id()
 
-        disabled_state_path = os.path.join(self.debug_state_dir, f'{disabled_session_id}.json')
+        disabled_state_path = os.path.join(self.__debug_state_dir, f'{disabled_session_id}.json')
 
         _write_all_text(disabled_state_path, _to_compressed_json({'enabled': False}))
 
-        disabled_json = _to_compressed_json({'sessionId': disabled_session_id, 'transcriptPath': self.valid_transcript})
+        disabled_json = _to_compressed_json({'sessionId': disabled_session_id, 'transcriptPath': self.__valid_transcript})
 
-        exit_code, output, error = self._invoke_hook_input(disabled_json)
+        exit_code, output, error = self.__invoke_hook_input(disabled_json)
 
         if exit_code != 0 or output.strip():
             raise AssertionError(f'Expected exit 0 and empty output when enabled is false. Got exit {exit_code}, Output: {output}')
 
 
-        bad_transcript = os.path.join(self.temp_dir, 'bad-line.jsonl')
+        bad_transcript = os.path.join(self.__temp_dir, 'bad-line.jsonl')
 
         _write_all_text(bad_transcript, '{bad-json\n')
 
-        self.enabled_session_id = _new_session_id()
+        self.__enabled_session_id = _new_session_id()
 
-        self.enabled_state_path = os.path.join(self.debug_state_dir, f'{self.enabled_session_id}.json')
+        self.__enabled_state_path = os.path.join(self.__debug_state_dir, f'{self.__enabled_session_id}.json')
 
-        _write_all_text(self.enabled_state_path, _to_compressed_json({'enabled': True}))
+        _write_all_text(self.__enabled_state_path, _to_compressed_json({'enabled': True}))
 
-        bad_transcript_json = _to_compressed_json({'sessionId': self.enabled_session_id, 'transcriptPath': bad_transcript})
+        bad_transcript_json = _to_compressed_json({'sessionId': self.__enabled_session_id, 'transcriptPath': bad_transcript})
 
-        exit_code, output, error = self._invoke_hook_input(bad_transcript_json)
+        exit_code, output, error = self.__invoke_hook_input(bad_transcript_json)
 
         if exit_code != 2:
             raise AssertionError(f'Expected exit 2 for bad transcript line. Got exit {exit_code}, Error: {error}')
 
 
-        no_assistant_transcript = os.path.join(self.temp_dir, 'no-assistant.jsonl')
+        no_assistant_transcript = os.path.join(self.__temp_dir, 'no-assistant.jsonl')
 
         _write_all_text(no_assistant_transcript, _to_compressed_json({
             'type': 'user.message',
             'data': {'content': 'Hello'},
         }) + '\n')
 
-        no_assistant_json = _to_compressed_json({'sessionId': self.enabled_session_id, 'transcriptPath': no_assistant_transcript})
+        no_assistant_json = _to_compressed_json({'sessionId': self.__enabled_session_id, 'transcriptPath': no_assistant_transcript})
 
-        exit_code, output, error = self._invoke_hook_input(no_assistant_json)
+        exit_code, output, error = self.__invoke_hook_input(no_assistant_json)
 
         if exit_code != 2:
             raise AssertionError(f'Expected exit 2 for transcript without assistant.message. Got exit {exit_code}, Error: {error}')
 
 
-        valid_block_json = _to_compressed_json({'sessionId': self.enabled_session_id, 'transcriptPath': self.valid_transcript})
+        valid_block_json = _to_compressed_json({'sessionId': self.__enabled_session_id, 'transcriptPath': self.__valid_transcript})
 
-        exit_code, output, error = self._invoke_hook_input(valid_block_json)
+        exit_code, output, error = self.__invoke_hook_input(valid_block_json)
 
         if exit_code != 0:
             raise AssertionError(f'Expected exit 0 for valid run with missing footer. Got exit {exit_code}, Error: {error}')
@@ -253,7 +253,7 @@ class DebugResponseFooterTests(unittest.TestCase):
             raise AssertionError(f"Expected decision 'block' with non-empty reason. Got output: {output}")
 
 
-        delayed_transcript = os.path.join(self.temp_dir, 'delayed.jsonl')
+        delayed_transcript = os.path.join(self.__temp_dir, 'delayed.jsonl')
 
         _write_all_text(delayed_transcript, _to_compressed_json({
             'type': 'assistant.message', 'data': {'content': ''},
@@ -274,8 +274,8 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         writer.start()
 
-        exit_code, output, error = self._invoke_hook_input(_to_compressed_json({
-            'sessionId': self.enabled_session_id, 'transcriptPath': delayed_transcript, 'timestamp': hook_timestamp,
+        exit_code, output, error = self.__invoke_hook_input(_to_compressed_json({
+            'sessionId': self.__enabled_session_id, 'transcriptPath': delayed_transcript, 'timestamp': hook_timestamp,
         }))
 
         writer.join()
@@ -284,16 +284,16 @@ class DebugResponseFooterTests(unittest.TestCase):
             raise AssertionError(f'Expected block after delayed transcript flush. Got exit {exit_code}, Output: {output}, Error: {error}')
 
 
-        hook_transcript = os.path.join(self.temp_dir, 'with-hook.jsonl')
+        hook_transcript = os.path.join(self.__temp_dir, 'with-hook.jsonl')
 
         _write_all_text(hook_transcript, '\n'.join([
             _to_compressed_json({'type': 'hook.start', 'data': {'hookType': 'preToolUse'}}),
             _to_compressed_json({'type': 'assistant.message', 'data': {'content': 'Hello world'}}),
         ]) + '\n')
 
-        hook_json = _to_compressed_json({'sessionId': self.enabled_session_id, 'transcriptPath': hook_transcript})
+        hook_json = _to_compressed_json({'sessionId': self.__enabled_session_id, 'transcriptPath': hook_transcript})
 
-        exit_code, output, error = self._invoke_hook_input(hook_json)
+        exit_code, output, error = self.__invoke_hook_input(hook_json)
 
         if exit_code != 0 or error:
             raise AssertionError(f'Expected exit 0 for transcript with hook event. Got exit {exit_code}, Error: {error}')
@@ -308,38 +308,38 @@ class DebugResponseFooterTests(unittest.TestCase):
             str(Path(__file__).resolve().parents[3] / 'utilities' / 'get-current-jst' / 'get-current-jst.py')
         )['current_jst']
 
-        formatted_footer = runpy.run_path(str(Path(script_directory) / 'format-response-footer.py'))['format_response_footer'](
+        formatted_footer = runpy.run_path(str(Path(_script_directory) / 'format-response-footer.py'))['format_response_footer'](
             hooks=['none'],
             fired_hooks=['none'],
             skills=['none'],
             current_jst=current_jst,
         )
 
-        valid_with_footer_transcript = os.path.join(self.temp_dir, 'with-footer.jsonl')
+        valid_with_footer_transcript = os.path.join(self.__temp_dir, 'with-footer.jsonl')
 
         _write_all_text(valid_with_footer_transcript, _to_compressed_json({
             'type': 'assistant.message',
             'data': {'content': f'Here is the response.\n\n{formatted_footer}'},
         }) + '\n')
 
-        with_footer_json = _to_compressed_json({'sessionId': self.enabled_session_id, 'transcriptPath': valid_with_footer_transcript})
+        with_footer_json = _to_compressed_json({'sessionId': self.__enabled_session_id, 'transcriptPath': valid_with_footer_transcript})
 
-        exit_code, output, error = self._invoke_hook_input(with_footer_json)
+        exit_code, output, error = self.__invoke_hook_input(with_footer_json)
 
         if exit_code != 0 or output.strip():
             raise AssertionError(f'Expected exit 0 and empty output when valid footer exists. Got exit {exit_code}, Output: {output}')
 
 
-        for transcript in (self.valid_transcript, valid_with_footer_transcript):
+        for transcript in (self.__valid_transcript, valid_with_footer_transcript):
             with self.subTest(transcript=transcript):
-                for debug_session_id in (self.enabled_session_id, disabled_session_id):
-                    exit_code, output, error = self._invoke_hook_input(_to_compressed_json({
+                for debug_session_id in (self.__enabled_session_id, disabled_session_id):
+                    exit_code, output, error = self.__invoke_hook_input(_to_compressed_json({
                         'sessionId': debug_session_id,
                         'transcriptPath': transcript,
                         'stopReason': 'end_turn',
                         'stop_hook_active': False,
                     }))
-                    should_block = debug_session_id == self.enabled_session_id and transcript == self.valid_transcript
+                    should_block = debug_session_id == self.__enabled_session_id and transcript == self.__valid_transcript
                     if exit_code != 0 or error:
                         raise AssertionError(f'Expected camelCase input to succeed: {exit_code}, {output}, {error}')
                     if should_block:
@@ -351,12 +351,12 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         for state in ([], [{'enabled': True}], None):
             with self.subTest(state=state):
-                _write_all_text(self.enabled_state_path, _to_compressed_json(state))
-                exit_code, output, error = self._invoke_hook_input(valid_block_json)
+                _write_all_text(self.__enabled_state_path, _to_compressed_json(state))
+                exit_code, output, error = self.__invoke_hook_input(valid_block_json)
                 if exit_code != 2 or output or 'Debug-mode state is invalid: Expected a JSON object.' not in error:
                     raise AssertionError(f'Expected explicit error for non-object state: {state!r}, {exit_code}, {error}')
 
-        _write_all_text(self.enabled_state_path, _to_compressed_json({'enabled': True}))
+        _write_all_text(self.__enabled_state_path, _to_compressed_json({'enabled': True}))
 
         for event, expected_error in (
             ([], 'line 1'),
@@ -368,27 +368,27 @@ class DebugResponseFooterTests(unittest.TestCase):
         ):
             with self.subTest(event=event, expected_error=expected_error):
                 _write_all_text(bad_transcript, _to_compressed_json(event) + '\n')
-                exit_code, output, error = self._invoke_hook_input(bad_transcript_json)
+                exit_code, output, error = self.__invoke_hook_input(bad_transcript_json)
                 if exit_code != 2 or output or expected_error not in error:
                     raise AssertionError(f'Expected explicit event shape error: {event!r}, {exit_code}, {error}')
 
-        unicode_transcript = os.path.join(self.temp_dir, 'unicode.jsonl')
+        unicode_transcript = os.path.join(self.__temp_dir, 'unicode.jsonl')
 
         _write_all_text(unicode_transcript, '\ufeff' + _to_compressed_json({
             'type': 'assistant.message', 'data': {'content': '\u65e5\u672c\u8a9e\u0085\u2028\u2029'},
         }) + '\r\n')
 
-        _write_all_text(self.enabled_state_path, '\ufeff' + _to_compressed_json({'enabled': True}))
+        _write_all_text(self.__enabled_state_path, '\ufeff' + _to_compressed_json({'enabled': True}))
 
-        exit_code, output, error = self._invoke_hook_input(_to_compressed_json({
-            'sessionId': self.enabled_session_id.upper().replace('-', ''), 'transcriptPath': unicode_transcript,
+        exit_code, output, error = self.__invoke_hook_input(_to_compressed_json({
+            'sessionId': self.__enabled_session_id.upper().replace('-', ''), 'transcriptPath': unicode_transcript,
         }))
 
         if exit_code != 0 or error or json.loads(output).get('decision') != 'block':
             raise AssertionError(f'Expected UTF-8 and normalized UUID support: {exit_code}, {output}, {error}')
 
 
-        hooks_directory = os.path.join(self.temp_dir, 'hooks')
+        hooks_directory = os.path.join(self.__temp_dir, 'hooks')
 
         os.makedirs(hooks_directory)
 
@@ -416,7 +416,7 @@ class DebugResponseFooterTests(unittest.TestCase):
             _to_compressed_json({'hooks': {'preToolUse': []}}),
         )
 
-        collection_transcript = os.path.join(self.temp_dir, 'collection.jsonl')
+        collection_transcript = os.path.join(self.__temp_dir, 'collection.jsonl')
 
         correction = block_output['reason']
 
@@ -425,9 +425,9 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         # userPromptSubmittedのhook.startはuser.messageより前に記録されるため、そこからを今回のターンとする。
         record_hook_run = runpy.run_path(
-            str(Path(script_directory).parents[2] / 'utilities' / 'hook-activity-state' / 'hook-activity-state.py')
+            str(Path(_script_directory).parents[2] / 'utilities' / 'hook-activity-state' / 'hook-activity-state.py')
         )['record_hook_run']
-        with patch.object(tempfile, 'tempdir', self.temp_dir):
+        with patch.object(tempfile, 'tempdir', self.__temp_dir):
             for timestamp, event_name, hook_name, fired in (
                 ('2026-10-21T02:59:58.000Z', 'preToolUse', 'previous-turn', True),
                 ('2026-10-21T02:59:59.500Z', 'userPromptSubmitted', 'prompt-hook', True),
@@ -435,7 +435,7 @@ class DebugResponseFooterTests(unittest.TestCase):
                 ('2026-10-21T03:00:05.000Z', 'preToolUse', 'quiet-hook', False),
                 ('2026-10-21T03:00:06.000Z', 'agentStop', 'stop-hook', True),
             ):
-                record_hook_run(self.enabled_session_id, event_name, hook_name, _epoch_ms(timestamp), fired)
+                record_hook_run(self.__enabled_session_id, event_name, hook_name, _epoch_ms(timestamp), fired)
 
         events = [
             {'type': 'hook.start', 'data': {'hookType': 'sessionStart'}},
@@ -455,9 +455,9 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         _write_all_text(collection_transcript, '\n'.join(map(_to_compressed_json, events)) + '\n')
 
-        get_hooks = runpy.run_path(str(Path(script_directory) / 'get-used-hooks.py'))['get_used_hooks']
+        get_hooks = runpy.run_path(str(Path(_script_directory) / 'get-used-hooks.py'))['get_used_hooks']
 
-        get_skills = runpy.run_path(str(Path(script_directory) / 'get-used-skills.py'))['get_used_skills']
+        get_skills = runpy.run_path(str(Path(_script_directory) / 'get-used-skills.py'))['get_used_skills']
 
         if get_hooks(collection_transcript, hooks_directory) != ['a-first', 'm-repo', 'z-last']:
             raise AssertionError('Expected current-turn hooks in name order, retaining correction history.')
@@ -465,10 +465,10 @@ class DebugResponseFooterTests(unittest.TestCase):
         if get_skills(collection_transcript) != ['first', 'second']:
             raise AssertionError('Expected distinct skill names in invocation order, retaining correction history.')
 
-        get_fired_hooks = runpy.run_path(str(Path(script_directory) / 'get-fired-hooks.py'))['get_fired_hooks']
+        get_fired_hooks = runpy.run_path(str(Path(_script_directory) / 'get-fired-hooks.py'))['get_fired_hooks']
 
-        with patch.object(tempfile, 'tempdir', self.temp_dir):
-            if get_fired_hooks(collection_transcript, self.enabled_session_id) != ['deny-hook', 'prompt-hook']:
+        with patch.object(tempfile, 'tempdir', self.__temp_dir):
+            if get_fired_hooks(collection_transcript, self.__enabled_session_id) != ['deny-hook', 'prompt-hook']:
                 raise AssertionError('Expected fired current-turn hooks in name order, excluding agentStop hooks.')
 
 
@@ -477,10 +477,10 @@ class DebugResponseFooterTests(unittest.TestCase):
         _write_all_text(collection_transcript, '\n'.join(map(_to_compressed_json, events)) + '\n')
 
         collection_input = _to_compressed_json({
-            'sessionId': self.enabled_session_id, 'transcriptPath': collection_transcript,
+            'sessionId': self.__enabled_session_id, 'transcriptPath': collection_transcript,
         })
 
-        exit_code, output, error = self._invoke_hook_input(collection_input)
+        exit_code, output, error = self.__invoke_hook_input(collection_input)
 
         if exit_code != 0 or error:
             raise AssertionError(f'Expected correction request for current turn: {exit_code}, {error}')
@@ -503,7 +503,7 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         _write_all_text(collection_transcript, '\n'.join(map(_to_compressed_json, events)) + '\n')
 
-        exit_code, output, error = self._invoke_hook_input(collection_input)
+        exit_code, output, error = self.__invoke_hook_input(collection_input)
 
         if exit_code != 0 or output or error:
             raise AssertionError(f'Expected corrected response to pass without another block: {exit_code}, {output}, {error}')
@@ -517,8 +517,8 @@ class DebugResponseFooterTests(unittest.TestCase):
         if get_hooks(collection_transcript, hooks_directory) or get_skills(collection_transcript):
             raise AssertionError('Expected a new user turn to reset hooks and skills.')
 
-        with patch.object(tempfile, 'tempdir', self.temp_dir):
-            if get_fired_hooks(collection_transcript, self.enabled_session_id):
+        with patch.object(tempfile, 'tempdir', self.__temp_dir):
+            if get_fired_hooks(collection_transcript, self.__enabled_session_id):
                 raise AssertionError('Expected a new user turn to reset fired hooks.')
             for timestamp in (None, 123, 'not-a-time'):
                 with self.subTest(timestamp=timestamp):
@@ -526,12 +526,12 @@ class DebugResponseFooterTests(unittest.TestCase):
                         'type': 'user.message', 'timestamp': timestamp, 'data': {'content': 'Turn'},
                     }) + '\n')
                     with self.assertRaisesRegex(ValueError, 'Transcript event timestamp'):
-                        get_fired_hooks(collection_transcript, self.enabled_session_id)
+                        get_fired_hooks(collection_transcript, self.__enabled_session_id)
 
     def test_footer_validation(self):
-        format_footer = runpy.run_path(str(Path(script_directory) / 'format-response-footer.py'))['format_response_footer']
+        format_footer = runpy.run_path(str(Path(_script_directory) / 'format-response-footer.py'))['format_response_footer']
 
-        validate_footer = runpy.run_path(str(Path(script_directory) / 'check-response-footer.py'))['test_response_footer']
+        validate_footer = runpy.run_path(str(Path(_script_directory) / 'check-response-footer.py'))['test_response_footer']
 
         current_jst = '2026-10-21 12:00:00 JST'
 
@@ -569,9 +569,9 @@ class DebugResponseFooterTests(unittest.TestCase):
             raise AssertionError('Expected the fired hooks section to state that agentStop hooks are excluded.')
 
     def test_transcript_and_polling_helpers(self):
-        hook = runpy.run_path(str(Path(script_directory) / 'debug-add-response-footer.py'))
+        hook = runpy.run_path(str(Path(_script_directory) / 'debug-add-response-footer.py'))
 
-        last_message_transcript = os.path.join(self.temp_dir, 'last-message.jsonl')
+        last_message_transcript = os.path.join(self.__temp_dir, 'last-message.jsonl')
 
         for content in (None, [], {}, 123, True, '', ' \t\r\n'):
             with self.subTest(content=content):
@@ -585,7 +585,7 @@ class DebugResponseFooterTests(unittest.TestCase):
                 if hook['_get_last_assistant_msg'](last_message_transcript) != '  Latest response  ':
                     raise AssertionError(f'Expected the last non-empty assistant response, preserving whitespace: {content!r}')
 
-        flush_transcript = os.path.join(self.temp_dir, 'flush.jsonl')
+        flush_transcript = os.path.join(self.__temp_dir, 'flush.jsonl')
 
         start_event = {
             'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': 123}},
@@ -593,7 +593,7 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         _write_all_text(flush_transcript, '\n' + _to_compressed_json(start_event) + '\n{"type":')
 
-        waiter = runpy.run_path(str(Path(script_directory).parents[2] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py'))
+        waiter = runpy.run_path(str(Path(_script_directory).parents[2] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py'))
         is_event_recorded = waiter['_is_agent_stop_event_recorded']
         wait_for_event = waiter['wait_for_agent_stop_event']
 
@@ -642,7 +642,7 @@ class DebugResponseFooterTests(unittest.TestCase):
                 patch.object(sys, 'stdout', stdout),
                 patch.object(sys, 'stderr', stderr),
             ):
-                with patch.object(tempfile, 'tempdir', self.temp_dir):
+                with patch.object(tempfile, 'tempdir', self.__temp_dir):
                     if run_path_mock is None:
                         main_exit_code = hook['main']()
                     else:
@@ -654,7 +654,7 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         def _timestamped_input(timestamp):
             return _to_compressed_json({
-                'sessionId': self.enabled_session_id, 'transcriptPath': self.valid_transcript, 'timestamp': timestamp,
+                'sessionId': self.__enabled_session_id, 'transcriptPath': self.__valid_transcript, 'timestamp': timestamp,
             })
 
         check_start = Mock(return_value=False)
@@ -685,7 +685,7 @@ class DebugResponseFooterTests(unittest.TestCase):
         exit_code, output, error = _run_main(_timestamped_input(123), Mock(side_effect=_run_path_with_wait_mock))
         if exit_code != 0 or error or json.loads(output).get('decision') != 'block':
             raise AssertionError(f'Expected footer check after waiting for hook.start: {exit_code}, {output}, {error}')
-        wait_mock.assert_called_once_with(self.valid_transcript, 123)
+        wait_mock.assert_called_once_with(self.__valid_transcript, 123)
 
         for run_path_mock, expected_error in (
             (Mock(side_effect=OSError('helper missing')), 'Failed to load debug-mode helper: OSError'),
@@ -695,7 +695,7 @@ class DebugResponseFooterTests(unittest.TestCase):
              'Failed to read debug-mode state file: denied'),
         ):
             with self.subTest(run_path_mock=run_path_mock, expected_error=expected_error):
-                exit_code, output, error = _run_main(self.valid_block_json, run_path_mock)
+                exit_code, output, error = _run_main(self.__valid_block_json, run_path_mock)
                 if exit_code != 2 or output or expected_error not in error:
                     raise AssertionError(f'Unexpected debug-mode error handling: {expected_error!r}, {exit_code}, {output}, {error}')
 

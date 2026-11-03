@@ -7,18 +7,18 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hel
 from hook_test_output import run_tests
 
 
-hooks_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 class HookConfigurationTests(unittest.TestCase):
     def test_configurations(self):
         filenames = sorted(
-            filename for filename in os.listdir(hooks_directory) if filename.endswith('.json')
+            filename for filename in os.listdir(_hooks_directory) if filename.endswith('.json')
         )
-        self.assertTrue(filenames, f'No hook configurations found in {hooks_directory}')
+        self.assertTrue(filenames, f'No hook configurations found in {_hooks_directory}')
         for filename in filenames:
             with self.subTest(filename=filename):
-                path = os.path.join(hooks_directory, filename)
+                path = os.path.join(_hooks_directory, filename)
                 with open(path, encoding='utf-8') as configuration_file:
                     configuration = json.load(configuration_file)
                 if (

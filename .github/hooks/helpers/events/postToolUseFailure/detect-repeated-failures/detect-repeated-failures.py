@@ -11,9 +11,9 @@ from contextlib import closing
 from typing import cast
 
 
-FAILURE_THRESHOLD = 3
-WINDOW_SECONDS = 300
-RECOVERY_CONTEXT = (
+_FAILURE_THRESHOLD = 3
+_WINDOW_SECONDS = 300
+_RECOVERY_CONTEXT = (
     'The same tool has failed three times within five minutes with identical '
     'arguments and error text in the same working directory. Before trying again, briefly state '
     'the observed facts, your hypothesis about the cause, and what you will '
@@ -24,7 +24,7 @@ RECOVERY_CONTEXT = (
 )
 
 
-def record_failure(state_path, fingerprint):
+def _record_failure(state_path, fingerprint):
     # SQLiteのトランザクションで、並列に失敗しても回数の更新を取りこぼさない。
     # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
     with closing(sqlite3.connect(state_path, timeout=3)) as connection:
@@ -42,13 +42,13 @@ def record_failure(state_path, fingerprint):
             # 古い失敗と、時計が巻き戻った場合の未来の記録は引き継がない。
             connection.execute(
                 'DELETE FROM failures WHERE first_seen < ? OR first_seen > ?',
-                (now - WINDOW_SECONDS, now),
+                (now - _WINDOW_SECONDS, now),
             )
             previous = connection.execute(
                 'SELECT count FROM failures WHERE fingerprint = ?', (fingerprint,),
             ).fetchone()
             previous_count = previous[0] if previous else 0
-            count = min(previous_count + 1, FAILURE_THRESHOLD)
+            count = min(previous_count + 1, _FAILURE_THRESHOLD)
             # 集計期間は最初の失敗が基準。更新時にもfirst_seenを延長しない。
             # 成功や別の失敗が間に入っても、この組み合わせの回数は維持する。
             connection.execute(
@@ -58,7 +58,7 @@ def record_failure(state_path, fingerprint):
             )
 
     # 3回目だけ通知する。4回目以降は同じ助言を繰り返さない。
-    return previous_count < FAILURE_THRESHOLD and count == FAILURE_THRESHOLD
+    return previous_count < _FAILURE_THRESHOLD and count == _FAILURE_THRESHOLD
 
 
 def main():
@@ -111,7 +111,7 @@ def main():
         )
         os.makedirs(state_directory, exist_ok=True)
         state_path = os.path.join(state_directory, f'{parsed_session_id}.sqlite3')
-        should_notify = record_failure(state_path, fingerprint)
+        should_notify = _record_failure(state_path, fingerprint)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to detect repeated tool failures: {ex}', file=sys.stderr)
         return 2
@@ -121,7 +121,7 @@ def main():
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
         # 終了コード2による助言も公式には記載があるが、ここでは
         # VS Code 1.143.1同梱SDKのhook processorで反映を確認した形式を使う。
-        print(json.dumps({'additionalContext': RECOVERY_CONTEXT}, ensure_ascii=False))
+        print(json.dumps({'additionalContext': _RECOVERY_CONTEXT}, ensure_ascii=False))
     return 0
 
 

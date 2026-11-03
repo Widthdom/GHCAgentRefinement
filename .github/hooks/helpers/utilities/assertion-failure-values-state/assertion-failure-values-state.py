@@ -12,8 +12,8 @@ from contextlib import closing, contextmanager
 # preToolUse hook（block-goalpost-moving）、テストを通すために期待値を実装へハードコードする編集を拒否する
 # preToolUse hook（block-hardcoding-for-tests）が共有する。
 # 値そのものは保存せず、正規化した (期待値, 実際の値) の組と期待値の照合用SHA-256だけを保存する。
-MAX_VALUE_LENGTH = 200
-QUOTES = ('"', "'", '`')
+_MAX_VALUE_LENGTH = 200
+_QUOTES = ('"', "'", '`')
 
 
 def get_state_path(session_id):
@@ -34,9 +34,9 @@ def normalize_value(value):
     # テストの出力とソースコードのリテラルを同じ形で比べられるよう、前後の空白・末尾のカンマ・1組の引用符を除く。
     # 比較できない値（空、複数行、長すぎる値）はNoneを返す。
     value = value.strip().removesuffix(',').strip()
-    if len(value) >= 2 and value[0] == value[-1] and value[0] in QUOTES:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in _QUOTES:
         value = value[1:-1]
-    if not value or '\n' in value or len(value) > MAX_VALUE_LENGTH:
+    if not value or '\n' in value or len(value) > _MAX_VALUE_LENGTH:
         return None
     return value
 

@@ -9,20 +9,20 @@ from typing import cast
 
 
 # 既存ファイルを書き換える組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
+_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 # パッチで既存の内容を書き換えるファイル。追加・削除・移動先は内容を把握する必要がないため対象外とする。
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* Update File: (.+?)\s*$', re.MULTILINE)
-DENY_REASON = (
+_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* Update File: (.+?)\s*$', re.MULTILINE)
+_DENY_REASON = (
     'Edit denied: you have not read the following existing files in this session: {files}. '
     'Editing from memory or assumptions risks failed replacements and broken surrounding code. '
     'View the relevant part of each file first, then redo the edit based on its current content.'
 )
 
 
-def get_edited_paths(tool_name, tool_args, state):
+def _get_edited_paths(tool_name, tool_args, state):
     if tool_name == 'apply_patch':
         return [
-            match for text in state['collect_strings'](tool_args) for match in PATCH_FILE_PATTERN.findall(text)
+            match for text in state['collect_strings'](tool_args) for match in _PATCH_FILE_PATTERN.findall(text)
         ]
     if not isinstance(tool_args, dict):
         return []
@@ -33,7 +33,7 @@ def get_edited_paths(tool_name, tool_args, state):
     return [path] if isinstance(path, str) and path.strip() else []
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -44,7 +44,7 @@ def get_display_path(path, cwd):
     return path
 
 
-def deny_unread_files(state, state_path, paths):
+def _deny_unread_files(state, state_path, paths):
     # 戻り値は、今回拒否するファイルパスのリスト。
     # 同じファイルの拒否は1回だけにし、読めない事情があっても編集を続けられるようにする。
     denied_paths = []
@@ -92,28 +92,28 @@ def main():
 
         paths = set()
         tool_name = tool_name.removeprefix('functions.')
-        if tool_name in EDIT_TOOL_NAMES:
+        if tool_name in _EDIT_TOOL_NAMES:
             tool_args = state['get_tool_args'](hook_input['toolArgs'])
             paths.update(
-                state['normalize_path'](cwd, path) for path in get_edited_paths(tool_name, tool_args, state)
+                state['normalize_path'](cwd, path) for path in _get_edited_paths(tool_name, tool_args, state)
             )
         # 新規作成と、存在しないファイルへの編集（ツール側で失敗する）は対象外とする。
         existing_paths = sorted(path for path in paths if os.path.isfile(path))
         if not existing_paths:
             return 0
-        denied_paths = deny_unread_files(state, state_path, existing_paths)
+        denied_paths = _deny_unread_files(state, state_path, existing_paths)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check read-before-edit: {ex}', file=sys.stderr)
         return 2
 
     if denied_paths:
         normalized_cwd = os.path.normcase(os.path.realpath(cwd))
-        files = ', '.join(get_display_path(path, normalized_cwd) for path in denied_paths)
+        files = ', '.join(_get_display_path(path, normalized_cwd) for path in denied_paths)
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
         print(json.dumps({
             'permissionDecision': 'deny',
-            'permissionDecisionReason': DENY_REASON.format(files=files),
+            'permissionDecisionReason': _DENY_REASON.format(files=files),
         }, ensure_ascii=False))
     return 0
 

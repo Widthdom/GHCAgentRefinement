@@ -7,47 +7,47 @@ import tempfile
 import unittest
 import uuid
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-generated-file-edits.py')
-definitions_path = os.path.join(script_directory, 'generated-file-definitions.json')
-state_directory = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-generated-file-edits')
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-generated-file-edits.py')
+_definitions_path = os.path.join(_script_directory, 'generated-file-definitions.json')
+_state_directory = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-generated-file-edits')
 
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
-def run_hook(input_bytes, *arguments):
-    return subprocess.run([sys.executable, hook_path, *arguments], input=input_bytes, capture_output=True)
+def _run_hook(input_bytes, *arguments):
+    return subprocess.run([sys.executable, _hook_path, *arguments], input=input_bytes, capture_output=True)
 
 
 class BlockGeneratedFileEditsTests(unittest.TestCase):
     def setUp(self):
-        self.directory = os.path.realpath(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.directory, ignore_errors=True)
-        self.new_session()
-        self.write_file('Program.cs', 'class Program { }\n')
+        self.__directory = os.path.realpath(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.__directory, ignore_errors=True)
+        self.__new_session()
+        self.__write_file('Program.cs', 'class Program { }\n')
 
-    def write_file(self, path, content):
-        full_path = os.path.join(self.directory, path)
+    def __write_file(self, path, content):
+        full_path = os.path.join(self.__directory, path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(content)
 
-    def new_session(self):
+    def __new_session(self):
         # テストごとに別セッションとし、拒否の記録を持ち越さない。
-        self.session_id = str(uuid.uuid4())
-        state_path = os.path.join(state_directory, f'{self.session_id}.sqlite3')
+        self.__session_id = str(uuid.uuid4())
+        state_path = os.path.join(_state_directory, f'{self.__session_id}.sqlite3')
         self.addCleanup(lambda: os.path.exists(state_path) and os.remove(state_path))
 
-    def run_call(self, tool_call):
-        hook_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']}
-        return run_hook(json.dumps(hook_input).encode('utf-8'))
+    def __run_call(self, tool_call):
+        hook_input = {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']}
+        return _run_hook(json.dumps(hook_input).encode('utf-8'))
 
-    def assert_allowed(self, result, message):
+    def __assert_allowed(self, result, message):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''), message)
 
-    def assert_denied(self, result, expected_parts, message):
+    def __assert_denied(self, result, expected_parts, message):
         self.assertEqual(result.returncode, 0, f'{message} {result.stderr!r}')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'), f'{message} stdout must not start with a BOM.')
         output = json.loads(result.stdout.decode('utf-8'))
@@ -82,9 +82,9 @@ class BlockGeneratedFileEditsTests(unittest.TestCase):
         ]
         for path in paths:
             with self.subTest(path=path):
-                self.new_session()
-                self.assert_denied(
-                    self.run_call({'name': 'create', 'args': {'path': path, 'file_text': 'x\n'}}),
+                self.__new_session()
+                self.__assert_denied(
+                    self.__run_call({'name': 'create', 'args': {'path': path, 'file_text': 'x\n'}}),
                     # 理由のパスは、OSによらず `/` 区切りで示される。
                     [f'{path} (path matches a generated file pattern)', 'regenerate it'], path,
                 )
@@ -104,7 +104,7 @@ class BlockGeneratedFileEditsTests(unittest.TestCase):
         ]
         for path in paths:
             with self.subTest(path=path):
-                self.assert_allowed(self.run_call({'name': 'create', 'args': {'path': path, 'file_text': 'x\n'}}), path)
+                self.__assert_allowed(self.__run_call({'name': 'create', 'args': {'path': path, 'file_text': 'x\n'}}), path)
 
     def test_generated_markers_are_denied(self):
         headers = [
@@ -119,10 +119,10 @@ class BlockGeneratedFileEditsTests(unittest.TestCase):
         ]
         for header in headers:
             with self.subTest(header=header):
-                self.new_session()
-                self.write_file('Client.cs', f'{header}class Client {{ }}\n')
-                self.assert_denied(
-                    self.run_call({'name': 'edit', 'args': {'path': 'Client.cs', 'old_str': 'Client', 'new_str': 'Api'}}),
+                self.__new_session()
+                self.__write_file('Client.cs', f'{header}class Client {{ }}\n')
+                self.__assert_denied(
+                    self.__run_call({'name': 'edit', 'args': {'path': 'Client.cs', 'old_str': 'Client', 'new_str': 'Api'}}),
                     ['Client.cs (header contains "'], header,
                 )
 
@@ -136,29 +136,29 @@ class BlockGeneratedFileEditsTests(unittest.TestCase):
         ]
         for header in headers:
             with self.subTest(header=header):
-                self.write_file('Client.cs', f'{header}class Client {{ }}\n')
-                self.assert_allowed(
-                    self.run_call({'name': 'edit', 'args': {'path': 'Client.cs', 'old_str': 'Client', 'new_str': 'Api'}}),
+                self.__write_file('Client.cs', f'{header}class Client {{ }}\n')
+                self.__assert_allowed(
+                    self.__run_call({'name': 'edit', 'args': {'path': 'Client.cs', 'old_str': 'Client', 'new_str': 'Api'}}),
                     header,
                 )
 
     def test_new_file_with_marker_is_allowed(self):
-        self.assert_allowed(
-            self.run_call({'name': 'create', 'args': {'path': 'Client.cs', 'file_text': '// <auto-generated />\n'}}),
+        self.__assert_allowed(
+            self.__run_call({'name': 'create', 'args': {'path': 'Client.cs', 'file_text': '// <auto-generated />\n'}}),
             'A new file is not a hand edit of a generated file.',
         )
 
     def test_definitions_do_not_mark_themselves(self):
-        with open(definitions_path, encoding='utf-8') as file:
+        with open(_definitions_path, encoding='utf-8') as file:
             content = file.read()
-        self.write_file('generated-file-definitions.json', content)
-        self.assert_allowed(
-            self.run_call({'name': 'edit', 'args': {'path': 'generated-file-definitions.json', 'old_str': 'x', 'new_str': 'y'}}),
+        self.__write_file('generated-file-definitions.json', content)
+        self.__assert_allowed(
+            self.__run_call({'name': 'edit', 'args': {'path': 'generated-file-definitions.json', 'old_str': 'x', 'new_str': 'y'}}),
             'The definitions file must not look generated.',
         )
 
     def test_tool_argument_shapes(self):
-        self.write_file('Form.Designer.cs', 'partial class Form { }\n')
+        self.__write_file('Form.Designer.cs', 'partial class Form { }\n')
         cases = [
             ('functions.edit', {'path': 'Form.Designer.cs', 'old_str': 'a', 'new_str': 'b'}),
             ('insert', {'path': 'Form.Designer.cs', 'insert_line': 1, 'new_str': 'b'}),
@@ -169,32 +169,32 @@ class BlockGeneratedFileEditsTests(unittest.TestCase):
         ]
         for tool_name, args in cases:
             with self.subTest(tool_name=tool_name):
-                self.new_session()
-                self.assert_denied(self.run_call({'name': tool_name, 'args': args}), ['Form.Designer.cs'], tool_name)
+                self.__new_session()
+                self.__assert_denied(self.__run_call({'name': tool_name, 'args': args}), ['Form.Designer.cs'], tool_name)
 
     def test_patch_delete_is_allowed(self):
-        self.write_file('obj/App.cs', 'x\n')
-        self.assert_allowed(
-            self.run_call({'name': 'apply_patch', 'args': '*** Begin Patch\n*** Delete File: obj/App.cs\n*** End Patch\n'}),
+        self.__write_file('obj/App.cs', 'x\n')
+        self.__assert_allowed(
+            self.__run_call({'name': 'apply_patch', 'args': '*** Begin Patch\n*** Delete File: obj/App.cs\n*** End Patch\n'}),
             'Deleting a generated file must be allowed.',
         )
 
     def test_denies_only_once(self):
         call = {'name': 'edit', 'args': {'path': 'package-lock.json', 'old_str': 'a', 'new_str': 'b'}}
-        self.assert_denied(self.run_call(call), ['retry the same edit'], 'first')
-        self.assert_allowed(self.run_call(call), 'The denial must not repeat for the same file.')
-        self.assert_denied(
-            self.run_call({'name': 'edit', 'args': {'path': 'yarn.lock', 'old_str': 'a', 'new_str': 'b'}}),
+        self.__assert_denied(self.__run_call(call), ['retry the same edit'], 'first')
+        self.__assert_allowed(self.__run_call(call), 'The denial must not repeat for the same file.')
+        self.__assert_denied(
+            self.__run_call({'name': 'edit', 'args': {'path': 'yarn.lock', 'old_str': 'a', 'new_str': 'b'}}),
             ['yarn.lock'], 'A different file must still be denied once.',
         )
 
     def test_patch_files_are_reported_together(self):
-        result = self.run_call({'name': 'apply_patch', 'args': (
+        result = self.__run_call({'name': 'apply_patch', 'args': (
             '*** Begin Patch\n*** Update File: A.Designer.cs\n@@\n-a\n+b\n'
             '*** Update File: A.Designer.cs\n@@\n-c\n+d\n'
             '*** Add File: uv.lock\n+x\n*** End Patch\n'
         )})
-        self.assert_denied(result, ['A.Designer.cs', 'uv.lock'], 'patch')
+        self.__assert_denied(result, ['A.Designer.cs', 'uv.lock'], 'patch')
         output = json.loads(result.stdout.decode('utf-8'))
         self.assertEqual(output['permissionDecisionReason'].count('A.Designer.cs'), 1, 'The same file must be reported once.')
 
@@ -204,7 +204,7 @@ class BlockGeneratedFileEditsTests(unittest.TestCase):
             {'name': 'bash', 'args': {'command': 'npm install'}},
         ):
             with self.subTest(tool_call=tool_call):
-                self.assert_allowed(self.run_call(tool_call), 'Non-writing tool calls must be ignored.')
+                self.__assert_allowed(self.__run_call(tool_call), 'Non-writing tool calls must be ignored.')
 
     def test_invalid_input(self):
         def encode(value):
@@ -215,24 +215,24 @@ class BlockGeneratedFileEditsTests(unittest.TestCase):
             ('empty', b''),
             ('not json', b'{'),
             ('not object', b'[]'),
-            ('no session', encode({'cwd': self.directory, **call})),
-            ('invalid session', encode({'sessionId': 'x', 'cwd': self.directory, **call})),
-            ('no cwd', encode({'sessionId': self.session_id, **call})),
-            ('relative cwd', encode({'sessionId': self.session_id, 'cwd': 'relative', **call})),
-            ('no tool args', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit'})),
-            ('tool name not string', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 1, 'toolArgs': {}})),
-            ('no tool name', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolArgs': {}})),
+            ('no session', encode({'cwd': self.__directory, **call})),
+            ('invalid session', encode({'sessionId': 'x', 'cwd': self.__directory, **call})),
+            ('no cwd', encode({'sessionId': self.__session_id, **call})),
+            ('relative cwd', encode({'sessionId': self.__session_id, 'cwd': 'relative', **call})),
+            ('no tool args', encode({'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'edit'})),
+            ('tool name not string', encode({'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 1, 'toolArgs': {}})),
+            ('no tool name', encode({'sessionId': self.__session_id, 'cwd': self.__directory, 'toolArgs': {}})),
             ('invalid utf-8', b'\xff'),
         ]:
             with self.subTest(name=name):
-                result = run_hook(hook_input)
+                result = _run_hook(hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertEqual(result.stdout, b'', name)
                 self.assertIn(b'Failed to check generated file edits:', result.stderr)
 
     def test_invalid_definitions(self):
         valid_input = json.dumps({
-            'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit', 'toolArgs': {},
+            'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'edit', 'toolArgs': {},
         }).encode('utf-8')
         for name, content in [
             ('not json', '{'),
@@ -243,10 +243,10 @@ class BlockGeneratedFileEditsTests(unittest.TestCase):
             ('invalid regex', {'generatedPathPatterns': ['x'], 'generatedMarkerPatterns': ['(']}),
         ]:
             with self.subTest(name=name):
-                path = os.path.join(self.directory, f'definitions-{name.replace(" ", "-")}.json')
+                path = os.path.join(self.__directory, f'definitions-{name.replace(" ", "-")}.json')
                 with open(path, 'w', encoding='utf-8') as file:
                     file.write(content if isinstance(content, str) else json.dumps(content))
-                result = run_hook(valid_input, '--definitions-path', path)
+                result = _run_hook(valid_input, '--definitions-path', path)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to check generated file edits:', result.stderr)
 

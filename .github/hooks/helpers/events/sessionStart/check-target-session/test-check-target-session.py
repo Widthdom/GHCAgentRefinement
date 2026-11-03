@@ -8,13 +8,13 @@ import sys
 import unittest
 from unittest.mock import patch
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'check-target-session.py')
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'check-target-session.py')
 
 
-def invoke_hook_input(input_json):
+def _invoke_hook_input(input_json):
     completed = subprocess.run(
-        [sys.executable, hook_path],
+        [sys.executable, _hook_path],
         input=input_json if isinstance(input_json, bytes) else input_json.encode('utf-8'),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -22,13 +22,13 @@ def invoke_hook_input(input_json):
     return completed.returncode, completed.stdout.decode('utf-8'), completed.stderr.decode('utf-8')
 
 
-expected_system_message = (
+_expected_system_message = (
     "This session is using the VS Code Local harness. Open the Agents window, create a new session, "
     "and select Copilot as the Session Target to use this repository's Copilot CLI-compatible hooks. "
     "Continue this task in that new session."
 )
 
-valid_cases = [
+_valid_cases = [
     {
         'Name': 'Local harness sessionStart',
         'Json': '{"hook_event_name":"SessionStart"}',
@@ -73,13 +73,13 @@ valid_cases = [
 
 for value in (None, True, False, 0, 1.5, '', ' SessionStart ', [], ['SessionStart'],
               ['SessionStart', 'SessionStart'], {}, {'name': 'SessionStart'}):
-    valid_cases.append({
+    _valid_cases.append({
         'Name': f'Non-matching event value {value!r}',
         'Json': json.dumps({'hook_event_name': value}),
         'ExpectMessage': False,
     })
 
-invalid_cases = [
+_invalid_cases = [
     {'Name': 'empty input', 'Json': '', 'Error': r'sessionStart hook input is empty\.'},
     {'Name': 'whitespace input', 'Json': ' \t\r\n', 'Error': r'sessionStart hook input is empty\.'},
     {'Name': 'malformed JSON', 'Json': '{', 'Error': 'Failed to parse sessionStart hook input:'},
@@ -98,16 +98,16 @@ invalid_cases = [
      'Error': 'Failed to parse sessionStart hook input:'},
 ]
 
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
 class CheckTargetSessionTests(unittest.TestCase):
     def test_valid_input(self):
-        for case in valid_cases:
+        for case in _valid_cases:
             with self.subTest(case=case):
-                exit_code, output, error = invoke_hook_input(case['Json'])
+                exit_code, output, error = _invoke_hook_input(case['Json'])
                 if exit_code != 0:
                     raise AssertionError(f"Unexpected exit code for '{case['Name']}': got {exit_code}, expected 0. stderr: {error}")
                 if error:
@@ -118,7 +118,7 @@ class CheckTargetSessionTests(unittest.TestCase):
                         parsed_output = json.loads(output)
                     except ValueError:
                         raise AssertionError(f"Failed to parse stdout as JSON for '{case['Name']}': {output}")
-                    if parsed_output != {'systemMessage': expected_system_message}:
+                    if parsed_output != {'systemMessage': _expected_system_message}:
                         raise AssertionError(f"Unexpected JSON output for '{case['Name']}': {parsed_output}")
                     if output.rstrip('\r\n') != json.dumps(parsed_output, ensure_ascii=False, separators=(',', ':')):
                         raise AssertionError(f"Expected compact single-line JSON for '{case['Name']}': {output!r}")
@@ -126,9 +126,9 @@ class CheckTargetSessionTests(unittest.TestCase):
                     raise AssertionError(f"Expected empty output for '{case['Name']}', got: {output}")
 
     def test_invalid_input(self):
-        for case in invalid_cases:
+        for case in _invalid_cases:
             with self.subTest(case=case):
-                exit_code, output, error = invoke_hook_input(case['Json'])
+                exit_code, output, error = _invoke_hook_input(case['Json'])
                 if exit_code != 2:
                     raise AssertionError(f"Unexpected exit code for '{case['Name']}': got {exit_code}, expected 2. stdout: {output}")
                 if output:
@@ -137,7 +137,7 @@ class CheckTargetSessionTests(unittest.TestCase):
                     raise AssertionError(f"Unexpected error message for '{case['Name']}': got '{error}', expected pattern '{case['Error']}'")
 
     def test_input_read_failure(self):
-        hook_module = runpy.run_path(hook_path)
+        hook_module = runpy.run_path(_hook_path)
 
         with (
             patch.object(sys, 'stdin') as stdin,

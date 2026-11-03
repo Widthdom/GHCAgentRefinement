@@ -9,28 +9,28 @@ import sys
 from typing import cast
 
 
-TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
+_TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
 # コードではなく文章のファイル。説明用のコード例を書く編集は拒否しない。
-DOCUMENT_EXTENSIONS = {'.md', '.markdown', '.txt', '.rst', '.adoc'}
+_DOCUMENT_EXTENSIONS = {'.md', '.markdown', '.txt', '.rst', '.adoc'}
 # 行の中のリテラル（文字列・数値・真偽値・null）。block-goalpost-moving hookと同じ基準。
-LITERAL_PATTERN = re.compile(
+_LITERAL_PATTERN = re.compile(
     r'"(?:\\.|[^"\\\n])*"|\'(?:\\.|[^\'\\\n])*\'|`[^`\n]*`'
     r'|(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])'
     r'|\b(?:True|False|None|true|false|null|nil|undefined)\b'
 )
 # 条件分岐の始まり。リテラルを伏せた行に対して照合する。
-CONDITION_KEYWORD_PATTERN = re.compile(r'(?<![\w.])(?:if|elif|elsif|else\s+if|unless|when|case)\b')
+_CONDITION_KEYWORD_PATTERN = re.compile(r'(?<![\w.])(?:if|elif|elsif|else\s+if|unless|when|case)\b')
 # 条件分岐の行で、条件の後に続く処理の始まり。
-BODY_START_PATTERN = re.compile(r'\breturn\b|\byield\b|=>|\bthen\b|:(?=\s*\S)|\)\s*\{?\s*(?=[\w"\'`-])')
+_BODY_START_PATTERN = re.compile(r'\breturn\b|\byield\b|=>|\bthen\b|:(?=\s*\S)|\)\s*\{?\s*(?=[\w"\'`-])')
 # キーワードのない三項演算子（`x == 1 ? 4 : y`）。比較から `?` までを条件とする。
-TERNARY_PATTERN = re.compile(r'(?:===?|!==?)[^?\n]*\?(?!\?)')
+_TERNARY_PATTERN = re.compile(r'(?:===?|!==?)[^?\n]*\?(?!\?)')
 # 条件分岐の行の後で、処理とみなす行数。
-BODY_LINE_DISTANCE = 3
+_BODY_LINE_DISTANCE = 3
 # 処理の範囲を打ち切る行（次の分岐）。
-BODY_END_PATTERN = re.compile(r'^\s*(?:\}\s*)?(?:else|elif|elsif|case|when|default)\b')
-MAX_DISPLAY_LENGTH = 40
-FINDING = '{file} would add a branch on {condition} that yields the expected value {value}'
-DENY_REASON = (
+_BODY_END_PATTERN = re.compile(r'^\s*(?:\}\s*)?(?:else|elif|elsif|case|when|default)\b')
+_MAX_DISPLAY_LENGTH = 40
+_FINDING = '{file} would add a branch on {condition} that yields the expected value {value}'
+_DENY_REASON = (
     'Edit denied: {findings}, which is the expected value of the last failing test run. '
     'A branch that returns the expected value only for specific inputs makes the test pass without implementing '
     'the behavior. Implement the general logic instead, or report the failure to the user. '
@@ -39,22 +39,22 @@ DENY_REASON = (
 )
 
 
-def load_test_file_patterns(path):
+def _load_test_file_patterns(path):
     # テストファイルの判定はblock-test-weakening hookの定義を共有し、二重管理しない。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
-    patterns = definitions.get(TEST_FILE_PATTERNS_KEY) if isinstance(definitions, dict) else None
+    patterns = definitions.get(_TEST_FILE_PATTERNS_KEY) if isinstance(definitions, dict) else None
     if not isinstance(patterns, list) or not patterns or not all(
         isinstance(pattern, str) and pattern.strip() for pattern in patterns
     ):
-        raise ValueError(f'test file definitions require a non-empty array of non-empty strings for {TEST_FILE_PATTERNS_KEY}.')
+        raise ValueError(f'test file definitions require a non-empty array of non-empty strings for {_TEST_FILE_PATTERNS_KEY}.')
     try:
         return [re.compile(pattern) for pattern in patterns]
     except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {TEST_FILE_PATTERNS_KEY}: {ex}') from None
+        raise ValueError(f'invalid regular expression in {_TEST_FILE_PATTERNS_KEY}: {ex}') from None
 
 
-def read_existing(path):
+def _read_existing(path):
     try:
         with open(path, encoding='utf-8', errors='replace') as file:
             return file.read()
@@ -62,7 +62,7 @@ def read_existing(path):
         return None
 
 
-def get_display_path(path, cwd):
+def _get_display_path(path, cwd):
     # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
     # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
     try:
@@ -73,35 +73,35 @@ def get_display_path(path, cwd):
     return path
 
 
-def is_test_file(test_file_patterns, display_path):
+def _is_test_file(test_file_patterns, display_path):
     # パターンはOSによらず `/` 区切りのパスに対して照合する。
     slash_path = display_path.replace(os.sep, '/')
     return any(pattern.search(slash_path) for pattern in test_file_patterns)
 
 
-def mask_literals(line):
+def _mask_literals(line):
     # リテラルの中の `:` や `if` を構文と誤認しないよう、同じ長さの空白で伏せる。
-    return LITERAL_PATTERN.sub(lambda match: ' ' * len(match.group()), line)
+    return _LITERAL_PATTERN.sub(lambda match: ' ' * len(match.group()), line)
 
 
-def split_condition(line):
+def _split_condition(line):
     # 条件分岐の行なら (条件の始まり, 処理の始まり) の位置を返す。処理が次の行からならその位置は行末。
-    masked = mask_literals(line)
-    match = CONDITION_KEYWORD_PATTERN.search(masked)
+    masked = _mask_literals(line)
+    match = _CONDITION_KEYWORD_PATTERN.search(masked)
     if match:
-        body = BODY_START_PATTERN.search(masked, match.end())
+        body = _BODY_START_PATTERN.search(masked, match.end())
         return match.end(), body.start() if body else len(line)
-    match = TERNARY_PATTERN.search(masked)
+    match = _TERNARY_PATTERN.search(masked)
     if match:
         return match.start(), match.end()
     return None
 
 
-def literals_between(line, start, end):
-    return [match.group() for match in LITERAL_PATTERN.finditer(line) if start <= match.start() < end]
+def _literals_between(line, start, end):
+    return [match.group() for match in _LITERAL_PATTERN.finditer(line) if start <= match.start() < end]
 
 
-def find_hardcoding(state, expected_keys, lines, added):
+def _find_hardcoding(state, expected_keys, lines, added):
     # 追加する条件分岐のうち、条件がリテラルとの比較で、処理が期待値のリテラルを返すものを探す。
     # 戻り値は最初に見つけた (条件のリテラル, 期待値のリテラル)。見つからなければNone。
     def is_expected(literal):
@@ -111,25 +111,25 @@ def find_hardcoding(state, expected_keys, lines, added):
     for index, line in enumerate(lines):
         if index not in added:
             continue
-        split = split_condition(line)
+        split = _split_condition(line)
         if split is None:
             continue
-        condition_literals = literals_between(line, *split)
+        condition_literals = _literals_between(line, *split)
         if not condition_literals:
             continue
-        body_literals = literals_between(line, split[1], len(line))
-        for body_line in lines[index + 1:index + 1 + BODY_LINE_DISTANCE]:
-            if BODY_END_PATTERN.match(body_line) or split_condition(body_line):
+        body_literals = _literals_between(line, split[1], len(line))
+        for body_line in lines[index + 1:index + 1 + _BODY_LINE_DISTANCE]:
+            if _BODY_END_PATTERN.match(body_line) or _split_condition(body_line):
                 break
-            body_literals.extend(LITERAL_PATTERN.findall(body_line))
+            body_literals.extend(_LITERAL_PATTERN.findall(body_line))
         for literal in body_literals:
             if is_expected(literal):
                 return condition_literals[0], literal
     return None
 
 
-def shorten(value):
-    return value if len(value) <= MAX_DISPLAY_LENGTH else value[:MAX_DISPLAY_LENGTH] + '...'
+def _shorten(value):
+    return value if len(value) <= _MAX_DISPLAY_LENGTH else value[:_MAX_DISPLAY_LENGTH] + '...'
 
 
 def main(arguments=None):
@@ -149,7 +149,7 @@ def main(arguments=None):
     parsed_arguments = parser.parse_args(arguments)
 
     try:
-        test_file_patterns = load_test_file_patterns(parsed_arguments.definitions_path)
+        test_file_patterns = _load_test_file_patterns(parsed_arguments.definitions_path)
         # 記録側のpostToolUse hookと状態の形式・保存先を共有する。
         state = runpy.run_path(os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(script_directory))),
@@ -195,9 +195,9 @@ def main(arguments=None):
             for change in changes:
                 path = os.path.realpath(os.path.join(cwd, change['path']))
                 # テストファイルの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
-                display_path = get_display_path(path, real_cwd)
-                if is_test_file(test_file_patterns, display_path) or (
-                    os.path.splitext(path)[1].lower() in DOCUMENT_EXTENSIONS
+                display_path = _get_display_path(path, real_cwd)
+                if _is_test_file(test_file_patterns, display_path) or (
+                    os.path.splitext(path)[1].lower() in _DOCUMENT_EXTENSIONS
                 ):
                     continue
                 # パッチでは処理の行を判定できるよう文脈行（` `）も含めて並べ、追加行（`+`）の番号を記録する。
@@ -207,26 +207,26 @@ def main(arguments=None):
                     body = [(kind, line) for kind, line in change['patch_lines'] if kind != '-']
                     lines = [line for _, line in body]
                     added = {index for index, (kind, _) in enumerate(body) if kind == '+'}
-                current = (read_existing(path) if os.path.isfile(path) else None) or ''
+                current = (_read_existing(path) if os.path.isfile(path) else None) or ''
                 if change['full_content'] is not None:
                     lines, added, removed = change['full_content'].splitlines(), None, current
                 if added is None:
                     existing_lines = {line.strip() for line in removed.splitlines()}
                     added = {index for index, line in enumerate(lines) if line.strip() not in existing_lines}
-                hardcoding = find_hardcoding(state, expected_keys, lines, added)
+                hardcoding = _find_hardcoding(state, expected_keys, lines, added)
                 # 同じファイルの拒否は1回だけにし、意図した編集なら再実行で通す。
                 if hardcoding and connection.execute(
                     'INSERT OR IGNORE INTO hardcoding_denials (file) VALUES (?)', (state['get_file_key'](path),),
                 ).rowcount:
-                    findings.append(FINDING.format(
-                        file=display_path, condition=shorten(hardcoding[0]), value=shorten(hardcoding[1]),
+                    findings.append(_FINDING.format(
+                        file=display_path, condition=_shorten(hardcoding[0]), value=_shorten(hardcoding[1]),
                     ))
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check hardcoding for tests: {ex}', file=sys.stderr)
         return 2
 
     if findings:
-        reason = DENY_REASON.format(findings='; '.join(findings))
+        reason = _DENY_REASON.format(findings='; '.join(findings))
         print(reason, file=sys.stderr)
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference

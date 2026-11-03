@@ -42,10 +42,10 @@ def get_used_skills(transcript_path):
 if __name__ == '__main__':
     import argparse
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--transcript-path', required=True)
-    arguments = parser.parse_args()
+    _parser = argparse.ArgumentParser()
+    _parser.add_argument('--transcript-path', required=True)
+    _arguments = _parser.parse_args()
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')
-    for used_skill in get_used_skills(arguments.transcript_path):
+    for used_skill in get_used_skills(_arguments.transcript_path):
         print(used_skill)

@@ -7,15 +7,15 @@ import tempfile
 import unittest
 import uuid
 
-script_directory = os.path.dirname(os.path.abspath(__file__))
-hook_path = os.path.join(script_directory, 'block-test-weakening.py')
-state_directory = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-test-weakening')
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'block-test-weakening.py')
+_state_directory = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-test-weakening')
 
-hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(script_directory))))
-sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-ORIGINAL = (
+_ORIGINAL = (
     'def test_add():\n'
     '    assert add(1, 2) == 3\n'
     '    assert add(0, 0) == 0\n'
@@ -25,38 +25,38 @@ ORIGINAL = (
 )
 
 
-def run_hook(input_bytes, *arguments):
-    return subprocess.run([sys.executable, hook_path, *arguments], input=input_bytes, capture_output=True)
+def _run_hook(input_bytes, *arguments):
+    return subprocess.run([sys.executable, _hook_path, *arguments], input=input_bytes, capture_output=True)
 
 
 class BlockTestWeakeningTests(unittest.TestCase):
     def setUp(self):
-        self.directory = os.path.realpath(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.directory, ignore_errors=True)
-        self.new_session()
-        self.write_file('test_math.py', ORIGINAL)
-        self.write_file('math.py', 'def add(a, b):\n    assert a is not None\n    return a + b\n')
+        self.__directory = os.path.realpath(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.__directory, ignore_errors=True)
+        self.__new_session()
+        self.__write_file('test_math.py', _ORIGINAL)
+        self.__write_file('math.py', 'def add(a, b):\n    assert a is not None\n    return a + b\n')
 
-    def write_file(self, path, content):
-        full_path = os.path.join(self.directory, path)
+    def __write_file(self, path, content):
+        full_path = os.path.join(self.__directory, path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(content)
 
-    def new_session(self):
+    def __new_session(self):
         # テストごとに別セッションとし、拒否の記録を持ち越さない。
-        self.session_id = str(uuid.uuid4())
-        state_path = os.path.join(state_directory, f'{self.session_id}.sqlite3')
+        self.__session_id = str(uuid.uuid4())
+        state_path = os.path.join(_state_directory, f'{self.__session_id}.sqlite3')
         self.addCleanup(lambda: os.path.exists(state_path) and os.remove(state_path))
 
-    def run_call(self, tool_call):
-        hook_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']}
-        return run_hook(json.dumps(hook_input).encode('utf-8'))
+    def __run_call(self, tool_call):
+        hook_input = {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']}
+        return _run_hook(json.dumps(hook_input).encode('utf-8'))
 
-    def assert_allowed(self, result, message):
+    def __assert_allowed(self, result, message):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''), message)
 
-    def assert_denied(self, result, expected_parts, message):
+    def __assert_denied(self, result, expected_parts, message):
         self.assertEqual(result.returncode, 0, f'{message} {result.stderr!r}')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'), f'{message} stdout must not start with a BOM.')
         output = json.loads(result.stdout.decode('utf-8'))
@@ -91,9 +91,9 @@ class BlockTestWeakeningTests(unittest.TestCase):
         ]
         for path, line in cases:
             with self.subTest(path=path, line=line):
-                self.new_session()
-                self.assert_denied(
-                    self.run_call({'name': 'create', 'args': {'path': path, 'file_text': f'{line}\n'}}),
+                self.__new_session()
+                self.__assert_denied(
+                    self.__run_call({'name': 'create', 'args': {'path': path, 'file_text': f'{line}\n'}}),
                     [path, f'"{line}"', 'skip, focus, or trivially pass'], line,
                 )
 
@@ -113,8 +113,8 @@ class BlockTestWeakeningTests(unittest.TestCase):
         ]
         for line in lines:
             with self.subTest(line=line):
-                self.assert_allowed(
-                    self.run_call({'name': 'insert', 'args': {'path': 'test_math.py', 'insert_line': 1, 'new_str': f'{line}\n'}}),
+                self.__assert_allowed(
+                    self.__run_call({'name': 'insert', 'args': {'path': 'test_math.py', 'insert_line': 1, 'new_str': f'{line}\n'}}),
                     line,
                 )
 
@@ -136,30 +136,30 @@ class BlockTestWeakeningTests(unittest.TestCase):
         ]
         for path in test_paths:
             with self.subTest(path=path):
-                self.new_session()
-                self.assert_denied(
-                    self.run_call({'name': 'create', 'args': {'path': path, 'file_text': 'pytest.skip("x")\n'}}),
+                self.__new_session()
+                self.__assert_denied(
+                    self.__run_call({'name': 'create', 'args': {'path': path, 'file_text': 'pytest.skip("x")\n'}}),
                     # 理由のパスは、OSによらず `/` 区切りで示される。
                     [path], path,
                 )
         other_paths = ['math.py', 'src/app.ts', 'Foo/Contest.cs', 'latest.py', 'docs/testing.md', 'Attestation.cs']
         for path in other_paths:
             with self.subTest(path=path):
-                self.assert_allowed(
-                    self.run_call({'name': 'create', 'args': {'path': path, 'file_text': 'pytest.skip("x")\n'}}),
+                self.__assert_allowed(
+                    self.__run_call({'name': 'create', 'args': {'path': path, 'file_text': 'pytest.skip("x")\n'}}),
                     path,
                 )
 
     def test_existing_weakening_line_is_allowed(self):
-        self.write_file('FooTests.cs', '[Fact(Skip = "flaky")]\npublic void A() { }\n')
-        self.assert_allowed(
-            self.run_call({'name': 'edit', 'args': {
+        self.__write_file('FooTests.cs', '[Fact(Skip = "flaky")]\npublic void A() { }\n')
+        self.__assert_allowed(
+            self.__run_call({'name': 'edit', 'args': {
                 'path': 'FooTests.cs', 'old_str': 'public void A() { }', 'new_str': 'public void B() { }',
             }}),
             'A weakening line that the file already contains must be allowed.',
         )
-        self.assert_allowed(
-            self.run_call({'name': 'edit', 'args': {
+        self.__assert_allowed(
+            self.__run_call({'name': 'edit', 'args': {
                 'path': 'test_math.py', 'old_str': '    pytest.skip("x")\n    a = 1\n', 'new_str': '    pytest.skip("x")\n    a = 2\n',
             }}),
             'A weakening line that the replaced text already contains must be allowed.',
@@ -184,9 +184,9 @@ class BlockTestWeakeningTests(unittest.TestCase):
         ]
         for tool_name, args, expected in cases:
             with self.subTest(tool_name=tool_name, expected=expected):
-                self.new_session()
-                self.assert_denied(
-                    self.run_call({'name': tool_name, 'args': args}),
+                self.__new_session()
+                self.__assert_denied(
+                    self.__run_call({'name': tool_name, 'args': args}),
                     ['test_math.py would lose assertions', expected], tool_name,
                 )
 
@@ -199,27 +199,27 @@ class BlockTestWeakeningTests(unittest.TestCase):
         ]
         for name, args in cases:
             with self.subTest(name=name):
-                self.assert_allowed(self.run_call({'name': 'edit', 'args': args}), name)
-        self.assert_allowed(
-            self.run_call({'name': 'create', 'args': {'path': 'test_new.py', 'file_text': 'def test_a():\n    assert a()\n'}}),
+                self.__assert_allowed(self.__run_call({'name': 'edit', 'args': args}), name)
+        self.__assert_allowed(
+            self.__run_call({'name': 'create', 'args': {'path': 'test_new.py', 'file_text': 'def test_a():\n    assert a()\n'}}),
             'A new test file must be allowed.',
         )
 
     def test_denies_only_once(self):
         call = {'name': 'edit', 'args': {'path': 'test_math.py', 'old_str': 'assert sub(3, 1) == 2', 'new_str': 'pass'}}
-        self.assert_denied(self.run_call(call), ['retry the same edit'], 'first')
-        self.assert_allowed(self.run_call(call), 'The same kind of denial must not repeat for the same file.')
-        self.assert_denied(
-            self.run_call({'name': 'insert', 'args': {'path': 'test_math.py', 'insert_line': 1, 'new_str': '@pytest.mark.skip\n'}}),
+        self.__assert_denied(self.__run_call(call), ['retry the same edit'], 'first')
+        self.__assert_allowed(self.__run_call(call), 'The same kind of denial must not repeat for the same file.')
+        self.__assert_denied(
+            self.__run_call({'name': 'insert', 'args': {'path': 'test_math.py', 'insert_line': 1, 'new_str': '@pytest.mark.skip\n'}}),
             ['@pytest.mark.skip'], 'A different kind must still be denied once.',
         )
 
     def test_patch_files_are_reported_together(self):
-        result = self.run_call({'name': 'apply_patch', 'args': (
+        result = self.__run_call({'name': 'apply_patch', 'args': (
             '*** Begin Patch\n*** Update File: test_math.py\n@@\n+@pytest.mark.skip\n'
             '*** Add File: src/app.test.ts\n+it.only("a", () => {});\n*** End Patch\n'
         )})
-        self.assert_denied(result, ['test_math.py', 'src/app.test.ts'], 'patch')
+        self.__assert_denied(result, ['test_math.py', 'src/app.test.ts'], 'patch')
 
     def test_view_and_other_tools_are_ignored(self):
         for tool_call in (
@@ -227,7 +227,7 @@ class BlockTestWeakeningTests(unittest.TestCase):
             {'name': 'bash', 'args': {'command': 'echo "@pytest.mark.skip" >> test_math.py'}},
         ):
             with self.subTest(tool_call=tool_call):
-                self.assert_allowed(self.run_call(tool_call), 'Non-writing tool calls must be ignored.')
+                self.__assert_allowed(self.__run_call(tool_call), 'Non-writing tool calls must be ignored.')
 
     def test_invalid_input(self):
         def encode(value):
@@ -238,24 +238,24 @@ class BlockTestWeakeningTests(unittest.TestCase):
             ('empty', b''),
             ('not json', b'{'),
             ('not object', b'[]'),
-            ('no session', encode({'cwd': self.directory, **call})),
-            ('invalid session', encode({'sessionId': 'x', 'cwd': self.directory, **call})),
-            ('no cwd', encode({'sessionId': self.session_id, **call})),
-            ('relative cwd', encode({'sessionId': self.session_id, 'cwd': 'relative', **call})),
-            ('no tool args', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit'})),
-            ('tool name not string', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 1, 'toolArgs': {}})),
-            ('no tool name', encode({'sessionId': self.session_id, 'cwd': self.directory, 'toolArgs': {}})),
+            ('no session', encode({'cwd': self.__directory, **call})),
+            ('invalid session', encode({'sessionId': 'x', 'cwd': self.__directory, **call})),
+            ('no cwd', encode({'sessionId': self.__session_id, **call})),
+            ('relative cwd', encode({'sessionId': self.__session_id, 'cwd': 'relative', **call})),
+            ('no tool args', encode({'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'edit'})),
+            ('tool name not string', encode({'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 1, 'toolArgs': {}})),
+            ('no tool name', encode({'sessionId': self.__session_id, 'cwd': self.__directory, 'toolArgs': {}})),
             ('invalid utf-8', b'\xff'),
         ]:
             with self.subTest(name=name):
-                result = run_hook(hook_input)
+                result = _run_hook(hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertEqual(result.stdout, b'', name)
                 self.assertIn(b'Failed to check test weakening:', result.stderr)
 
     def test_invalid_definitions(self):
         valid_input = json.dumps({
-            'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit', 'toolArgs': {},
+            'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'edit', 'toolArgs': {},
         }).encode('utf-8')
         valid_weakening = [{'name': 'x', 'pattern': 'x'}]
         for name, content in [
@@ -269,10 +269,10 @@ class BlockTestWeakeningTests(unittest.TestCase):
                                          'weakeningPatterns': [{'name': 'x', 'pattern': '('}]}),
         ]:
             with self.subTest(name=name):
-                path = os.path.join(self.directory, f'definitions-{name.replace(" ", "-")}.json')
+                path = os.path.join(self.__directory, f'definitions-{name.replace(" ", "-")}.json')
                 with open(path, 'w', encoding='utf-8') as file:
                     file.write(content if isinstance(content, str) else json.dumps(content))
-                result = run_hook(valid_input, '--definitions-path', path)
+                result = _run_hook(valid_input, '--definitions-path', path)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to check test weakening:', result.stderr)
 

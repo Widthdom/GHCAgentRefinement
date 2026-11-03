@@ -6,20 +6,20 @@ import tempfile
 # 両者で基準がずれないよう、対象の分類と保持期間はここだけで定める。
 # hookが一時フォルダー配下に書き込む分類。どちらも48時間更新がなければ削除してよい。
 # 使用中のセッションの状態は直近に更新されるため、更新時刻だけで削除対象から外れる。
-TEMP_ROOT_NAME = 'ghc-agent-refinement'
-TEMP_CATEGORIES = ('hook-states', 'debug-logs')
-RETENTION_SECONDS = 48 * 60 * 60
+_TEMP_ROOT_NAME = 'ghc-agent-refinement'
+_TEMP_CATEGORIES = ('hook-states', 'debug-logs')
+_RETENTION_SECONDS = 48 * 60 * 60
 
 
 def get_temp_root():
-    return os.path.join(tempfile.gettempdir(), TEMP_ROOT_NAME)
+    return os.path.join(tempfile.gettempdir(), _TEMP_ROOT_NAME)
 
 
-def is_stale(path, now):
+def _is_stale(path, now):
     # lstat：シンボリックリンク自体の更新時刻を見る。リンク先は削除対象ではないため。
     # 調べている間に他のhookが削除したファイルは対象外とする。
     try:
-        return now - os.lstat(path).st_mtime > RETENTION_SECONDS
+        return now - os.lstat(path).st_mtime > _RETENTION_SECONDS
     except OSError:
         return False
 
@@ -27,13 +27,13 @@ def is_stale(path, now):
 def find_stale_files(root, now):
     # 戻り値は (分類からの相対ディレクトリ, パス, バイト数) のリスト。
     stale_files = []
-    for category in TEMP_CATEGORIES:
+    for category in _TEMP_CATEGORIES:
         category_directory = os.path.join(root, category)
         # os.walkは、読めないディレクトリを例外にせず読み飛ばす。
         for directory, _, filenames in os.walk(category_directory):
             for filename in filenames:
                 path = os.path.join(directory, filename)
-                if not is_stale(path, now):
+                if not _is_stale(path, now):
                     continue
                 try:
                     size = os.lstat(path).st_size
@@ -45,14 +45,14 @@ def find_stale_files(root, now):
     return sorted(stale_files)
 
 
-def find_stale_directories(root, now):
+def _find_stale_directories(root, now):
     # 分類のディレクトリ自体は残し、その配下のディレクトリだけを対象にする。深い順に並べる。
     stale_directories = []
-    for category in TEMP_CATEGORIES:
+    for category in _TEMP_CATEGORIES:
         for directory, subdirectories, _ in os.walk(os.path.join(root, category)):
             for subdirectory in subdirectories:
                 path = os.path.join(directory, subdirectory)
-                if is_stale(path, now):
+                if _is_stale(path, now):
                     stale_directories.append(path)
     return sorted(stale_directories, key=lambda path: path.count(os.sep), reverse=True)
 
@@ -61,7 +61,7 @@ def delete_stale_files(root, now):
     # 戻り値は (削除したファイル数, 削除したバイト数, 削除したディレクトリ数, 失敗した (パス, 理由) のリスト)。
     # ディレクトリの更新時刻はファイルを削除すると更新されるため、削除前に対象を決めておく。
     # 48時間更新のないディレクトリだけを消し、hookが作成した直後の空ディレクトリを消さない。
-    stale_directories = find_stale_directories(root, now)
+    stale_directories = _find_stale_directories(root, now)
     deleted_files = 0
     deleted_bytes = 0
     failures = []
