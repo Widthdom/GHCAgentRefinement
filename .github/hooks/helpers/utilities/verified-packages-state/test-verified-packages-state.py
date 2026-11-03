@@ -23,14 +23,14 @@ class VerifiedPackagesStateTests(unittest.TestCase):
         tempdir = patch.object(tempfile, 'tempdir', temporary.name)
         tempdir.start()
         self.addCleanup(tempdir.stop)
-        self.temp_directory = temporary.name
-        self.state_path = _utility['get_state_path'](str(uuid.uuid4()))
+        self.__temp_directory = temporary.name
+        self.__state_path = _utility['get_state_path'](str(uuid.uuid4()))
 
     def test_state_path(self):
         session_id = uuid.uuid4()
         self.assertEqual(
             _utility['get_state_path'](f' {str(session_id).upper()} '),
-            os.path.join(self.temp_directory, 'ghc-agent-refinement', 'hook-states', 'verified-packages',
+            os.path.join(self.__temp_directory, 'ghc-agent-refinement', 'hook-states', 'verified-packages',
                          f'{session_id}.sqlite3'),
         )
         for invalid in (None, '', '  ', 'not-a-uuid'):
@@ -50,16 +50,16 @@ class VerifiedPackagesStateTests(unittest.TestCase):
                 self.assertEqual(normalize_name(ecosystem, name), expected)
 
     def test_record_and_get(self):
-        self.assertEqual(_utility['get_verified'](self.state_path), set())
-        _utility['record_verified'](self.state_path, [(_utility['_PYPI'], 'Foo_Bar'), (_utility['_NPM'], 'Left-Pad')])
-        _utility['record_verified'](self.state_path, [(_utility['_PYPI'], 'foo-bar')])
-        self.assertEqual(_utility['get_verified'](self.state_path), {('pypi', 'foo-bar'), ('npm', 'left-pad')})
+        self.assertEqual(_utility['get_verified'](self.__state_path), set())
+        _utility['record_verified'](self.__state_path, [(_utility['_PYPI'], 'Foo_Bar'), (_utility['_NPM'], 'Left-Pad')])
+        _utility['record_verified'](self.__state_path, [(_utility['_PYPI'], 'foo-bar')])
+        self.assertEqual(_utility['get_verified'](self.__state_path), {('pypi', 'foo-bar'), ('npm', 'left-pad')})
 
     def test_get_without_table(self):
-        os.makedirs(os.path.dirname(self.state_path))
-        with closing(sqlite3.connect(self.state_path)):
+        os.makedirs(os.path.dirname(self.__state_path))
+        with closing(sqlite3.connect(self.__state_path)):
             pass
-        self.assertEqual(_utility['get_verified'](self.state_path), set())
+        self.assertEqual(_utility['get_verified'](self.__state_path), set())
 
 
 if __name__ == '__main__':

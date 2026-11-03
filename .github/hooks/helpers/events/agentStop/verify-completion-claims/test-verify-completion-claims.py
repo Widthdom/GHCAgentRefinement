@@ -43,34 +43,34 @@ class VerifyCompletionClaimsTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-completion-claims-test-')
         self.addCleanup(temporary.cleanup)
-        self.root = temporary.name
-        self.transcript_path = os.path.join(self.root, 'events.jsonl')
-        self.payload = {
+        self.__root = temporary.name
+        self.__transcript_path = os.path.join(self.__root, 'events.jsonl')
+        self.__payload = {
             'sessionId': '00000000-0000-4000-8000-000000000000',
             'timestamp': _HOOK_TIMESTAMP,
-            'cwd': self.root,
-            'transcriptPath': self.transcript_path,
+            'cwd': self.__root,
+            'transcriptPath': self.__transcript_path,
         }
 
-    def write_transcript(self, events):
-        with open(self.transcript_path, 'w', encoding='utf-8', newline='\n') as file:
+    def __write_transcript(self, events):
+        with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
             for event in events:
                 file.write(json.dumps(event, ensure_ascii=False) + '\n')
 
-    def invoke(self, events=None, payload=None, raw=None):
+    def __invoke(self, events=None, payload=None, raw=None):
         if events is not None:
-            self.write_transcript([*events, _agent_stop_start()])
+            self.__write_transcript([*events, _agent_stop_start()])
         if raw is None:
-            raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
+            raw = json.dumps(self.__payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
         )
 
-    def assert_silent(self, result):
+    def __assert_silent(self, result):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
 
-    def assert_block(self, result, *fragments):
+    def __assert_block(self, result, *fragments):
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
         self.assertEqual(result.stderr, b'')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
@@ -106,7 +106,7 @@ class VerifyCompletionClaimsTests(unittest.TestCase):
         for claim in claims:
             with self.subTest(claim=claim):
                 events = [_user('直して'), *_shell('c1', 'git status', 0), _assistant(claim)]
-                self.assert_block(self.invoke(events), 'no test command was run')
+                self.__assert_block(self.__invoke(events), 'no test command was run')
 
     def test_blocks_when_last_test_run_failed(self):
         cases = (
@@ -117,12 +117,12 @@ class VerifyCompletionClaimsTests(unittest.TestCase):
         for runs, fragment in cases:
             with self.subTest(fragment=fragment):
                 events = [_user('直して'), *runs, _assistant('テストが通った。')]
-                self.assert_block(self.invoke(events), fragment)
+                self.__assert_block(self.__invoke(events), fragment)
 
     def test_long_failed_command_is_truncated(self):
         command = 'pytest ' + 'x' * 300
         events = [_user('直して'), *_shell('c1', command, 1), _assistant('Tests passed.')]
-        reason = self.assert_block(self.invoke(events))
+        reason = self.__assert_block(self.__invoke(events))
         self.assertIn(command[:200] + '...', reason)
         self.assertNotIn(command, reason)
 
@@ -134,14 +134,14 @@ class VerifyCompletionClaimsTests(unittest.TestCase):
         )
         for events in runs:
             with self.subTest(events=events):
-                self.assert_silent(self.invoke([_user('直して'), *events, _assistant('テストはすべて通過した。')]))
+                self.__assert_silent(self.__invoke([_user('直して'), *events, _assistant('テストはすべて通過した。')]))
 
     def test_verification_claim_requires_any_command(self):
         claims = ('動作確認済み。', '機能することを確認した。', 'I verified that it works.')
         for claim in claims:
             with self.subTest(claim=claim):
-                self.assert_block(self.invoke([_user('直して'), _assistant(claim)]), 'behavior was verified')
-                self.assert_silent(self.invoke([_user('直して'), *_shell('c1', 'ls', 0), _assistant(claim)]))
+                self.__assert_block(self.__invoke([_user('直して'), _assistant(claim)]), 'behavior was verified')
+                self.__assert_silent(self.__invoke([_user('直して'), *_shell('c1', 'ls', 0), _assistant(claim)]))
 
     def test_ignores_non_claims(self):
         responses = (
@@ -156,14 +156,14 @@ class VerifyCompletionClaimsTests(unittest.TestCase):
         )
         for response in responses:
             with self.subTest(response=response):
-                self.assert_silent(self.invoke([_user('直して'), _assistant(response)]))
+                self.__assert_silent(self.__invoke([_user('直して'), _assistant(response)]))
 
     def test_only_runs_after_latest_user_request_count(self):
         events = [
             _user('前の依頼'), *_shell('c1', 'npm test', 0), _assistant('テストが通った。'),
             _user('次の依頼'), _assistant('テストが通った。'),
         ]
-        self.assert_block(self.invoke(events), 'no test command was run')
+        self.__assert_block(self.__invoke(events), 'no test command was run')
 
     def test_queued_messages_do_not_reset_the_request(self):
         events = [
@@ -171,49 +171,49 @@ class VerifyCompletionClaimsTests(unittest.TestCase):
             _user('The final response footer is missing or incorrect.', 'queued'),
             _assistant('テストが通った。'),
         ]
-        self.assert_silent(self.invoke(events))
+        self.__assert_silent(self.__invoke(events))
 
     def test_blocks_only_once_per_request(self):
         first = [_user('直して'), _assistant('テストが通った。')]
-        reason = self.assert_block(self.invoke(first))
-        self.assert_silent(self.invoke([*first, _user(reason, 'queued'), _assistant('テストが通った。')]))
-        self.assert_block(self.invoke([*first, _user(reason, 'queued'), _user('次の依頼'), _assistant('テストが通った。')]))
+        reason = self.__assert_block(self.__invoke(first))
+        self.__assert_silent(self.__invoke([*first, _user(reason, 'queued'), _assistant('テストが通った。')]))
+        self.__assert_block(self.__invoke([*first, _user(reason, 'queued'), _user('次の依頼'), _assistant('テストが通った。')]))
 
     def test_last_assistant_message_is_checked(self):
         events = [_user('直して'), _assistant('テストが通った。'), _assistant('テストはまだ実行していない。')]
-        self.assert_silent(self.invoke(events))
+        self.__assert_silent(self.__invoke(events))
 
     def test_skips_subagents(self):
         events = [_user('直して'), _assistant('テストが通った。')]
-        self.write_transcript(events)
-        self.assert_silent(self.invoke(payload={**self.payload, 'agentId': 'child-agent'}))
+        self.__write_transcript(events)
+        self.__assert_silent(self.__invoke(payload={**self.__payload, 'agentId': 'child-agent'}))
 
     def test_waits_for_agent_stop_event(self):
-        self.write_transcript([_user('直して')])
+        self.__write_transcript([_user('直して')])
 
         def append_later():
             time.sleep(0.5)
-            with open(self.transcript_path, 'a', encoding='utf-8', newline='\n') as file:
+            with open(self.__transcript_path, 'a', encoding='utf-8', newline='\n') as file:
                 for event in (_assistant('テストが通った。'), _agent_stop_start()):
                     file.write(json.dumps(event, ensure_ascii=False) + '\n')
 
         process = subprocess.Popen(
             [sys.executable, _hook_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
-        process.stdin.write(json.dumps(self.payload).encode('utf-8'))
+        process.stdin.write(json.dumps(self.__payload).encode('utf-8'))
         process.stdin.close()
         process.stdin = None
         append_later()
         output, error = process.communicate(timeout=15)
-        self.assert_block(subprocess.CompletedProcess([], process.returncode, output, error))
+        self.__assert_block(subprocess.CompletedProcess([], process.returncode, output, error))
 
     def test_invalid_input_reports_error(self):
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'\xff']
-        for value in (None, '', ' ', 3, [], os.path.join(self.root, 'missing.jsonl'), self.root):
-            invalid.append(json.dumps({**self.payload, 'transcriptPath': value}).encode('utf-8'))
+        for value in (None, '', ' ', 3, [], os.path.join(self.__root, 'missing.jsonl'), self.__root):
+            invalid.append(json.dumps({**self.__payload, 'transcriptPath': value}).encode('utf-8'))
         for raw in invalid:
             with self.subTest(raw=raw):
-                result = self.invoke(raw=raw)
+                result = self.__invoke(raw=raw)
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(result.stdout, b'')
                 self.assertTrue(result.stderr)
@@ -221,9 +221,9 @@ class VerifyCompletionClaimsTests(unittest.TestCase):
     def test_invalid_transcript_reports_error(self):
         for content in ('{', '[]\n', '{"type":"user.message","data":[]}\n'):
             with self.subTest(content=content):
-                with open(self.transcript_path, 'w', encoding='utf-8') as file:
+                with open(self.__transcript_path, 'w', encoding='utf-8') as file:
                     file.write(content)
-                result = self.invoke(payload={**self.payload, 'timestamp': None})
+                result = self.__invoke(payload={**self.__payload, 'timestamp': None})
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(result.stdout, b'')
                 self.assertIn(b'Failed to inspect completion claims:', result.stderr)

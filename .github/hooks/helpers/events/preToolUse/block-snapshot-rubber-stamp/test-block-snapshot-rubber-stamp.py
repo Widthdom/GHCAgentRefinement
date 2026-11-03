@@ -19,33 +19,33 @@ class BlockSnapshotRubberStampTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-block-snapshot-rubber-stamp-test-')
         self.addCleanup(temporary.cleanup)
-        self.root = os.path.realpath(temporary.name)
-        self.environment = os.environ.copy()
-        self.environment.update({'TMPDIR': self.root, 'TEMP': self.root, 'TMP': self.root})
-        self.new_session()
+        self.__root = os.path.realpath(temporary.name)
+        self.__environment = os.environ.copy()
+        self.__environment.update({'TMPDIR': self.__root, 'TEMP': self.__root, 'TMP': self.__root})
+        self.__new_session()
 
-    def new_session(self):
-        self.session_id = str(uuid.uuid4())
-        self.state_path = os.path.join(
-            self.root, 'ghc-agent-refinement', 'hook-states', 'block-snapshot-rubber-stamp', f'{self.session_id}.sqlite3',
+    def __new_session(self):
+        self.__session_id = str(uuid.uuid4())
+        self.__state_path = os.path.join(
+            self.__root, 'ghc-agent-refinement', 'hook-states', 'block-snapshot-rubber-stamp', f'{self.__session_id}.sqlite3',
         )
 
-    def run_hook(self, hook_input, *arguments):
+    def __run_hook(self, hook_input, *arguments):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path, *arguments], input=raw,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.__environment, timeout=10,
         )
 
-    def run_command(self, command, tool_name='bash'):
-        return self.run_hook({
-            'sessionId': self.session_id, 'cwd': self.root, 'toolName': tool_name, 'toolArgs': {'command': command},
+    def __run_command(self, command, tool_name='bash'):
+        return self.__run_hook({
+            'sessionId': self.__session_id, 'cwd': self.__root, 'toolName': tool_name, 'toolArgs': {'command': command},
         })
 
-    def assert_allowed(self, result, message):
+    def __assert_allowed(self, result, message):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''), message)
 
-    def assert_denied(self, result, expected_parts, message):
+    def __assert_denied(self, result, expected_parts, message):
         self.assertEqual(result.returncode, 0, f'{message} {result.stderr!r}')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'), f'{message} stdout must not start with a BOM.')
         output = json.loads(result.stdout.decode('utf-8'))
@@ -95,13 +95,13 @@ class BlockSnapshotRubberStampTests(unittest.TestCase):
         ]
         for command, kind in cases:
             with self.subTest(command=command):
-                self.new_session()
-                self.assert_denied(self.run_command(command), [kind, 'only once per session'], command)
-                self.assertTrue(os.path.isfile(self.state_path), command)
+                self.__new_session()
+                self.__assert_denied(self.__run_command(command), [kind, 'only once per session'], command)
+                self.assertTrue(os.path.isfile(self.__state_path), command)
 
     def test_powershell_environment_variable_is_denied(self):
-        self.assert_denied(
-            self.run_command("$env:UPDATE_SNAPSHOTS = '1'; dotnet test", tool_name='powershell'),
+        self.__assert_denied(
+            self.__run_command("$env:UPDATE_SNAPSHOTS = '1'; dotnet test", tool_name='powershell'),
             ['environment variable'], 'PowerShell environment assignment must be detected.',
         )
 
@@ -120,30 +120,30 @@ class BlockSnapshotRubberStampTests(unittest.TestCase):
         ]
         for command in cases:
             with self.subTest(command=command):
-                self.assert_allowed(self.run_command(command), command)
-        self.assertFalse(os.path.exists(self.state_path), 'Allowed commands must not create the state file.')
+                self.__assert_allowed(self.__run_command(command), command)
+        self.assertFalse(os.path.exists(self.__state_path), 'Allowed commands must not create the state file.')
 
     def test_same_kind_is_denied_only_once_per_session(self):
-        self.assert_denied(self.run_command('npx jest -u'), ['Jest/Vitest/Playwright'], 'First update must be denied.')
-        self.assert_allowed(self.run_command('npx jest -u'), 'Retry must be allowed.')
-        self.assert_allowed(self.run_command('npm test -- -u'), 'Same kind must be allowed after the first denial.')
-        self.assert_denied(self.run_command('cargo insta accept'), ['insta'], 'Another kind must still be denied.')
-        self.new_session()
-        self.assert_denied(self.run_command('npx jest -u'), ['Jest/Vitest/Playwright'], 'A new session must deny again.')
+        self.__assert_denied(self.__run_command('npx jest -u'), ['Jest/Vitest/Playwright'], 'First update must be denied.')
+        self.__assert_allowed(self.__run_command('npx jest -u'), 'Retry must be allowed.')
+        self.__assert_allowed(self.__run_command('npm test -- -u'), 'Same kind must be allowed after the first denial.')
+        self.__assert_denied(self.__run_command('cargo insta accept'), ['insta'], 'Another kind must still be denied.')
+        self.__new_session()
+        self.__assert_denied(self.__run_command('npx jest -u'), ['Jest/Vitest/Playwright'], 'A new session must deny again.')
 
     def test_other_tools_are_ignored(self):
-        result = self.run_hook({
-            'sessionId': self.session_id, 'cwd': self.root, 'toolName': 'edit',
+        result = self.__run_hook({
+            'sessionId': self.__session_id, 'cwd': self.__root, 'toolName': 'edit',
             'toolArgs': {'path': 'a.txt', 'new_str': 'npx jest -u'},
         })
-        self.assert_allowed(result, 'Non-shell tools must be ignored.')
+        self.__assert_allowed(result, 'Non-shell tools must be ignored.')
 
     def test_json_string_tool_args_are_parsed(self):
-        result = self.run_hook({
-            'sessionId': self.session_id, 'cwd': self.root, 'toolName': 'bash',
+        result = self.__run_hook({
+            'sessionId': self.__session_id, 'cwd': self.__root, 'toolName': 'bash',
             'toolArgs': json.dumps({'command': 'npx jest -u'}),
         })
-        self.assert_denied(result, ['Jest/Vitest/Playwright'], 'JSON string toolArgs must be parsed.')
+        self.__assert_denied(result, ['Jest/Vitest/Playwright'], 'JSON string toolArgs must be parsed.')
 
     def test_invalid_input_exits_with_error(self):
         cases = [
@@ -152,12 +152,12 @@ class BlockSnapshotRubberStampTests(unittest.TestCase):
             ('non-object', b'[]'),
             ('missing sessionId', {'toolName': 'bash', 'toolArgs': {'command': 'npx jest -u'}}),
             ('invalid sessionId', {'sessionId': 'abc', 'toolName': 'bash', 'toolArgs': {}}),
-            ('missing toolName', {'sessionId': self.session_id, 'toolArgs': {}}),
-            ('missing toolArgs', {'sessionId': self.session_id, 'toolName': 'bash'}),
+            ('missing toolName', {'sessionId': self.__session_id, 'toolArgs': {}}),
+            ('missing toolArgs', {'sessionId': self.__session_id, 'toolName': 'bash'}),
         ]
         for name, hook_input in cases:
             with self.subTest(name=name):
-                result = self.run_hook(hook_input)
+                result = self.__run_hook(hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to check snapshot updates', result.stderr, name)
 
@@ -170,17 +170,17 @@ class BlockSnapshotRubberStampTests(unittest.TestCase):
         ]
         for name, content in cases:
             with self.subTest(name=name):
-                path = os.path.join(self.root, 'definitions.json')
+                path = os.path.join(self.__root, 'definitions.json')
                 with open(path, 'w', encoding='utf-8') as file:
                     file.write(content)
-                result = self.run_hook(
-                    {'sessionId': self.session_id, 'toolName': 'bash', 'toolArgs': {'command': 'npx jest -u'}},
+                result = self.__run_hook(
+                    {'sessionId': self.__session_id, 'toolName': 'bash', 'toolArgs': {'command': 'npx jest -u'}},
                     '--definitions-path', path,
                 )
                 self.assertEqual(result.returncode, 2, name)
-        missing = self.run_hook(
-            {'sessionId': self.session_id, 'toolName': 'bash', 'toolArgs': {'command': 'ls'}},
-            '--definitions-path', os.path.join(self.root, 'missing.json'),
+        missing = self.__run_hook(
+            {'sessionId': self.__session_id, 'toolName': 'bash', 'toolArgs': {'command': 'ls'}},
+            '--definitions-path', os.path.join(self.__root, 'missing.json'),
         )
         self.assertEqual(missing.returncode, 2, 'A missing definitions file must fail.')
 

@@ -22,13 +22,13 @@ class AssertionFailureValuesStateTests(unittest.TestCase):
         tempdir = patch.object(tempfile, 'tempdir', temporary.name)
         tempdir.start()
         self.addCleanup(tempdir.stop)
-        self.temp_directory = temporary.name
+        self.__temp_directory = temporary.name
 
     def test_state_path(self):
         session_id = uuid.uuid4()
         self.assertEqual(
             _utility['get_state_path'](f' {str(session_id).upper()} '),
-            os.path.join(self.temp_directory, 'ghc-agent-refinement', 'hook-states', 'test-failure-values',
+            os.path.join(self.__temp_directory, 'ghc-agent-refinement', 'hook-states', 'test-failure-values',
                          f'{session_id}.sqlite3'),
         )
         for invalid in (None, '', '  ', 'not-a-uuid'):
@@ -59,7 +59,7 @@ class AssertionFailureValuesStateTests(unittest.TestCase):
         # 期待値と実際の値の順序を区別する。
         self.assertNotEqual(get_pair_key('1', '2'), get_pair_key('2', '1'))
         self.assertEqual(_utility['get_value_key']('値'), hashlib.sha256('値'.encode('utf-8')).hexdigest())
-        path = os.path.join(self.temp_directory, 'Test.py')
+        path = os.path.join(self.__temp_directory, 'Test.py')
         self.assertEqual(
             _utility['get_file_key'](path), hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest(),
         )

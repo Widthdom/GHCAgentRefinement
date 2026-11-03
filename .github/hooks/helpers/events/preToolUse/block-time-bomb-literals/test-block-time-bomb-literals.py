@@ -21,43 +21,43 @@ class BlockTimeBombLiteralsTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-block-time-bomb-literals-test-')
         self.addCleanup(temporary.cleanup)
-        self.root = os.path.realpath(temporary.name)
-        self.environment = os.environ.copy()
-        self.environment.update({'TMPDIR': self.root, 'TEMP': self.root, 'TMP': self.root})
-        self.directory = os.path.join(self.root, 'workspace')
-        os.makedirs(self.directory)
-        self.write_file('tests/test_expiry.py', 'from datetime import date\n\n\ndef test_expiry():\n    pass\n')
-        self.write_file('src/expiry.py', 'def is_expired(day):\n    return False\n')
-        self.new_session()
+        self.__root = os.path.realpath(temporary.name)
+        self.__environment = os.environ.copy()
+        self.__environment.update({'TMPDIR': self.__root, 'TEMP': self.__root, 'TMP': self.__root})
+        self.__directory = os.path.join(self.__root, 'workspace')
+        os.makedirs(self.__directory)
+        self.__write_file('tests/test_expiry.py', 'from datetime import date\n\n\ndef test_expiry():\n    pass\n')
+        self.__write_file('src/expiry.py', 'def is_expired(day):\n    return False\n')
+        self.__new_session()
 
-    def write_file(self, path, content):
-        full_path = os.path.join(self.directory, path)
+    def __write_file(self, path, content):
+        full_path = os.path.join(self.__directory, path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(content)
 
-    def new_session(self):
-        self.session_id = str(uuid.uuid4())
-        self.state_path = os.path.join(
-            self.root, 'ghc-agent-refinement', 'hook-states', 'block-time-bomb-literals', f'{self.session_id}.sqlite3',
+    def __new_session(self):
+        self.__session_id = str(uuid.uuid4())
+        self.__state_path = os.path.join(
+            self.__root, 'ghc-agent-refinement', 'hook-states', 'block-time-bomb-literals', f'{self.__session_id}.sqlite3',
         )
 
-    def run_hook(self, hook_input, *arguments):
+    def __run_hook(self, hook_input, *arguments):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path, '--today', _TODAY, *arguments], input=raw,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.__environment, timeout=10,
         )
 
-    def run_call(self, tool_name, tool_args):
-        return self.run_hook({
-            'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_name, 'toolArgs': tool_args,
+    def __run_call(self, tool_name, tool_args):
+        return self.__run_hook({
+            'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': tool_name, 'toolArgs': tool_args,
         })
 
-    def assert_allowed(self, result, message):
+    def __assert_allowed(self, result, message):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''), message)
 
-    def assert_denied(self, result, expected_parts, message):
+    def __assert_denied(self, result, expected_parts, message):
         self.assertEqual(result.returncode, 0, f'{message} {result.stderr!r}')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'), f'{message} stdout must not start with a BOM.')
         output = json.loads(result.stdout.decode('utf-8'))
@@ -103,9 +103,9 @@ class BlockTimeBombLiteralsTests(unittest.TestCase):
         ]
         for name, path, line, expected in cases:
             with self.subTest(name=name):
-                self.new_session()
-                result = self.run_call('create', {'path': path, 'file_text': f'def test_x():\n{line}'})
-                self.assert_denied(result, [expected, f'Today is {_TODAY}', 'only once per file'], name)
+                self.__new_session()
+                result = self.__run_call('create', {'path': path, 'file_text': f'def test_x():\n{line}'})
+                self.__assert_denied(result, [expected, f'Today is {_TODAY}', 'only once per file'], name)
 
     def test_edit_tools_are_parsed(self):
         cases = [
@@ -122,13 +122,13 @@ class BlockTimeBombLiteralsTests(unittest.TestCase):
         ]
         for tool_name, args in cases:
             with self.subTest(tool_name=tool_name):
-                self.new_session()
-                self.assert_denied(self.run_call(tool_name, args), ['tests/test_expiry.py writes date(2026, 12, 1'], tool_name)
+                self.__new_session()
+                self.__assert_denied(self.__run_call(tool_name, args), ['tests/test_expiry.py writes date(2026, 12, 1'], tool_name)
 
     def test_clock_in_existing_file_is_used(self):
-        self.write_file('tests/test_clock.py', 'from datetime import datetime\nNOW = datetime.now()\n\n\ndef test_x():\n    pass\n')
-        self.assert_denied(
-            self.run_call('edit', {'path': 'tests/test_clock.py', 'old_str': '    pass', 'new_str': '    assert NOW < "2027-01-01"'}),
+        self.__write_file('tests/test_clock.py', 'from datetime import datetime\nNOW = datetime.now()\n\n\ndef test_x():\n    pass\n')
+        self.__assert_denied(
+            self.__run_call('edit', {'path': 'tests/test_clock.py', 'old_str': '    pass', 'new_str': '    assert NOW < "2027-01-01"'}),
             ['2027-01-01', 'datetime.now('], 'A clock reference already in the file must count.',
         )
 
@@ -149,14 +149,14 @@ class BlockTimeBombLiteralsTests(unittest.TestCase):
         ]
         for name, path, line in cases:
             with self.subTest(name=name):
-                result = self.run_call('create', {'path': path, 'file_text': f'def test_x():\n{line}'})
-                self.assert_allowed(result, name)
-        self.assertFalse(os.path.exists(self.state_path), 'Allowed edits must not create the state file.')
+                result = self.__run_call('create', {'path': path, 'file_text': f'def test_x():\n{line}'})
+                self.__assert_allowed(result, name)
+        self.assertFalse(os.path.exists(self.__state_path), 'Allowed edits must not create the state file.')
 
     def test_existing_date_lines_are_not_rechecked(self):
-        self.write_file('tests/test_old.py', 'def test_x():\n    assert date.today() < date(2026, 12, 1)\n    pass\n')
-        self.assert_allowed(
-            self.run_call('edit', {
+        self.__write_file('tests/test_old.py', 'def test_x():\n    assert date.today() < date(2026, 12, 1)\n    pass\n')
+        self.__assert_allowed(
+            self.__run_call('edit', {
                 'path': 'tests/test_old.py',
                 'old_str': '    assert date.today() < date(2026, 12, 1)\n    pass',
                 'new_str': '    assert date.today() < date(2026, 12, 1)\n    assert True',
@@ -166,16 +166,16 @@ class BlockTimeBombLiteralsTests(unittest.TestCase):
 
     def test_same_file_is_denied_only_once(self):
         args = {'path': 'tests/test_expiry.py', 'old_str': '    pass', 'new_str': '    assert date.today() < date(2026, 12, 1)'}
-        self.assert_denied(self.run_call('edit', args), ['date(2026, 12, 1'], 'First edit must be denied.')
-        self.assert_allowed(self.run_call('edit', args), 'Retry must be allowed.')
+        self.__assert_denied(self.__run_call('edit', args), ['date(2026, 12, 1'], 'First edit must be denied.')
+        self.__assert_allowed(self.__run_call('edit', args), 'Retry must be allowed.')
 
     def test_other_tools_are_ignored(self):
-        self.assert_allowed(
-            self.run_call('bash', {'command': 'echo "date.today() == date(2026, 11, 3)" > tests/test_x.py'}),
+        self.__assert_allowed(
+            self.__run_call('bash', {'command': 'echo "date.today() == date(2026, 11, 3)" > tests/test_x.py'}),
             'Shell tools must be ignored.',
         )
-        self.assert_allowed(
-            self.run_call('str_replace_editor', {'command': 'view', 'path': 'tests/test_expiry.py'}),
+        self.__assert_allowed(
+            self.__run_call('str_replace_editor', {'command': 'view', 'path': 'tests/test_expiry.py'}),
             'view must be ignored.',
         )
 
@@ -184,16 +184,16 @@ class BlockTimeBombLiteralsTests(unittest.TestCase):
             ('empty input', b''),
             ('invalid JSON', b'{'),
             ('non-object', b'[]'),
-            ('missing sessionId', {'cwd': self.directory, 'toolName': 'edit', 'toolArgs': {}}),
-            ('invalid sessionId', {'sessionId': 'abc', 'cwd': self.directory, 'toolName': 'edit', 'toolArgs': {}}),
-            ('missing cwd', {'sessionId': self.session_id, 'toolName': 'edit', 'toolArgs': {}}),
-            ('relative cwd', {'sessionId': self.session_id, 'cwd': 'workspace', 'toolName': 'edit', 'toolArgs': {}}),
-            ('missing toolName', {'sessionId': self.session_id, 'cwd': self.directory, 'toolArgs': {}}),
-            ('missing toolArgs', {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit'}),
+            ('missing sessionId', {'cwd': self.__directory, 'toolName': 'edit', 'toolArgs': {}}),
+            ('invalid sessionId', {'sessionId': 'abc', 'cwd': self.__directory, 'toolName': 'edit', 'toolArgs': {}}),
+            ('missing cwd', {'sessionId': self.__session_id, 'toolName': 'edit', 'toolArgs': {}}),
+            ('relative cwd', {'sessionId': self.__session_id, 'cwd': 'workspace', 'toolName': 'edit', 'toolArgs': {}}),
+            ('missing toolName', {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolArgs': {}}),
+            ('missing toolArgs', {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'edit'}),
         ]
         for name, hook_input in cases:
             with self.subTest(name=name):
-                result = self.run_hook(hook_input)
+                result = self.__run_hook(hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to check time bomb literals', result.stderr, name)
 
@@ -208,11 +208,11 @@ class BlockTimeBombLiteralsTests(unittest.TestCase):
         ]
         for name, definitions in cases:
             with self.subTest(name=name):
-                path = os.path.join(self.root, 'definitions.json')
+                path = os.path.join(self.__root, 'definitions.json')
                 with open(path, 'w', encoding='utf-8') as file:
                     json.dump(definitions, file)
-                result = self.run_hook(
-                    {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'edit', 'toolArgs': {}},
+                result = self.__run_hook(
+                    {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'edit', 'toolArgs': {}},
                     '--definitions-path', path,
                 )
                 self.assertEqual(result.returncode, 2, name)

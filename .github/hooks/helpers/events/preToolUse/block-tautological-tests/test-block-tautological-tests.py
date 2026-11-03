@@ -27,34 +27,34 @@ def _run_hook(input_bytes, *arguments):
 
 class BlockTautologicalTestsTests(unittest.TestCase):
     def setUp(self):
-        self.directory = os.path.realpath(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.directory, ignore_errors=True)
-        self.new_session()
-        self.write_file('test_math.py', _ORIGINAL)
+        self.__directory = os.path.realpath(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.__directory, ignore_errors=True)
+        self.__new_session()
+        self.__write_file('test_math.py', _ORIGINAL)
 
-    def write_file(self, path, content):
-        full_path = os.path.join(self.directory, path)
+    def __write_file(self, path, content):
+        full_path = os.path.join(self.__directory, path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(content)
 
-    def new_session(self):
+    def __new_session(self):
         # テストごとに別セッションとし、拒否の記録を持ち越さない。
-        self.session_id = str(uuid.uuid4())
-        state_path = os.path.join(_state_directory, f'{self.session_id}.sqlite3')
+        self.__session_id = str(uuid.uuid4())
+        state_path = os.path.join(_state_directory, f'{self.__session_id}.sqlite3')
         self.addCleanup(lambda: os.path.exists(state_path) and os.remove(state_path))
 
-    def run_call(self, tool_name, tool_args):
-        hook_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': tool_name, 'toolArgs': tool_args}
+    def __run_call(self, tool_name, tool_args):
+        hook_input = {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': tool_name, 'toolArgs': tool_args}
         return _run_hook(json.dumps(hook_input).encode('utf-8'))
 
-    def create(self, path, content):
-        return self.run_call('create', {'path': path, 'file_text': content})
+    def __create(self, path, content):
+        return self.__run_call('create', {'path': path, 'file_text': content})
 
-    def assert_allowed(self, result, message):
+    def __assert_allowed(self, result, message):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''), message)
 
-    def assert_denied(self, result, expected_parts, message):
+    def __assert_denied(self, result, expected_parts, message):
         self.assertEqual(result.returncode, 0, f'{message} {result.stderr!r}')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'), f'{message} stdout must not start with a BOM.')
         output = json.loads(result.stdout.decode('utf-8'))
@@ -78,9 +78,9 @@ class BlockTautologicalTestsTests(unittest.TestCase):
         ]
         for path, line, finding in cases:
             with self.subTest(path=path, line=line):
-                self.new_session()
-                self.assert_denied(
-                    self.create(path, f'{line}\n'), [path, f'"{finding}"', 'compare a value with itself'], line,
+                self.__new_session()
+                self.__assert_denied(
+                    self.__create(path, f'{line}\n'), [path, f'"{finding}"', 'compare a value with itself'], line,
                 )
 
     def test_expected_value_from_the_same_call_is_denied(self):
@@ -91,12 +91,12 @@ class BlockTautologicalTestsTests(unittest.TestCase):
         ]
         for path, content in cases:
             with self.subTest(path=path):
-                self.new_session()
-                self.assert_denied(self.create(path, content), [path, 'compare a value with itself'], content)
+                self.__new_session()
+                self.__assert_denied(self.__create(path, content), [path, 'compare a value with itself'], content)
 
     def test_multiline_assertion_is_denied(self):
-        self.assert_denied(
-            self.create('CalcTests.cs', 'Assert.Equal(\n    calc.Add(1, 2),\n    calc.Add(1, 2));\n'),
+        self.__assert_denied(
+            self.__create('CalcTests.cs', 'Assert.Equal(\n    calc.Add(1, 2),\n    calc.Add(1, 2));\n'),
             ['"Assert.Equal( calc.Add(1, 2), calc.Add(1, 2))"'], 'multiline',
         )
 
@@ -114,8 +114,8 @@ class BlockTautologicalTestsTests(unittest.TestCase):
         ]
         for content in contents:
             with self.subTest(content=content):
-                self.new_session()
-                self.assert_allowed(self.create('test_math.py', content), content)
+                self.__new_session()
+                self.__assert_allowed(self.__create('test_math.py', content), content)
 
     def test_self_mocks_are_denied(self):
         cases = [
@@ -129,9 +129,9 @@ class BlockTautologicalTestsTests(unittest.TestCase):
         ]
         for content, finding in cases:
             with self.subTest(content=content):
-                self.new_session()
-                self.assert_denied(
-                    self.create('test_parser.py', content),
+                self.__new_session()
+                self.__assert_denied(
+                    self.__create('test_parser.py', content),
                     ['test_parser.py', f'"{finding}"', 'mock the function they test'], content,
                 )
 
@@ -147,13 +147,13 @@ class BlockTautologicalTestsTests(unittest.TestCase):
         ]
         for content in contents:
             with self.subTest(content=content):
-                self.new_session()
-                self.assert_allowed(self.create('test_parser.py', content), content)
+                self.__new_session()
+                self.__assert_allowed(self.__create('test_parser.py', content), content)
 
     def test_existing_assertions_are_allowed(self):
-        self.write_file('CalcTests.cs', 'Assert.Equal(calc.Total, calc.Total);\n')
-        self.assert_allowed(
-            self.run_call('edit', {
+        self.__write_file('CalcTests.cs', 'Assert.Equal(calc.Total, calc.Total);\n')
+        self.__assert_allowed(
+            self.__run_call('edit', {
                 'path': 'CalcTests.cs', 'old_str': 'Assert.Equal(calc.Total, calc.Total);',
                 'new_str': '// keep\nAssert.Equal(calc.Total,  calc.Total);',
             }),
@@ -161,32 +161,32 @@ class BlockTautologicalTestsTests(unittest.TestCase):
         )
 
     def test_non_test_files_are_allowed(self):
-        self.assert_allowed(self.create('src/calc.py', 'assert a == a\n'), 'non-test file')
+        self.__assert_allowed(self.__create('src/calc.py', 'assert a == a\n'), 'non-test file')
 
     def test_denies_only_once_per_file_and_kind(self):
         tool_args = {'path': 'test_math.py', 'file_text': 'assert f(x) == f(x)\n'}
-        self.assert_denied(self.run_call('create', tool_args), ['compare a value with itself'], 'first')
-        self.assert_allowed(self.run_call('create', tool_args), 'second')
+        self.__assert_denied(self.__run_call('create', tool_args), ['compare a value with itself'], 'first')
+        self.__assert_allowed(self.__run_call('create', tool_args), 'second')
 
     def test_apply_patch_is_checked(self):
         patch = (
             '*** Begin Patch\n*** Update File: test_math.py\n@@\n'
             ' def test_add():\n-    assert add(1, 2) == 3\n+    assert add(1, 2) == add(1, 2)\n*** End Patch\n'
         )
-        self.assert_denied(self.run_call('apply_patch', patch), ['test_math.py'], 'patch')
+        self.__assert_denied(self.__run_call('apply_patch', patch), ['test_math.py'], 'patch')
 
     def test_view_and_other_tools_are_skipped(self):
-        self.assert_allowed(self.run_call('str_replace_editor', {'command': 'view', 'path': 'test_math.py'}), 'view')
-        self.assert_allowed(self.run_call('bash', {'command': 'echo "assert a == a" > test_x.py'}), 'bash')
+        self.__assert_allowed(self.__run_call('str_replace_editor', {'command': 'view', 'path': 'test_math.py'}), 'view')
+        self.__assert_allowed(self.__run_call('bash', {'command': 'echo "assert a == a" > test_x.py'}), 'bash')
 
     def test_invalid_input_fails(self):
         inputs = [
             b'',
             b'[]',
-            json.dumps({'sessionId': 'x', 'cwd': self.directory, 'toolName': 'create', 'toolArgs': {}}).encode(),
-            json.dumps({'sessionId': self.session_id, 'cwd': 'relative', 'toolName': 'create', 'toolArgs': {}}).encode(),
-            json.dumps({'sessionId': self.session_id, 'cwd': self.directory, 'toolArgs': {}}).encode(),
-            json.dumps({'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'create'}).encode(),
+            json.dumps({'sessionId': 'x', 'cwd': self.__directory, 'toolName': 'create', 'toolArgs': {}}).encode(),
+            json.dumps({'sessionId': self.__session_id, 'cwd': 'relative', 'toolName': 'create', 'toolArgs': {}}).encode(),
+            json.dumps({'sessionId': self.__session_id, 'cwd': self.__directory, 'toolArgs': {}}).encode(),
+            json.dumps({'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'create'}).encode(),
         ]
         for input_bytes in inputs:
             with self.subTest(input_bytes=input_bytes):
@@ -195,12 +195,12 @@ class BlockTautologicalTestsTests(unittest.TestCase):
                 self.assertIn(b'Failed to check tautological tests', result.stderr)
 
     def test_invalid_definitions_fail(self):
-        definitions_path = os.path.join(self.directory, 'definitions.json')
+        definitions_path = os.path.join(self.__directory, 'definitions.json')
         for content in ['{', '[]', '{"testFilePatterns": []}', '{"testFilePatterns": ["("]}']:
             with self.subTest(content=content):
                 with open(definitions_path, 'w', encoding='utf-8') as file:
                     file.write(content)
-                hook_input = {'sessionId': self.session_id, 'cwd': self.directory, 'toolName': 'create', 'toolArgs': {}}
+                hook_input = {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'create', 'toolArgs': {}}
                 result = _run_hook(json.dumps(hook_input).encode('utf-8'), '--definitions-path', definitions_path)
                 self.assertEqual(result.returncode, 2, content)
 

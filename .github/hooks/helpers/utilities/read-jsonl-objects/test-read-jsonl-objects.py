@@ -16,17 +16,17 @@ class ReadJsonlObjectsTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-read-jsonl-objects-test-')
         self.addCleanup(temporary.cleanup)
-        self.path = os.path.join(temporary.name, 'events.jsonl')
+        self.__path = os.path.join(temporary.name, 'events.jsonl')
 
-    def write(self, content, encoding='utf-8'):
-        with open(self.path, 'w', encoding=encoding, newline='') as file:
+    def __write(self, content, encoding='utf-8'):
+        with open(self.__path, 'w', encoding=encoding, newline='') as file:
             file.write(content)
 
     def test_reads_objects_skipping_blank_lines_and_bom(self):
         for encoding in ('utf-8', 'utf-8-sig'):
             with self.subTest(encoding=encoding):
-                self.write('{"a":1}\n\n  \r\n{"b":"日本語"}\r\n', encoding)
-                self.assertEqual(list(_read_jsonl_objects(self.path)), [{'a': 1}, {'b': '日本語'}])
+                self.__write('{"a":1}\n\n  \r\n{"b":"日本語"}\r\n', encoding)
+                self.assertEqual(list(_read_jsonl_objects(self.__path)), [{'a': 1}, {'b': '日本語'}])
 
     def test_rejects_invalid_lines_with_line_number(self):
         for content, message in (
@@ -35,22 +35,22 @@ class ReadJsonlObjectsTests(unittest.TestCase):
             ('"text"\n', 'Expected a JSON object at line 1.'),
         ):
             with self.subTest(content=content):
-                self.write(content)
+                self.__write(content)
                 with self.assertRaises(ValueError) as context:
-                    list(_read_jsonl_objects(self.path))
+                    list(_read_jsonl_objects(self.__path))
                 self.assertIn(message, str(context.exception))
 
     def test_yields_lazily_before_invalid_line(self):
         # 不正な行より前のオブジェクトは、その行を読むまでに受け取れる。
-        self.write('{"a":1}\nbroken\n')
-        objects = _read_jsonl_objects(self.path)
+        self.__write('{"a":1}\nbroken\n')
+        objects = _read_jsonl_objects(self.__path)
         self.assertEqual(next(objects), {'a': 1})
         with self.assertRaises(ValueError):
             next(objects)
 
     def test_missing_file(self):
         with self.assertRaises(OSError):
-            list(_read_jsonl_objects(self.path))
+            list(_read_jsonl_objects(self.__path))
 
 
 if __name__ == '__main__':

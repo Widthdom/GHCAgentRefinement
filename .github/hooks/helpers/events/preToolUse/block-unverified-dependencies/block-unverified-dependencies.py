@@ -153,32 +153,32 @@ def _normalize_name(state, ecosystem, name):
 class _Environment:
     # 実在の照合先。必要になったものだけを調べ、結果を呼び出しの間だけ保持する。
     def __init__(self, cwd, root, state):
-        self.cwd = cwd
-        self.root = root
+        self.__cwd = cwd
+        self.__root = root
         self.state = state
-        self.cached = {}
+        self.__cached = {}
 
-    def cache(self, key, factory):
-        if key not in self.cached:
-            self.cached[key] = factory()
-        return self.cached[key]
+    def __cache(self, key, factory):
+        if key not in self.__cached:
+            self.__cached[key] = factory()
+        return self.__cached[key]
 
-    def list_files(self):
+    def __list_files(self):
         # リポジトリ内のファイル（`/` 区切りのルート相対パス）。gitが使えなければディレクトリを歩く。
-        return self.cache('files', self._list_files)
+        return self.__cache('files', self.__list_files_uncached)
 
-    def _list_files(self):
-        if self.root is not None:
+    def __list_files_uncached(self):
+        if self.__root is not None:
             try:
                 result = subprocess.run(
-                    ['git', '-C', self.root, 'ls-files', '-co', '--exclude-standard', '-z'],
+                    ['git', '-C', self.__root, 'ls-files', '-co', '--exclude-standard', '-z'],
                     capture_output=True, timeout=_GIT_TIMEOUT_SECONDS, check=False,
                 )
                 if result.returncode == 0:
                     return [path for path in result.stdout.decode('utf-8', errors='replace').split('\0') if path][:_MAX_LISTED_FILES]
             except (OSError, subprocess.TimeoutExpired):
                 pass
-        base = self.root or self.cwd
+        base = self.__root or self.__cwd
         files = []
         for current, directories, filenames in os.walk(base):
             directories[:] = [directory for directory in directories if directory not in _PRUNED_DIRECTORIES]
@@ -188,34 +188,34 @@ class _Environment:
                     return files
         return files
 
-    def base(self):
-        return self.root or self.cwd
+    def __base(self):
+        return self.__root or self.__cwd
 
-    def manifest_names(self, ecosystem):
+    def __manifest_names(self, ecosystem):
         # リポジトリ内の他の依存ファイルに既にある名前。
-        return self.cache(('manifest', ecosystem), lambda: {
+        return self.__cache(('manifest', ecosystem), lambda: {
             _normalize_name(self.state, dependency_ecosystem, name)
-            for path in self.list_files()
+            for path in self.__list_files()
             if (kind := _get_kind(path)) and kind != 'python-source'
-            for dependency_ecosystem, name, _ in _extract_dependencies(kind, _read_text(os.path.join(self.base(), path)))
+            for dependency_ecosystem, name, _ in _extract_dependencies(kind, _read_text(os.path.join(self.__base(), path)))
             if dependency_ecosystem == ecosystem
         })
 
-    def nuget_packages_directory(self):
+    def __nuget_packages_directory(self):
         return os.environ.get('NUGET_PACKAGES') or os.path.join(os.path.expanduser('~'), '.nuget', 'packages')
 
-    def nuget_cached_names(self):
-        directory = self.nuget_packages_directory()
-        return self.cache('nuget-cache', lambda: set(os.listdir(directory)) if os.path.isdir(directory) else set())
+    def __nuget_cached_names(self):
+        directory = self.__nuget_packages_directory()
+        return self.__cache('nuget-cache', lambda: set(os.listdir(directory)) if os.path.isdir(directory) else set())
 
-    def nuget_asset_names(self):
+    def __nuget_asset_names(self):
         # 復元済みのプロジェクトの `obj/project.assets.json` にあるパッケージ。
         def load():
             names = set()
-            for path in self.list_files():
+            for path in self.__list_files():
                 if not _NUGET_MANIFEST_PATTERN.search(path) or not path.lower().endswith('proj'):
                     continue
-                assets = os.path.join(self.base(), os.path.dirname(path), 'obj', 'project.assets.json')
+                assets = os.path.join(self.__base(), os.path.dirname(path), 'obj', 'project.assets.json')
                 try:
                     with open(assets, encoding='utf-8-sig') as file:
                         libraries = json.load(file).get('libraries', {})
@@ -223,10 +223,10 @@ class _Environment:
                     continue
                 names.update(key.split('/')[0].lower() for key in libraries if isinstance(key, str))
             return names
-        return self.cache('nuget-assets', load)
+        return self.__cache('nuget-assets', load)
 
     def nuget_version_exists(self, name, version):
-        directory = os.path.join(self.nuget_packages_directory(), name.lower())
+        directory = os.path.join(self.__nuget_packages_directory(), name.lower())
         if not os.path.isdir(directory):
             return True
         versions = {entry.lower() for entry in os.listdir(directory)}
@@ -237,50 +237,50 @@ class _Environment:
         padded = '.'.join(parts + ['0'] * (3 - len(parts))) + separator + suffix
         return version in versions or padded in versions
 
-    def site_packages_directories(self):
+    def __site_packages_directories(self):
         # フックを動かすPythonとは別の、リポジトリ直下の仮想環境（`.venv` など）。globの `*` は `.` 始まりに一致しないため、
         # ディレクトリを列挙してから探す。
         def load():
             try:
-                entries = [entry for entry in os.listdir(self.base()) if os.path.isdir(os.path.join(self.base(), entry))]
+                entries = [entry for entry in os.listdir(self.__base()) if os.path.isdir(os.path.join(self.__base(), entry))]
             except OSError:
                 return []
             return [
                 path
                 for entry in entries
                 for pattern in (('lib', 'python*', 'site-packages'), ('Lib', 'site-packages'))
-                for path in glob.glob(os.path.join(glob.escape(os.path.join(self.base(), entry)), *pattern))
+                for path in glob.glob(os.path.join(glob.escape(os.path.join(self.__base(), entry)), *pattern))
             ]
-        return self.cache('site-packages', load)
+        return self.__cache('site-packages', load)
 
-    def installed_distributions(self):
+    def __installed_distributions(self):
         def load():
             names = {self.state['normalize_name'](_PYPI, distribution.metadata['Name'] or '')
                      for distribution in importlib.metadata.distributions()}
-            for directory in self.site_packages_directories():
+            for directory in self.__site_packages_directories():
                 for entry in os.listdir(directory):
                     if entry.endswith(('.dist-info', '.egg-info')):
                         names.add(self.state['normalize_name'](_PYPI, entry.rsplit('.', 1)[0].split('-')[0]))
             names.discard('')
             return names
-        return self.cache('distributions', load)
+        return self.__cache('distributions', load)
 
-    def locked_python_names(self):
+    def __locked_python_names(self):
         def load():
             names = set()
-            for path in self.list_files():
+            for path in self.__list_files():
                 if os.path.basename(path) in ('uv.lock', 'poetry.lock', 'pdm.lock', 'Pipfile.lock'):
-                    text = _read_text(os.path.join(self.base(), path))
+                    text = _read_text(os.path.join(self.__base(), path))
                     names.update(self.state['normalize_name'](_PYPI, name) for name in re.findall(
                         r'(?m)^\s*"?name"?\s*[=:]\s*"([^"]+)"', text,
                     ))
             return names
-        return self.cache('python-locks', load)
+        return self.__cache('python-locks', load)
 
-    def local_module_names(self):
+    def __local_module_names(self):
         def load():
             names = set()
-            for path in self.list_files():
+            for path in self.__list_files():
                 parts = path.split('/')
                 for part in parts[:-1]:
                     names.add(part)
@@ -288,26 +288,26 @@ class _Environment:
                 if re.search(r'\.(?:py|pyi|pyd|so)$', parts[-1]):
                     names.add(stem)
             return names
-        return self.cache('local-modules', load)
+        return self.__cache('local-modules', load)
 
-    def installed_module_names(self):
+    def __installed_module_names(self):
         def load():
             names = set(sys.stdlib_module_names) | set(sys.builtin_module_names) | {'__future__'}
             names.update(importlib.metadata.packages_distributions())
-            for directory in self.site_packages_directories():
+            for directory in self.__site_packages_directories():
                 names.update(entry.split('.')[0] for entry in os.listdir(directory))
             return names
-        return self.cache('installed-modules', load)
+        return self.__cache('installed-modules', load)
 
-    def module_exists(self, name):
-        if name in self.installed_module_names() or name in self.local_module_names():
+    def __module_exists(self, name):
+        if name in self.__installed_module_names() or name in self.__local_module_names():
             return True
         try:
             return importlib.util.find_spec(name) is not None
         except (ImportError, ValueError):
             return False
 
-    def npm_names(self, manifest_directory):
+    def __npm_names(self, manifest_directory):
         # manifestのディレクトリからリポジトリのルートまでの `node_modules` と、ロックファイルにある名前。
         def load():
             names = set()
@@ -326,33 +326,33 @@ class _Environment:
                     names.update(name.lower() for name in re.findall(rf'node_modules/({_NPM_NAME})"', text))
                     names.update(name.lower() for name in re.findall(rf'(?m)^\s*["\'/]?({_NPM_NAME})@', text))
                 parent = os.path.dirname(directory)
-                if directory == self.base() or parent == directory or not directory.startswith(self.base()):
+                if directory == self.__base() or parent == directory or not directory.startswith(self.__base()):
                     break
                 directory = parent
             return names
-        return self.cache(('npm', manifest_directory), load)
+        return self.__cache(('npm', manifest_directory), load)
 
     def exists(self, ecosystem, name, manifest_directory):
         normalized = _normalize_name(self.state, ecosystem, name)
         if ecosystem == _PYTHON_MODULE:
-            return self.module_exists(name)
-        if normalized in self.manifest_names(ecosystem):
+            return self.__module_exists(name)
+        if normalized in self.__manifest_names(ecosystem):
             return True
         if ecosystem == _NUGET:
-            return normalized in self.nuget_cached_names() or normalized in self.nuget_asset_names()
+            return normalized in self.__nuget_cached_names() or normalized in self.__nuget_asset_names()
         if ecosystem == _PYPI:
-            return normalized in self.installed_distributions() or normalized in self.locked_python_names()
-        return normalized in self.npm_names(manifest_directory)
+            return normalized in self.__installed_distributions() or normalized in self.__locked_python_names()
+        return normalized in self.__npm_names(manifest_directory)
 
     def known_names(self, ecosystem, manifest_directory):
         # 綴りの近い名前を探す候補。
         if ecosystem == _NUGET:
-            return self.nuget_cached_names() | self.nuget_asset_names() | self.manifest_names(_NUGET)
+            return self.__nuget_cached_names() | self.__nuget_asset_names() | self.__manifest_names(_NUGET)
         if ecosystem == _PYPI:
-            return self.installed_distributions() | self.locked_python_names() | self.manifest_names(_PYPI)
+            return self.__installed_distributions() | self.__locked_python_names() | self.__manifest_names(_PYPI)
         if ecosystem == _NPM:
-            return self.npm_names(manifest_directory) | self.manifest_names(_NPM)
-        return self.installed_module_names()
+            return self.__npm_names(manifest_directory) | self.__manifest_names(_NPM)
+        return self.__installed_module_names()
 
 
 def _get_repository_root(cwd):

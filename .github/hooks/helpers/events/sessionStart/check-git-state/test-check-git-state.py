@@ -38,22 +38,22 @@ class CheckGitStateTests(unittest.TestCase):
     def setUp(self):
         if shutil.which('git') is None:
             self.skipTest('git is not installed.')
-        self.directory = os.path.realpath(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.directory, ignore_errors=True)
-        self.repository = os.path.join(self.directory, 'repository')
-        os.makedirs(self.repository)
-        _git(self.repository, 'init', '--quiet', '--initial-branch=main')
-        _write(os.path.join(self.repository, 'file.txt'), 'base\n')
-        _git(self.repository, 'add', 'file.txt')
-        _git(self.repository, 'commit', '--quiet', '-m', 'base')
+        self.__directory = os.path.realpath(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.__directory, ignore_errors=True)
+        self.__repository = os.path.join(self.__directory, 'repository')
+        os.makedirs(self.__repository)
+        _git(self.__repository, 'init', '--quiet', '--initial-branch=main')
+        _write(os.path.join(self.__repository, 'file.txt'), 'base\n')
+        _git(self.__repository, 'add', 'file.txt')
+        _git(self.__repository, 'commit', '--quiet', '-m', 'base')
 
-    def git_directory(self):
-        return os.path.join(self.repository, '.git')
+    def __git_directory(self):
+        return os.path.join(self.__repository, '.git')
 
-    def assert_silent(self, result, message):
+    def __assert_silent(self, result, message):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''), message)
 
-    def assert_notified(self, result, expected_parts):
+    def __assert_notified(self, result, expected_parts):
         self.assertEqual(result.returncode, 0, result.stderr)
         for name, output in (('stdout', result.stdout), ('stderr', result.stderr)):
             self.assertFalse(output.startswith(b'\xef\xbb\xbf'), f'{name} must not start with a BOM.')
@@ -65,37 +65,37 @@ class CheckGitStateTests(unittest.TestCase):
         self.assertIn('Do not continue, abort, or resolve the operation', context)
 
     def test_clean_repository(self):
-        self.assert_silent(_run_hook_in(self.repository), 'A clean repository must not be reported.')
+        self.__assert_silent(_run_hook_in(self.__repository), 'A clean repository must not be reported.')
 
     def test_uncommitted_changes_are_ignored(self):
-        _write(os.path.join(self.repository, 'file.txt'), 'changed\n')
-        _write(os.path.join(self.repository, 'new.txt'), 'new\n')
-        self.assert_silent(_run_hook_in(self.repository), 'Uncommitted changes must not be reported.')
+        _write(os.path.join(self.__repository, 'file.txt'), 'changed\n')
+        _write(os.path.join(self.__repository, 'new.txt'), 'new\n')
+        self.__assert_silent(_run_hook_in(self.__repository), 'Uncommitted changes must not be reported.')
 
     def test_outside_repository(self):
-        outside = os.path.join(self.directory, 'outside')
+        outside = os.path.join(self.__directory, 'outside')
         os.makedirs(outside)
         # 一時フォルダーの上位がリポジトリだと、リポジトリ外を作れない。
         probe = subprocess.run(['git', 'rev-parse', '--git-dir'], cwd=outside, capture_output=True)
         if probe.returncode == 0:
             self.skipTest('The temporary directory is inside a Git repository.')
-        self.assert_silent(_run_hook_in(outside), 'A directory outside a repository must not be reported.')
+        self.__assert_silent(_run_hook_in(outside), 'A directory outside a repository must not be reported.')
 
     def test_detached_head(self):
-        _git(self.repository, 'checkout', '--quiet', '--detach')
-        self.assert_notified(_run_hook_in(self.repository), ['HEAD is detached at '])
+        _git(self.__repository, 'checkout', '--quiet', '--detach')
+        self.__assert_notified(_run_hook_in(self.__repository), ['HEAD is detached at '])
 
     def test_merge_conflict(self):
-        _git(self.repository, 'checkout', '--quiet', '-b', 'other')
-        _write(os.path.join(self.repository, 'file.txt'), 'other\n')
-        _git(self.repository, 'commit', '--quiet', '-am', 'other')
-        _git(self.repository, 'checkout', '--quiet', 'main')
-        _write(os.path.join(self.repository, 'file.txt'), 'main\n')
-        _git(self.repository, 'commit', '--quiet', '-am', 'main')
-        merge = _git(self.repository, 'merge', 'other', check=False)
+        _git(self.__repository, 'checkout', '--quiet', '-b', 'other')
+        _write(os.path.join(self.__repository, 'file.txt'), 'other\n')
+        _git(self.__repository, 'commit', '--quiet', '-am', 'other')
+        _git(self.__repository, 'checkout', '--quiet', 'main')
+        _write(os.path.join(self.__repository, 'file.txt'), 'main\n')
+        _git(self.__repository, 'commit', '--quiet', '-am', 'main')
+        merge = _git(self.__repository, 'merge', 'other', check=False)
         self.assertNotEqual(merge.returncode, 0, 'The merge must conflict.')
-        self.assert_notified(
-            _run_hook_in(self.repository),
+        self.__assert_notified(
+            _run_hook_in(self.__repository),
             ['A merge is in progress.', '1 file(s) have unresolved conflicts: file.txt.'],
         )
 
@@ -110,13 +110,13 @@ class CheckGitStateTests(unittest.TestCase):
         ]
         for marker, is_directory, expected in cases:
             with self.subTest(marker=marker):
-                path = os.path.join(self.git_directory(), marker)
+                path = os.path.join(self.__git_directory(), marker)
                 if is_directory:
                     os.makedirs(path)
                 else:
                     _write(path, '0000000000000000000000000000000000000000\n')
                 try:
-                    self.assert_notified(_run_hook_in(self.repository), [expected])
+                    self.__assert_notified(_run_hook_in(self.__repository), [expected])
                 finally:
                     # 次のケースに目印を残さない。
                     if is_directory:
@@ -125,21 +125,21 @@ class CheckGitStateTests(unittest.TestCase):
                         os.remove(path)
 
     def test_git_am(self):
-        rebase_apply = os.path.join(self.git_directory(), 'rebase-apply')
+        rebase_apply = os.path.join(self.__git_directory(), 'rebase-apply')
         os.makedirs(rebase_apply)
         _write(os.path.join(rebase_apply, 'applying'), '')
-        self.assert_notified(_run_hook_in(self.repository), ['A git am is in progress.'])
+        self.__assert_notified(_run_hook_in(self.__repository), ['A git am is in progress.'])
 
     def test_detached_head_during_operation_is_not_reported_separately(self):
-        _git(self.repository, 'checkout', '--quiet', '--detach')
-        os.makedirs(os.path.join(self.git_directory(), 'rebase-merge'))
-        result = _run_hook_in(self.repository)
-        self.assert_notified(result, ['A rebase is in progress.'])
+        _git(self.__repository, 'checkout', '--quiet', '--detach')
+        os.makedirs(os.path.join(self.__git_directory(), 'rebase-merge'))
+        result = _run_hook_in(self.__repository)
+        self.__assert_notified(result, ['A rebase is in progress.'])
         self.assertNotIn(b'HEAD is detached', result.stdout)
 
     def test_invalid_input(self):
         relative = json.dumps({'cwd': 'relative'}).encode('utf-8')
-        missing = json.dumps({'cwd': os.path.join(self.directory, 'missing')}).encode('utf-8')
+        missing = json.dumps({'cwd': os.path.join(self.__directory, 'missing')}).encode('utf-8')
         for name, input_bytes in [
             ('empty', b''),
             ('not json', b'{'),

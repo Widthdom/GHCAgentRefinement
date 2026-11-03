@@ -44,31 +44,31 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-performance-claims-test-')
         self.addCleanup(temporary.cleanup)
-        self.root = os.path.realpath(temporary.name)
-        self.transcript_path = os.path.join(self.root, 'events.jsonl')
-        self.payload = {
+        self.__root = os.path.realpath(temporary.name)
+        self.__transcript_path = os.path.join(self.__root, 'events.jsonl')
+        self.__payload = {
             'sessionId': '00000000-0000-4000-8000-000000000000',
             'timestamp': _HOOK_TIMESTAMP,
-            'cwd': self.root,
-            'transcriptPath': self.transcript_path,
+            'cwd': self.__root,
+            'transcriptPath': self.__transcript_path,
         }
 
-    def invoke(self, events=None, payload=None, raw=None, arguments=()):
+    def __invoke(self, events=None, payload=None, raw=None, arguments=()):
         if events is not None:
-            with open(self.transcript_path, 'w', encoding='utf-8', newline='\n') as file:
+            with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
                 for event in [*events, _agent_stop_start()]:
                     file.write(json.dumps(event, ensure_ascii=False) + '\n')
         if raw is None:
-            raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
+            raw = json.dumps(self.__payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path, *arguments], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
         )
 
-    def assert_silent(self, result, message=None):
+    def __assert_silent(self, result, message=None):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''), message)
 
-    def assert_block(self, result, *fragments):
+    def __assert_block(self, result, *fragments):
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
         self.assertEqual(result.stderr, b'')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
@@ -114,8 +114,8 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
         ]
         for claim in claims:
             with self.subTest(claim=claim):
-                self.assert_block(
-                    self.invoke([_user('速くして'), *_shell('c1', 'python3 -m pytest', 0), _assistant(f'対応した。\n{claim}')]),
+                self.__assert_block(
+                    self.__invoke([_user('速くして'), *_shell('c1', 'python3 -m pytest', 0), _assistant(f'対応した。\n{claim}')]),
                     claim.rstrip('。'),
                 )
 
@@ -134,7 +134,7 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
         ]
         for command in commands:
             with self.subTest(command=command):
-                self.assert_silent(self.invoke([
+                self.__assert_silent(self.__invoke([
                     _user('速くして'), *_shell('c1', command, 0, tool_name='powershell' if 'Measure' in command else 'bash'),
                     _assistant('3倍高速になった。'),
                 ]), command)
@@ -147,7 +147,7 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
         ]
         for name, events in cases:
             with self.subTest(name=name):
-                self.assert_block(self.invoke([_user('速くして'), *events, _assistant('3倍高速になった。')]))
+                self.__assert_block(self.__invoke([_user('速くして'), *events, _assistant('3倍高速になった。')]))
 
     def test_hedged_or_non_claims_are_silent(self):
         responses = [
@@ -165,48 +165,48 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
         ]
         for response in responses:
             with self.subTest(response=response):
-                self.assert_silent(self.invoke([_user('速くして'), _assistant(response)]), response)
+                self.__assert_silent(self.__invoke([_user('速くして'), _assistant(response)]), response)
 
     def test_measurement_before_latest_request_does_not_count(self):
-        self.assert_block(self.invoke([
+        self.__assert_block(self.__invoke([
             _user('計測して'), *_shell('c1', 'hyperfine "python3 main.py"', 0), _assistant('計測した。'),
             _user('速くして'), _assistant('高速化した。'),
         ]))
 
     def test_blocks_only_once_per_request(self):
         events = [_user('速くして'), _assistant('高速化した。')]
-        reason = self.assert_block(self.invoke(events))
-        self.assert_silent(self.invoke([*events, _user(reason, delivery='queued'), _assistant('高速化した。')]))
-        self.assert_block(self.invoke([*events, _user('次'), _assistant('さらに高速化した。')]))
+        reason = self.__assert_block(self.__invoke(events))
+        self.__assert_silent(self.__invoke([*events, _user(reason, delivery='queued'), _assistant('高速化した。')]))
+        self.__assert_block(self.__invoke([*events, _user('次'), _assistant('さらに高速化した。')]))
 
     def test_long_claim_is_truncated(self):
-        reason = self.assert_block(self.invoke([_user('速くして'), _assistant('高速化した' + 'あ' * 200 + '。')]))
+        reason = self.__assert_block(self.__invoke([_user('速くして'), _assistant('高速化した' + 'あ' * 200 + '。')]))
         self.assertIn('...', reason)
 
     def test_skips_when_not_applicable(self):
         with self.subTest(name='subagent'):
-            self.assert_silent(self.invoke([_user('x'), _assistant('高速化した。')], payload={**self.payload, 'agentId': 'a'}))
+            self.__assert_silent(self.__invoke([_user('x'), _assistant('高速化した。')], payload={**self.__payload, 'agentId': 'a'}))
         with self.subTest(name='no final response'):
-            self.assert_silent(self.invoke([_user('速くして')]))
+            self.__assert_silent(self.__invoke([_user('速くして')]))
 
     def test_invalid_input_exits_with_error(self):
-        self.invoke([_user('x'), _assistant('y')])
+        self.__invoke([_user('x'), _assistant('y')])
         cases = [
             ('empty input', b''),
             ('invalid JSON', b'{'),
             ('non-object', b'[]'),
-            ('missing transcript path', json.dumps({**self.payload, 'transcriptPath': ''}).encode('utf-8')),
-            ('missing transcript', json.dumps({**self.payload, 'transcriptPath': os.path.join(self.root, 'none.jsonl')}).encode('utf-8')),
+            ('missing transcript path', json.dumps({**self.__payload, 'transcriptPath': ''}).encode('utf-8')),
+            ('missing transcript', json.dumps({**self.__payload, 'transcriptPath': os.path.join(self.__root, 'none.jsonl')}).encode('utf-8')),
         ]
         for name, raw in cases:
             with self.subTest(name=name):
-                result = self.invoke(raw=raw)
+                result = self.__invoke(raw=raw)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to detect unmeasured performance claims', result.stderr, name)
         with self.subTest(name='invalid transcript line'):
-            with open(self.transcript_path, 'w', encoding='utf-8') as file:
+            with open(self.__transcript_path, 'w', encoding='utf-8') as file:
                 file.write('not json\n')
-            self.assertEqual(self.invoke().returncode, 2)
+            self.assertEqual(self.__invoke().returncode, 2)
 
     def test_invalid_definitions_exit_with_error(self):
         valid = {'claimPatterns': ['a'], 'hedgePatterns': ['b'], 'measurementCommandPatterns': ['c']}
@@ -216,13 +216,13 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
             ('missing hedges', {key: value for key, value in valid.items() if key != 'hedgePatterns'}),
             ('invalid regex', {**valid, 'measurementCommandPatterns': ['(']}),
         ]
-        self.invoke([_user('x'), _assistant('y')])
+        self.__invoke([_user('x'), _assistant('y')])
         for name, definitions in cases:
             with self.subTest(name=name):
-                path = os.path.join(self.root, 'definitions.json')
+                path = os.path.join(self.__root, 'definitions.json')
                 with open(path, 'w', encoding='utf-8') as file:
                     json.dump(definitions, file)
-                self.assertEqual(self.invoke(arguments=('--definitions-path', path)).returncode, 2, name)
+                self.assertEqual(self.__invoke(arguments=('--definitions-path', path)).returncode, 2, name)
 
 
 if __name__ == '__main__':

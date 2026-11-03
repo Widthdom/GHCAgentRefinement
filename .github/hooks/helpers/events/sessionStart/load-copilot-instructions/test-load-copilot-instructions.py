@@ -72,7 +72,7 @@ from hook_test_output import run_tests
 
 
 class LoadCopilotInstructionsTests(unittest.TestCase):
-    def new_hook_sandbox(self, suffix=''):
+    def __new_hook_sandbox(self, suffix=''):
         sandbox = _new_hook_sandbox(suffix)
         self.addCleanup(shutil.rmtree, sandbox['Root'])
         return sandbox
@@ -100,7 +100,7 @@ class LoadCopilotInstructionsTests(unittest.TestCase):
 
         for case in valid_cases:
             with self.subTest(case=case):
-                sandbox = self.new_hook_sandbox()
+                sandbox = self.__new_hook_sandbox()
                 data = case['Bytes'] if case['Bytes'] is not None else case['Content'].encode('utf-8')
                 with open(sandbox['InstructionsPath'], 'wb') as file:
                     file.write(data)
@@ -120,7 +120,7 @@ class LoadCopilotInstructionsTests(unittest.TestCase):
 
         for case in invalid_cases:
             with self.subTest(case=case):
-                sandbox = self.new_hook_sandbox()
+                sandbox = self.__new_hook_sandbox()
                 if case['Bytes'] is not None:
                     with open(sandbox['InstructionsPath'], 'wb') as file:
                         file.write(case['Bytes'])
@@ -131,7 +131,7 @@ class LoadCopilotInstructionsTests(unittest.TestCase):
                         f"stdout: {result['Output']}, stderr: {result['Error']}")
 
     def test_directory_instead_of_file(self):
-        sandbox = self.new_hook_sandbox()
+        sandbox = self.__new_hook_sandbox()
 
         os.mkdir(sandbox['InstructionsPath'])
 
@@ -156,7 +156,7 @@ class LoadCopilotInstructionsTests(unittest.TestCase):
 
         for name, data in encoding_error_cases:
             with self.subTest(name=name, data=data):
-                sandbox = self.new_hook_sandbox()
+                sandbox = self.__new_hook_sandbox()
                 with open(sandbox['InstructionsPath'], 'wb') as file:
                     file.write(data)
                 result = _invoke_hook(sandbox['ScriptPath'])
@@ -166,7 +166,7 @@ class LoadCopilotInstructionsTests(unittest.TestCase):
                         f"stdout: {result['Output']}, stderr: {result['Error']}")
 
     def test_unicode_paths_and_streams(self):
-        sandbox = self.new_hook_sandbox('-日本語 path')
+        sandbox = self.__new_hook_sandbox('-日本語 path')
 
 
         content = '# 指示 😀\r\n'

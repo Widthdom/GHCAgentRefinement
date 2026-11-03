@@ -22,19 +22,19 @@ class HookChangeRequestStateTests(unittest.TestCase):
         tempdir = patch.object(tempfile, 'tempdir', temporary.name)
         tempdir.start()
         self.addCleanup(tempdir.stop)
-        self.temp_directory = temporary.name
-        self.state_path = _utility['get_state_path'](str(uuid.uuid4()))
+        self.__temp_directory = temporary.name
+        self.__state_path = _utility['get_state_path'](str(uuid.uuid4()))
 
-    def write_state(self, content):
-        os.makedirs(os.path.dirname(self.state_path), exist_ok=True)
-        with open(self.state_path, 'w', encoding='utf-8', newline='') as file:
+    def __write_state(self, content):
+        os.makedirs(os.path.dirname(self.__state_path), exist_ok=True)
+        with open(self.__state_path, 'w', encoding='utf-8', newline='') as file:
             file.write(content)
 
     def test_state_path(self):
         session_id = uuid.uuid4()
         self.assertEqual(
             _utility['get_state_path'](f' {str(session_id).upper()} '),
-            os.path.join(self.temp_directory, 'ghc-agent-refinement', 'hook-states', 'hook-change-requests',
+            os.path.join(self.__temp_directory, 'ghc-agent-refinement', 'hook-states', 'hook-change-requests',
                          f'{session_id}.json'),
         )
         for invalid in (None, '', '  ', 'not-a-uuid'):
@@ -42,25 +42,25 @@ class HookChangeRequestStateTests(unittest.TestCase):
                 _utility['get_state_path'](invalid)
 
     def test_save_and_read_permission(self):
-        self.assertIs(_utility['is_permitted'](self.state_path), False)
-        _utility['save_permitted'](self.state_path)
-        self.assertIs(_utility['is_permitted'](self.state_path), True)
+        self.assertIs(_utility['is_permitted'](self.__state_path), False)
+        _utility['save_permitted'](self.__state_path)
+        self.assertIs(_utility['is_permitted'](self.__state_path), True)
         # プロンプトの内容は保存せず、更新時刻と許可だけを保存する。
-        with open(self.state_path, encoding='utf-8') as file:
+        with open(self.__state_path, encoding='utf-8') as file:
             self.assertEqual(sorted(json.load(file)), ['permitted', 'updatedAt'])
 
     def test_only_true_permits(self):
         for content in ('{"permitted":false}', '{"permitted":"true"}', '{}'):
             with self.subTest(content=content):
-                self.write_state(content)
-                self.assertIs(_utility['is_permitted'](self.state_path), False)
+                self.__write_state(content)
+                self.assertIs(_utility['is_permitted'](self.__state_path), False)
 
     def test_rejects_invalid_state(self):
         for content in ('[]', '{'):
             with self.subTest(content=content):
-                self.write_state(content)
+                self.__write_state(content)
                 with self.assertRaises(ValueError):
-                    _utility['is_permitted'](self.state_path)
+                    _utility['is_permitted'](self.__state_path)
 
 
 if __name__ == '__main__':

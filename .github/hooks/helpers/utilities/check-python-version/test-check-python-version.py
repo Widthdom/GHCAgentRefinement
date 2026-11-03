@@ -14,7 +14,7 @@ from hook_test_output import run_tests
 
 
 class CheckPythonVersionTests(unittest.TestCase):
-    def get_exit_code(self, version_info):
+    def __get_exit_code(self, version_info):
         with patch.object(sys, 'version_info', version_info), self.assertRaises(SystemExit) as context:
             runpy.run_path(_utility_path)
         return context.exception.code
@@ -25,7 +25,7 @@ class CheckPythonVersionTests(unittest.TestCase):
             ((3, 13, 9), 1), ((2, 7, 18), 1),
         ):
             with self.subTest(version_info=version_info):
-                self.assertEqual(self.get_exit_code(version_info), expected)
+                self.assertEqual(self.__get_exit_code(version_info), expected)
 
     def test_current_interpreter(self):
         # 実行中のPythonで起動し、何も出力せずに終了コードだけを返すこと。

@@ -155,7 +155,7 @@ from hook_test_output import run_tests
 
 
 class BlockCommandsTests(unittest.TestCase):
-    def invoke_hook_input(self, input_json, entry_point='py', search_path=None, definitions_file=None, wrapper_path=None, code_page=None):
+    def __invoke_hook_input(self, input_json, entry_point='py', search_path=None, definitions_file=None, wrapper_path=None, code_page=None):
         environment = os.environ.copy()
         if entry_point == 'cmd':
             environment['BLOCK_COMMANDS_TEST_HOOK'] = wrapper_path or os.path.join(_script_directory, 'block-commands.cmd')
@@ -173,12 +173,12 @@ class BlockCommandsTests(unittest.TestCase):
                 f'"{os.environ["ComSpec"]}"', '/d', '/v:off', '/s', '/c',
                 f'"{code_page_command}"%BLOCK_COMMANDS_TEST_HOOK%"{options}"',
             ]
-            environment['PATH'] = self.python_shim_path
+            environment['PATH'] = self.__python_shim_path
         elif entry_point == 'sh':
-            arguments = [self.bash_path, '--noprofile', '--norc', os.path.join(_script_directory, 'block-commands.sh').replace('\\', '/')]
+            arguments = [self.__bash_path, '--noprofile', '--norc', os.path.join(_script_directory, 'block-commands.sh').replace('\\', '/')]
             if definitions_file is not None:
                 arguments.extend(['--definitions-path', definitions_file])
-            environment['PATH'] = self.python3_shim_path
+            environment['PATH'] = self.__python3_shim_path
         else:
             arguments = [sys.executable, _hook_path, '--definitions-path', definitions_file or _definitions_path]
         if search_path is not None:
@@ -199,13 +199,13 @@ class BlockCommandsTests(unittest.TestCase):
             completed.stderr.decode('utf-8'),
         )
 
-    def invoke_hook(self, command):
+    def __invoke_hook(self, command):
         payload = {
             'toolName': 'powershell',
             'toolArgs': {'command': command},
         }
 
-        result = self.invoke_hook_input(json.dumps(payload, ensure_ascii=False, separators=(',', ':')))
+        result = self.__invoke_hook_input(json.dumps(payload, ensure_ascii=False, separators=(',', ':')))
         if result.exit_code != 0 or result.error:
             raise AssertionError(f"Hook failed for command '{command}': exit {result.exit_code}, {result.error}")
 
@@ -214,14 +214,14 @@ class BlockCommandsTests(unittest.TestCase):
     def test_commands(self):
         for test_case in _test_cases:
             with self.subTest(test_case=test_case):
-                result = self.invoke_hook(test_case['Command'])
+                result = self.__invoke_hook(test_case['Command'])
                 if result.get('permissionDecision') != test_case['Expected']:
                     raise AssertionError(f"Unexpected decision for '{test_case['Command']}': '{result.get('permissionDecision')}'")
 
     def test_payloads(self):
         for test_case in _payload_cases:
             with self.subTest(test_case=test_case):
-                result = self.invoke_hook_input(test_case['Json'])
+                result = self.__invoke_hook_input(test_case['Json'])
                 if test_case.get('Error'):
                     _assert_error_denial(result, test_case['Error'])
                     continue
@@ -246,7 +246,7 @@ class BlockCommandsTests(unittest.TestCase):
                         data = test_case['Text'].encode(test_case.get('Encoding', 'utf-8'))
                     with open(custom_definitions_path, 'wb') as file:
                         file.write(data)
-                    result = self.invoke_hook_input(
+                    result = self.__invoke_hook_input(
                         '{"toolName":"bash","toolArgs":"blocked"}',
                         definitions_file=custom_definitions_path,
                     )
@@ -260,10 +260,10 @@ class BlockCommandsTests(unittest.TestCase):
                         if result.exit_code != 0 or result.error or json.loads(result.output) != expected_output:
                             raise AssertionError(f"Unexpected definition result for '{test_case['Name']}': {result!r}")
             missing_file = os.path.join(directory, 'missing.json')
-            result = self.invoke_hook_input('{}', definitions_file=missing_file)
+            result = self.__invoke_hook_input('{}', definitions_file=missing_file)
             _assert_error_denial(result, 'definitions not found or existence could not be verified')
 
-            result = self.invoke_hook_input('{}', definitions_file=directory)
+            result = self.__invoke_hook_input('{}', definitions_file=directory)
             _assert_error_denial(result, 'path is not a file or could not be verified as a file')
 
     def test_wrappers_and_paths(self):
@@ -276,11 +276,11 @@ class BlockCommandsTests(unittest.TestCase):
             git_command = shutil.which('git')
             if git_command is None:
                 raise AssertionError('git was not found.')
-            self.bash_path = os.path.join(os.path.dirname(os.path.dirname(git_command)), 'bin', 'bash.exe')
+            self.__bash_path = os.path.join(os.path.dirname(os.path.dirname(git_command)), 'bin', 'bash.exe')
         else:
-            self.bash_path = shutil.which('bash')
+            self.__bash_path = shutil.which('bash')
 
-        if self.bash_path and os.path.isfile(self.bash_path):
+        if self.__bash_path and os.path.isfile(self.__bash_path):
             entry_points.append('sh')
         else:
             with self.subTest(entry_point='sh'):
@@ -290,8 +290,8 @@ class BlockCommandsTests(unittest.TestCase):
             _create_python_shims(shim_directory)
             # Windowsラッパーが呼び出すpythonは、このテストを実行しているPythonの実行ファイルを元の場所で見つけさせる。
             # 実行ファイルを別の場所へコピーすると、標準ライブラリの場所を解決できないため。
-            self.python_shim_path = os.path.dirname(sys.executable) + os.pathsep + os.environ.get('PATH', '')
-            self.python3_shim_path = shim_directory + os.pathsep + os.environ.get('PATH', '')
+            self.__python_shim_path = os.path.dirname(sys.executable) + os.pathsep + os.environ.get('PATH', '')
+            self.__python3_shim_path = shim_directory + os.pathsep + os.environ.get('PATH', '')
 
             for entry_point in entry_points:
                 with self.subTest(entry_point=entry_point):
@@ -299,14 +299,14 @@ class BlockCommandsTests(unittest.TestCase):
                         {'Json': '{"toolName":"bash","toolArgs":{"command":"git status"}}', 'Expected': None},
                         {'Json': '{"toolName":"powershell","toolArgs":{"command":"echo 日本語; git reset"}}', 'Expected': 'deny'},
                     ):
-                        result = self.invoke_hook_input(test_case['Json'], entry_point=entry_point)
+                        result = self.__invoke_hook_input(test_case['Json'], entry_point=entry_point)
                         if result.exit_code != 0 or result.error:
                             raise AssertionError(f'Unexpected {entry_point} wrapper execution: {result!r}')
                         output = json.loads(result.output)
                         if output.get('permissionDecision') != test_case['Expected']:
                             raise AssertionError(f'Unexpected {entry_point} wrapper decision: {result!r}')
 
-                    result = self.invoke_hook_input('{', entry_point=entry_point)
+                    result = self.__invoke_hook_input('{', entry_point=entry_point)
                     _assert_error_denial(result, 'Failed to parse')
 
                     with tempfile.TemporaryDirectory(prefix='block commands ') as directory:
@@ -317,14 +317,14 @@ class BlockCommandsTests(unittest.TestCase):
                             (invalid_definitions, 'Invalid regular expression'),
                             (os.path.join(directory, 'missing.json'), 'definitions not found'),
                         ):
-                            result = self.invoke_hook_input(
+                            result = self.__invoke_hook_input(
                                 '{"toolName":"bash","toolArgs":"git status"}',
                                 entry_point=entry_point,
                                 definitions_file=path,
                             )
                             _assert_error_denial(result, expected_error)
 
-                    result = self.invoke_hook_input('{}', entry_point=entry_point, search_path='')
+                    result = self.__invoke_hook_input('{}', entry_point=entry_point, search_path='')
                     output = json.loads(result.output)
                     if (result.exit_code != 2 or output.get('permissionDecision') != 'deny' or
                             not str(output.get('permissionDecisionReason') or '').strip() or
@@ -369,9 +369,9 @@ class BlockCommandsTests(unittest.TestCase):
                         file.write('@echo off\n"%BLOCK_COMMANDS_TEST_PYTHON%" %*\nexit /b %errorlevel%\n')
 
                     for code_page, search_path in (
-                        (932, self.python_shim_path),
+                        (932, self.__python_shim_path),
                         (932, cmd_shim_directory),
-                        (65001, self.python_shim_path),
+                        (65001, self.__python_shim_path),
                         (65001, cmd_shim_directory),
                     ):
                         with self.subTest(code_page=code_page, search_path=search_path):
@@ -382,7 +382,7 @@ class BlockCommandsTests(unittest.TestCase):
                                     'permissionDecisionReason': _valid_definition['reason'],
                                 }),
                             ):
-                                result = self.invoke_hook_input(
+                                result = self.__invoke_hook_input(
                                     json.dumps({'toolName': 'bash', 'toolArgs': command}),
                                     entry_point='cmd', search_path=search_path,
                                     definitions_file=custom_definitions_path,
@@ -396,7 +396,7 @@ class BlockCommandsTests(unittest.TestCase):
                         file.write('@echo off\nexit /b 1\n')
                     for code_page in (932, 65001):
                         with self.subTest(code_page=code_page):
-                            result = self.invoke_hook_input(
+                            result = self.__invoke_hook_input(
                                 '{}', entry_point='cmd', search_path=cmd_shim_directory,
                                 wrapper_path=copied_wrapper_path, code_page=code_page,
                             )

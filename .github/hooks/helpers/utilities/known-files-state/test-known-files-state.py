@@ -23,7 +23,7 @@ class KnownFilesStateTests(unittest.TestCase):
         tempdir = patch.object(tempfile, 'tempdir', temporary.name)
         tempdir.start()
         self.addCleanup(tempdir.stop)
-        self.temp_directory = temporary.name
+        self.__temp_directory = temporary.name
 
     def test_tool_args(self):
         get_tool_args = _utility['get_tool_args']
@@ -41,7 +41,7 @@ class KnownFilesStateTests(unittest.TestCase):
         session_id = uuid.uuid4()
         self.assertEqual(
             _utility['get_state_path'](f' {str(session_id).upper()} '),
-            os.path.join(self.temp_directory, 'ghc-agent-refinement', 'hook-states', 'known-files',
+            os.path.join(self.__temp_directory, 'ghc-agent-refinement', 'hook-states', 'known-files',
                          f'{session_id}.sqlite3'),
         )
         for invalid in (None, '', '  ', 'not-a-uuid'):
@@ -51,7 +51,7 @@ class KnownFilesStateTests(unittest.TestCase):
     def test_normalize_path_and_key(self):
         normalize_path = _utility['normalize_path']
         # normalize_pathは実体のパスを返すため、Windowsの短縮名（RUNNER~1など）を解決した一時フォルダーを基準にする。
-        cwd = os.path.join(os.path.realpath(self.temp_directory), 'repository')
+        cwd = os.path.join(os.path.realpath(self.__temp_directory), 'repository')
         expected = os.path.normcase(os.path.join(cwd, 'src', 'a.py'))
         # 相対パス・`..` を含むパス・絶対パスを同じファイルとみなす。
         for path in ('src/a.py', os.path.join('src', '..', 'src', 'a.py'), os.path.join(cwd, 'src', 'a.py')):

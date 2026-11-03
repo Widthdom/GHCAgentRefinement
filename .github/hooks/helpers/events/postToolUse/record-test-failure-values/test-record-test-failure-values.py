@@ -30,24 +30,24 @@ class RecordTestFailureValuesTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-record-test-failure-values-test-')
         self.addCleanup(temporary.cleanup)
-        self.root = os.path.realpath(temporary.name)
-        self.environment = os.environ.copy()
-        self.environment.update({'TMPDIR': self.root, 'TEMP': self.root, 'TMP': self.root})
-        self.new_session()
+        self.__root = os.path.realpath(temporary.name)
+        self.__environment = os.environ.copy()
+        self.__environment.update({'TMPDIR': self.__root, 'TEMP': self.__root, 'TMP': self.__root})
+        self.__new_session()
 
-    def new_session(self):
-        self.session_id = str(uuid.uuid4())
-        self.state_path = os.path.join(
-            self.root, 'ghc-agent-refinement', 'hook-states', 'test-failure-values', f'{self.session_id}.sqlite3',
+    def __new_session(self):
+        self.__session_id = str(uuid.uuid4())
+        self.__state_path = os.path.join(
+            self.__root, 'ghc-agent-refinement', 'hook-states', 'test-failure-values', f'{self.__session_id}.sqlite3',
         )
 
-    def invoke(self, output, command='python3 -m pytest', tool_name='bash', payload=None, raw=None):
+    def __invoke(self, output, command='python3 -m pytest', tool_name='bash', payload=None, raw=None):
         if raw is None:
             if payload is None:
                 payload = {
-                    'sessionId': self.session_id,
+                    'sessionId': self.__session_id,
                     'timestamp': 0,
-                    'cwd': self.root,
+                    'cwd': self.__root,
                     'toolName': tool_name,
                     'toolArgs': {'command': command},
                     'toolResult': {'resultType': 'success', 'textResultForLlm': output},
@@ -55,22 +55,22 @@ class RecordTestFailureValuesTests(unittest.TestCase):
             raw = json.dumps(payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path], input=raw,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.__environment, timeout=10,
         )
 
-    def assert_silent(self, result):
+    def __assert_silent(self, result):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
 
-    def read_pairs(self):
-        if not os.path.exists(self.state_path):
+    def __read_pairs(self):
+        if not os.path.exists(self.__state_path):
             return None
-        with closing(sqlite3.connect(self.state_path)) as connection:
+        with closing(sqlite3.connect(self.__state_path)) as connection:
             return {row[0] for row in connection.execute('SELECT pair FROM pairs')}
 
-    def read_expected_values(self):
-        if not os.path.exists(self.state_path):
+    def __read_expected_values(self):
+        if not os.path.exists(self.__state_path):
             return None
-        with closing(sqlite3.connect(self.state_path)) as connection:
+        with closing(sqlite3.connect(self.__state_path)) as connection:
             return {row[0] for row in connection.execute('SELECT value FROM expected_values')}
 
     def test_configuration(self):
@@ -101,12 +101,12 @@ class RecordTestFailureValuesTests(unittest.TestCase):
         ]
         for name, output, expected, actual in cases:
             with self.subTest(name=name):
-                self.new_session()
-                self.assert_silent(self.invoke(output))
-                pairs = self.read_pairs()
+                self.__new_session()
+                self.__assert_silent(self.__invoke(output))
+                pairs = self.__read_pairs()
                 self.assertIn(_pair_key(expected, actual), pairs, name)
                 self.assertNotIn(_pair_key(actual, expected), pairs, name)
-                self.assertEqual(self.read_expected_values(), {_value_key(expected)}, name)
+                self.assertEqual(self.__read_expected_values(), {_value_key(expected)}, name)
 
     def test_symmetric_formats_are_recorded_in_both_directions(self):
         cases = [
@@ -117,18 +117,18 @@ class RecordTestFailureValuesTests(unittest.TestCase):
         ]
         for name, output, first, second in cases:
             with self.subTest(name=name):
-                self.new_session()
-                self.assert_silent(self.invoke(output))
-                self.assertEqual(self.read_pairs(), {_pair_key(first, second), _pair_key(second, first)}, name)
-                self.assertEqual(self.read_expected_values(), {_value_key(first), _value_key(second)}, name)
+                self.__new_session()
+                self.__assert_silent(self.__invoke(output))
+                self.assertEqual(self.__read_pairs(), {_pair_key(first, second), _pair_key(second, first)}, name)
+                self.assertEqual(self.__read_expected_values(), {_value_key(first), _value_key(second)}, name)
 
     def test_latest_run_replaces_previous_failures(self):
-        self.assert_silent(self.invoke('Expected: 4\nReceived: 3\n'))
-        self.assert_silent(self.invoke('Expected: 5\nReceived: 6\n', command='npm test'))
-        self.assertEqual(self.read_pairs(), {_pair_key('5', '6')})
-        self.assert_silent(self.invoke('1 passed in 0.01s\n', command='pytest tests'))
-        self.assertEqual(self.read_pairs(), set(), 'A passing run must clear the previous failures.')
-        self.assertEqual(self.read_expected_values(), set(), 'A passing run must clear the previous expected values.')
+        self.__assert_silent(self.__invoke('Expected: 4\nReceived: 3\n'))
+        self.__assert_silent(self.__invoke('Expected: 5\nReceived: 6\n', command='npm test'))
+        self.assertEqual(self.__read_pairs(), {_pair_key('5', '6')})
+        self.__assert_silent(self.__invoke('1 passed in 0.01s\n', command='pytest tests'))
+        self.assertEqual(self.__read_pairs(), set(), 'A passing run must clear the previous failures.')
+        self.assertEqual(self.__read_expected_values(), set(), 'A passing run must clear the previous expected values.')
 
     def test_skips_without_state_changes(self):
         cases = [
@@ -141,9 +141,9 @@ class RecordTestFailureValuesTests(unittest.TestCase):
         ]
         for name, output, command, tool_name in cases:
             with self.subTest(name=name):
-                self.new_session()
-                self.assert_silent(self.invoke(output, command=command, tool_name=tool_name))
-                self.assertIsNone(self.read_pairs(), name)
+                self.__new_session()
+                self.__assert_silent(self.__invoke(output, command=command, tool_name=tool_name))
+                self.assertIsNone(self.__read_pairs(), name)
 
     def test_other_tool_arguments(self):
         for name, payload in [
@@ -151,28 +151,28 @@ class RecordTestFailureValuesTests(unittest.TestCase):
             ('powershell', {'toolName': 'functions.powershell'}),
         ]:
             with self.subTest(name=name):
-                self.new_session()
+                self.__new_session()
                 base = {
-                    'sessionId': self.session_id, 'cwd': self.root, 'toolName': 'bash',
+                    'sessionId': self.__session_id, 'cwd': self.__root, 'toolName': 'bash',
                     'toolArgs': {'command': 'pytest'},
                     'toolResult': {'resultType': 'success', 'textResultForLlm': 'Expected: 4\nReceived: 3\n'},
                 }
-                self.assert_silent(self.invoke('', payload={**base, **payload}))
-                self.assertEqual(self.read_pairs(), {_pair_key('4', '3')}, name)
-        self.new_session()
-        self.assert_silent(self.invoke('', payload={
-            'sessionId': self.session_id, 'cwd': self.root, 'toolName': 'bash', 'toolArgs': {'command': 'pytest'},
+                self.__assert_silent(self.__invoke('', payload={**base, **payload}))
+                self.assertEqual(self.__read_pairs(), {_pair_key('4', '3')}, name)
+        self.__new_session()
+        self.__assert_silent(self.__invoke('', payload={
+            'sessionId': self.__session_id, 'cwd': self.__root, 'toolName': 'bash', 'toolArgs': {'command': 'pytest'},
         }))
-        self.assertIsNone(self.read_pairs(), 'A missing tool result must be treated as an empty output.')
+        self.assertIsNone(self.__read_pairs(), 'A missing tool result must be treated as an empty output.')
 
     def test_values_are_not_stored(self):
-        self.assert_silent(self.invoke('Expected: "secret-expected"\nReceived: "secret-actual"\n'))
-        with open(self.state_path, 'rb') as file:
+        self.__assert_silent(self.__invoke('Expected: "secret-expected"\nReceived: "secret-actual"\n'))
+        with open(self.__state_path, 'rb') as file:
             content = file.read()
         self.assertNotIn(b'secret-expected', content)
         self.assertNotIn(b'secret-actual', content)
-        self.assertTrue(all(re.fullmatch('[0-9a-f]{64}', pair) for pair in self.read_pairs()))
-        self.assertTrue(all(re.fullmatch('[0-9a-f]{64}', value) for value in self.read_expected_values()))
+        self.assertTrue(all(re.fullmatch('[0-9a-f]{64}', pair) for pair in self.__read_pairs()))
+        self.assertTrue(all(re.fullmatch('[0-9a-f]{64}', value) for value in self.__read_expected_values()))
 
     def test_invalid_input(self):
         for name, raw in [
@@ -182,11 +182,11 @@ class RecordTestFailureValuesTests(unittest.TestCase):
             ('invalid utf-8', b'\xff'),
             ('no session', json.dumps({'toolName': 'bash', 'toolArgs': {}}).encode('utf-8')),
             ('invalid session', json.dumps({'sessionId': 'x', 'toolName': 'bash', 'toolArgs': {}}).encode('utf-8')),
-            ('no tool name', json.dumps({'sessionId': self.session_id, 'toolArgs': {}}).encode('utf-8')),
-            ('no tool args', json.dumps({'sessionId': self.session_id, 'toolName': 'bash'}).encode('utf-8')),
+            ('no tool name', json.dumps({'sessionId': self.__session_id, 'toolArgs': {}}).encode('utf-8')),
+            ('no tool args', json.dumps({'sessionId': self.__session_id, 'toolName': 'bash'}).encode('utf-8')),
         ]:
             with self.subTest(name=name):
-                result = self.invoke('', raw=raw)
+                result = self.__invoke('', raw=raw)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertEqual(result.stdout, b'', name)
                 self.assertIn(b'Failed to record test failure values:', result.stderr)

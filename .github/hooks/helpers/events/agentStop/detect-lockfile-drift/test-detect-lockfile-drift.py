@@ -55,55 +55,55 @@ class DetectLockfileDriftTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-lockfile-drift-test-')
         self.addCleanup(temporary.cleanup)
-        self.root = os.path.realpath(temporary.name)
-        self.workspace = os.path.join(self.root, 'workspace')
-        os.makedirs(self.workspace)
+        self.__root = os.path.realpath(temporary.name)
+        self.__workspace = os.path.join(self.__root, 'workspace')
+        os.makedirs(self.__workspace)
         for path, content in _COMMITTED_FILES.items():
-            self.write_file(path, content)
-        self.git('init', '-q')
-        self.git('add', '-A')
-        self.git('-c', 'user.name=test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false',
+            self.__write_file(path, content)
+        self.__git('init', '-q')
+        self.__git('add', '-A')
+        self.__git('-c', 'user.name=test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false',
                  'commit', '-q', '-m', 'init')
-        self.transcript_path = os.path.join(self.root, 'events.jsonl')
-        self.payload = {
+        self.__transcript_path = os.path.join(self.__root, 'events.jsonl')
+        self.__payload = {
             'sessionId': '00000000-0000-4000-8000-000000000000',
             'timestamp': _HOOK_TIMESTAMP,
-            'cwd': self.workspace,
-            'transcriptPath': self.transcript_path,
+            'cwd': self.__workspace,
+            'transcriptPath': self.__transcript_path,
         }
 
-    def git(self, *arguments):
-        subprocess.run(['git', *arguments], cwd=self.workspace, check=True, stdout=subprocess.DEVNULL)
+    def __git(self, *arguments):
+        subprocess.run(['git', *arguments], cwd=self.__workspace, check=True, stdout=subprocess.DEVNULL)
 
-    def write_file(self, path, content):
-        full_path = os.path.join(self.workspace, path)
+    def __write_file(self, path, content):
+        full_path = os.path.join(self.__workspace, path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(content)
 
-    def invoke(self, events=None, payload=None, raw=None, arguments=()):
+    def __invoke(self, events=None, payload=None, raw=None, arguments=()):
         if events is not None:
-            with open(self.transcript_path, 'w', encoding='utf-8', newline='\n') as file:
+            with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
                 for event in [*events, _agent_stop_start()]:
                     file.write(json.dumps(event, ensure_ascii=False) + '\n')
         if raw is None:
-            raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
+            raw = json.dumps(self.__payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path, *arguments], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
         )
 
-    def edited(self, path, old, new, tool_name='edit'):
+    def __edited(self, path, old, new, tool_name='edit'):
         # ファイルを編集した依頼のトランスクリプト。
-        with open(os.path.join(self.workspace, path), encoding='utf-8') as file:
+        with open(os.path.join(self.__workspace, path), encoding='utf-8') as file:
             content = file.read()
-        self.write_file(path, content.replace(old, new, 1))
+        self.__write_file(path, content.replace(old, new, 1))
         return [_user('依存を追加して'), _tool(tool_name, {'path': path, 'old_str': old, 'new_str': new}), _assistant('追加した。')]
 
-    def assert_silent(self, result):
+    def __assert_silent(self, result):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
 
-    def assert_block(self, result, *fragments):
+    def __assert_block(self, result, *fragments):
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
         self.assertEqual(result.stderr, b'')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
@@ -143,14 +143,14 @@ class DetectLockfileDriftTests(unittest.TestCase):
         ]
         for name, path, old, new, expected in cases:
             with self.subTest(name=name):
-                self.assert_block(self.invoke(self.edited(path, old, new)), expected)
-                self.git('checkout', '-q', '--', '.')
+                self.__assert_block(self.__invoke(self.__edited(path, old, new)), expected)
+                self.__git('checkout', '-q', '--', '.')
 
     def test_apply_patch_paths_are_used(self):
-        self.write_file('web/package.json', _PACKAGE_JSON.replace('^1.3.0', '^2.0.0'))
+        self.__write_file('web/package.json', _PACKAGE_JSON.replace('^1.3.0', '^2.0.0'))
         patch = '*** Begin Patch\n*** Update File: web/package.json\n@@\n-    "left-pad": "^1.3.0"\n+    "left-pad": "^2.0.0"\n*** End Patch\n'
-        self.assert_block(
-            self.invoke([_user('更新して'), _tool('apply_patch', patch), _assistant('更新した。')]),
+        self.__assert_block(
+            self.__invoke([_user('更新して'), _tool('apply_patch', patch), _assistant('更新した。')]),
             'web/package.json',
         )
 
@@ -165,67 +165,67 @@ class DetectLockfileDriftTests(unittest.TestCase):
         ]
         for name, path, old, new, extra in cases:
             with self.subTest(name=name):
-                events = self.edited(path, old, new)
+                events = self.__edited(path, old, new)
                 if extra:
-                    self.write_file(*extra)
-                self.assert_silent(self.invoke(events))
-                self.git('checkout', '-q', '--', '.')
-                self.git('clean', '-q', '-fd')
+                    self.__write_file(*extra)
+                self.__assert_silent(self.__invoke(events))
+                self.__git('checkout', '-q', '--', '.')
+                self.__git('clean', '-q', '-fd')
 
     def test_reverted_edit_is_silent(self):
-        events = self.edited('web/package.json', '"^1.3.0"', '"^2.0.0"')
-        self.git('checkout', '-q', '--', '.')
-        self.assert_silent(self.invoke(events))
+        events = self.__edited('web/package.json', '"^1.3.0"', '"^2.0.0"')
+        self.__git('checkout', '-q', '--', '.')
+        self.__assert_silent(self.__invoke(events))
 
     def test_new_manifest_is_silent(self):
-        self.write_file('new/package.json', _PACKAGE_JSON)
-        self.write_file('new/package-lock.json', '{}\n')
-        self.git('add', 'new/package-lock.json')
-        self.assert_silent(self.invoke([
+        self.__write_file('new/package.json', _PACKAGE_JSON)
+        self.__write_file('new/package-lock.json', '{}\n')
+        self.__git('add', 'new/package-lock.json')
+        self.__assert_silent(self.__invoke([
             _user('作って'), _tool('create', {'path': 'new/package.json', 'file_text': _PACKAGE_JSON}), _assistant('作った。'),
         ]))
 
     def test_unparseable_manifest_is_silent(self):
-        self.assert_silent(self.invoke(self.edited('web/package.json', '"left-pad": "^1.3.0"', '"left-pad": ')))
+        self.__assert_silent(self.__invoke(self.__edited('web/package.json', '"left-pad": "^1.3.0"', '"left-pad": ')))
 
     def test_blocks_only_once_per_request(self):
-        events = self.edited('web/package.json', '"^1.3.0"', '"^2.0.0"')
-        reason = self.assert_block(self.invoke(events))
-        self.assert_silent(self.invoke([*events, _user(reason, delivery='queued'), _assistant('意図して残した。')]))
-        self.assert_block(self.invoke([*events, _user('次の依頼'), *events[1:]]))
+        events = self.__edited('web/package.json', '"^1.3.0"', '"^2.0.0"')
+        reason = self.__assert_block(self.__invoke(events))
+        self.__assert_silent(self.__invoke([*events, _user(reason, delivery='queued'), _assistant('意図して残した。')]))
+        self.__assert_block(self.__invoke([*events, _user('次の依頼'), *events[1:]]))
 
     def test_skips_when_not_applicable(self):
-        events = self.edited('web/package.json', '"^1.3.0"', '"^2.0.0"')
+        events = self.__edited('web/package.json', '"^1.3.0"', '"^2.0.0"')
         with self.subTest(name='subagent'):
-            self.assert_silent(self.invoke(events, payload={**self.payload, 'agentId': 'sub'}))
+            self.__assert_silent(self.__invoke(events, payload={**self.__payload, 'agentId': 'sub'}))
         with self.subTest(name='no final response'):
-            self.assert_silent(self.invoke(events[:-1]))
+            self.__assert_silent(self.__invoke(events[:-1]))
         with self.subTest(name='edits before the latest request'):
-            self.assert_silent(self.invoke([*events, _user('ありがとう'), _assistant('どういたしまして。')]))
+            self.__assert_silent(self.__invoke([*events, _user('ありがとう'), _assistant('どういたしまして。')]))
         with self.subTest(name='outside a repository'):
-            outside = os.path.join(self.root, 'outside')
+            outside = os.path.join(self.__root, 'outside')
             os.makedirs(outside)
-            self.assert_silent(self.invoke(events, payload={**self.payload, 'cwd': outside}))
+            self.__assert_silent(self.__invoke(events, payload={**self.__payload, 'cwd': outside}))
 
     def test_invalid_input_exits_with_error(self):
-        self.invoke([_user('x'), _assistant('y')])
+        self.__invoke([_user('x'), _assistant('y')])
         cases = [
             ('empty input', b''),
             ('invalid JSON', b'{'),
             ('non-object', b'[]'),
-            ('missing cwd', json.dumps({**self.payload, 'cwd': None}).encode('utf-8')),
-            ('relative cwd', json.dumps({**self.payload, 'cwd': 'workspace'}).encode('utf-8')),
-            ('missing transcript', json.dumps({**self.payload, 'transcriptPath': os.path.join(self.root, 'none.jsonl')}).encode('utf-8')),
+            ('missing cwd', json.dumps({**self.__payload, 'cwd': None}).encode('utf-8')),
+            ('relative cwd', json.dumps({**self.__payload, 'cwd': 'workspace'}).encode('utf-8')),
+            ('missing transcript', json.dumps({**self.__payload, 'transcriptPath': os.path.join(self.__root, 'none.jsonl')}).encode('utf-8')),
         ]
         for name, raw in cases:
             with self.subTest(name=name):
-                result = self.invoke(raw=raw)
+                result = self.__invoke(raw=raw)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to detect lockfile drift', result.stderr, name)
         with self.subTest(name='invalid transcript line'):
-            with open(self.transcript_path, 'w', encoding='utf-8') as file:
+            with open(self.__transcript_path, 'w', encoding='utf-8') as file:
                 file.write('not json\n')
-            self.assertEqual(self.invoke().returncode, 2)
+            self.assertEqual(self.__invoke().returncode, 2)
 
     def test_invalid_definitions_exit_with_error(self):
         manifest = {'name': 'x', 'filePattern': 'x', 'format': 'json', 'dependencyKeys': ['a'],
@@ -239,13 +239,13 @@ class DetectLockfileDriftTests(unittest.TestCase):
             ('invalid regex', {'manifests': [{**manifest, 'filePattern': '('}]}),
             ('lines without patterns', {'manifests': [{**manifest, 'format': 'lines'}]}),
         ]
-        self.invoke([_user('x'), _assistant('y')])
+        self.__invoke([_user('x'), _assistant('y')])
         for name, definitions in cases:
             with self.subTest(name=name):
-                path = os.path.join(self.root, 'definitions.json')
+                path = os.path.join(self.__root, 'definitions.json')
                 with open(path, 'w', encoding='utf-8') as file:
                     json.dump(definitions, file)
-                self.assertEqual(self.invoke(arguments=('--definitions-path', path)).returncode, 2, name)
+                self.assertEqual(self.__invoke(arguments=('--definitions-path', path)).returncode, 2, name)
 
 
 if __name__ == '__main__':

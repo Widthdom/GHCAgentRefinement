@@ -23,44 +23,44 @@ class FindIntroducedLinesByRegexTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-find-introduced-lines-test-')
         self.addCleanup(temporary.cleanup)
-        self.cwd = os.path.realpath(temporary.name)
+        self.__cwd = os.path.realpath(temporary.name)
 
-    def write_file(self, path, content):
-        full_path = os.path.join(self.cwd, *path.split('/'))
+    def __write_file(self, path, content):
+        full_path = os.path.join(self.__cwd, *path.split('/'))
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(content)
 
     def test_finds_lines_remaining_in_file(self):
-        self.write_file('src/a.py', 'x = 1\n    print(x)  # TODO\n')
+        self.__write_file('src/a.py', 'x = 1\n    print(x)  # TODO\n')
         # 一致した位置を含む行全体を、前後の空白を除いて返す。1行が複数の種類に一致しても、先の種類の1件にまとめる。
         self.assertEqual(
-            _find([_change('src/a.py', 'x = 1\n    print(x)  # TODO')], self.cwd, [], _REGEXES),
+            _find([_change('src/a.py', 'x = 1\n    print(x)  # TODO')], self.__cwd, [], _REGEXES),
             [('src/a.py', 'todo', 'print(x)  # TODO')],
         )
 
     def test_excludes_existing_and_later_removed_lines(self):
-        self.write_file('a.py', 'print(1)\nkept = 1\n')
+        self.__write_file('a.py', 'print(1)\nkept = 1\n')
         changes = [
             # 置換前の内容にある行は、元からあるものとして除く（インデントの違いは問わない）。
             _change('a.py', 'print(1)', removed='    print(1)'),
             # 後の編集で消えた行は、最終的なファイルにないため除く。
             _change('a.py', 'print(2)'),
         ]
-        self.assertEqual(_find(changes, self.cwd, [], _REGEXES), [])
+        self.assertEqual(_find(changes, self.__cwd, [], _REGEXES), [])
 
     def test_missing_files_and_excluded_paths(self):
-        self.write_file('docs/a.md', 'TODO\n')
+        self.__write_file('docs/a.md', 'TODO\n')
         changes = [_change('deleted.py', 'TODO'), _change('docs/a.md', 'TODO')]
-        self.assertEqual(_find(changes, self.cwd, [re.compile(r'^docs/')], _REGEXES), [])
+        self.assertEqual(_find(changes, self.__cwd, [re.compile(r'^docs/')], _REGEXES), [])
 
     def test_same_line_in_each_file(self):
         # 同じ行でも、ファイルが違えばそれぞれ返す。同じファイルの同じ行は1件にまとめる。
-        self.write_file('a.py', 'print(1)\n')
-        self.write_file('b.py', 'print(1)\n')
+        self.__write_file('a.py', 'print(1)\n')
+        self.__write_file('b.py', 'print(1)\n')
         changes = [_change('a.py', 'print(1)'), _change('a.py', 'print(1)'), _change('b.py', 'print(1)')]
         self.assertEqual(
-            _find(changes, self.cwd, [], _REGEXES), [('a.py', 'print', 'print(1)'), ('b.py', 'print', 'print(1)')],
+            _find(changes, self.__cwd, [], _REGEXES), [('a.py', 'print', 'print(1)'), ('b.py', 'print', 'print(1)')],
         )
 
     def test_paths_outside_cwd(self):
@@ -71,7 +71,7 @@ class FindIntroducedLinesByRegexTests(unittest.TestCase):
         with open(path, 'w', encoding='utf-8') as file:
             file.write('TODO\n')
         self.assertEqual(
-            _find([_change(path, 'TODO')], self.cwd, [], _REGEXES), [(path.replace(os.sep, '/'), 'todo', 'TODO')],
+            _find([_change(path, 'TODO')], self.__cwd, [], _REGEXES), [(path.replace(os.sep, '/'), 'todo', 'TODO')],
         )
 
 

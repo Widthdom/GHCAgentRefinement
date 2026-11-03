@@ -45,35 +45,35 @@ class DetectSycophanticReversalTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-sycophantic-reversal-test-')
         self.addCleanup(temporary.cleanup)
-        self.root = temporary.name
-        self.transcript_path = os.path.join(self.root, 'events.jsonl')
-        self.payload = {
+        self.__root = temporary.name
+        self.__transcript_path = os.path.join(self.__root, 'events.jsonl')
+        self.__payload = {
             'sessionId': '00000000-0000-4000-8000-000000000000',
             'timestamp': _HOOK_TIMESTAMP,
-            'cwd': self.root,
-            'transcriptPath': self.transcript_path,
+            'cwd': self.__root,
+            'transcriptPath': self.__transcript_path,
         }
 
-    def write_transcript(self, events):
-        with open(self.transcript_path, 'w', encoding='utf-8', newline='\n') as file:
+    def __write_transcript(self, events):
+        with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
             for event in events:
                 file.write(json.dumps(event, ensure_ascii=False) + '\n')
 
-    def invoke(self, events=None, payload=None, raw=None, definitions_path=None):
+    def __invoke(self, events=None, payload=None, raw=None, definitions_path=None):
         if events is not None:
-            self.write_transcript([*events, _agent_stop_start()])
+            self.__write_transcript([*events, _agent_stop_start()])
         if raw is None:
-            raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
+            raw = json.dumps(self.__payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         options = [] if definitions_path is None else ['--definitions-path', definitions_path]
         return subprocess.run(
             [sys.executable, _hook_path, *options], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
         )
 
-    def assert_silent(self, result):
+    def __assert_silent(self, result):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
 
-    def assert_block(self, result):
+    def __assert_block(self, result):
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
         self.assertEqual(result.stderr, b'')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
@@ -109,26 +109,26 @@ class DetectSycophanticReversalTests(unittest.TestCase):
         )
         for pushback, response in cases:
             with self.subTest(pushback=pushback, response=response):
-                self.assert_block(self.invoke(_pushback_turn(pushback, response)))
+                self.__assert_block(self.__invoke(_pushback_turn(pushback, response)))
 
     def test_allows_reversal_after_evidence(self):
         for tool_name in ('view', 'rg', 'bash', 'functions.powershell', 'web_fetch', 'task'):
             with self.subTest(tool_name=tool_name):
                 events = _pushback_turn()
                 events[3:3] = _tool('c1', tool_name)
-                self.assert_silent(self.invoke(events))
+                self.__assert_silent(self.__invoke(events))
 
     def test_non_evidence_tools_do_not_count(self):
         for tool_name in ('edit', 'apply_patch', 'ask_user', 'task_complete', 'skill'):
             with self.subTest(tool_name=tool_name):
                 events = _pushback_turn()
                 events[3:3] = _tool('c1', tool_name)
-                self.assert_block(self.invoke(events))
+                self.__assert_block(self.__invoke(events))
 
     def test_evidence_before_latest_request_does_not_count(self):
         events = _pushback_turn()
         events[1:1] = _tool('c1', 'view')
-        self.assert_block(self.invoke(events))
+        self.__assert_block(self.__invoke(events))
 
     def test_ignores_without_pushback_or_reversal(self):
         cases = (
@@ -140,45 +140,45 @@ class DetectSycophanticReversalTests(unittest.TestCase):
         )
         for pushback, response in cases:
             with self.subTest(pushback=pushback, response=response):
-                self.assert_silent(self.invoke(_pushback_turn(pushback, response)))
+                self.__assert_silent(self.__invoke(_pushback_turn(pushback, response)))
 
     def test_ignores_first_request_without_prior_response(self):
-        self.assert_silent(self.invoke([_user('それ違くない？'), _assistant('ご指摘の通り。')]))
+        self.__assert_silent(self.__invoke([_user('それ違くない？'), _assistant('ご指摘の通り。')]))
 
     def test_queued_messages_do_not_reset_the_request(self):
         events = _pushback_turn()
         events.insert(3, _user('The final response footer is missing or incorrect.', 'queued'))
-        self.assert_block(self.invoke(events))
+        self.__assert_block(self.__invoke(events))
 
     def test_blocks_only_once_per_request(self):
         first = _pushback_turn()
-        reason = self.assert_block(self.invoke(first))
-        self.assert_silent(self.invoke([*first, _user(reason, 'queued'), _assistant('ご指摘の通り。')]))
-        self.assert_block(self.invoke([*first, _user(reason, 'queued'), _user('違うよ'), _assistant('ご指摘の通り。')]))
+        reason = self.__assert_block(self.__invoke(first))
+        self.__assert_silent(self.__invoke([*first, _user(reason, 'queued'), _assistant('ご指摘の通り。')]))
+        self.__assert_block(self.__invoke([*first, _user(reason, 'queued'), _user('違うよ'), _assistant('ご指摘の通り。')]))
 
     def test_last_assistant_message_is_checked(self):
         events = [*_pushback_turn(), _assistant('いや、確認すると非推奨ではない。')]
-        self.assert_silent(self.invoke(events))
+        self.__assert_silent(self.__invoke(events))
 
     def test_skips_subagents(self):
-        self.write_transcript(_pushback_turn())
-        self.assert_silent(self.invoke(payload={**self.payload, 'agentId': 'child-agent'}))
+        self.__write_transcript(_pushback_turn())
+        self.__assert_silent(self.__invoke(payload={**self.__payload, 'agentId': 'child-agent'}))
 
     def test_waits_for_agent_stop_event(self):
-        self.write_transcript(_pushback_turn()[:3])
+        self.__write_transcript(_pushback_turn()[:3])
 
         process = subprocess.Popen(
             [sys.executable, _hook_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         )
-        process.stdin.write(json.dumps(self.payload).encode('utf-8'))
+        process.stdin.write(json.dumps(self.__payload).encode('utf-8'))
         process.stdin.close()
         process.stdin = None
         time.sleep(0.5)
-        with open(self.transcript_path, 'a', encoding='utf-8', newline='\n') as file:
+        with open(self.__transcript_path, 'a', encoding='utf-8', newline='\n') as file:
             for event in (_assistant('ご指摘の通り。'), _agent_stop_start()):
                 file.write(json.dumps(event, ensure_ascii=False) + '\n')
         output, error = process.communicate(timeout=15)
-        self.assert_block(subprocess.CompletedProcess([], process.returncode, output, error))
+        self.__assert_block(subprocess.CompletedProcess([], process.returncode, output, error))
 
     def test_definitions_json_is_valid(self):
         with open(_definitions_path, 'rb') as file:
@@ -188,20 +188,20 @@ class DetectSycophanticReversalTests(unittest.TestCase):
         self.assertEqual(set(definitions), {'evidenceToolNames', 'pushbackPatterns', 'reversalPatterns'})
 
     def test_custom_definitions_are_used(self):
-        custom_path = os.path.join(self.root, 'custom.json')
+        custom_path = os.path.join(self.__root, 'custom.json')
         with open(custom_path, 'w', encoding='utf-8-sig') as file:
             json.dump({
                 'evidenceToolNames': ['inspect'],
                 'pushbackPatterns': ['ちがうね'],
                 'reversalPatterns': ['そうだった'],
             }, file, ensure_ascii=False)
-        self.assert_block(self.invoke(_pushback_turn('ちがうね', 'そうだった'), definitions_path=custom_path))
-        self.assert_silent(self.invoke(_pushback_turn(), definitions_path=custom_path))
+        self.__assert_block(self.__invoke(_pushback_turn('ちがうね', 'そうだった'), definitions_path=custom_path))
+        self.__assert_silent(self.__invoke(_pushback_turn(), definitions_path=custom_path))
         events = _pushback_turn('ちがうね', 'そうだった')
         events[3:3] = _tool('c1', 'inspect')
-        self.assert_silent(self.invoke(events, definitions_path=custom_path))
+        self.__assert_silent(self.__invoke(events, definitions_path=custom_path))
         events[3:5] = _tool('c1', 'view')
-        self.assert_block(self.invoke(events, definitions_path=custom_path))
+        self.__assert_block(self.__invoke(events, definitions_path=custom_path))
 
     def test_invalid_definitions_report_error(self):
         valid = {'evidenceToolNames': ['view'], 'pushbackPatterns': ['a'], 'reversalPatterns': ['b']}
@@ -215,32 +215,32 @@ class DetectSycophanticReversalTests(unittest.TestCase):
                 cases.append((json.dumps({**valid, key: value}), f'non-empty array of non-empty strings for {key}'))
         for key in ('pushbackPatterns', 'reversalPatterns'):
             cases.append((json.dumps({**valid, key: ['(']}), f'Invalid regular expression in {key}'))
-        self.write_transcript([*_pushback_turn(), _agent_stop_start()])
+        self.__write_transcript([*_pushback_turn(), _agent_stop_start()])
         for index, (content, fragment) in enumerate(cases):
             with self.subTest(content=content):
-                path = os.path.join(self.root, f'definitions-{index}.json')
+                path = os.path.join(self.__root, f'definitions-{index}.json')
                 with open(path, 'wb') as file:
                     file.write(content.encode('latin-1') if fragment is None else content.encode('utf-8'))
-                result = self.invoke(definitions_path=path)
+                result = self.__invoke(definitions_path=path)
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(result.stdout, b'')
                 self.assertIn(b'Failed to load sycophantic reversal definitions:', result.stderr)
                 if fragment is not None:
                     self.assertIn(fragment.encode('utf-8'), result.stderr)
-        for path in (os.path.join(self.root, 'missing.json'), self.root):
+        for path in (os.path.join(self.__root, 'missing.json'), self.__root):
             with self.subTest(path=path):
-                result = self.invoke(definitions_path=path)
+                result = self.__invoke(definitions_path=path)
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(result.stdout, b'')
                 self.assertIn(b'Definitions path is not a file', result.stderr)
 
     def test_invalid_input_reports_error(self):
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'\xff']
-        for value in (None, '', ' ', 3, [], os.path.join(self.root, 'missing.jsonl'), self.root):
-            invalid.append(json.dumps({**self.payload, 'transcriptPath': value}).encode('utf-8'))
+        for value in (None, '', ' ', 3, [], os.path.join(self.__root, 'missing.jsonl'), self.__root):
+            invalid.append(json.dumps({**self.__payload, 'transcriptPath': value}).encode('utf-8'))
         for raw in invalid:
             with self.subTest(raw=raw):
-                result = self.invoke(raw=raw)
+                result = self.__invoke(raw=raw)
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(result.stdout, b'')
                 self.assertTrue(result.stderr)
@@ -248,9 +248,9 @@ class DetectSycophanticReversalTests(unittest.TestCase):
     def test_invalid_transcript_reports_error(self):
         for content in ('{', '[]\n', '{"type":"user.message","data":[]}\n'):
             with self.subTest(content=content):
-                with open(self.transcript_path, 'w', encoding='utf-8') as file:
+                with open(self.__transcript_path, 'w', encoding='utf-8') as file:
                     file.write(content)
-                result = self.invoke(payload={**self.payload, 'timestamp': None})
+                result = self.__invoke(payload={**self.__payload, 'timestamp': None})
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(result.stdout, b'')
                 self.assertIn(b'Failed to inspect sycophantic reversal:', result.stderr)

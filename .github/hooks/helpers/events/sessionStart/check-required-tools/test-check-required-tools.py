@@ -81,7 +81,7 @@ def _expected_message(platform, commands):
 
 
 class CheckRequiredToolsTests(unittest.TestCase):
-    def assert_notified(self, result, platform, commands):
+    def __assert_notified(self, result, platform, commands):
         # 案内を標準エラーに出し、同じ案内をadditionalContextでエージェントに渡して正常終了すること。
         exit_code, stderr, stdout, _ = result
         expected = _expected_message(platform, commands)
@@ -127,15 +127,15 @@ class CheckRequiredToolsTests(unittest.TestCase):
             ('jq', FileNotFoundError()), ('rg', subprocess.CalledProcessError(1, ['rg', '--version'])),
         ):
             with self.subTest(command=command, output=output):
-                self.assert_notified(_run_main(results={command: output}), 'linux', [command])
+                self.__assert_notified(_run_main(results={command: output}), 'linux', [command])
 
     def test_installation_messages(self):
         # 足りないツールの案内は定義の順に1つにまとめ、再起動の案内は最後に1回だけ付ける。
         missing = {command: FileNotFoundError() for command in _COMMANDS}
         for platform in _INSTALL_MESSAGES:
             with self.subTest(platform=platform):
-                self.assert_notified(_run_main(platform, missing), platform, _COMMANDS)
-        self.assert_notified(_run_main(results={'git': FileNotFoundError(), 'rg': 'old\n'}), 'linux', ['git', 'rg'])
+                self.__assert_notified(_run_main(platform, missing), platform, _COMMANDS)
+        self.__assert_notified(_run_main(results={'git': FileNotFoundError(), 'rg': 'old\n'}), 'linux', ['git', 'rg'])
 
     def test_invalid_definitions(self):
         with tempfile.TemporaryDirectory() as directory:

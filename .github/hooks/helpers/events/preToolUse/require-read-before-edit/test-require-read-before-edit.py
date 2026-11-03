@@ -20,52 +20,52 @@ class RequireReadBeforeEditTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-require-read-before-edit-test-')
         self.addCleanup(temporary.cleanup)
-        self.root = os.path.realpath(temporary.name)
-        self.environment = os.environ.copy()
-        self.environment.update({'TMPDIR': self.root, 'TEMP': self.root, 'TMP': self.root})
-        self.session_id = str(uuid.uuid4())
-        self.state_directory = os.path.join(self.root, 'ghc-agent-refinement', 'hook-states', 'known-files')
-        self.state_path = os.path.join(self.state_directory, f'{self.session_id}.sqlite3')
-        self.workspace = os.path.join(self.root, 'workspace')
-        os.makedirs(os.path.join(self.workspace, 'sub'))
-        self.target = os.path.join(self.workspace, '対象.py')
-        self.other = os.path.join(self.workspace, 'sub', 'other.py')
-        for path in (self.target, self.other):
+        self.__root = os.path.realpath(temporary.name)
+        self.__environment = os.environ.copy()
+        self.__environment.update({'TMPDIR': self.__root, 'TEMP': self.__root, 'TMP': self.__root})
+        self.__session_id = str(uuid.uuid4())
+        self.__state_directory = os.path.join(self.__root, 'ghc-agent-refinement', 'hook-states', 'known-files')
+        self.__state_path = os.path.join(self.__state_directory, f'{self.__session_id}.sqlite3')
+        self.__workspace = os.path.join(self.__root, 'workspace')
+        os.makedirs(os.path.join(self.__workspace, 'sub'))
+        self.__target = os.path.join(self.__workspace, '対象.py')
+        self.__other = os.path.join(self.__workspace, 'sub', 'other.py')
+        for path in (self.__target, self.__other):
             with open(path, 'w', encoding='utf-8') as file:
                 file.write('a\n')
 
-    def payload(self, tool_call, session_id=None):
+    def __payload(self, tool_call, session_id=None):
         return {
-            'sessionId': session_id or self.session_id,
-            'cwd': self.workspace,
+            'sessionId': session_id or self.__session_id,
+            'cwd': self.__workspace,
             'toolName': tool_call[0],
             'toolArgs': tool_call[1],
         }
 
-    def run_hook(self, path, payload=None, raw=None):
+    def __run_hook(self, path, payload=None, raw=None):
         if raw is None:
             raw = json.dumps(payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
             [sys.executable, path], input=raw,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment, timeout=10,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.__environment, timeout=10,
         )
 
-    def invoke(self, tool_call, session_id=None):
-        return self.run_hook(_hook_path, self.payload(tool_call, session_id=session_id))
+    def __invoke(self, tool_call, session_id=None):
+        return self.__run_hook(_hook_path, self.__payload(tool_call, session_id=session_id))
 
-    def view(self, path, session_id=None):
+    def __view(self, path, session_id=None):
         # 閲覧の記録は、実際の記録側hookを通して作る。
-        result = self.run_hook(_record_hook_path, {
-            'sessionId': session_id or self.session_id, 'timestamp': 0, 'cwd': self.workspace,
+        result = self.__run_hook(_record_hook_path, {
+            'sessionId': session_id or self.__session_id, 'timestamp': 0, 'cwd': self.__workspace,
             'toolName': 'view', 'toolArgs': {'path': path},
             'toolResult': {'resultType': 'success', 'textResultForLlm': '1. a'},
         })
         self.assertEqual((result.returncode, result.stderr), (0, b''))
 
-    def assert_allowed(self, result):
+    def __assert_allowed(self, result):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
 
-    def assert_denied(self, result, files):
+    def __assert_denied(self, result, files):
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
         self.assertEqual(result.stderr, b'')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
@@ -94,25 +94,25 @@ class RequireReadBeforeEditTests(unittest.TestCase):
 
     def test_denies_unread_file_only_once(self):
         edit = ('edit', {'path': '対象.py', 'old_str': 'a', 'new_str': 'b'})
-        self.assert_denied(self.invoke(edit), '対象.py')
-        self.assert_allowed(self.invoke(edit))
+        self.__assert_denied(self.__invoke(edit), '対象.py')
+        self.__assert_allowed(self.__invoke(edit))
 
     def test_allows_file_read_or_edited_earlier(self):
-        self.view(self.target)
-        self.assert_allowed(self.invoke(('edit', {'path': self.target, 'old_str': 'a', 'new_str': 'b'})))
+        self.__view(self.__target)
+        self.__assert_allowed(self.__invoke(('edit', {'path': self.__target, 'old_str': 'a', 'new_str': 'b'})))
         # 編集の成功も記録される。
-        result = self.run_hook(_record_hook_path, {
-            'sessionId': self.session_id, 'timestamp': 0, 'cwd': self.workspace,
+        result = self.__run_hook(_record_hook_path, {
+            'sessionId': self.__session_id, 'timestamp': 0, 'cwd': self.__workspace,
             'toolName': 'create', 'toolArgs': {'path': 'sub/other.py', 'file_text': 'a\n'},
             'toolResult': {'resultType': 'success', 'textResultForLlm': 'Created.'},
         })
         self.assertEqual(result.returncode, 0)
-        self.assert_allowed(self.invoke(('insert', {'path': self.other, 'insert_line': 1})))
+        self.__assert_allowed(self.__invoke(('insert', {'path': self.__other, 'insert_line': 1})))
 
     def test_tool_names_and_argument_formats(self):
         patch_text = '*** Begin Patch\n*** Update File: 対象.py\n@@\n-a\n+b\n*** End Patch\n'
         cases = (
-            ('edit', {'path': self.target}),
+            ('edit', {'path': self.__target}),
             ('functions.insert', {'path': './sub/../対象.py', 'insert_line': 1}),
             ('create', {'path': '対象.py', 'file_text': 'overwrite'}),
             ('str_replace_editor', json.dumps({'command': 'str_replace', 'path': '対象.py'})),
@@ -121,7 +121,7 @@ class RequireReadBeforeEditTests(unittest.TestCase):
         )
         for tool_name, tool_args in cases:
             with self.subTest(tool_name=tool_name, tool_args=type(tool_args).__name__):
-                self.assert_denied(self.invoke((tool_name, tool_args), session_id=str(uuid.uuid4())), '対象.py')
+                self.__assert_denied(self.__invoke((tool_name, tool_args), session_id=str(uuid.uuid4())), '対象.py')
 
     def test_allows_edits_that_need_no_prior_read(self):
         patch_text = (
@@ -141,48 +141,48 @@ class RequireReadBeforeEditTests(unittest.TestCase):
         )
         for tool_call in cases:
             with self.subTest(tool_call=tool_call):
-                self.assert_allowed(self.invoke(tool_call))
-        self.assertFalse(os.path.exists(self.state_directory))
+                self.__assert_allowed(self.__invoke(tool_call))
+        self.assertFalse(os.path.exists(self.__state_directory))
 
     def test_patch_files_are_checked_together(self):
-        self.view(self.other)
-        third = os.path.join(self.workspace, 'third.py')
+        self.__view(self.__other)
+        third = os.path.join(self.__workspace, 'third.py')
         with open(third, 'w', encoding='utf-8') as file:
             file.write('a\n')
         patch_text = (
             '*** Begin Patch\n*** Update File: 対象.py\n@@\n-a\n+b\n'
             '*** Update File: other.py\n@@\n-a\n+b\n*** End Patch\n'
         )
-        self.assert_denied(self.invoke(('apply_patch', patch_text)), '対象.py')
+        self.__assert_denied(self.__invoke(('apply_patch', patch_text)), '対象.py')
         patch_text = (
             '*** Begin Patch\n*** Update File: 対象.py\n@@\n-a\n+b\n'
             '*** Update File: third.py\n@@\n-a\n+b\n*** End Patch\n'
         )
-        self.assert_denied(self.invoke(('apply_patch', patch_text)), 'third.py')
+        self.__assert_denied(self.__invoke(('apply_patch', patch_text)), 'third.py')
 
     def test_lists_multiple_files_and_outside_paths(self):
-        outside = os.path.join(self.root, 'outside.py')
+        outside = os.path.join(self.__root, 'outside.py')
         with open(outside, 'w', encoding='utf-8') as file:
             file.write('a\n')
-        result = self.invoke(('apply_patch', (
+        result = self.__invoke(('apply_patch', (
             f'*** Begin Patch\n*** Update File: {outside}\n@@\n-a\n+b\n'
             '*** Update File: sub/other.py\n@@\n-a\n+b\n'
             '*** Update File: 対象.py\n@@\n-a\n+b\n*** End Patch\n'
         )))
         # cwd配下のファイルは、OSによらず `/` 区切りで示される。
         files = sorted([os.path.normcase(outside), 'sub/other.py', '対象.py'], key=lambda path: (
-            os.path.normcase(os.path.realpath(os.path.join(self.workspace, path)))
+            os.path.normcase(os.path.realpath(os.path.join(self.__workspace, path)))
         ))
-        self.assert_denied(result, ', '.join(files))
+        self.__assert_denied(result, ', '.join(files))
 
     def test_sessions_are_isolated_and_uuid_is_normalized(self):
-        self.view(self.target)
-        edit = ('edit', {'path': self.target})
-        self.assert_denied(self.invoke(edit, session_id=str(uuid.uuid4())), '対象.py')
-        self.assert_allowed(self.invoke(edit, session_id=' {' + self.session_id.upper() + '} '))
+        self.__view(self.__target)
+        edit = ('edit', {'path': self.__target})
+        self.__assert_denied(self.__invoke(edit, session_id=str(uuid.uuid4())), '対象.py')
+        self.__assert_allowed(self.__invoke(edit, session_id=' {' + self.__session_id.upper() + '} '))
 
     def test_invalid_input_reports_error(self):
-        base = self.payload(('edit', {'path': self.target}))
+        base = self.__payload(('edit', {'path': self.__target}))
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'true', b'{"cwd":"\xff"}']
         for field in ('sessionId', 'cwd', 'toolName', 'toolArgs'):
             payload = base.copy()
@@ -197,30 +197,30 @@ class RequireReadBeforeEditTests(unittest.TestCase):
             invalid.append(json.dumps({**base, **changes}).encode('utf-8'))
         for raw in invalid:
             with self.subTest(raw=raw):
-                result = self.run_hook(_hook_path, raw=raw)
+                result = self.__run_hook(_hook_path, raw=raw)
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(result.stdout, b'')
                 self.assertIn(b'Failed to check read-before-edit:', result.stderr)
-        self.assertFalse(os.path.exists(self.state_directory))
+        self.assertFalse(os.path.exists(self.__state_directory))
 
     def test_corrupt_state_reports_error(self):
-        os.makedirs(self.state_directory)
-        with open(self.state_path, 'wb') as file:
+        os.makedirs(self.__state_directory)
+        with open(self.__state_path, 'wb') as file:
             file.write(b'not a SQLite database')
-        result = self.invoke(('edit', {'path': self.target}))
+        result = self.__invoke(('edit', {'path': self.__target}))
         self.assertEqual(result.returncode, 2)
         self.assertEqual(result.stdout, b'')
         self.assertIn(b'Failed to check read-before-edit:', result.stderr)
 
     def test_concurrent_checks_deny_once(self):
-        raw = json.dumps(self.payload(('edit', {'path': self.target})), ensure_ascii=False).encode('utf-8')
+        raw = json.dumps(self.__payload(('edit', {'path': self.__target})), ensure_ascii=False).encode('utf-8')
         processes = []
         for _ in range(6):
             process = subprocess.Popen(
                 [sys.executable, _hook_path], stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.environment,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.__environment,
             )
-            self.addCleanup(self.finish_process, process)
+            self.addCleanup(self.__finish_process, process)
             processes.append(process)
         for process in processes:
             process.stdin.write(raw)
@@ -237,7 +237,7 @@ class RequireReadBeforeEditTests(unittest.TestCase):
         self.assertEqual(denials, 1)
 
     @staticmethod
-    def finish_process(process):
+    def __finish_process(process):
         if process.poll() is None:
             process.kill()
         process.communicate()

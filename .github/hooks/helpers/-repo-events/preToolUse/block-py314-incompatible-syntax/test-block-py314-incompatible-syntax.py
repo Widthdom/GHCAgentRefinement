@@ -40,28 +40,28 @@ class BlockPy314IncompatibleSyntaxTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-block-py314-incompatible-syntax-test-')
         self.addCleanup(temporary.cleanup)
-        self.directory = os.path.realpath(temporary.name)
-        self.write_file('app.py', _ORIGINAL)
+        self.__directory = os.path.realpath(temporary.name)
+        self.__write_file('app.py', _ORIGINAL)
 
-    def write_file(self, path, content):
-        full_path = os.path.join(self.directory, path)
+    def __write_file(self, path, content):
+        full_path = os.path.join(self.__directory, path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(content)
 
-    def run_process(self, hook_input):
+    def __run_process(self, hook_input):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path], input=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
         )
 
-    def run_call(self, tool_name, tool_args):
-        return self.run_process({'cwd': self.directory, 'toolName': tool_name, 'toolArgs': tool_args})
+    def __run_call(self, tool_name, tool_args):
+        return self.__run_process({'cwd': self.__directory, 'toolName': tool_name, 'toolArgs': tool_args})
 
-    def assert_allowed(self, result, message):
+    def __assert_allowed(self, result, message):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''), message)
 
-    def assert_denied(self, result, expected_parts, message):
+    def __assert_denied(self, result, expected_parts, message):
         self.assertEqual(result.returncode, 0, f'{message} {result.stderr!r}')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'), f'{message} stdout must not start with a BOM.')
         output = json.loads(result.stdout.decode('utf-8'))
@@ -90,15 +90,15 @@ class BlockPy314IncompatibleSyntaxTests(unittest.TestCase):
     def test_incompatible_syntax_is_denied(self):
         for name, source in _INCOMPATIBLE_SOURCES:
             with self.subTest(name=name):
-                self.assert_denied(
-                    self.run_call('create', {'path': 'new.py', 'file_text': source}), ['new.py line 1'], name,
+                self.__assert_denied(
+                    self.__run_call('create', {'path': 'new.py', 'file_text': source}), ['new.py line 1'], name,
                 )
 
     def test_python_314_syntax_is_allowed(self):
         for source in [_ORIGINAL, *_PY314_SOURCES]:
             with self.subTest(source=source):
-                self.assert_allowed(
-                    self.run_call('create', {'path': 'new.py', 'file_text': source}), 'Python 3.14 syntax must be allowed.',
+                self.__assert_allowed(
+                    self.__run_call('create', {'path': 'new.py', 'file_text': source}), 'Python 3.14 syntax must be allowed.',
                 )
 
     def test_tool_formats(self):
@@ -131,7 +131,7 @@ class BlockPy314IncompatibleSyntaxTests(unittest.TestCase):
         ]
         for tool_name, args, part in cases:
             with self.subTest(tool_name=tool_name, args=args):
-                self.assert_denied(self.run_call(tool_name, args), [part], tool_name)
+                self.__assert_denied(self.__run_call(tool_name, args), [part], tool_name)
 
     def test_compatible_edits_are_allowed(self):
         cases = [
@@ -144,17 +144,17 @@ class BlockPy314IncompatibleSyntaxTests(unittest.TestCase):
         ]
         for tool_name, args in cases:
             with self.subTest(tool_name=tool_name):
-                self.assert_allowed(self.run_call(tool_name, args), 'Compatible edits must be allowed.')
+                self.__assert_allowed(self.__run_call(tool_name, args), 'Compatible edits must be allowed.')
 
     def test_patch_files_are_reported_together(self):
-        result = self.run_call('apply_patch', (
+        result = self.__run_call('apply_patch', (
             '*** Begin Patch\n*** Add File: a.py\n+print "a"\n'
             '*** Add File: b.py\n+x = 0777\n*** End Patch\n'
         ))
-        self.assert_denied(result, ['a.py line 1', 'b.py line 1'], 'patch')
+        self.__assert_denied(result, ['a.py line 1', 'b.py line 1'], 'patch')
 
     def test_skipped_edits(self):
-        self.write_file('broken.py', 'print "already broken"\n')
+        self.__write_file('broken.py', 'print "already broken"\n')
         cases = [
             ('not python', 'create', {'path': 'a.txt', 'file_text': 'print "hello"\n'}),
             ('python in document', 'create', {'path': 'README.md', 'file_text': 'print "hello"\n'}),
@@ -171,7 +171,7 @@ class BlockPy314IncompatibleSyntaxTests(unittest.TestCase):
         ]
         for name, tool_name, args in cases:
             with self.subTest(name=name):
-                self.assert_allowed(self.run_call(tool_name, args), f'{name} must be skipped.')
+                self.__assert_allowed(self.__run_call(tool_name, args), f'{name} must be skipped.')
 
     def test_invalid_input(self):
         def encode(value):
@@ -185,11 +185,11 @@ class BlockPy314IncompatibleSyntaxTests(unittest.TestCase):
             ('not utf-8', b'\xff'),
             ('no cwd', encode(call)),
             ('relative cwd', encode({'cwd': 'relative', **call})),
-            ('no tool name', encode({'cwd': self.directory, 'toolArgs': {}})),
-            ('no tool args', encode({'cwd': self.directory, 'toolName': 'edit'})),
+            ('no tool name', encode({'cwd': self.__directory, 'toolArgs': {}})),
+            ('no tool args', encode({'cwd': self.__directory, 'toolName': 'edit'})),
         ]:
             with self.subTest(name=name):
-                result = self.run_process(hook_input)
+                result = self.__run_process(hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertEqual(result.stdout, b'', name)
                 self.assertIn(b'Failed to check Python 3.14 syntax', result.stderr, name)

@@ -37,44 +37,44 @@ class DetectStubPlaceholdersTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-stub-placeholders-test-')
         self.addCleanup(temporary.cleanup)
-        self.root = os.path.realpath(temporary.name)
-        self.workspace = os.path.join(self.root, 'workspace')
-        os.makedirs(self.workspace)
-        self.transcript_path = os.path.join(self.root, 'events.jsonl')
-        self.payload = {
+        self.__root = os.path.realpath(temporary.name)
+        self.__workspace = os.path.join(self.__root, 'workspace')
+        os.makedirs(self.__workspace)
+        self.__transcript_path = os.path.join(self.__root, 'events.jsonl')
+        self.__payload = {
             'sessionId': '00000000-0000-4000-8000-000000000000',
             'timestamp': _HOOK_TIMESTAMP,
-            'cwd': self.workspace,
-            'transcriptPath': self.transcript_path,
+            'cwd': self.__workspace,
+            'transcriptPath': self.__transcript_path,
         }
 
-    def write_file(self, path, content):
-        full_path = os.path.join(self.workspace, path)
+    def __write_file(self, path, content):
+        full_path = os.path.join(self.__workspace, path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
         with open(full_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(content)
 
-    def invoke(self, events=None, payload=None, raw=None, arguments=()):
+    def __invoke(self, events=None, payload=None, raw=None, arguments=()):
         if events is not None:
-            with open(self.transcript_path, 'w', encoding='utf-8', newline='\n') as file:
+            with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
                 for event in [*events, _agent_stop_start()]:
                     file.write(json.dumps(event, ensure_ascii=False) + '\n')
         if raw is None:
-            raw = json.dumps(self.payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
+            raw = json.dumps(self.__payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path, *arguments], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
         )
 
-    def created(self, path, content, response='実装した。'):
+    def __created(self, path, content, response='実装した。'):
         # ファイルを作成した依頼のトランスクリプト。
-        self.write_file(path, content)
+        self.__write_file(path, content)
         return [_user('実装して'), _tool('create', {'path': path, 'file_text': content}), _assistant(response)]
 
-    def assert_silent(self, result):
+    def __assert_silent(self, result):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
 
-    def assert_block(self, result, *fragments):
+    def __assert_block(self, result, *fragments):
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
         self.assertEqual(result.stderr, b'')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
@@ -115,12 +115,12 @@ class DetectStubPlaceholdersTests(unittest.TestCase):
             ('foo.js', '/* implement later */', 'deferred implementation comment'),
         ]:
             with self.subTest(line=line):
-                events = self.created(path, f'line one\n    {line}\n')
-                self.assert_block(self.invoke(events), f'- {path}: {kind} ("{line}")')
+                events = self.__created(path, f'line one\n    {line}\n')
+                self.__assert_block(self.__invoke(events), f'- {path}: {kind} ("{line}")')
 
     def test_edit_and_patch_arguments(self):
-        self.write_file('a.cs', 'int F() {\n    throw new NotImplementedException();\n}\n')
-        self.write_file('b.py', 'def f():\n    raise NotImplementedError\n')
+        self.__write_file('a.cs', 'int F() {\n    throw new NotImplementedException();\n}\n')
+        self.__write_file('b.py', 'def f():\n    raise NotImplementedError\n')
         patch = '*** Begin Patch\n*** Update File: b.py\n def f():\n-    return 1\n+    raise NotImplementedError\n*** End Patch'
         events = [
             _user('実装して'),
@@ -130,13 +130,13 @@ class DetectStubPlaceholdersTests(unittest.TestCase):
             _tool('apply_patch', patch, call_id='c2'),
             _assistant('Done.'),
         ]
-        self.assert_block(self.invoke(events), '- a.cs: NotImplementedException', '- b.py: NotImplementedError')
+        self.__assert_block(self.__invoke(events), '- a.cs: NotImplementedException', '- b.py: NotImplementedError')
 
     def test_ignores_existing_removed_and_excluded_placeholders(self):
-        self.write_file('kept.cs', 'throw new NotImplementedException();\nint x;\n')
-        self.write_file('fixed.py', 'def f():\n    return 1\n')
+        self.__write_file('kept.cs', 'throw new NotImplementedException();\nint x;\n')
+        self.__write_file('fixed.py', 'def f():\n    return 1\n')
         for path in ('notes.md', 'config.json'):
-            self.write_file(path, '# TODO: later\n')
+            self.__write_file(path, '# TODO: later\n')
         events = [
             _user('直して'),
             # 置換前の内容にもある行は、元からあるものとみなす。
@@ -154,10 +154,10 @@ class DetectStubPlaceholdersTests(unittest.TestCase):
             _tool('bash', {'command': 'echo "# TODO" > x.py'}, 'c7'),
             _assistant('直した。'),
         ]
-        self.assert_silent(self.invoke(events))
+        self.__assert_silent(self.__invoke(events))
 
     def test_ignores_fixme_comments(self):
-        self.assert_silent(self.invoke(self.created('a.py', '# FIXME: overflow when n is negative\n')))
+        self.__assert_silent(self.__invoke(self.__created('a.py', '# FIXME: overflow when n is negative\n')))
 
     def test_allows_disclosed_placeholders(self):
         for response in (
@@ -168,53 +168,53 @@ class DetectStubPlaceholdersTests(unittest.TestCase):
             'I left a stub for the parser.',
         ):
             with self.subTest(response=response):
-                self.assert_silent(self.invoke(self.created('a.cs', 'throw new NotImplementedException();\n', response)))
+                self.__assert_silent(self.__invoke(self.__created('a.cs', 'throw new NotImplementedException();\n', response)))
 
     def test_only_latest_request_is_checked(self):
         events = [
-            *self.created('a.cs', 'throw new NotImplementedException();\n', 'Parseは未実装。'),
+            *self.__created('a.cs', 'throw new NotImplementedException();\n', 'Parseは未実装。'),
             _user('READMEを直して'),
             _assistant('直した。'),
         ]
-        self.assert_silent(self.invoke(events))
+        self.__assert_silent(self.__invoke(events))
 
     def test_blocks_only_once_per_request(self):
-        events = self.created('a.cs', 'throw new NotImplementedException();\n')
-        reason = self.assert_block(self.invoke(events))
-        self.assert_silent(self.invoke([*events, _user(reason, delivery='queued'), _assistant('実装した。')]))
+        events = self.__created('a.cs', 'throw new NotImplementedException();\n')
+        reason = self.__assert_block(self.__invoke(events))
+        self.__assert_silent(self.__invoke([*events, _user(reason, delivery='queued'), _assistant('実装した。')]))
         # 割り込みのメッセージは依頼の区切りにならない。
-        self.assert_block(self.invoke([*events, _user('急いで', delivery='queued'), _assistant('実装した。')]))
+        self.__assert_block(self.__invoke([*events, _user('急いで', delivery='queued'), _assistant('実装した。')]))
 
     def test_skips_subagents_and_turns_without_response(self):
-        self.assert_silent(self.invoke(
-            self.created('a.cs', 'throw new NotImplementedException();\n'), payload={**self.payload, 'agentId': 'sub'},
+        self.__assert_silent(self.__invoke(
+            self.__created('a.cs', 'throw new NotImplementedException();\n'), payload={**self.__payload, 'agentId': 'sub'},
         ))
-        self.assert_silent(self.invoke([_user('実装して'), _tool('create', {'path': 'a.cs', 'file_text': 'x'})]))
+        self.__assert_silent(self.__invoke([_user('実装して'), _tool('create', {'path': 'a.cs', 'file_text': 'x'})]))
 
     def test_limits_findings(self):
         content = ''.join(f'# TODO item {index}\n' for index in range(12))
-        reason = self.assert_block(self.invoke(self.created('a.py', content)), 'item 9')
+        reason = self.__assert_block(self.__invoke(self.__created('a.py', content)), 'item 9')
         self.assertNotIn('item 10', reason)
 
     def test_invalid_input(self):
-        self.write_file('a.txt', '')
+        self.__write_file('a.txt', '')
         for name, raw in [
             ('empty', b''),
             ('broken json', b'{'),
             ('invalid utf-8', b'\xff'),
             ('not object', b'[]'),
-            ('missing cwd', json.dumps({'transcriptPath': self.transcript_path}).encode('utf-8')),
-            ('relative cwd', json.dumps({'cwd': 'x', 'transcriptPath': self.transcript_path}).encode('utf-8')),
-            ('missing transcript', json.dumps({'cwd': self.workspace}).encode('utf-8')),
-            ('transcript not file', json.dumps({'cwd': self.workspace, 'transcriptPath': self.workspace}).encode('utf-8')),
+            ('missing cwd', json.dumps({'transcriptPath': self.__transcript_path}).encode('utf-8')),
+            ('relative cwd', json.dumps({'cwd': 'x', 'transcriptPath': self.__transcript_path}).encode('utf-8')),
+            ('missing transcript', json.dumps({'cwd': self.__workspace}).encode('utf-8')),
+            ('transcript not file', json.dumps({'cwd': self.__workspace, 'transcriptPath': self.__workspace}).encode('utf-8')),
         ]:
             with self.subTest(name=name):
-                result = self.invoke(raw=raw)
+                result = self.__invoke(raw=raw)
                 self.assertEqual((result.returncode, result.stdout), (2, b''), name)
                 self.assertIn(b'Failed to detect stub placeholders:', result.stderr)
-        with open(self.transcript_path, 'w', encoding='utf-8') as file:
+        with open(self.__transcript_path, 'w', encoding='utf-8') as file:
             file.write('{broken\n')
-        result = self.invoke()
+        result = self.__invoke()
         self.assertEqual((result.returncode, result.stdout), (2, b''))
 
     def test_invalid_definitions(self):
@@ -234,11 +234,11 @@ class DetectStubPlaceholdersTests(unittest.TestCase):
             })),
         ]:
             with self.subTest(name=name):
-                definitions_path = os.path.join(self.root, 'definitions.json')
+                definitions_path = os.path.join(self.__root, 'definitions.json')
                 with open(definitions_path, 'w', encoding='utf-8') as file:
                     file.write(content)
-                result = self.invoke(
-                    self.created('a.cs', 'x\n'), arguments=('--definitions-path', definitions_path),
+                result = self.__invoke(
+                    self.__created('a.cs', 'x\n'), arguments=('--definitions-path', definitions_path),
                 )
                 self.assertEqual((result.returncode, result.stdout), (2, b''), name)
                 self.assertIn(b'Failed to detect stub placeholders:', result.stderr)
