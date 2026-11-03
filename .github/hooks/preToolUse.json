@@ -88,6 +88,13 @@
       },
       {
         "type": "command",
+        "matcher": "(?:functions\\.)?(?:bash|powershell)",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-snapshot-rubber-stamp/block-snapshot-rubber-stamp.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-snapshot-rubber-stamp/block-snapshot-rubber-stamp.py",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
         "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-tautological-tests/block-tautological-tests.py",
         "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-tautological-tests/block-tautological-tests.py",
