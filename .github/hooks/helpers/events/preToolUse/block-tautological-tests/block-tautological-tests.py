@@ -5,6 +5,7 @@ import io
 import json
 import os
 import re
+import runpy
 import sqlite3
 import sys
 import tempfile
@@ -13,13 +14,6 @@ from contextlib import closing
 from typing import cast
 
 
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-# 置換前の内容を表す引数。書き込む内容ではないため検査せず、既存の内容として照合に使う。
-REMOVED_TEXT_KEYS = {'old_str', 'old_string'}
-# 書き込む内容ではない引数。
-IGNORED_KEYS = {'path', 'command'}
-PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
 TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
 
 # 2つの値を比べるアサーションの呼び出し。最初の2引数を比べる。
@@ -95,64 +89,6 @@ def load_test_file_patterns(path):
     ):
         raise ValueError(f'test file definitions require a non-empty array of non-empty strings for {TEST_FILE_PATTERNS_KEY}.')
     return compile_patterns(patterns, TEST_FILE_PATTERNS_KEY)
-
-
-def get_tool_args(raw_tool_args):
-    # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
-
-
-def collect_strings(value, ignored_keys=frozenset()):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            if key not in ignored_keys:
-                yield from collect_strings(item, ignored_keys)
-    elif isinstance(value, list):
-        for item in value:
-            yield from collect_strings(item, ignored_keys)
-
-
-def get_patch_writes(text):
-    # パッチをファイルごとに分け、追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。
-    writes = []
-    for line in text.splitlines():
-        match = PATCH_FILE_PATTERN.match(line)
-        if match:
-            writes.append({'path': match.group(2), 'written': [], 'removed': [], 'deleted': match.group(1) == 'Delete'})
-        elif writes and line.startswith('+'):
-            writes[-1]['written'].append(line[1:])
-        elif writes and line.startswith('-'):
-            writes[-1]['removed'].append(line[1:])
-    return [
-        {'path': write['path'], 'written': '\n'.join(write['written']), 'removed': '\n'.join(write['removed'])}
-        for write in writes if not write['deleted']
-    ]
-
-
-def get_writes(tool_name, tool_args):
-    # 戻り値は {path, written（書き込む内容）, removed（置換前の内容）} のリスト。
-    if tool_name == 'apply_patch':
-        return [write for text in collect_strings(tool_args) for write in get_patch_writes(text)]
-    if not isinstance(tool_args, dict):
-        return []
-    # str_replace_editorのviewは閲覧なので対象外とする。
-    if tool_name == 'str_replace_editor' and tool_args.get('command') == 'view':
-        return []
-    path = tool_args.get('path')
-    if not isinstance(path, str) or not path.strip():
-        return []
-    return [{
-        'path': path,
-        'written': '\n'.join(collect_strings(tool_args, IGNORED_KEYS | REMOVED_TEXT_KEYS)),
-        'removed': '\n'.join(text for key in REMOVED_TEXT_KEYS for text in collect_strings(tool_args.get(key))),
-    }]
 
 
 def read_existing(path):
@@ -454,29 +390,32 @@ def main(arguments=None):
 
         real_cwd = os.path.realpath(cwd)
         candidates = []
-        tool_name = tool_name.removeprefix('functions.')
-        if tool_name in EDIT_TOOL_NAMES:
-            for write in get_writes(tool_name, get_tool_args(hook_input['toolArgs'])):
-                path = os.path.realpath(os.path.join(cwd, write['path']))
-                # テストファイルの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
-                display_path = get_display_path(path, real_cwd)
-                if not is_test_file(test_file_patterns, display_path):
-                    continue
-                # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-                file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
-                current = (read_existing(path) if os.path.isfile(path) else None) or ''
-                context = '\n'.join([write['removed'], current])
+        # 編集ツールの引数の解析は、共通utilityで行う。
+        extract_edit_tool_changes = runpy.run_path(os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+            'utilities', 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+        ))['extract_edit_tool_changes']
+        for change in extract_edit_tool_changes(tool_name, hook_input['toolArgs']):
+            path = os.path.realpath(os.path.join(cwd, change['path']))
+            # テストファイルの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
+            display_path = get_display_path(path, real_cwd)
+            if not is_test_file(test_file_patterns, display_path):
+                continue
+            # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
+            file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
+            current = (read_existing(path) if os.path.isfile(path) else None) or ''
+            context = '\n'.join([change['removed'], current])
 
-                tautologies = find_tautologies(write['written'], context)
-                if tautologies:
-                    candidates.append((file_key, TAUTOLOGY, TAUTOLOGY_REASON.format(
-                        file=display_path, assertions=format_findings(tautologies),
-                    )))
-                self_mocks = find_self_mocks(write['written'], context)
-                if self_mocks:
-                    candidates.append((file_key, SELF_MOCK, SELF_MOCK_REASON.format(
-                        file=display_path, mocks=format_findings(self_mocks),
-                    )))
+            tautologies = find_tautologies(change['written'], context)
+            if tautologies:
+                candidates.append((file_key, TAUTOLOGY, TAUTOLOGY_REASON.format(
+                    file=display_path, assertions=format_findings(tautologies),
+                )))
+            self_mocks = find_self_mocks(change['written'], context)
+            if self_mocks:
+                candidates.append((file_key, SELF_MOCK, SELF_MOCK_REASON.format(
+                    file=display_path, mocks=format_findings(self_mocks),
+                )))
 
         reasons = []
         if candidates:

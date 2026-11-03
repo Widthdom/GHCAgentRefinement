@@ -9,8 +9,9 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 処理詳細
 1. [block-test-weakening](../block-test-weakening/README.md) hookの [test-weakening-definitions.json](../block-test-weakening/test-weakening-definitions.json) から、テストファイルとみなすパスの正規表現（`testFilePatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から書き込む内容と対象のファイルを特定する。
-   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・置換前の内容（`old_str`）を除く引数の文字列を書き込む内容とする（`str_replace_editor` の `view` は除く）。
+   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・置換前の内容（`old_str`）を除く引数の文字列を書き込む内容とする（`str_replace_editor` の `view`・`undo_edit` は除く）。
    - `apply_patch`：パッチの追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とし、`*** Add File:`・`*** Update File:` の行から対象を特定する。
+   - 各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
 3. テストファイルでなければ何もしない。
 4. 書き込む内容から2つの値を比べるアサーションを取り出し、比べる2つの式が空白を除いて同じなら自己比較とみなす。変数は、置換前の内容・ファイルの現在の内容・書き込む内容で1回だけ代入されたものに限り、代入された式に置き換えて比べる（`expected = f(x)` の後の `assert f(x) == expected` など）。
 5. Pythonのテスト関数 `test_<名前>...` の中（デコレーターを含む）で、`<名前>` 自身を差し替えるモックを、テスト対象の差し替えとみなす（`test_parse_empty` での `patch("app.parse")` など）。

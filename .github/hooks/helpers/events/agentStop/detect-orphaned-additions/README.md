@@ -10,8 +10,9 @@ agentStop（エージェントの応答終了時）
 1. [orphaned-addition-definitions.json](./orphaned-addition-definitions.json) から、参照に数えないファイルのパス（`ignoredReferenceFilePatterns`）、対象外の名前（`excludedNamePatterns`）、言語ごとの定義（`languages`）を読み込む。また、[block-test-weakening](../../preToolUse/block-test-weakening/README.md) hookの [test-weakening-definitions.json](../../preToolUse/block-test-weakening/test-weakening-definitions.json) から、テストファイルのパス（`testFilePatterns`）を読み込む。いずれかのファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（Copilotはトランスクリプトへ非同期に追記するため、発動直後は最終応答が未書き込みのことがある）。
 3. ユーザーの最新の依頼以降について、編集系ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）が書き込む内容と、置換前の内容を集める。
-   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・`old_str` を除く引数の文字列を書き込む内容、`old_str` を置換前の内容とする（`str_replace_editor` の `view` は除く）。
+   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・`old_str` を除く引数の文字列を書き込む内容、`old_str` を置換前の内容とする（`str_replace_editor` の `view`・`undo_edit` は除く）。
    - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。
+   - 各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
 4. `git rev-parse --show-toplevel` でリポジトリルートを特定する。gitがない、またはリポジトリ外の場合は何もせず正常終了する。
 5. リポジトリ内のファイルのうち、リポジトリルートからの相対パス（`/` 区切り）が `languages` の `filePattern` に一致し、テストファイルでないものについて、書き込む内容から `definitionPatterns` に一致する定義を探し、名前付きグループ `name` を定義名とする。次の定義は除く。
    - 定義名が `excludedNamePatterns` に一致するもの
