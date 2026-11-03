@@ -137,7 +137,7 @@ def main():
             return 0
         helpers = runpy.run_path(os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'known-files-state.py',
+            'utilities', 'known-files-state', 'known-files-state.py',
         ))
         tool_args = helpers['get_tool_args'](hook_input['toolArgs'])
         if tool_name == 'apply_patch' and not isinstance(tool_args, (str, dict)):

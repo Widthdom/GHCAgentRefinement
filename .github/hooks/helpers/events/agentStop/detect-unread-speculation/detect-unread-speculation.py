@@ -62,7 +62,7 @@ def get_turn_summary(transcript_path, state):
     already_requested = False
     command_texts = []
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects.py')
+        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -220,12 +220,12 @@ def main():
 
     try:
         # 記録側のpostToolUse hookと状態の形式・保存先を共有する。
-        state = runpy.run_path(str(Path(__file__).resolve().parents[3] / 'utilities' / 'known-files-state.py'))
+        state = runpy.run_path(str(Path(__file__).resolve().parents[3] / 'utilities' / 'known-files-state' / 'known-files-state.py'))
         state_path = state['get_state_path'](hook_input.get('sessionId'))
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答とツール実行を書き込み済みにする。
         runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event.py')
+            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, already_requested, command_texts = get_turn_summary(transcript_path, state)

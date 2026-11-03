@@ -10,7 +10,7 @@ postToolUse（ツール `bash`・`powershell`・`web_fetch` が成功した直�
 1. `bash`・`powershell` では、コマンドを `&&`・`||`・`;`・`|`・改行で分け、それぞれを[問い合わせとみなすコマンド](#検出する内容)と照合して、エコシステムと名前を取り出す。`name@1.2.3`・`name==1.2.3` のようなバージョンの指定は除く。
 2. 出力（`toolResult.textResultForLlm`）に見つからない旨（`No results`・`Not Found`・`E404`・`No matching distribution`・`NU1101`・`No module named` など）があれば記録しない。それ以外は、出力に名前を含むものだけを記録する。`python -c "import x"` は成功しても何も出力しないため、見つからない旨がないことだけで記録する。
 3. `web_fetch` では、URLが[パッケージのページ](#検出する内容)なら名前を取り出す。出力が空、または先頭2000文字に `404`・`Not Found`・`does not exist` があれば記録しない。
-4. 記録は [verified-packages-state.py](../../../utilities/verified-packages-state.py) で、エコシステムと正規化した名前の組として保存する。
+4. 記録は [verified-packages-state.py](../../../utilities/verified-packages-state/verified-packages-state.py) で、エコシステムと正規化した名前の組として保存する。
 
 ## 検出する内容
 |エコシステム|問い合わせとみなすコマンド|パッケージのページ|

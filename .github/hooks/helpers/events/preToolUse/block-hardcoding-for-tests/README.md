@@ -53,5 +53,5 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 備考
 - テストが失敗したとき、エージェントがテストの入力に対してだけ期待値を返す分岐を実装に加え、一般的な処理を直さずにテストを成功させる事故を、書き込む前に防ぐためのhook。テストを書き換えないため、[block-test-weakening](../block-test-weakening/README.md) hookと [block-goalpost-moving](../block-goalpost-moving/README.md) hookでは検出できない。
 - テストファイルの判定はblock-test-weakening hookと定義を共有し、二重管理しない。
-- 状態は [assertion-failure-values-state.py](../../../utilities/assertion-failure-values-state.py) でrecord-test-failure-values hook・block-goalpost-moving hookと共有する。値とファイルパスは保存せず、照合用のSHA-256と拒否済みのファイルだけを保存する。拒否済みのファイルはblock-goalpost-moving hookとは別に記録する。テストの失敗が記録されていなければ状態ファイルを作らない。
+- 状態は [assertion-failure-values-state.py](../../../utilities/assertion-failure-values-state/assertion-failure-values-state.py) でrecord-test-failure-values hook・block-goalpost-moving hookと共有する。値とファイルパスは保存せず、照合用のSHA-256と拒否済みのファイルだけを保存する。拒否済みのファイルはblock-goalpost-moving hookとは別に記録する。テストの失敗が記録されていなければ状態ファイルを作らない。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。

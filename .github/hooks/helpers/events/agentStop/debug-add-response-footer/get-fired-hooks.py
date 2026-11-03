@@ -31,7 +31,7 @@ def get_turn_started_at_ms(transcript_path):
     turn_started_at_ms = 0
     prompt_hook_started_at = None
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects.py')
+        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -54,7 +54,7 @@ def get_turn_started_at_ms(transcript_path):
 
 def get_fired_hooks(transcript_path, session_id):
     return runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'hook-activity-state.py')
+        str(Path(__file__).resolve().parents[3] / 'utilities' / 'hook-activity-state' / 'hook-activity-state.py')
     )['get_fired_hooks'](session_id, get_turn_started_at_ms(transcript_path), EXCLUDED_EVENTS)
 
 

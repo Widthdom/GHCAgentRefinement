@@ -16,7 +16,7 @@ hooks_directory = os.path.dirname(helpers_directory)
 sys.path.insert(0, os.path.join(hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
-state = runpy.run_path(os.path.join(helpers_directory, 'utilities', 'verified-packages-state.py'))
+state = runpy.run_path(os.path.join(helpers_directory, 'utilities', 'verified-packages-state', 'verified-packages-state.py'))
 
 CSPROJ = (
     '<Project Sdk="Microsoft.NET.Sdk">\n'

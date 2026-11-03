@@ -36,7 +36,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 前提条件
 - 特別なプロンプト指定は不要。
-- 確認の記録は [record-verified-packages](../../postToolUse/record-verified-packages/README.md) hookが書き込む。状態は [verified-packages-state.py](../../../utilities/verified-packages-state.py) で共有し、本hookは読み取りだけを行う。
+- 確認の記録は [record-verified-packages](../../postToolUse/record-verified-packages/README.md) hookが書き込む。状態は [verified-packages-state.py](../../../utilities/verified-packages-state/verified-packages-state.py) で共有し、本hookは読み取りだけを行う。
 - gitがない、またはリポジトリ外の場合は、ファイルの一覧の代わりにcwd配下を歩く（`node_modules`・`.venv`・`bin`・`obj` などは除く）。
 
 ## 例外

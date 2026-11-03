@@ -123,7 +123,7 @@ def main():
         # 記録側のuserPromptSubmitted hookと状態の形式・保存先を共有する。
         state = runpy.run_path(os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'hook-change-request-state.py',
+            'utilities', 'hook-change-request-state', 'hook-change-request-state.py',
         ))
 
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')

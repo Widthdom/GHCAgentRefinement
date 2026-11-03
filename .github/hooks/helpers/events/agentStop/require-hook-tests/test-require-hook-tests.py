@@ -59,7 +59,7 @@ class RequireHookTestsTests(unittest.TestCase):
             for filename in files:
                 self.touch(os.path.join(directory, filename))
         for path in (
-            ('helpers', 'utilities', 'shared.py'),
+            ('helpers', 'utilities', 'shared', 'shared.py'),
             ('helpers', 'runner', 'run-hook.py'),
             ('helpers', 'runner', 'test-run-hook.py'),
             ('helpers', 'runner', 'README.md'),
@@ -178,7 +178,7 @@ class RequireHookTestsTests(unittest.TestCase):
             [*edit('e1', alpha), *edit('e2', beta), *shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
             [*edit('e1', alpha), *shell('s1', 'cd .github/hooks/helpers/events/preToolUse/alpha && python3 test-alpha.py -v', 0)],
             [*edit('e1', '.github/hooks/preToolUse.json'), *shell('s1', 'python3 .github/hooks/tests/test-hook-configurations.py', 0)],
-            [*edit('e1', '.github/hooks/helpers/utilities/shared.py'), *shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
+            [*edit('e1', '.github/hooks/helpers/utilities/shared/shared.py'), *shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
             [*edit('e1', '.github/hooks/helpers/runner/run-hook.py'),
              *shell('s1', 'python3 .github/hooks/helpers/runner/test-run-hook.py', 0)],
             [*edit('e1', '.github/hooks/helpers/runner/run-hook.py'), *shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
@@ -233,7 +233,7 @@ class RequireHookTestsTests(unittest.TestCase):
         events = [
             user('直して'),
             *tool('p1', 'apply_patch', patch),
-            *edit('e1', '.github/hooks/helpers/utilities/shared.py'),
+            *edit('e1', '.github/hooks/helpers/utilities/shared/shared.py'),
             *edit('e2', '.github/hooks/preToolUse.json'),
             *edit('e3', '.github/hooks/tests/helpers/hook_test_output.py'),
             # 一括実行は共通出力処理のテストを含まない。

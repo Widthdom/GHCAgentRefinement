@@ -24,4 +24,4 @@ userPromptSubmitted（メインエージェントへの依頼時）
 
 ## 備考
 - [block-hook-tampering](../../preToolUse/block-hook-tampering/README.md) hookが使う記録。単独では何も出力しない。preToolUseの入力にはユーザーの依頼もトランスクリプトのパスも含まれないため、依頼の時点で記録しておく。
-- 状態は [hook-change-request-state.py](../../../utilities/hook-change-request-state.py) でblock-hook-tampering hookと共有する。プロンプトの内容は保存せず、`{"updatedAt":"...","permitted":true}` だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/hook-change-requests/<セッションID>.json` に保存する。hookに触れない依頼では状態ファイルを作らない。
+- 状態は [hook-change-request-state.py](../../../utilities/hook-change-request-state/hook-change-request-state.py) でblock-hook-tampering hookと共有する。プロンプトの内容は保存せず、`{"updatedAt":"...","permitted":true}` だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/hook-change-requests/<セッションID>.json` に保存する。hookに触れない依頼では状態ファイルを作らない。

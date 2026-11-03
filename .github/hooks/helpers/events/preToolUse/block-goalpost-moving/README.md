@@ -49,5 +49,5 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - テストが失敗したとき、エージェントが実装を直さずに、期待値をテスト対象の現在の出力に書き換えて成功させる事故を、書き込む前に防ぐためのhook。アサーションを消さずに済むため、[block-test-weakening](../block-test-weakening/README.md) hookでは検出できない。
 - テストファイルの判定はblock-test-weakening hookと定義を共有し、二重管理しない。
 - 実装に期待値を返す分岐を加えてテストを通す編集は、[block-hardcoding-for-tests](../block-hardcoding-for-tests/README.md) hookが拒否する。
-- 状態は [assertion-failure-values-state.py](../../../utilities/assertion-failure-values-state.py) で [record-test-failure-values hook](../../postToolUse/record-test-failure-values/README.md) ・ [block-hardcoding-for-tests hook](../../preToolUse/block-hardcoding-for-tests/README.md) と共有する。値とファイルパスは保存せず、照合用のSHA-256と拒否済みのファイルだけを保存する。テストの失敗が記録されていなければ状態ファイルを作らない。
+- 状態は [assertion-failure-values-state.py](../../../utilities/assertion-failure-values-state/assertion-failure-values-state.py) で [record-test-failure-values hook](../../postToolUse/record-test-failure-values/README.md) ・ [block-hardcoding-for-tests hook](../../preToolUse/block-hardcoding-for-tests/README.md) と共有する。値とファイルパスは保存せず、照合用のSHA-256と拒否済みのファイルだけを保存する。テストの失敗が記録されていなければ状態ファイルを作らない。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。

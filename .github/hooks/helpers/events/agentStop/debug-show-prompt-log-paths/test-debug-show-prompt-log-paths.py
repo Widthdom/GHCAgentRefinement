@@ -201,12 +201,14 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
         reporter_directory = os.path.join(copied_hooks, 'helpers', 'events', 'agentStop', 'debug-show-prompt-log-paths')
         logger_directory = os.path.join(copied_hooks, 'helpers', 'events', 'userPromptTransformed', 'debug-log-transformed-prompt')
         utilities = os.path.join(copied_hooks, 'helpers', 'utilities')
-        for directory in (reporter_directory, logger_directory, utilities):
+        for directory in (reporter_directory, logger_directory):
             os.makedirs(directory)
         for name in ('debug-show-prompt-log-paths.py', 'get-prompt-log-paths.py'):
             shutil.copyfile(os.path.join(script_directory, name), os.path.join(reporter_directory, name))
-        for name in ('get-debug-mode.py', 'read-jsonl-objects.py'):
-            shutil.copyfile(os.path.join(hooks_directory, 'helpers', 'utilities', name), os.path.join(utilities, name))
+        for name in ('get-debug-mode', 'read-jsonl-objects'):
+            os.makedirs(os.path.join(utilities, name))
+            shutil.copyfile(os.path.join(hooks_directory, 'helpers', 'utilities', name, f'{name}.py'),
+                            os.path.join(utilities, name, f'{name}.py'))
         logger = 'debug-log-transformed-prompt.py'
         shutil.copyfile(os.path.join(hooks_directory, 'helpers', 'events', 'userPromptTransformed',
                                     'debug-log-transformed-prompt', logger), os.path.join(logger_directory, logger))

@@ -4,7 +4,7 @@
    - 入力の項目は[公式の入出力仕様](https://docs.github.com/en/copilot/reference/hooks-reference)で確認する。セッションのイベント履歴（`events.jsonl`）にある `hook.start` の `input` は、hookの標準入力と形式が異なる場合があるため、入力仕様の根拠にしない。
    - preToolUse・postToolUseには、ツール呼び出し1件の名前（`toolName`）と引数（`toolArgs`）が渡される。`toolCalls` 配列は渡されない。
 2. hook定義はイベントごとに `.github/hooks/<event-name>.json` の配列にまとめ、要素を実行スクリプトパスの昇順に並べる。
-3. hookのファイルは `.github/hooks/helpers/events/<event-name>/<hook-name>/` に置き、実行スクリプトは `<hook-name>.py` とする。複数hookで共有する補助スクリプトは [.github/hooks/helpers/utilities/](../../../hooks/helpers/utilities/) に置く。
+3. hookのファイルは `.github/hooks/helpers/events/<event-name>/<hook-name>/` に置き、実行スクリプトは `<hook-name>.py` とする。複数hookで共有する補助スクリプトは [.github/hooks/helpers/utilities/](../../../hooks/helpers/utilities/) の `<utility-name>/<utility-name>.py` に置き、同じフォルダーにテスト `test-<utility-name>.py` を置く。
 4. JSONのコマンドは、[hookランナー](../../../hooks/helpers/runner/README.md) に実行スクリプトのリポジトリルート相対パスを渡して起動する。`bash` には `python3 .github/hooks/helpers/runner/run-hook.py <実行スクリプト>`、`powershell` には `python .github/hooks/helpers/runner/run-hook.py <実行スクリプト>` を記述する。Pythonが無い環境でも動く必要があるhook（`check-python`、`block-commands`）だけは、ランナーを通さず `.sh`・`.cmd` から起動する。
 5. 各hookのフォルダーに `README.md` を作成し、発動条件、処理概要（hookが何をするかの1〜2文の説明）、処理詳細の順に記載する。前提条件、例外（意図して対象外・許可とするもの）、制約と限界（検出漏れ・誤検知・拒否の回数など）がある場合は、処理詳細や備考に混ぜず、それぞれ `## 前提条件`・`## 例外`・`## 制約と限界` の章に分けて、検出内容などの詳細の章の後、背景・備考の前に記載する。設計背景は必要な場合だけ記載する。
 6. Python 3.14対応の構文・標準ライブラリAPIを使う。最低対応・推奨は3.14とし、新規インストールには3.14系の最新パッチ版を案内する。
@@ -14,7 +14,7 @@
    - テストの期待値は `/` 区切りで書き、実行するOSによって期待値を変えない。
    - `.ps1` では、`Resolve-Path -Relative` などの結果に `-replace '\\', '/'` を付けて変換する。
 8. 標準入力はバイト列として読み、UTF-8で復号する。標準出力・標準エラーはBOMなしのUTF-8で出力する。異常終了は原因を標準エラーに出力して `sys.exit(2)`、正常終了とスキップは `sys.exit(0)` または正常なスクリプト終端にする。Unicode escapeを使う場合は、復号した文字列を近くのコメントに記載する。
-9. デバッグ専用hookには `debug-` 接頭辞を付ける。状態形式と保存先は [set-debug-mode.py](../../../hooks/helpers/events/userPromptSubmitted/set-debug-mode/set-debug-mode.py) 、状態の読み取りには [get-debug-mode.py](../../../hooks/helpers/utilities/get-debug-mode.py) の `get_debug_mode(session_id)` を使う。入力のセッションIDに対応する状態を読み、ファイルがない場合または `enabled` が `true` でない場合は正常終了する。
+9. デバッグ専用hookには `debug-` 接頭辞を付ける。状態形式と保存先は [set-debug-mode.py](../../../hooks/helpers/events/userPromptSubmitted/set-debug-mode/set-debug-mode.py) 、状態の読み取りには [get-debug-mode.py](../../../hooks/helpers/utilities/get-debug-mode/get-debug-mode.py) の `get_debug_mode(session_id)` を使う。入力のセッションIDに対応する状態を読み、ファイルがない場合または `enabled` が `true` でない場合は正常終了する。
 10. 個別hookのテストは、hookのフォルダーに `test-<hook-name>.py` として置く。JSON構文、通常実行、条件を満たさない場合のスキップ、不正入力時の動作と終了コードを検証する。拒否hookでは許可と拒否の両方を検証する。
     - `unittest.TestCase` のテストメソッドとして記述する。[.github/hooks/tests/helpers](../../../hooks/tests/helpers) を `sys.path` に追加して [hook_test_output.py](../../../hooks/tests/helpers/hook_test_output.py) を読み込み、`__main__` 内で `run_tests()` を呼ぶ。import時にはテストを実行せず、一時領域は `setUp` と `addCleanup` などで管理する。
     - 一時領域に作るパスには、大文字小文字だけが違う名前（`App/` と `app/` など）を混ぜない。大文字小文字を区別しないファイルシステム（Windows・macOSの既定）では同じパスになり、OSによって結果が変わる。

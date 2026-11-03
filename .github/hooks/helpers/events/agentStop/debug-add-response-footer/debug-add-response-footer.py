@@ -12,7 +12,7 @@ from typing import cast
 def _get_last_assistant_msg(transcript_path):
     last_assistant_msg = None
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects.py')
+        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         if event.get('type') != 'assistant.message':
             continue
@@ -39,7 +39,7 @@ def _get_footer_correction(transcript_path, session_id, last_assistant_msg):
     script_directory = Path(__file__).resolve().parent
 
     current_jst = runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'get-current-jst.py')
+        str(Path(__file__).resolve().parents[3] / 'utilities' / 'get-current-jst' / 'get-current-jst.py')
     )['current_jst']
 
     used_hooks = runpy.run_path(str(script_directory / 'get-used-hooks.py'))['get_used_hooks'](
@@ -145,7 +145,7 @@ def main():
         # C# のdelegateのように、外部スクリプトから関数を取得する。
         get_debug_mode = runpy.run_path(
             # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'get-debug-mode.py')
+            str(Path(__file__).resolve().parents[3] / 'utilities' / 'get-debug-mode' / 'get-debug-mode.py')
         )['get_debug_mode']
     except (OSError, SyntaxError, KeyError) as ex:
         # f'...' は formatted string literalのことでf-stringとも呼ばれる。文字列の中に {式} の値を埋め込める書き方。C#の $"..." に相当する。
@@ -179,7 +179,7 @@ def main():
         # GitHub Copilot はトランスクリプトに非同期で追記するため、agentStop hookが起動した直後は、最終応答がまだ書き込まれていない可能性がある。
         # 自身のhook.startが書き込まれるまで最大5秒待ち、それより前に発生した最終応答を書き込み済みにする。
         runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event.py')
+            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg = _get_last_assistant_msg(transcript_path)

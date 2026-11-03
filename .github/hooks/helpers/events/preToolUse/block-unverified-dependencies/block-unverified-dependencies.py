@@ -475,7 +475,7 @@ def main():
             raise ValueError('hook input must be a JSON object.')
         state = runpy.run_path(os.path.join(
             os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'verified-packages-state.py',
+            'utilities', 'verified-packages-state', 'verified-packages-state.py',
         ))
         state_path = state['get_state_path'](hook_input.get('sessionId'))
         cwd = hook_input.get('cwd')
