@@ -1,0 +1,102 @@
+{
+  "manifests": [
+    {
+      "name": "npm package manifest",
+      "filePattern": "^package\\.json$",
+      "format": "json",
+      "dependencyKeys": [
+        "dependencies", "devDependencies", "optionalDependencies", "peerDependencies", "bundleDependencies",
+        "overrides", "resolutions", "pnpm.overrides", "workspaces"
+      ],
+      "lockFiles": [
+        {"file": "package-lock.json", "command": "npm install"},
+        {"file": "npm-shrinkwrap.json", "command": "npm install"},
+        {"file": "yarn.lock", "command": "yarn install"},
+        {"file": "pnpm-lock.yaml", "command": "pnpm install"},
+        {"file": "bun.lock", "command": "bun install"},
+        {"file": "bun.lockb", "command": "bun install"}
+      ]
+    },
+    {
+      "name": "Composer manifest",
+      "filePattern": "^composer\\.json$",
+      "format": "json",
+      "dependencyKeys": ["require", "require-dev", "replace", "conflict", "provide"],
+      "lockFiles": [
+        {"file": "composer.lock", "command": "composer update --lock"}
+      ]
+    },
+    {
+      "name": "Python project manifest",
+      "filePattern": "^pyproject\\.toml$",
+      "format": "toml",
+      "dependencyKeys": [
+        "project.dependencies", "project.optional-dependencies", "dependency-groups",
+        "tool.poetry.dependencies", "tool.poetry.dev-dependencies", "tool.poetry.group.*.dependencies",
+        "tool.uv.sources", "tool.uv.dev-dependencies", "tool.pdm.dev-dependencies"
+      ],
+      "lockFiles": [
+        {"file": "uv.lock", "command": "uv lock"},
+        {"file": "poetry.lock", "command": "poetry lock"},
+        {"file": "pdm.lock", "command": "pdm lock"}
+      ]
+    },
+    {
+      "name": "Pipenv manifest",
+      "filePattern": "^Pipfile$",
+      "format": "toml",
+      "dependencyKeys": ["packages", "dev-packages", "requires"],
+      "lockFiles": [
+        {"file": "Pipfile.lock", "command": "pipenv lock"}
+      ]
+    },
+    {
+      "name": "Cargo manifest",
+      "filePattern": "^Cargo\\.toml$",
+      "format": "toml",
+      "dependencyKeys": [
+        "dependencies", "dev-dependencies", "build-dependencies",
+        "target.*.dependencies", "target.*.dev-dependencies", "target.*.build-dependencies",
+        "workspace.dependencies", "workspace.members", "patch"
+      ],
+      "lockFiles": [
+        {"file": "Cargo.lock", "command": "cargo update --workspace"}
+      ]
+    },
+    {
+      "name": "Go module",
+      "filePattern": "^go\\.mod$",
+      "format": "lines",
+      "linePatterns": [
+        "^\\s*(?:require\\s+)?\\(?\\s*[^\\s()]+\\s+v\\d\\S*",
+        "^\\s*(?:replace\\s+)?[^\\s()]+(?:\\s+v\\S+)?\\s+=>\\s+\\S+"
+      ],
+      "lockFiles": [
+        {"file": "go.sum", "command": "go mod tidy"}
+      ]
+    },
+    {
+      "name": "Bundler Gemfile",
+      "filePattern": "^Gemfile$",
+      "format": "lines",
+      "linePatterns": [
+        "^\\s*gem\\s+['\"][^'\"]+['\"].*$",
+        "^\\s*source\\s+.*$"
+      ],
+      "lockFiles": [
+        {"file": "Gemfile.lock", "command": "bundle install"}
+      ]
+    },
+    {
+      "name": "NuGet project",
+      "filePattern": "\\.(?:cs|fs|vb)proj$",
+      "format": "lines",
+      "linePatterns": [
+        "<Package(?:Reference|Version)\\b[^>]*>"
+      ],
+      "lockFiles": [
+        {"file": "packages.lock.json", "command": "dotnet restore --force-evaluate"}
+      ]
+    }
+  ]
+}

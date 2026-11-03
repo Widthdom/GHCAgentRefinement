@@ -40,7 +40,7 @@ flowchart LR
 
     LoopEnd[\作業終了/]
 
-    agentStop["<b><i><u>agentStop</u></i></b><br/><div style='text-align: left'>・hookのテスト実行催促<br/>・存在しないファイル参照検知<br/>・未読ファイルに対する推測検知<br/>・完了報告の真偽判定<br/>・テスト後の変更の見逃し検知<br/>・依頼項目の取りこぼし検知<br/>・依頼外の変更検知<br/>・仮実装の残置検知<br/>・デバッグコードの残置検知<br/>・未使用の追加定義検知<br/>・ユーザへの迎合検知<br/>■デバッグモード有効時<br/>・プロンプト変換ログ保存先表示<br/>・回答にデバッグ情報を付与<br/>■敵対的レビューモード有効時<br/>・敵対的レビュー要請<br/></div>"]
+    agentStop["<b><i><u>agentStop</u></i></b><br/><div style='text-align: left'>・hookのテスト実行催促<br/>・存在しないファイル参照検知<br/>・未読ファイルに対する推測検知<br/>・完了報告の真偽判定<br/>・テスト後の変更の見逃し検知<br/>・依頼項目の取りこぼし検知<br/>・依頼外の変更検知<br/>・仮実装の残置検知<br/>・デバッグコードの残置検知<br/>・ロックファイル更新漏れ検知<br/>・未使用の追加定義検知<br/>・ユーザへの迎合検知<br/>■デバッグモード有効時<br/>・プロンプト変換ログ保存先表示<br/>・回答にデバッグ情報を付与<br/>■敵対的レビューモード有効時<br/>・敵対的レビュー要請<br/></div>"]
 
     agentStopResult{"判定"}
 
@@ -253,8 +253,8 @@ flowchart LR
       <td><a href="./hooks/helpers/events/postToolUseFailure/detect-repeated-failures/README.md">detect-repeated-failures</a></td>
     </tr>
     <tr>
-      <td rowspan="14">agentStop</td>
-      <td rowspan="11"></td>
+      <td rowspan="15">agentStop</td>
+      <td rowspan="12"></td>
       <td>hookのテスト実行催促</td>
       <td><a href="./hooks/helpers/events/agentStop/require-hook-tests/README.md">require-hook-tests</a></td>
     </tr>
@@ -289,6 +289,10 @@ flowchart LR
     <tr>
       <td>デバッグコードの残置検知</td>
       <td><a href="./hooks/helpers/events/agentStop/detect-debug-leftovers/README.md">detect-debug-leftovers</a></td>
+    </tr>
+    <tr>
+      <td>ロックファイル更新漏れ検知</td>
+      <td><a href="./hooks/helpers/events/agentStop/detect-lockfile-drift/README.md">detect-lockfile-drift</a></td>
     </tr>
     <tr>
       <td>未使用の追加定義検知</td>
