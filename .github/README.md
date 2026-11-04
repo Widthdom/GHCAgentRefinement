@@ -28,7 +28,7 @@ flowchart LR
 
     LoopStart[/作業開始\]
 
-    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>□危険な操作の抑止<br/>・危険コマンド実行抑止<br/>・shellによるファイル編集抑止<br/>・未読ファイル編集抑止<br/>・生成ファイル直接編集抑止<br/>・省略記号による内容消失抑止<br/>・依頼のないhook改変抑止<br/>・過去のバグ修正の巻き戻し抑止<br/>□不正な内容の書き込み抑止<br/>・秘密情報書き込み抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・未確認の依存追加抑止<br/>□失敗の隠蔽抑止<br/>・エラーの握りつぶし抑止<br/>・除外設定による隠蔽抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・待ち時間の水増し抑止<br/>□テストの不正抑止<br/>・テストの骨抜き抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・スナップショット一括承認抑止<br/>・テスト通過用ハードコード抑止<br/>・日付の時限爆弾テスト抑止</div>"]
+    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>□危険な操作の抑止<br/>・危険コマンド実行抑止<br/>・shellによるファイル編集抑止<br/>・未読ファイル編集抑止<br/>・生成ファイル直接編集抑止<br/>・省略記号による内容消失抑止<br/>・依頼のないhook改変抑止<br/>・過去のバグ修正の巻き戻し抑止<br/>□不正な内容の書き込み抑止<br/>・秘密情報書き込み抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・未確認の依存追加抑止<br/>・内容と食い違うコミット抑止<br/>□失敗の隠蔽抑止<br/>・エラーの握りつぶし抑止<br/>・除外設定による隠蔽抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・待ち時間の水増し抑止<br/>□テストの不正抑止<br/>・テストの骨抜き抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・スナップショット一括承認抑止<br/>・テスト通過用ハードコード抑止<br/>・日付の時限爆弾テスト抑止</div>"]
 
     runTool["ツール実行"]
 
@@ -132,8 +132,8 @@ flowchart LR
       <td><a href="./hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/README.md">debug-log-transformed-prompt</a></td>
     </tr>
     <tr>
-      <td rowspan="21">preToolUse</td>
-      <td rowspan="21"></td>
+      <td rowspan="22">preToolUse</td>
+      <td rowspan="22"></td>
       <td rowspan="7">危険な操作の抑止</td>
       <td>危険コマンド実行抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-commands/README.md">block-commands</a></td>
@@ -163,7 +163,7 @@ flowchart LR
       <td><a href="./hooks/helpers/events/preToolUse/block-regression-of-past-fixes/README.md">block-regression-of-past-fixes</a></td>
     </tr>
     <tr>
-      <td rowspan="4">不正な内容の書き込み抑止</td>
+      <td rowspan="5">不正な内容の書き込み抑止</td>
       <td>秘密情報書き込み抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-secret-writes/README.md">block-secret-writes</a></td>
     </tr>
@@ -178,6 +178,10 @@ flowchart LR
     <tr>
       <td>未確認の依存追加抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-unverified-dependencies/README.md">block-unverified-dependencies</a></td>
+    </tr>
+    <tr>
+      <td>内容と食い違うコミット抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-commit-message-mismatch/README.md">block-commit-message-mismatch</a></td>
     </tr>
     <tr>
       <td rowspan="4">失敗の隠蔽抑止</td>
