@@ -2,7 +2,8 @@ import json
 import re
 
 # 編集ツールの呼び出し1件から、ファイルごとの変更を取り出す。
-# 書き込む内容を検査するpreToolUse hookと、依頼中の編集を振り返るagentStop hookが共有する。
+# 書き込む内容を検査するpreToolUse hook、編集後のファイルを確かめるpostToolUse hook、
+# 依頼中の編集を振り返るagentStop hookが共有する。
 _EDIT_TOOL_NAMES = frozenset({'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'})
 # 書き込む内容ではない引数と、置換前の内容を表す引数。
 _IGNORED_KEYS = frozenset({'path', 'command'})
