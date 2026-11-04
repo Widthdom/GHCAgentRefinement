@@ -57,6 +57,13 @@
         "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-verified-packages/record-verified-packages.py",
         "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-verified-packages/record-verified-packages.py",
         "timeoutSec": 10
+      },
+      {
+        "type": "command",
+        "matcher": "(?:functions\\.)?(?:bash|powershell)",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-viewed-commits/record-viewed-commits.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-viewed-commits/record-viewed-commits.py",
+        "timeoutSec": 10
       }
     ]
   }

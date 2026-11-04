@@ -28,13 +28,13 @@ flowchart LR
 
     LoopStart[/作業開始\]
 
-    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>□危険な操作の抑止<br/>・危険コマンド実行抑止<br/>・shellによるファイル編集抑止<br/>・未読ファイル編集抑止<br/>・生成ファイル直接編集抑止<br/>・省略記号による内容消失抑止<br/>・依頼のないhook改変抑止<br/>□不正な内容の書き込み抑止<br/>・秘密情報書き込み抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・未確認の依存追加抑止<br/>□失敗の隠蔽抑止<br/>・エラーの握りつぶし抑止<br/>・除外設定による隠蔽抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・待ち時間の水増し抑止<br/>□テストの不正抑止<br/>・テストの骨抜き抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・スナップショット一括承認抑止<br/>・テスト通過用ハードコード抑止<br/>・日付の時限爆弾テスト抑止</div>"]
+    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>□危険な操作の抑止<br/>・危険コマンド実行抑止<br/>・shellによるファイル編集抑止<br/>・未読ファイル編集抑止<br/>・生成ファイル直接編集抑止<br/>・省略記号による内容消失抑止<br/>・依頼のないhook改変抑止<br/>・過去のバグ修正の巻き戻し抑止<br/>□不正な内容の書き込み抑止<br/>・秘密情報書き込み抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・未確認の依存追加抑止<br/>□失敗の隠蔽抑止<br/>・エラーの握りつぶし抑止<br/>・除外設定による隠蔽抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・待ち時間の水増し抑止<br/>□テストの不正抑止<br/>・テストの骨抜き抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・スナップショット一括承認抑止<br/>・テスト通過用ハードコード抑止<br/>・日付の時限爆弾テスト抑止</div>"]
 
     runTool["ツール実行"]
 
     runToolResult{"判定"}
 
-    postToolUse["<b><i><u>postToolUse</u></i></b><br/><div style='text-align: left'>・既読ファイルの記録<br/>・テスト失敗値の記録<br/>・確認済み依存の記録<br/>・テスト件数の空振り・減少検知<br/>・改行コード不変確認<br/>・振り子編集検知<br/>・名前変更の取り残し検知<br/>・skillのcross agent対応確認</div>"]
+    postToolUse["<b><i><u>postToolUse</u></i></b><br/><div style='text-align: left'>・既読ファイルの記録<br/>・テスト失敗値の記録<br/>・確認済み依存の記録<br/>・確認済みコミットの記録<br/>・テスト件数の空振り・減少検知<br/>・改行コード不変確認<br/>・振り子編集検知<br/>・名前変更の取り残し検知<br/>・skillのcross agent対応確認</div>"]
 
     postToolUseFailure["<b><i><u>postToolUseFailure</u></i></b><br/><div style='text-align: left'>・失敗の繰り返し検知</div>"]
 
@@ -132,9 +132,9 @@ flowchart LR
       <td><a href="./hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/README.md">debug-log-transformed-prompt</a></td>
     </tr>
     <tr>
-      <td rowspan="20">preToolUse</td>
-      <td rowspan="20"></td>
-      <td rowspan="6">危険な操作の抑止</td>
+      <td rowspan="21">preToolUse</td>
+      <td rowspan="21"></td>
+      <td rowspan="7">危険な操作の抑止</td>
       <td>危険コマンド実行抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-commands/README.md">block-commands</a></td>
     </tr>
@@ -157,6 +157,10 @@ flowchart LR
     <tr>
       <td>依頼のないhook改変抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-hook-tampering/README.md">block-hook-tampering</a></td>
+    </tr>
+    <tr>
+      <td>過去のバグ修正の巻き戻し抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-regression-of-past-fixes/README.md">block-regression-of-past-fixes</a></td>
     </tr>
     <tr>
       <td rowspan="4">不正な内容の書き込み抑止</td>
@@ -218,9 +222,9 @@ flowchart LR
       <td><a href="./hooks/helpers/events/preToolUse/block-time-bomb-literals/README.md">block-time-bomb-literals</a></td>
     </tr>
     <tr>
-      <td rowspan="8">postToolUse</td>
-      <td rowspan="8"></td>
-      <td rowspan="8"></td>
+      <td rowspan="9">postToolUse</td>
+      <td rowspan="9"></td>
+      <td rowspan="9"></td>
       <td>既読ファイルの記録</td>
       <td><a href="./hooks/helpers/events/postToolUse/record-seen-files/README.md">record-seen-files</a></td>
     </tr>
@@ -231,6 +235,10 @@ flowchart LR
     <tr>
       <td>確認済み依存の記録</td>
       <td><a href="./hooks/helpers/events/postToolUse/record-verified-packages/README.md">record-verified-packages</a></td>
+    </tr>
+    <tr>
+      <td>確認済みコミットの記録</td>
+      <td><a href="./hooks/helpers/events/postToolUse/record-viewed-commits/README.md">record-viewed-commits</a></td>
     </tr>
     <tr>
       <td>テスト件数の空振り・減少検知</td>
