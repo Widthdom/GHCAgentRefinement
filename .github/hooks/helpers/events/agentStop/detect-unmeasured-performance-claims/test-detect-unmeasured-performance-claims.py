@@ -204,7 +204,7 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to detect unmeasured performance claims', result.stderr, name)
         with self.subTest(name='invalid transcript line'):
-            with open(self.__transcript_path, 'w', encoding='utf-8') as file:
+            with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
                 file.write('not json\n')
             self.assertEqual(self.__invoke().returncode, 2)
 
@@ -220,7 +220,7 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
         for name, definitions in cases:
             with self.subTest(name=name):
                 path = os.path.join(self.__root, 'definitions.json')
-                with open(path, 'w', encoding='utf-8') as file:
+                with open(path, 'w', encoding='utf-8', newline='\n') as file:
                     json.dump(definitions, file)
                 self.assertEqual(self.__invoke(arguments=('--definitions-path', path)).returncode, 2, name)
 

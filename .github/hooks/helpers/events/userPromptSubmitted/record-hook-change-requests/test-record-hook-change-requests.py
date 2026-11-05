@@ -29,7 +29,7 @@ class RecordHookChangeRequestsTests(unittest.TestCase):
             ('-repo-events', 'preToolUse', 'block-native-path-separators'),
         ):
             os.makedirs(os.path.join(self.__repository, '.github', 'hooks', 'helpers', events_directory, event, name))
-        with open(os.path.join(self.__repository, '.github', 'hooks', 'helpers', 'events', 'preToolUse', 'README.md'), 'w') as file:
+        with open(os.path.join(self.__repository, '.github', 'hooks', 'helpers', 'events', 'preToolUse', 'README.md'), 'w', encoding='utf-8', newline='\n') as file:
             file.write('not a hook directory')
         self.__session_id = str(uuid.uuid4())
         self.__state_path = os.path.join(

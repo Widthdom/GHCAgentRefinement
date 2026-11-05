@@ -17,8 +17,8 @@ _WARNING_MESSAGE = (
 
 def main():
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace')
-    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     # 削除用のclean-hook-temp-files skillと、対象の分類と保持期間を共有する。
     temp_files = runpy.run_path(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hook-temp-files.py'))

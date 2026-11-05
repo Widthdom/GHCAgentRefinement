@@ -68,7 +68,7 @@ class FindIntroducedLinesByRegexTests(unittest.TestCase):
         outside = tempfile.TemporaryDirectory(prefix='ghc-find-introduced-lines-outside-')
         self.addCleanup(outside.cleanup)
         path = os.path.join(os.path.realpath(outside.name), 'a.py')
-        with open(path, 'w', encoding='utf-8') as file:
+        with open(path, 'w', encoding='utf-8', newline='\n') as file:
             file.write('TODO\n')
         self.assertEqual(
             _find([_change(path, 'TODO')], self.__cwd, [], _REGEXES), [(path.replace(os.sep, '/'), 'todo', 'TODO')],

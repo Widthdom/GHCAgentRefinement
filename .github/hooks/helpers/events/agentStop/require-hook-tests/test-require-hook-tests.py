@@ -82,7 +82,7 @@ class RequireHookTestsTests(unittest.TestCase):
     @staticmethod
     def __touch(path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, 'w', encoding='utf-8') as file:
+        with open(path, 'w', encoding='utf-8', newline='\n') as file:
             file.write('a\n')
 
     def __hook_file(self, event_name, hook_name, filename):
@@ -282,7 +282,7 @@ class RequireHookTestsTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(result.stdout, b'')
                 self.assertNotEqual(result.stderr, b'')
-        with open(self.__transcript_path, 'w', encoding='utf-8') as file:
+        with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write('{"type":"user.message","data":[]}\n')
         result = self.__invoke()
         self.assertEqual(result.returncode, 2)

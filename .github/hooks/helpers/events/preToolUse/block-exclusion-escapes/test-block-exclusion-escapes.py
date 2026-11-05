@@ -186,7 +186,7 @@ class BlockExclusionEscapesTests(unittest.TestCase):
     def test_outside_git_repository_is_allowed(self):
         outside = os.path.join(self.__root, 'outside')
         os.makedirs(outside)
-        with open(os.path.join(outside, 'calc.py'), 'w', encoding='utf-8') as file:
+        with open(os.path.join(outside, 'calc.py'), 'w', encoding='utf-8', newline='\n') as file:
             file.write('x = 1\n')
         self.__assert_allowed(
             self.__run_call('create', {'path': 'pytest.ini', 'file_text': '[pytest]\naddopts = --ignore=calc.py\n'}, cwd=outside),
@@ -235,7 +235,7 @@ class BlockExclusionEscapesTests(unittest.TestCase):
         for name, definitions in cases:
             with self.subTest(name=name):
                 path = os.path.join(self.__root, 'definitions.json')
-                with open(path, 'w', encoding='utf-8') as file:
+                with open(path, 'w', encoding='utf-8', newline='\n') as file:
                     json.dump(definitions, file)
                 result = self.__run_hook(
                     {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'edit', 'toolArgs': {}},

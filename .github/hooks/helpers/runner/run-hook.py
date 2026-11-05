@@ -126,7 +126,7 @@ def _run_hook_script(script_path, hook_input_bytes):
 
 def main():
     # 型定義上の `sys.stderr` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
-    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     if len(sys.argv) != 2:
         print('Usage: run-hook.py <repository-relative hook script path>', file=sys.stderr)

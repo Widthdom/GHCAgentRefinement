@@ -258,8 +258,8 @@ def _find_orphans(candidates, repository_root, ignored_reference_file_patterns, 
 
 def main(arguments=None):
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace')
-    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     # テスト用に定義ファイルを差し替えられるようにする。
     script_directory = os.path.dirname(os.path.abspath(__file__))

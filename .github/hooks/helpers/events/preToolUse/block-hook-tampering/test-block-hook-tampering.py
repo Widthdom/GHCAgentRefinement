@@ -30,7 +30,7 @@ class BlockHookTamperingTests(unittest.TestCase):
 
     def __write_state(self, content):
         os.makedirs(os.path.dirname(self.__state_path), exist_ok=True)
-        with open(self.__state_path, 'w', encoding='utf-8') as file:
+        with open(self.__state_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(content if isinstance(content, str) else json.dumps(content))
 
     def __run_process(self, hook_input):

@@ -55,12 +55,12 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
                 file.write(json.dumps(event, ensure_ascii=False) + '\n')
 
     def __write_debug_state(self, state):
-        with open(self.__debug_path, 'w', encoding='utf-8') as file:
+        with open(self.__debug_path, 'w', encoding='utf-8', newline='\n') as file:
             json.dump(state, file)
 
     def __write_log(self, name):
         path = os.path.join(self.__log_directory, name)
-        with open(path, 'w', encoding='utf-8') as file:
+        with open(path, 'w', encoding='utf-8', newline='\n') as file:
             file.write('report')
         return path
 
@@ -188,7 +188,7 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
             with self.assertRaisesRegex(TimeoutError, 'not recorded within 5 seconds'):
                 wait_for_stop(self.__transcript, self.__session_id, 110)
             sleep.assert_not_called()
-        with open(self.__transcript, 'a', encoding='utf-8') as file:
+        with open(self.__transcript, 'a', encoding='utf-8', newline='\n') as file:
             file.write('{"type":')
         self.__events = [self.__event('agentStop', 110)]
         with patch('time.sleep', side_effect=lambda _: self.__write_events()) as sleep:

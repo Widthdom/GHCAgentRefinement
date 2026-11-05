@@ -65,7 +65,7 @@ class DetectUnreadSpeculationTests(unittest.TestCase):
         }
 
     def __write_file(self, name):
-        with open(os.path.join(self.__workspace, 'src', name), 'w', encoding='utf-8') as file:
+        with open(os.path.join(self.__workspace, 'src', name), 'w', encoding='utf-8', newline='\n') as file:
             file.write('a\n')
 
     def __write_transcript(self, events):
@@ -241,7 +241,7 @@ class DetectUnreadSpeculationTests(unittest.TestCase):
 
     def test_custom_definitions_are_used(self):
         custom_path = os.path.join(self.__root, 'custom.json')
-        with open(custom_path, 'w', encoding='utf-8-sig') as file:
+        with open(custom_path, 'w', encoding='utf-8-sig', newline='\n') as file:
             json.dump({'speculationPatterns': ['きっと']}, file, ensure_ascii=False)
         self.__assert_block(self.__invoke([_user('調べて'), _assistant('`src/a.py` はきっと古い。')], definitions_path=custom_path))
         self.__assert_silent(self.__invoke([_user('調べて'), _assistant('`src/a.py` はおそらく古い。')], definitions_path=custom_path))
@@ -289,7 +289,7 @@ class DetectUnreadSpeculationTests(unittest.TestCase):
     def test_invalid_transcript_reports_error(self):
         for content in ('{', '[]\n', '{"type":"user.message","data":[]}\n'):
             with self.subTest(content=content):
-                with open(self.__transcript_path, 'w', encoding='utf-8') as file:
+                with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
                     file.write(content)
                 result = self.__invoke(payload={**self.__payload, 'timestamp': None})
                 self.assertEqual(result.returncode, 2)

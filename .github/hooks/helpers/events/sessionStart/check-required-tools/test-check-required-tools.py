@@ -152,7 +152,7 @@ class CheckRequiredToolsTests(unittest.TestCase):
                 ('missing platform', json.dumps({'tools': [{**valid_tool, 'install': {'win32': 'a', 'darwin': 'b'}}]})),
             ):
                 with self.subTest(name=name):
-                    with open(path, 'w', encoding='utf-8') as file:
+                    with open(path, 'w', encoding='utf-8', newline='\n') as file:
                         file.write(content)
                     exit_code, stderr, stdout, run = _run_main(arguments=('--definitions-path', path))
                     self.assertEqual((exit_code, stdout), (2, ''))

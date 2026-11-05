@@ -41,7 +41,7 @@ class DetectEditOscillationTests(unittest.TestCase):
         }
 
     def __write(self, content, path=None):
-        with open(path or self.__target, 'w', encoding='utf-8') as file:
+        with open(path or self.__target, 'w', encoding='utf-8', newline='\n') as file:
             file.write(content)
 
     def __invoke(self, payload=None, raw=None):
@@ -232,7 +232,7 @@ class DetectEditOscillationTests(unittest.TestCase):
 
     def test_unwritable_state_location_reports_error(self):
         os.makedirs(os.path.dirname(self.__state_directory))
-        with open(self.__state_directory, 'w', encoding='utf-8') as file:
+        with open(self.__state_directory, 'w', encoding='utf-8', newline='\n') as file:
             file.write('a file occupies the state directory')
         result = self.__edit('A')
         self.assertEqual(result.returncode, 2)

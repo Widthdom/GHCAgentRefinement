@@ -68,7 +68,7 @@ class ReviewModeTests(unittest.TestCase):
             self.assertEqual(self.__invoke({'sessionId': session_id, 'prompt': prompt}).returncode, 0)
         self.assertTrue(self.__state()['pending'])
         self.assertFalse(self.__state(other_id)['enabled'])
-        with open(os.path.join(self.__state_directory, f'{self.__session_id}.json'), 'w') as file:
+        with open(os.path.join(self.__state_directory, f'{self.__session_id}.json'), 'w', encoding='utf-8', newline='\n') as file:
             json.dump({'enabled': True, 'pending': False, 'updatedAt': 'old'}, file)
         self.assertEqual(self.__invoke({'sessionId': self.__session_id, 'prompt': 'rearm;;'}).returncode, 0)
         self.assertTrue(self.__state()['pending'])
@@ -128,7 +128,7 @@ class ReviewModeTests(unittest.TestCase):
 
     def test_write_failure_exit_code(self):
         os.makedirs(os.path.join(self.__temporary.name, 'ghc-agent-refinement', 'hook-states'))
-        with open(os.path.join(self.__temporary.name, 'ghc-agent-refinement', 'hook-states', 'adversarial-review'), 'w'):
+        with open(os.path.join(self.__temporary.name, 'ghc-agent-refinement', 'hook-states', 'adversarial-review'), 'w', encoding='utf-8', newline='\n'):
             pass
         result = self.__invoke({'sessionId': self.__session_id, 'prompt': ';;'})
         self.assertEqual(result.returncode, 2)

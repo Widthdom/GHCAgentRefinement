@@ -46,6 +46,6 @@ if __name__ == '__main__':
     _parser.add_argument('--transcript-path', required=True)
     _arguments = _parser.parse_args()
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', newline='\n')
     for used_skill in get_used_skills(_arguments.transcript_path):
         print(used_skill)

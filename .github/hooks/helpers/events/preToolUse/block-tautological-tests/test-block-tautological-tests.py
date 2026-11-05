@@ -198,7 +198,7 @@ class BlockTautologicalTestsTests(unittest.TestCase):
         definitions_path = os.path.join(self.__directory, 'definitions.json')
         for content in ['{', '[]', '{"testFilePatterns": []}', '{"testFilePatterns": ["("]}']:
             with self.subTest(content=content):
-                with open(definitions_path, 'w', encoding='utf-8') as file:
+                with open(definitions_path, 'w', encoding='utf-8', newline='\n') as file:
                     file.write(content)
                 hook_input = {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'create', 'toolArgs': {}}
                 result = _run_hook(json.dumps(hook_input).encode('utf-8'), '--definitions-path', definitions_path)

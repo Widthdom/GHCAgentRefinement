@@ -123,7 +123,7 @@ class BlockElidedRewritesTests(unittest.TestCase):
             }}),
             'A placeholder that the replaced text already contains must be allowed.',
         )
-        with open(os.path.join(self.__directory, 'doc.md'), 'w', encoding='utf-8') as file:
+        with open(os.path.join(self.__directory, 'doc.md'), 'w', encoding='utf-8', newline='\n') as file:
             file.write('<!-- ... -->\n')
         self.__assert_allowed(
             self.__run_call({'name': 'insert', 'args': {'path': 'doc.md', 'insert_line': 1, 'new_str': '<!-- ... -->'}}),
@@ -150,7 +150,7 @@ class BlockElidedRewritesTests(unittest.TestCase):
         )
 
     def test_non_shrinking_overwrite_is_allowed(self):
-        with open(os.path.join(self.__directory, 'small.py'), 'w', encoding='utf-8') as file:
+        with open(os.path.join(self.__directory, 'small.py'), 'w', encoding='utf-8', newline='\n') as file:
             file.write('a\n' * (19))
         cases = [
             ('half or more', 'app.py', 'x\n' * 20),
@@ -213,7 +213,7 @@ class BlockElidedRewritesTests(unittest.TestCase):
         ]:
             with self.subTest(name=name):
                 path = os.path.join(self.__directory, f'definitions-{name.replace(" ", "-")}.json')
-                with open(path, 'w', encoding='utf-8') as file:
+                with open(path, 'w', encoding='utf-8', newline='\n') as file:
                     file.write(content)
                 result = _run_hook(valid_input, '--definitions-path', path)
                 self.assertEqual(result.returncode, 2, name)

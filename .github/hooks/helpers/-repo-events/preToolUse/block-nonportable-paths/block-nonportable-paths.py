@@ -115,8 +115,8 @@ def _check_paths(cwd, destinations, removed):
 
 
 def main():
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace')
-    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
     try:
         raw_input = sys.stdin.buffer.read().decode('utf-8')
         if not raw_input.strip():

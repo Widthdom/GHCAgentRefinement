@@ -194,7 +194,7 @@ class BlockRegressionOfPastFixesTests(unittest.TestCase):
     def test_outside_git_repository_is_allowed(self):
         directory = os.path.join(self.__root, 'plain')
         os.makedirs(directory)
-        with open(os.path.join(directory, 'a.py'), 'w', encoding='utf-8') as file:
+        with open(os.path.join(directory, 'a.py'), 'w', encoding='utf-8', newline='\n') as file:
             file.write('if b == 0:\n    raise ValueError\n')
         self.__assert_allowed(
             self.__run_call('edit', {'path': 'a.py', 'old_str': 'if b == 0:\n    raise ValueError\n', 'new_str': ''}, directory),
@@ -268,7 +268,7 @@ class BlockRegressionOfPastFixesTests(unittest.TestCase):
         for name, definitions in cases:
             with self.subTest(name=name):
                 path = os.path.join(self.__root, 'definitions.json')
-                with open(path, 'w', encoding='utf-8') as file:
+                with open(path, 'w', encoding='utf-8', newline='\n') as file:
                     json.dump(definitions, file)
                 result = self.__run_hook(
                     {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'edit', 'toolArgs': {}},

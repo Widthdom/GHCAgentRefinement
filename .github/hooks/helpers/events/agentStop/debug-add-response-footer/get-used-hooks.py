@@ -67,6 +67,6 @@ if __name__ == '__main__':
     _parser.add_argument('--hooks-path', required=True)
     _arguments = _parser.parse_args()
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', newline='\n')
     for used_hook in get_used_hooks(_arguments.transcript_path, _arguments.hooks_path):
         print(used_hook)

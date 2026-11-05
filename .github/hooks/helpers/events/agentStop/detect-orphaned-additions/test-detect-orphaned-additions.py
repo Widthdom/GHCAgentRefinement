@@ -238,7 +238,7 @@ class DetectOrphanedAdditionsTests(unittest.TestCase):
                 result = self.__invoke(raw=raw)
                 self.assertEqual((result.returncode, result.stdout), (2, b''), name)
                 self.assertIn(b'Failed to detect orphaned additions:', result.stderr)
-        with open(self.__transcript_path, 'w', encoding='utf-8') as file:
+        with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write('{broken\n')
         result = self.__invoke()
         self.assertEqual((result.returncode, result.stdout), (2, b''))
@@ -259,7 +259,7 @@ class DetectOrphanedAdditionsTests(unittest.TestCase):
         ]:
             with self.subTest(name=name):
                 definitions_path = os.path.join(self.__root, 'definitions.json')
-                with open(definitions_path, 'w', encoding='utf-8') as file:
+                with open(definitions_path, 'w', encoding='utf-8', newline='\n') as file:
                     file.write(content)
                 result = self.__invoke(
                     self.__created('src/calc.py', 'def helper():\n    pass\n'),
@@ -268,7 +268,7 @@ class DetectOrphanedAdditionsTests(unittest.TestCase):
                 self.assertEqual((result.returncode, result.stdout), (2, b''), name)
                 self.assertIn(b'Failed to detect orphaned additions:', result.stderr)
         test_definitions_path = os.path.join(self.__root, 'test-definitions.json')
-        with open(test_definitions_path, 'w', encoding='utf-8') as file:
+        with open(test_definitions_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(json.dumps({'testFilePatterns': []}))
         result = self.__invoke(
             self.__created('src/calc.py', 'def helper():\n    pass\n'),

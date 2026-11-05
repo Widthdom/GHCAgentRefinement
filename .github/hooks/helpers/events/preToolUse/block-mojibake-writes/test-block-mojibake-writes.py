@@ -172,7 +172,7 @@ class BlockMojibakeWritesTests(unittest.TestCase):
         with open(os.path.join(_script_directory, 'mojibake-definitions.json'), encoding='utf-8') as file:
             definitions = json.load(file)
         definitions['excludedFilePatterns'] = ['(?i)^fixtures/']
-        with open(definitions_path, 'w', encoding='utf-8') as file:
+        with open(definitions_path, 'w', encoding='utf-8', newline='\n') as file:
             json.dump(definitions, file)
         hook_input = {
             'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'create',
@@ -248,7 +248,7 @@ class BlockMojibakeWritesTests(unittest.TestCase):
             with self.subTest(name=name):
                 path = os.path.join(self.__root, f'definitions-{name.replace(" ", "-")}.json')
                 if content is not None:
-                    with open(path, 'w', encoding='utf-8') as file:
+                    with open(path, 'w', encoding='utf-8', newline='\n') as file:
                         file.write(content if isinstance(content, str) else json.dumps(content))
                 result = self.__run_process(valid_input, '--definitions-path', path)
                 self.assertEqual(result.returncode, 2, name)
