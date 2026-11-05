@@ -105,7 +105,7 @@ class DetectRerunUntilGreenTests(unittest.TestCase):
 
     def test_blocks_pass_after_unchanged_rerun(self):
         for tool_name in ('bash', 'powershell', 'functions.bash'):
-            for claim in ('テストはすべて通過した。', 'All tests pass.'):
+            for claim in ('テストはすべて通過した。', 'All tests pass.', '「テスト0件成功」は引用。テストが通った。'):
                 with self.subTest(tool_name=tool_name, claim=claim):
                     events = [
                         _user('直して'), *_edit('e1', {'path': 'src/a.py'}),
@@ -170,6 +170,9 @@ class DetectRerunUntilGreenTests(unittest.TestCase):
             'テストは通っていない。',
             'The tests did not pass.',
             '結果:\n```\nAll tests passed\n```\n',
+            '「テスト0件成功」は未確認の条件。',
+            '`テストが通った` は診断用の表現。',
+            '> All tests passed.\nこれは引用。',
             'テストは通ったが、1回目は失敗しており不安定なテストと考えられる。',
             'Tests pass, but the suite looks flaky: the first run failed.',
         )

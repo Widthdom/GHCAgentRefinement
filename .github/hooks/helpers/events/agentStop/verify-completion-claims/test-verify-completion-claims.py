@@ -102,6 +102,9 @@ class VerifyCompletionClaimsTests(unittest.TestCase):
             'テストが成功しました。',
             'All tests pass.',
             'The tests are now passing.',
+            '「テスト0件成功」は説明の引用。今回はテストが通った。',
+            '"All tests passed" is quoted. Tests passed.',
+            '> Tests passed.\nTests passed.',
         )
         for claim in claims:
             with self.subTest(claim=claim):
@@ -152,6 +155,12 @@ class VerifyCompletionClaimsTests(unittest.TestCase):
             'The tests did not pass.',
             'latest version passed review.',
             '結果:\n```\nAll tests passed\n```\n',
+            '「テスト0件成功」は未確認の条件で、今回実行したという報告ではない。',
+            '『テストが通った』という表現を検査する。',
+            '`テスト0件成功` の条件は未確認。',
+            '"All tests passed" is an example, not a result.',
+            '“Tests passed” is quoted output.',
+            '> All tests passed.\nこの条件は未確認。',
             '',
         )
         for response in responses:
