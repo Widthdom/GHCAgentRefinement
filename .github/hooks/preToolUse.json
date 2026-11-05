@@ -11,6 +11,13 @@
       },
       {
         "type": "command",
+        "matcher": "(?:functions\\.)?(?:bash|powershell)",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-commit-message-mismatch/block-commit-message-mismatch.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-commit-message-mismatch/block-commit-message-mismatch.py",
+        "timeoutSec": 10
+      },
+      {
+        "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
         "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-elided-rewrites/block-elided-rewrites.py",
         "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-elided-rewrites/block-elided-rewrites.py",

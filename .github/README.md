@@ -28,19 +28,19 @@ flowchart LR
 
     LoopStart[/作業開始\]
 
-    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>□危険な操作の抑止<br/>・危険コマンド実行抑止<br/>・shellによるファイル編集抑止<br/>・未読ファイル編集抑止<br/>・生成ファイル直接編集抑止<br/>・省略記号による内容消失抑止<br/>・依頼のないhook改変抑止<br/>・過去のバグ修正の巻き戻し抑止<br/>□不正な内容の書き込み抑止<br/>・秘密情報書き込み抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・未確認の依存追加抑止<br/>□失敗の隠蔽抑止<br/>・エラーの握りつぶし抑止<br/>・除外設定による隠蔽抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・待ち時間の水増し抑止<br/>□テストの不正抑止<br/>・テストの骨抜き抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・スナップショット一括承認抑止<br/>・テスト通過用ハードコード抑止<br/>・日付の時限爆弾テスト抑止</div>"]
+    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>□危険な操作の抑止<br/>・危険コマンド実行抑止<br/>・shellによるファイル編集抑止<br/>・未読ファイル編集抑止<br/>・生成ファイル直接編集抑止<br/>・省略記号による内容消失抑止<br/>・依頼のないhook改変抑止<br/>・過去のバグ修正の巻き戻し抑止<br/>□不正な内容の書き込み抑止<br/>・秘密情報書き込み抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・未確認の依存追加抑止<br/>・内容と食い違うコミット抑止<br/>□失敗の隠蔽抑止<br/>・エラーの握りつぶし抑止<br/>・除外設定による隠蔽抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・待ち時間の水増し抑止<br/>□テストの不正抑止<br/>・テストの骨抜き抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・スナップショット一括承認抑止<br/>・テスト通過用ハードコード抑止<br/>・日付の時限爆弾テスト抑止</div>"]
 
     runTool["ツール実行"]
 
     runToolResult{"判定"}
 
-    postToolUse["<b><i><u>postToolUse</u></i></b><br/><div style='text-align: left'>・既読ファイルの記録<br/>・テスト失敗値の記録<br/>・確認済み依存の記録<br/>・確認済みコミットの記録<br/>・テスト件数の空振り・減少検知<br/>・改行コード不変確認<br/>・振り子編集検知<br/>・名前変更の取り残し検知<br/>・skillのcross agent対応確認</div>"]
+    postToolUse["<b><i><u>postToolUse</u></i></b><br/><div style='text-align: left'>・既読ファイルの記録<br/>・テスト失敗値の記録<br/>・確認済み依存の記録<br/>・確認済みコミットの記録<br/>・テスト件数の空振り・減少検知<br/>・改行コード不変確認<br/>・振り子編集検知<br/>・名前変更の取り残し検知<br/>・引数の説明の更新漏れ検知<br/>・skillのcross agent対応確認</div>"]
 
     postToolUseFailure["<b><i><u>postToolUseFailure</u></i></b><br/><div style='text-align: left'>・失敗の繰り返し検知</div>"]
 
     LoopEnd[\作業終了/]
 
-    agentStop["<b><i><u>agentStop</u></i></b><br/><div style='text-align: left'>・hookのテスト実行催促<br/>・存在しないファイル参照検知<br/>・未読ファイルに対する推測検知<br/>・完了報告の真偽判定<br/>・未計測の性能改善主張検知<br/>・テスト後の変更の見逃し検知<br/>・依頼項目の取りこぼし検知<br/>・依頼外の変更検知<br/>・仮実装の残置検知<br/>・デバッグコードの残置検知<br/>・ロックファイル更新漏れ検知<br/>・未使用の追加定義検知<br/>・ユーザへの迎合検知<br/>■デバッグモード有効時<br/>・プロンプト変換ログ保存先表示<br/>・回答にデバッグ情報を付与<br/>■敵対的レビューモード有効時<br/>・敵対的レビュー要請<br/></div>"]
+    agentStop["<b><i><u>agentStop</u></i></b><br/><div style='text-align: left'>・hookのテスト実行催促<br/>・存在しないファイル参照検知<br/>・未読ファイルに対する推測検知<br/>・完了報告の真偽判定<br/>・未計測の性能改善主張検知<br/>・テスト後の変更の見逃し検知<br/>・再実行頼みのテスト通過検知<br/>・依頼項目の取りこぼし検知<br/>・果たせない後回しの約束検知<br/>・依頼外の変更検知<br/>・仮実装の残置検知<br/>・デバッグコードの残置検知<br/>・ロックファイル更新漏れ検知<br/>・未使用の追加定義検知<br/>・ユーザへの迎合検知<br/>■デバッグモード有効時<br/>・プロンプト変換ログ保存先表示<br/>・回答にデバッグ情報を付与<br/>■敵対的レビューモード有効時<br/>・敵対的レビュー要請<br/></div>"]
 
     agentStopResult{"判定"}
 
@@ -132,8 +132,8 @@ flowchart LR
       <td><a href="./hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/README.md">debug-log-transformed-prompt</a></td>
     </tr>
     <tr>
-      <td rowspan="21">preToolUse</td>
-      <td rowspan="21"></td>
+      <td rowspan="22">preToolUse</td>
+      <td rowspan="22"></td>
       <td rowspan="7">危険な操作の抑止</td>
       <td>危険コマンド実行抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-commands/README.md">block-commands</a></td>
@@ -163,7 +163,7 @@ flowchart LR
       <td><a href="./hooks/helpers/events/preToolUse/block-regression-of-past-fixes/README.md">block-regression-of-past-fixes</a></td>
     </tr>
     <tr>
-      <td rowspan="4">不正な内容の書き込み抑止</td>
+      <td rowspan="5">不正な内容の書き込み抑止</td>
       <td>秘密情報書き込み抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-secret-writes/README.md">block-secret-writes</a></td>
     </tr>
@@ -178,6 +178,10 @@ flowchart LR
     <tr>
       <td>未確認の依存追加抑止</td>
       <td><a href="./hooks/helpers/events/preToolUse/block-unverified-dependencies/README.md">block-unverified-dependencies</a></td>
+    </tr>
+    <tr>
+      <td>内容と食い違うコミット抑止</td>
+      <td><a href="./hooks/helpers/events/preToolUse/block-commit-message-mismatch/README.md">block-commit-message-mismatch</a></td>
     </tr>
     <tr>
       <td rowspan="4">失敗の隠蔽抑止</td>
@@ -222,9 +226,9 @@ flowchart LR
       <td><a href="./hooks/helpers/events/preToolUse/block-time-bomb-literals/README.md">block-time-bomb-literals</a></td>
     </tr>
     <tr>
-      <td rowspan="9">postToolUse</td>
-      <td rowspan="9"></td>
-      <td rowspan="9"></td>
+      <td rowspan="10">postToolUse</td>
+      <td rowspan="10"></td>
+      <td rowspan="10"></td>
       <td>既読ファイルの記録</td>
       <td><a href="./hooks/helpers/events/postToolUse/record-seen-files/README.md">record-seen-files</a></td>
     </tr>
@@ -257,6 +261,10 @@ flowchart LR
       <td><a href="./hooks/helpers/events/postToolUse/detect-rename-leftovers/README.md">detect-rename-leftovers</a></td>
     </tr>
     <tr>
+      <td>引数の説明の更新漏れ検知</td>
+      <td><a href="./hooks/helpers/events/postToolUse/detect-stale-parameter-docs/README.md">detect-stale-parameter-docs</a></td>
+    </tr>
+    <tr>
       <td>skillのcross agent対応確認</td>
       <td><a href="./hooks/helpers/events/postToolUse/check-cross-agent-skill-wrappers/README.md">check-cross-agent-skill-wrappers</a></td>
     </tr>
@@ -268,9 +276,9 @@ flowchart LR
       <td><a href="./hooks/helpers/events/postToolUseFailure/detect-repeated-failures/README.md">detect-repeated-failures</a></td>
     </tr>
     <tr>
-      <td rowspan="16">agentStop</td>
-      <td rowspan="13"></td>
-      <td rowspan="13"></td>
+      <td rowspan="18">agentStop</td>
+      <td rowspan="15"></td>
+      <td rowspan="15"></td>
       <td>hookのテスト実行催促</td>
       <td><a href="./hooks/helpers/events/agentStop/require-hook-tests/README.md">require-hook-tests</a></td>
     </tr>
@@ -295,8 +303,16 @@ flowchart LR
       <td><a href="./hooks/helpers/events/agentStop/detect-stale-verification/README.md">detect-stale-verification</a></td>
     </tr>
     <tr>
+      <td>再実行頼みのテスト通過検知</td>
+      <td><a href="./hooks/helpers/events/agentStop/detect-rerun-until-green/README.md">detect-rerun-until-green</a></td>
+    </tr>
+    <tr>
       <td>依頼項目の取りこぼし検知</td>
       <td><a href="./hooks/helpers/events/agentStop/detect-dropped-requirements/README.md">detect-dropped-requirements</a></td>
+    </tr>
+    <tr>
+      <td>果たせない後回しの約束検知</td>
+      <td><a href="./hooks/helpers/events/agentStop/detect-empty-promises/README.md">detect-empty-promises</a></td>
     </tr>
     <tr>
       <td>依頼外の変更検知</td>
