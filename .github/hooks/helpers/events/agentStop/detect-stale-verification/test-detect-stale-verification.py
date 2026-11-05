@@ -112,7 +112,7 @@ class DetectStaleVerificationTests(unittest.TestCase):
             (_edit('e1', '{"path": "src/json.py"}', 'functions.edit'), 'src/json.py'),
         )
         for edit_events, fragment in edits:
-            for claim in ('テストはすべて通過した。', 'All tests pass.'):
+            for claim in ('テストはすべて通過した。', 'All tests pass.', '「テスト0件成功」は引用。テストが通った。'):
                 with self.subTest(fragment=fragment, claim=claim):
                     events = [_user('直して'), *_shell('c1', 'npm test', 0), *edit_events, _assistant(claim)]
                     reason = self.__assert_block(self.__invoke(events), f'- {fragment}')
@@ -162,6 +162,9 @@ class DetectStaleVerificationTests(unittest.TestCase):
             '修正した。テストは再実行していない。',
             'The tests did not pass.',
             '結果:\n```\nAll tests passed\n```\n',
+            '「テスト0件成功」は未確認の条件。',
+            '`テストが通った` は診断用の表現。',
+            '> All tests passed.\nこれは引用。',
         )
         for response in responses:
             with self.subTest(response=response):

@@ -13,6 +13,8 @@ _TEST_CLAIM_PATTERNS = (
     re.compile(r'\b(?:all\s+)?tests?\s+(?:(?:are|were|now|all)\s+)*(?:pass(?:ed|es|ing)?|succeed(?:ed|s)?)\b', re.IGNORECASE),
 )
 _FENCED_CODE_PATTERN = re.compile(r'^(```|~~~).*?^\1', re.MULTILINE | re.DOTALL)
+_QUOTE_LINE_PATTERN = re.compile(r'^\s*>.*$', re.MULTILINE)
+_QUOTED_PATTERN = re.compile(r'`[^`\n]*`|「[^」\n]*」|『[^』\n]*』|"[^"\n]*"|“[^”\n]*”')
 
 
 def compile_command_pattern(words):
@@ -28,6 +30,8 @@ def is_test_command(command):
 
 
 def claims_tests_passed(response):
-    # コードブロック内の出力例やコマンドは主張とみなさない。
-    text = _FENCED_CODE_PATTERN.sub('', response)
+    # 出力例・引用・インラインコード内の表現は、応答自身の成功主張とみなさない。
+    text = _FENCED_CODE_PATTERN.sub('\n', response)
+    text = _QUOTE_LINE_PATTERN.sub('\n', text)
+    text = _QUOTED_PATTERN.sub(' ', text)
     return any(pattern.search(text) for pattern in _TEST_CLAIM_PATTERNS)

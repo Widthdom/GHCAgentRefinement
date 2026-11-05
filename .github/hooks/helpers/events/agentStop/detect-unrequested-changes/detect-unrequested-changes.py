@@ -144,6 +144,7 @@ def _get_turn_summary(transcript_path):
     request_texts = []
     response_texts = []
     changes = []
+    started = {}
     already_requested = False
     for event in runpy.run_path(
         str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
@@ -159,6 +160,7 @@ def _get_turn_summary(transcript_path):
                 request_texts.clear()
                 response_texts.clear()
                 changes.clear()
+                started.clear()
                 already_requested = False
             if isinstance(content, str) and content.startswith(_REASON_PREFIX):
                 already_requested = True
@@ -169,9 +171,18 @@ def _get_turn_summary(transcript_path):
             if isinstance(content, str) and content.strip():
                 response_texts.append(content)
         elif event_type == 'tool.execution_start':
+            call_id = data.get('toolCallId')
             tool_name = data.get('toolName')
-            if isinstance(tool_name, str) and tool_name.removeprefix('functions.') in _EDIT_TOOL_NAMES:
-                changes.extend(_get_changes(tool_name.removeprefix('functions.'), _get_arguments(data.get('arguments'))))
+            if (isinstance(call_id, str) and isinstance(tool_name, str)
+                    and tool_name.removeprefix('functions.') in _EDIT_TOOL_NAMES):
+                started[call_id] = (tool_name.removeprefix('functions.'), data.get('arguments'))
+        elif event_type == 'tool.execution_complete':
+            call_id = data.get('toolCallId')
+            if not isinstance(call_id, str) or call_id not in started:
+                continue
+            tool_name, arguments = started.pop(call_id)
+            if data.get('success') is True:
+                changes.extend(_get_changes(tool_name, _get_arguments(arguments)))
     return '\n'.join(request_texts), '\n'.join(response_texts), changes, already_requested
 
 
