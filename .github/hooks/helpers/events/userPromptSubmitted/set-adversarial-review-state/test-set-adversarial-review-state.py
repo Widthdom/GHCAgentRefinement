@@ -6,7 +6,6 @@ import tempfile
 import unittest
 import uuid
 from datetime import datetime
-from unittest.mock import patch
 
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))

@@ -18,7 +18,6 @@ _NUGET = 'nuget'
 _PYPI = 'pypi'
 _NPM = 'npm'
 _PYTHON_MODULE = 'python-module'
-_ECOSYSTEMS = (_NUGET, _PYPI, _NPM, _PYTHON_MODULE)
 
 
 def get_state_path(session_id):
