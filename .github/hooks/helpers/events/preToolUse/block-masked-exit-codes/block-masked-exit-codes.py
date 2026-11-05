@@ -125,9 +125,7 @@ def _get_command_words(words):
     index = 0
     while index < len(words):
         word = words[index]
-        if _ASSIGNMENT_PATTERN.match(word) or word.startswith('-'):
-            index += 1
-        elif word in _WRAPPER_COMMANDS:
+        if _ASSIGNMENT_PATTERN.match(word) or word.startswith('-') or word in _WRAPPER_COMMANDS:
             index += 1
         elif word == 'timeout':
             index += 2

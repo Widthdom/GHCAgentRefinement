@@ -274,7 +274,7 @@ def _get_tokens(value):
 def _normalize_entry(entry):
     # 除外の指定を、設定ファイルのディレクトリからの `/` 区切りのパスやglobにそろえる。否定（`!`）や空はNone。
     entry = entry.strip()
-    if not entry or entry.startswith('!') or entry.startswith('#'):
+    if not entry or entry.startswith(('!', '#')):
         return None
     entry = entry.replace('\\\\', '\\')
     entry = _ESCAPED_CHARACTER_PATTERN.sub(r'\1', entry).replace('\\', '/')

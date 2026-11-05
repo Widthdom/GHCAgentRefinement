@@ -221,13 +221,11 @@ def main():
         print(f'Failed to save adversarial review state: {ex}', file=sys.stderr)
         return 2
     finally:
-        if temporary_state_path is not None:
-            if os.path.exists(temporary_state_path):
-                try:
-                    # os.unlink()：指定したパスのファイルを削除する。
-                    os.unlink(temporary_state_path)
-                except OSError as ex:
-                    print(f'Failed to remove temporary state file: {ex}', file=sys.stderr)
+        if temporary_state_path is not None and os.path.exists(temporary_state_path):
+            try:
+                os.unlink(temporary_state_path)
+            except OSError as ex:
+                print(f'Failed to remove temporary state file: {ex}', file=sys.stderr)
 
     # この標準出力を受け取ったhook呼び出し元は、decision:blockに従って停止したのち、
     # reasonに従って敵対的レビューエージェントを呼び出すことになる。

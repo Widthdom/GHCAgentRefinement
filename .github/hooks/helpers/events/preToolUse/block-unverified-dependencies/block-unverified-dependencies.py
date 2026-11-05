@@ -369,17 +369,6 @@ def _get_repository_root(cwd):
     return os.path.realpath(root) if root else None
 
 
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path.replace(os.sep, '/')
-
-
 def _format_finding(environment, ecosystem, name, version, manifest_directory, version_only):
     if version_only:
         return f'{_ECOSYSTEM_LABELS[ecosystem]} `{name}` version `{version}` (not in the local package cache)'
