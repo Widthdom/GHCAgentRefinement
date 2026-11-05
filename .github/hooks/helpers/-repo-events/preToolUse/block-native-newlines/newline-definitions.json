@@ -1,0 +1,34 @@
+{
+  "includedFilePatterns": [
+    "(?i)\\.pyi?$"
+  ],
+  "translatingCalls": [
+    {
+      "name": "stdout/stderr reconfigure",
+      "pattern": "\\bsys\\.(?:stdout|stderr)\\)?\\.reconfigure\\s*\\(",
+      "requiresTextWriteMode": false
+    },
+    {
+      "name": "text-mode open for writing",
+      "pattern": "(?<![\\w.])open\\s*\\(|\\.(?:open|fdopen)\\s*\\(",
+      "requiresTextWriteMode": true
+    },
+    {
+      "name": "Path.write_text",
+      "pattern": "\\.write_text\\s*\\(",
+      "requiresTextWriteMode": false
+    },
+    {
+      "name": "TextIOWrapper",
+      "pattern": "\\bTextIOWrapper\\s*\\(",
+      "requiresTextWriteMode": false
+    },
+    {
+      "name": "text-mode temporary file",
+      "pattern": "\\b(?:Named|Spooled)?TemporaryFile\\s*\\(",
+      "requiresTextWriteMode": true
+    }
+  ],
+  "textWriteModePattern": "^(?=[rwaxt+]*[wax+])[rwaxt+]{1,3}$",
+  "pinnedNewlinePattern": "\\bnewline\\s*="
+}
