@@ -219,7 +219,7 @@ class DetectEmptyPromisesTests(unittest.TestCase):
     def test_invalid_transcript_reports_error(self):
         for content in ('{', '[]\n', '{"type":"user.message","data":[]}\n'):
             with self.subTest(content=content):
-                with open(self.__transcript_path, 'w', encoding='utf-8') as file:
+                with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
                     file.write(content)
                 result = self.__invoke(payload={**self.__payload, 'timestamp': None})
                 self.assertEqual(result.returncode, 2)

@@ -171,7 +171,7 @@ class BlockSnapshotRubberStampTests(unittest.TestCase):
         for name, content in cases:
             with self.subTest(name=name):
                 path = os.path.join(self.__root, 'definitions.json')
-                with open(path, 'w', encoding='utf-8') as file:
+                with open(path, 'w', encoding='utf-8', newline='\n') as file:
                     file.write(content)
                 result = self.__run_hook(
                     {'sessionId': self.__session_id, 'toolName': 'bash', 'toolArgs': {'command': 'npx jest -u'}},

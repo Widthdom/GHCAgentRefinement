@@ -311,7 +311,7 @@ class BlockCommandsTests(unittest.TestCase):
 
                     with tempfile.TemporaryDirectory(prefix='block commands ') as directory:
                         invalid_definitions = os.path.join(directory, 'invalid.json')
-                        with open(invalid_definitions, 'w', encoding='utf-8') as defs_file:
+                        with open(invalid_definitions, 'w', encoding='utf-8', newline='\n') as defs_file:
                             json.dump([{**_valid_definition, 'pattern': '['}], defs_file)
                         for path, expected_error in (
                             (invalid_definitions, 'Invalid regular expression'),
@@ -360,7 +360,7 @@ class BlockCommandsTests(unittest.TestCase):
                     custom_definitions_path = os.path.join(
                         copied_script_directory, 'definitions %BLOCK_COMMANDS_TEST_TOKEN%!.json',
                     )
-                    with open(custom_definitions_path, 'w', encoding='utf-8') as file:
+                    with open(custom_definitions_path, 'w', encoding='utf-8', newline='\n') as file:
                         json.dump([_valid_definition], file)
                     cmd_shim_directory = os.path.join(directory, 'python cmd')
                     os.makedirs(cmd_shim_directory)

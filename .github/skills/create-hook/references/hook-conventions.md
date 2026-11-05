@@ -13,7 +13,7 @@
    - 入力から受け取ったパス（ツール引数のファイルパスなど）は、`os.path.abspath` で絶対パスにしてからcwdやリポジトリルートと比較する。照合用の定義（除外パターンなど）は `/` 区切りで書く。
    - テストの期待値は `/` 区切りで書き、実行するOSによって期待値を変えない。
    - `.ps1` では、`Resolve-Path -Relative` などの結果に `-replace '\\', '/'` を付けて変換する。
-8. 標準入力はバイト列として読み、UTF-8で復号する。標準出力・標準エラーはBOMなしのUTF-8で出力する。異常終了は原因を標準エラーに出力して `sys.exit(2)`、正常終了とスキップは `sys.exit(0)` または正常なスクリプト終端にする。Unicode escapeを使う場合は、復号した文字列を近くのコメントに記載する。
+8. 標準入力はバイト列として読み、UTF-8で復号する。標準出力・標準エラーはBOMなしのUTF-8で出力する。標準出力・標準エラーとテキストモードで書き込むファイルは、`newline='\n'` を指定して改行を `\n` に固定する（Windowsでは指定しないと `\n` が `\r\n` に変わり、出力や書き込んだ内容がOSによって変わる）。異常終了は原因を標準エラーに出力して `sys.exit(2)`、正常終了とスキップは `sys.exit(0)` または正常なスクリプト終端にする。Unicode escapeを使う場合は、復号した文字列を近くのコメントに記載する。
 9. デバッグ専用hookには `debug-` 接頭辞を付ける。状態形式と保存先は [set-debug-mode.py](../../../hooks/helpers/events/userPromptSubmitted/set-debug-mode/set-debug-mode.py) 、状態の読み取りには [get-debug-mode.py](../../../hooks/helpers/utilities/get-debug-mode/get-debug-mode.py) の `get_debug_mode(session_id)` を使う。入力のセッションIDに対応する状態を読み、ファイルがない場合または `enabled` が `true` でない場合は正常終了する。
 10. 個別hookのテストは、hookのフォルダーに `test-<hook-name>.py` として置く。JSON構文、通常実行、条件を満たさない場合のスキップ、不正入力時の動作と終了コードを検証する。拒否hookでは許可と拒否の両方を検証する。
     - `unittest.TestCase` のテストメソッドとして記述する。[.github/hooks/tests/helpers](../../../hooks/tests/helpers) を `sys.path` に追加して [hook_test_output.py](../../../hooks/tests/helpers/hook_test_output.py) を読み込み、`__main__` 内で `run_tests()` を呼ぶ。import時にはテストを実行せず、一時領域は `setUp` と `addCleanup` などで管理する。

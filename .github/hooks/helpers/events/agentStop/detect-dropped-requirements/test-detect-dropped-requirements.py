@@ -186,7 +186,7 @@ class DetectDroppedRequirementsTests(unittest.TestCase):
                 self.assertIn(message, result.stderr, name)
 
     def test_invalid_transcript(self):
-        with open(self.__transcript_path, 'w', encoding='utf-8') as file:
+        with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write('{"type":"user.message","data":[]}\n')
         result = self.__invoke()
         self.assertEqual(result.returncode, 2)
@@ -205,7 +205,7 @@ class DetectDroppedRequirementsTests(unittest.TestCase):
             with self.subTest(name=name):
                 path = os.path.join(self.__root, f'definitions-{name.replace(" ", "-")}.json')
                 if content is not None:
-                    with open(path, 'w', encoding='utf-8') as file:
+                    with open(path, 'w', encoding='utf-8', newline='\n') as file:
                         file.write(content if isinstance(content, str) else json.dumps(content))
                 result = self.__invoke(definitions_path=path)
                 self.assertEqual(result.returncode, 2, name)

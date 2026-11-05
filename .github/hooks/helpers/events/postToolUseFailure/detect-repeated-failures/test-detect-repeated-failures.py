@@ -193,7 +193,7 @@ class DetectRepeatedFailuresTests(unittest.TestCase):
 
     def test_unwritable_state_location_reports_error(self):
         os.makedirs(os.path.dirname(self.__state_directory))
-        with open(self.__state_directory, 'w', encoding='utf-8') as file:
+        with open(self.__state_directory, 'w', encoding='utf-8', newline='\n') as file:
             file.write('a file occupies the state directory')
         result = self.__invoke()
         self.assertEqual(result.returncode, 2)

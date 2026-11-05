@@ -27,8 +27,8 @@ def main():
     #   strict(既定)：UnicodeEncodeError を発生させる。
     #   ignore：その文字を捨てる。
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace')
-    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace')
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     # agentStopのタイミングでCopilotがPythonプロセスを起動し、
     # 標準入力パイプにイベント情報をJSON形式で書き込むので、それを読み込む。

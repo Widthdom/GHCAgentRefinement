@@ -222,7 +222,7 @@ class DebugLogTransformedPromptTests(unittest.TestCase):
 
     def test_log_location_conflict_reports_error(self):
         os.makedirs(os.path.dirname(self.__log_root), exist_ok=True)
-        with open(self.__log_root, 'w', encoding='utf-8') as file:
+        with open(self.__log_root, 'w', encoding='utf-8', newline='\n') as file:
             file.write('A file occupies the log directory')
         result = self.__invoke()
         self.assertEqual(result.returncode, 2)

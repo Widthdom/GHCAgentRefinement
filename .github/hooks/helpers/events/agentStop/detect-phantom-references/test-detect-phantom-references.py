@@ -220,7 +220,7 @@ class DetectPhantomReferencesTests(unittest.TestCase):
     def test_without_git_checks_existence_only(self):
         directory = os.path.join(self.__root, 'plain')
         os.makedirs(os.path.join(directory, 'src'))
-        with open(os.path.join(directory, 'src', 'a.py'), 'w', encoding='utf-8') as file:
+        with open(os.path.join(directory, 'src', 'a.py'), 'w', encoding='utf-8', newline='\n') as file:
             file.write('a\n')
         payload = {**self.__payload, 'cwd': directory}
         self.__assert_silent(self.__respond('`src/a.py:1` を見た。', payload=payload))
@@ -257,7 +257,7 @@ class DetectPhantomReferencesTests(unittest.TestCase):
     def test_invalid_transcript_reports_error(self):
         for content in ('{', '[]\n', '{"type":"user.message","data":[]}\n'):
             with self.subTest(content=content):
-                with open(self.__transcript_path, 'w', encoding='utf-8') as file:
+                with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
                     file.write(content)
                 result = self.__invoke(payload={**self.__payload, 'timestamp': None})
                 self.assertEqual(result.returncode, 2)

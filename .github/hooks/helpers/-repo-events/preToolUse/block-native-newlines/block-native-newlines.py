@@ -1,0 +1,291 @@
+import argparse
+import hashlib
+import io
+import json
+import os
+import re
+import runpy
+import sqlite3
+import sys
+import tempfile
+import uuid
+from contextlib import closing
+from pathlib import Path
+from typing import cast
+
+
+_INCLUDED_FILE_PATTERNS_KEY = 'includedFilePatterns'
+_TRANSLATING_CALLS_KEY = 'translatingCalls'
+_TEXT_WRITE_MODE_PATTERN_KEY = 'textWriteModePattern'
+_PINNED_NEWLINE_PATTERN_KEY = 'pinnedNewlinePattern'
+# 文字列リテラル。三重引用符を先に照合し、`"""` を空の文字列と次の文字列に分けて読まないようにする。
+# group(2)は中身。接頭辞（`r`・`b`・`f` など）の後の引用符の位置から照合する。
+_STRING_LITERAL_PATTERN = re.compile(
+    r'''("""|\'\'\'|"|')((?:\\.|(?!\1).)*)\1''',
+    re.DOTALL,
+)
+_MAX_SNIPPETS = 3
+_MAX_SNIPPET_LENGTH = 80
+_FINDING = '{file} would get {kinds} without newline=\'\\n\' ({snippets})'
+_DENY_REASON = (
+    'Edit denied: {findings}. Text streams translate "\\n" to the OS line separator when writing, which is "\\r\\n" '
+    'on Windows, so output and files that match on Linux and macOS differ on Windows and the tests fail there. '
+    'Pass newline=\'\\n\' to the call (for example `reconfigure(encoding=\'utf-8\', errors=\'replace\', '
+    'newline=\'\\n\')` or `open(path, \'w\', encoding=\'utf-8\', newline=\'\\n\')`), or write bytes instead. '
+    'If the call never writes text or passes newline on purpose in another way, retry the same edit; this check '
+    'denies it only once per file.'
+)
+
+
+def _compile(pattern, key):
+    try:
+        return re.compile(pattern)
+    except re.PatternError as ex:
+        raise ValueError(f'invalid regular expression in {key}: {ex}') from None
+
+
+def _load_definitions(path):
+    # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
+    # 戻り値は (対象のファイルの正規表現のリスト, (名前, 呼び出しの正規表現, 書き込みのモードを要するか) のリスト,
+    # 書き込みのモードの正規表現, newlineの指定の正規表現)。
+    with open(path, encoding='utf-8-sig') as definitions_file:
+        definitions = json.load(definitions_file)
+    if not isinstance(definitions, dict):
+        raise ValueError('newline definitions must be a JSON object.')
+    included = definitions.get(_INCLUDED_FILE_PATTERNS_KEY)
+    if not isinstance(included, list) or not included or not all(isinstance(item, str) and item.strip() for item in included):
+        raise ValueError(f'newline definitions require a non-empty array of non-empty strings for {_INCLUDED_FILE_PATTERNS_KEY}.')
+    calls = definitions.get(_TRANSLATING_CALLS_KEY)
+    if not isinstance(calls, list) or not calls or not all(
+        isinstance(call, dict) and all(isinstance(call.get(key), str) and call[key].strip() for key in ('name', 'pattern'))
+        and isinstance(call.get('requiresTextWriteMode'), bool)
+        for call in calls
+    ):
+        raise ValueError(
+            f'newline definitions require a non-empty array of objects with non-empty strings for name and pattern '
+            f'and a boolean requiresTextWriteMode in {_TRANSLATING_CALLS_KEY}.'
+        )
+    for key in (_TEXT_WRITE_MODE_PATTERN_KEY, _PINNED_NEWLINE_PATTERN_KEY):
+        if not isinstance(definitions.get(key), str) or not definitions[key].strip():
+            raise ValueError(f'newline definitions require a non-empty string for {key}.')
+    return (
+        [_compile(pattern, _INCLUDED_FILE_PATTERNS_KEY) for pattern in included],
+        [(call['name'], _compile(call['pattern'], _TRANSLATING_CALLS_KEY), call['requiresTextWriteMode']) for call in calls],
+        _compile(definitions[_TEXT_WRITE_MODE_PATTERN_KEY], _TEXT_WRITE_MODE_PATTERN_KEY),
+        _compile(definitions[_PINNED_NEWLINE_PATTERN_KEY], _PINNED_NEWLINE_PATTERN_KEY),
+    )
+
+
+def _get_arguments(text, open_index):
+    # `(` の位置から対応する `)` までの引数の文字列を返す。文字列の中の括弧は数えない。
+    # 書き込む内容が呼び出しの途中で終わる場合は、終わりまでを返す。
+    depth = 0
+    index = open_index
+    while index < len(text):
+        character = text[index]
+        if character in '"\'':
+            literal = _STRING_LITERAL_PATTERN.match(text, index)
+            if literal:
+                index = literal.end()
+                continue
+        elif character == '#':
+            end = text.find('\n', index)
+            index = len(text) if end < 0 else end
+            continue
+        elif character in '([{':
+            depth += 1
+        elif character in ')]}':
+            depth -= 1
+            if depth == 0:
+                return text[open_index + 1:index]
+        index += 1
+    return text[open_index + 1:]
+
+
+def _get_code_ranges(text):
+    # 文字列リテラルとコメントの外側（コード）の範囲を (開始, 終了) のリストで返す。
+    # テストの入力などとして文字列に書いた呼び出しを、呼び出しとみなさないために使う。
+    ranges = []
+    start = 0
+    index = 0
+    while index < len(text):
+        character = text[index]
+        if character in '"\'':
+            literal = _STRING_LITERAL_PATTERN.match(text, index)
+            end = literal.end() if literal else len(text)
+        elif character == '#':
+            newline = text.find('\n', index)
+            end = len(text) if newline < 0 else newline
+        else:
+            index += 1
+            continue
+        ranges.append((start, index))
+        start = index = end
+    ranges.append((start, len(text)))
+    return ranges
+
+
+def _get_line(text, position):
+    start = text.rfind('\n', 0, position) + 1
+    end = text.find('\n', position)
+    return text[start:None if end < 0 else end].strip()
+
+
+def _find_unpinned_calls(definitions, written, existing):
+    # 戻り値は (種類の名前のリスト, 呼び出しの先頭の行のリスト)。
+    # newlineを指定した呼び出しと、既存の内容に同じ行がある呼び出し（元からあるもの）は除く。
+    _, calls, text_write_mode, pinned_newline = definitions
+    existing_lines = {line.strip() for line in existing.splitlines()}
+    code_ranges = _get_code_ranges(written)
+    kinds = []
+    snippets = []
+    for name, pattern, requires_text_write_mode in calls:
+        for match in pattern.finditer(written):
+            if not any(start <= match.start() < end for start, end in code_ranges):
+                continue
+            line = _get_line(written, match.start())
+            if line in existing_lines:
+                continue
+            arguments = _get_arguments(written, match.end() - 1)
+            if pinned_newline.search(arguments):
+                continue
+            if requires_text_write_mode and not any(
+                text_write_mode.match(literal.group(2)) for literal in _STRING_LITERAL_PATTERN.finditer(arguments)
+            ):
+                continue
+            if line not in snippets:
+                snippets.append(line)
+            if name not in kinds:
+                kinds.append(name)
+    return kinds, snippets
+
+
+def _read_existing(path):
+    try:
+        with open(path, encoding='utf-8', errors='replace') as file:
+            return file.read()
+    except OSError:
+        return None
+
+
+def _get_display_path(path, cwd):
+    # cwd配下のファイルは、OSによらず `/` 区切りの相対パスで示す。
+    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
+    try:
+        if os.path.commonpath([cwd, path]) == cwd:
+            return os.path.relpath(path, cwd).replace(os.sep, '/')
+    except ValueError:
+        pass
+    return path.replace(os.sep, '/')
+
+
+def _format_snippet(snippet):
+    if len(snippet) > _MAX_SNIPPET_LENGTH:
+        snippet = snippet[:_MAX_SNIPPET_LENGTH] + '...'
+    return f'"{snippet}"'
+
+
+def _record_denials(state_path, candidates):
+    # candidates：(ファイルキー, 理由) のリスト。戻り値は、今回初めて拒否する理由のリスト。
+    # 同じファイルの拒否は1回だけにし、意図した編集なら再実行で通す。
+    # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
+    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
+    os.makedirs(os.path.dirname(state_path), exist_ok=True)
+    reasons = []
+    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
+        connection.execute('CREATE TABLE IF NOT EXISTS denials (file TEXT PRIMARY KEY)')
+        with connection:
+            connection.execute('BEGIN IMMEDIATE')
+            for file_key, reason in candidates:
+                if connection.execute('INSERT OR IGNORE INTO denials (file) VALUES (?)', (file_key,)).rowcount:
+                    reasons.append(reason)
+    return reasons
+
+
+def main(arguments=None):
+    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+
+    # テスト用に定義ファイルを差し替えられるようにする。
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--definitions-path',
+        default=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'newline-definitions.json'),
+    )
+    parsed_arguments = parser.parse_args(arguments)
+
+    try:
+        definitions = _load_definitions(parsed_arguments.definitions_path)
+        extract_edit_tool_changes = runpy.run_path(
+            str(Path(__file__).resolve().parents[3] / 'utilities' / 'extract-edit-tool-changes' / 'extract-edit-tool-changes.py')
+        )['extract_edit_tool_changes']
+
+        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
+        if not hook_input_json.strip():
+            raise ValueError('hook input is empty.')
+        hook_input = json.loads(hook_input_json)
+        if not isinstance(hook_input, dict):
+            raise ValueError('hook input must be a JSON object.')
+        session_id = hook_input.get('sessionId')
+        if not isinstance(session_id, str) or not session_id.strip():
+            raise ValueError('sessionId must be a non-empty UUID string.')
+        try:
+            parsed_session_id = uuid.UUID(session_id.strip())
+        except ValueError:
+            raise ValueError('sessionId must be a valid UUID.') from None
+        cwd = hook_input.get('cwd')
+        if not isinstance(cwd, str) or not os.path.isabs(cwd):
+            raise ValueError('cwd must be an absolute path.')
+        # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
+        tool_name = hook_input.get('toolName')
+        if not isinstance(tool_name, str) or not tool_name.strip():
+            raise ValueError('toolName must be a non-empty string.')
+        if 'toolArgs' not in hook_input:
+            raise ValueError('toolArgs is required.')
+
+        real_cwd = os.path.realpath(cwd)
+        candidates = []
+        for change in extract_edit_tool_changes(tool_name, hook_input['toolArgs']):
+            path = os.path.realpath(os.path.join(cwd, change['path']))
+            display_path = _get_display_path(path, real_cwd)
+            if not any(pattern.search(display_path) for pattern in definitions[0]):
+                continue
+            current = (_read_existing(path) if os.path.isfile(path) else None) or ''
+            written = change['full_content'] if change['full_content'] is not None else change['written']
+            kinds, snippets = _find_unpinned_calls(definitions, written, '\n'.join([change['removed'], current]))
+            if snippets:
+                # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
+                file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
+                candidates.append((file_key, _FINDING.format(
+                    file=display_path, kinds=', '.join(kinds),
+                    snippets=', '.join(_format_snippet(snippet) for snippet in snippets[:_MAX_SNIPPETS]),
+                )))
+
+        reasons = []
+        if candidates:
+            # hookは呼び出しごとに別プロセスなので、拒否済みのファイルをセッションUUID別に保存する。
+            # DBファイル自体は自動削除しない。
+            state_path = os.path.join(
+                tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-native-newlines',
+                f'{parsed_session_id}.sqlite3',
+            )
+            reasons = _record_denials(state_path, candidates)
+    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
+        print(f'Failed to check native newlines: {ex}', file=sys.stderr)
+        return 2
+
+    if reasons:
+        reason = _DENY_REASON.format(findings='; '.join(reasons))
+        print(reason, file=sys.stderr)
+        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
+        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
+        print(json.dumps({
+            'permissionDecision': 'deny',
+            'permissionDecisionReason': reason,
+        }, ensure_ascii=False))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

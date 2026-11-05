@@ -52,7 +52,7 @@ class RequestReviewTests(unittest.TestCase):
         )
 
     def __write(self, name, content):
-        with open(os.path.join(self.__repository, name), 'w', encoding='utf-8') as file:
+        with open(os.path.join(self.__repository, name), 'w', encoding='utf-8', newline='\n') as file:
             file.write(content)
 
     def __invoke(self, payload, path=_hook_path):
@@ -171,7 +171,7 @@ class RequestReviewTests(unittest.TestCase):
             'enabled': False, 'pending': True, 'updatedAt': 'time',
         }), json.dumps({'enabled': 1, 'pending': True, 'updatedAt': 'time'})):
             with self.subTest(state=state):
-                with open(self.__state_path, 'w', encoding='utf-8') as file:
+                with open(self.__state_path, 'w', encoding='utf-8', newline='\n') as file:
                     file.write(state)
                 result = self.__stop()
                 self.assertEqual((result.returncode, result.stdout), (2, b''))
@@ -185,9 +185,9 @@ class RequestReviewTests(unittest.TestCase):
             with self.subTest(failure=failure):
                 stdin = io.TextIOWrapper(io.BytesIO(json.dumps({
                     'sessionId': self.__session_id, 'cwd': self.__repository,
-                }).encode('utf-8')), encoding='utf-8')
-                stdout = io.TextIOWrapper(io.BytesIO(), encoding='utf-8')
-                stderr = io.TextIOWrapper(io.BytesIO(), encoding='utf-8')
+                }).encode('utf-8')), encoding='utf-8', newline='\n')
+                stdout = io.TextIOWrapper(io.BytesIO(), encoding='utf-8', newline='\n')
+                stderr = io.TextIOWrapper(io.BytesIO(), encoding='utf-8', newline='\n')
                 with (
                     patch('tempfile.gettempdir', return_value=self.__temporary.name),
                     patch('sys.stdin', stdin), patch('sys.stdout', stdout),
@@ -210,9 +210,9 @@ class RequestReviewTests(unittest.TestCase):
         self.__write('tracked.txt', 'changed\n')
         stdin = io.TextIOWrapper(io.BytesIO(json.dumps({
             'sessionId': self.__session_id, 'cwd': self.__repository,
-        }).encode('utf-8')), encoding='utf-8')
-        stdout = io.TextIOWrapper(io.BytesIO(), encoding='utf-8')
-        stderr = io.TextIOWrapper(io.BytesIO(), encoding='utf-8')
+        }).encode('utf-8')), encoding='utf-8', newline='\n')
+        stdout = io.TextIOWrapper(io.BytesIO(), encoding='utf-8', newline='\n')
+        stderr = io.TextIOWrapper(io.BytesIO(), encoding='utf-8', newline='\n')
         with (
             patch('tempfile.gettempdir', return_value=self.__temporary.name),
             patch('sys.stdin', stdin), patch('sys.stdout', stdout), patch('sys.stderr', stderr),

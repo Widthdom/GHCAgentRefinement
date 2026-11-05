@@ -212,7 +212,7 @@ class BlockTimeoutInflationTests(unittest.TestCase):
         ]:
             with self.subTest(name=name):
                 definitions_path = os.path.join(self.__root, 'definitions.json')
-                with open(definitions_path, 'w', encoding='utf-8') as file:
+                with open(definitions_path, 'w', encoding='utf-8', newline='\n') as file:
                     file.write(content)
                 result = self.__run_process(valid_input, '--definitions-path', definitions_path)
                 self.assertEqual((result.returncode, result.stdout), (2, b''), name)

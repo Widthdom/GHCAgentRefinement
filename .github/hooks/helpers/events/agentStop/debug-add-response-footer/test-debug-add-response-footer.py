@@ -509,7 +509,7 @@ class DebugResponseFooterTests(unittest.TestCase):
             raise AssertionError(f'Expected corrected response to pass without another block: {exit_code}, {output}, {error}')
 
 
-        with open(collection_transcript, 'a', encoding='utf-8') as file:
+        with open(collection_transcript, 'a', encoding='utf-8', newline='\n') as file:
             file.write(_to_compressed_json({
                 'type': 'user.message', 'timestamp': '2026-10-21T03:01:00.000Z', 'data': {'content': 'Next turn'},
             }) + '\n')
@@ -635,7 +635,7 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         def _run_main(input_json, run_path_mock=None):
             with (
-                io.TextIOWrapper(io.BytesIO(input_json.encode('utf-8')), encoding='utf-8') as stdin,
+                io.TextIOWrapper(io.BytesIO(input_json.encode('utf-8')), encoding='utf-8', newline='\n') as stdin,
                 io.TextIOWrapper(io.BytesIO(), encoding='utf-8', newline='') as stdout,
                 io.TextIOWrapper(io.BytesIO(), encoding='utf-8', newline='') as stderr,
                 patch.object(sys, 'stdin', stdin),

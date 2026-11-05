@@ -42,7 +42,7 @@ class RecordSeenFilesTests(unittest.TestCase):
 
     @staticmethod
     def __write(path, content='a\n'):
-        with open(path, 'w', encoding='utf-8') as file:
+        with open(path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(content)
 
     def __invoke(self, payload=None, raw=None):

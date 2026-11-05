@@ -209,7 +209,7 @@ class BlockTimeBombLiteralsTests(unittest.TestCase):
         for name, definitions in cases:
             with self.subTest(name=name):
                 path = os.path.join(self.__root, 'definitions.json')
-                with open(path, 'w', encoding='utf-8') as file:
+                with open(path, 'w', encoding='utf-8', newline='\n') as file:
                     json.dump(definitions, file)
                 result = self.__run_hook(
                     {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'edit', 'toolArgs': {}},

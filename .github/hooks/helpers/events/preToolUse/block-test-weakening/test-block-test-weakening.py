@@ -270,7 +270,7 @@ class BlockTestWeakeningTests(unittest.TestCase):
         ]:
             with self.subTest(name=name):
                 path = os.path.join(self.__directory, f'definitions-{name.replace(" ", "-")}.json')
-                with open(path, 'w', encoding='utf-8') as file:
+                with open(path, 'w', encoding='utf-8', newline='\n') as file:
                     file.write(content if isinstance(content, str) else json.dumps(content))
                 result = _run_hook(valid_input, '--definitions-path', path)
                 self.assertEqual(result.returncode, 2, name)

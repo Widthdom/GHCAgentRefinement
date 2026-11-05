@@ -31,7 +31,7 @@ class RequireReadBeforeEditTests(unittest.TestCase):
         self.__target = os.path.join(self.__workspace, '対象.py')
         self.__other = os.path.join(self.__workspace, 'sub', 'other.py')
         for path in (self.__target, self.__other):
-            with open(path, 'w', encoding='utf-8') as file:
+            with open(path, 'w', encoding='utf-8', newline='\n') as file:
                 file.write('a\n')
 
     def __payload(self, tool_call, session_id=None):
@@ -147,7 +147,7 @@ class RequireReadBeforeEditTests(unittest.TestCase):
     def test_patch_files_are_checked_together(self):
         self.__view(self.__other)
         third = os.path.join(self.__workspace, 'third.py')
-        with open(third, 'w', encoding='utf-8') as file:
+        with open(third, 'w', encoding='utf-8', newline='\n') as file:
             file.write('a\n')
         patch_text = (
             '*** Begin Patch\n*** Update File: 対象.py\n@@\n-a\n+b\n'
@@ -162,7 +162,7 @@ class RequireReadBeforeEditTests(unittest.TestCase):
 
     def test_lists_multiple_files_and_outside_paths(self):
         outside = os.path.join(self.__root, 'outside.py')
-        with open(outside, 'w', encoding='utf-8') as file:
+        with open(outside, 'w', encoding='utf-8', newline='\n') as file:
             file.write('a\n')
         result = self.__invoke(('apply_patch', (
             f'*** Begin Patch\n*** Update File: {outside}\n@@\n-a\n+b\n'

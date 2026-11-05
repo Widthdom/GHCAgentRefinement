@@ -25,7 +25,7 @@ class BlockNonportablePathsTests(unittest.TestCase):
     def __write_file(self, path):
         full_path = os.path.join(self.__directory, path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
-        with open(full_path, 'w', encoding='utf-8') as file:
+        with open(full_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write('value = 1\n')
 
     def __run_input(self, value):

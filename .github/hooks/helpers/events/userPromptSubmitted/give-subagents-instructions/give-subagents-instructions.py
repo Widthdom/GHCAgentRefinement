@@ -7,8 +7,8 @@ from typing import cast
 
 def main():
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')
-    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='backslashreplace')
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', newline='\n')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='backslashreplace', newline='\n')
 
     try:
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
