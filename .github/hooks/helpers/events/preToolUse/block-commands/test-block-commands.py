@@ -340,22 +340,21 @@ class BlockCommandsTests(unittest.TestCase):
                     copied_script_directory = os.path.join(
                         helpers_directory, 'events', 'preToolUse', 'block-commands',
                     )
-                    copied_utilities_directory = os.path.join(helpers_directory, 'utilities', 'check-python-version')
                     os.makedirs(copied_script_directory)
-                    os.makedirs(copied_utilities_directory)
                     for filename in ('block-commands.cmd', 'block-commands.py', 'blocked-command-definitions.json'):
                         with self.subTest(filename=filename):
                             shutil.copyfile(
                                 os.path.join(_script_directory, filename),
                                 os.path.join(copied_script_directory, filename),
                             )
-                    shutil.copyfile(
-                        os.path.join(
-                            _script_directory, '..', '..', '..', 'utilities', 'check-python-version',
-                            'check-python-version.py',
-                        ),
-                        os.path.join(copied_utilities_directory, 'check-python-version.py'),
-                    )
+                    # ラッパーが使うPythonのバージョン確認と、hookが読み込む入力の読み込み処理も複製する。
+                    for utility in ('check-python-version', 'read-hook-input'):
+                        copied_utilities_directory = os.path.join(helpers_directory, 'utilities', utility)
+                        os.makedirs(copied_utilities_directory)
+                        shutil.copyfile(
+                            os.path.join(_script_directory, '..', '..', '..', 'utilities', utility, f'{utility}.py'),
+                            os.path.join(copied_utilities_directory, f'{utility}.py'),
+                        )
                     copied_wrapper_path = os.path.join(copied_script_directory, 'block-commands.cmd')
                     custom_definitions_path = os.path.join(
                         copied_script_directory, 'definitions %BLOCK_COMMANDS_TEST_TOKEN%!.json',
