@@ -4,8 +4,16 @@ import os
 import runpy
 import sys
 import time
-import uuid
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['parse_session_id']
 
 
 def _wait_for_stop(transcript_path, session_id, timestamp):
@@ -41,26 +49,14 @@ def main():
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
-        session_id = hook_input.get('sessionId')
-        if not isinstance(session_id, str) or not session_id.strip():
-            raise ValueError('sessionId must be a non-empty UUID string.')
-        try:
-            parsed_session_id = uuid.UUID(session_id.strip())
-        except ValueError:
-            raise ValueError('sessionId must be a valid UUID.') from None
+        hook_input = _hook_input['read_hook_input']()
+        parsed_session_id = _parse_session_id(hook_input.get('sessionId'))
         if hook_input.get('agentId'):
             return 0
 
         script_directory = os.path.dirname(os.path.abspath(__file__))
-        helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(script_directory)))
         get_debug_mode = runpy.run_path(
-            os.path.join(helpers_directory, 'utilities', 'get-debug-mode', 'get-debug-mode.py'),
+            os.path.join(_utilities_directory, 'get-debug-mode', 'get-debug-mode.py'),
         )['get_debug_mode']
         if not get_debug_mode(parsed_session_id):
             return 0

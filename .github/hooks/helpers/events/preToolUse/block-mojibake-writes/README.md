@@ -9,9 +9,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 処理詳細
 1. [mojibake-definitions.json](./mojibake-definitions.json) から、対象外のファイルのパス（`excludedFilePatterns`）と、文字化けの正規表現（`mojibakePatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
-   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・`old_str` を除く引数の文字列を書き込む内容、`old_str` を置換前の内容とする（`str_replace_editor` の `view`・`undo_edit` は除く）。
-   - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。`*** Delete File:` は対象外とする。
-   - 各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
+   - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
 3. cwdからの相対パス（`/` 区切り）が `excludedFilePatterns` に一致しないファイルについて、書き込む内容の行ごとに `mojibakePatterns` に一致するものを拒否の候補とする。ただし、前後の空白を除いて同じ行が既存の内容（置換前の内容、パッチの削除行、ファイルの現在の内容）にあれば除く。
 4. 候補のうち、このセッションで同じファイルをまだ拒否していないものがあれば、元の文章をUTF-8で読み直して正しい文字で書くよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。理由で示す行では、制御文字と書式文字を `<U+XXXX>` に置き換える。
 
@@ -25,10 +23,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 - 継続バイトにあたる文字は、U+0080〜U+00BFと、Windows-1252で0x80〜0x9Fに割り当てられた文字（`€`・`‚`・`“`・`”`・`…`・`™` など）とする。
 - 対象外のファイルは既定では設けない。日本語の文書（`*.md` など）も文字化けの被害を受けやすいため、文書も検査する。
-
-## 前提条件
-- 特別なプロンプト指定は不要。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外
 - 既存の内容と照合するため、元から文字化けを含むファイルの他の行を編集しても拒否しない。既存の内容はUTF-8として読み、読めないバイトは置換文字にして照合する。

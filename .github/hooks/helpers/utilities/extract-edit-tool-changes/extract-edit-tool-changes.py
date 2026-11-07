@@ -22,6 +22,7 @@ _FULL_CONTENT_KEYS = ('file_text', 'content')
 # 書き込みではないstr_replace_editorのコマンド。undo_editは書き込む内容を引数に持たない。
 _NON_WRITE_COMMANDS = frozenset({'view', 'undo_edit'})
 _PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
+_PATCH_MOVE_PATTERN = re.compile(r'^\*\*\* Move to: (.+?)\s*$')
 
 
 def _get_patch_changes(text):
@@ -33,8 +34,10 @@ def _get_patch_changes(text):
         if match:
             changes.append({
                 'path': match.group(2), 'written': [], 'removed': [], 'deleted': match.group(1) == 'Delete',
-                'full_content': None, 'replacement': None, 'patch_lines': [],
+                'moved_to': None, 'full_content': None, 'replacement': None, 'patch_lines': [],
             })
+        elif changes and (move := _PATCH_MOVE_PATTERN.match(line)):
+            changes[-1]['moved_to'] = move.group(1)
         elif changes and line[:1] in ('+', '-', ' '):
             change = changes[-1]
             change['patch_lines'].append((line[0], line[1:]))
@@ -58,6 +61,7 @@ def extract_edit_tool_changes(tool_name, raw_tool_args, include_deleted=False):
     #   written：書き込む内容。置換・挿入では新しい内容、パッチでは追加行。
     #   removed：置換前の内容。置換では古い内容、パッチでは削除行。
     #   deleted：パッチによるファイルの削除か。include_deletedがTrueのときだけ結果に含める。
+    #   moved_to：パッチ（`*** Move to:`）によるファイルの移動先。移動しない場合はNone。
     #   full_content：ファイル全体を書き込む作成（create）の内容。それ以外はNone。
     #   replacement：置換前後の内容の組（古い内容, 新しい内容）。置換以外はNone。
     #   patch_lines：パッチの本文の行（記号, 内容）のリスト。記号は `+`・`-`・` `。パッチ以外はNone。
@@ -84,6 +88,7 @@ def extract_edit_tool_changes(tool_name, raw_tool_args, include_deleted=False):
         'written': '\n'.join(_collect_json_string_values(tool_args, _IGNORED_KEYS | frozenset(_REMOVED_TEXT_KEYS))),
         'removed': '\n'.join(text for key in _REMOVED_TEXT_KEYS for text in _collect_json_string_values(tool_args.get(key))),
         'deleted': False,
+        'moved_to': None,
         'full_content': _get_first_string(tool_args, _FULL_CONTENT_KEYS) if is_create else None,
         'replacement': (old, new) if old and new is not None else None,
         'patch_lines': None,

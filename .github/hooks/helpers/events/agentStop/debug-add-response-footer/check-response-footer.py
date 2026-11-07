@@ -44,22 +44,3 @@ def test_response_footer(response, expected_hooks, expected_fired_hooks, expecte
     timestamp_is_current = -2 <= age_minutes <= 10
 
     return hooks_are_correct and fired_hooks_are_correct and skills_are_correct and timestamp_is_current
-
-
-if __name__ == '__main__':
-    import argparse
-
-    _parser = argparse.ArgumentParser()
-    _parser.add_argument('--response', required=True)
-    _parser.add_argument('--expected-hooks', nargs='+', required=True)
-    _parser.add_argument('--expected-fired-hooks', nargs='+', required=True)
-    _parser.add_argument('--expected-skills', nargs='+', required=True)
-    _parser.add_argument('--current-jst', required=True)
-    _arguments = _parser.parse_args()
-    print(test_response_footer(
-        _arguments.response,
-        _arguments.expected_hooks,
-        _arguments.expected_fired_hooks,
-        _arguments.expected_skills,
-        _arguments.current_jst,
-    ))

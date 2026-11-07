@@ -10,9 +10,8 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 1. [block-test-weakening](../block-test-weakening/README.md) hookの [test-weakening-definitions.json](../block-test-weakening/test-weakening-definitions.json) から、テストファイルのパスの正規表現（`testFilePatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. このセッションで [record-test-failure-values](../../postToolUse/record-test-failure-values/README.md) hookが記録した、最新のテスト実行の失敗の期待値と実際の値の組を読み込む。記録がなければ許可する。
 3. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
-   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・置換前の内容（`old_str`）を除く引数の文字列（`str_replace_editor` の `view`・`undo_edit` は除く）。`create` での上書きはファイルの現在の内容と比べる。
-   - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）と削除行（`-`）。`*** Delete File:` は対象外とする。
-   - 各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
+   - `create` での上書きは、ファイルの現在の内容と比べる。
+   - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
 4. cwdからの相対パス（`/` 区切り）が `testFilePatterns` のいずれかに一致するファイルについて、置換前の行と書き込む行のうち、リテラル（文字列・数値・真偽値・null）以外の部分が一致する組を対応させる。同じ位置のリテラルが、記録した期待値から実際の値に変わっていれば拒否の候補とする。
 5. 候補のうち、このセッションで同じファイルをまだ拒否していないものがあれば、テストではなく実装を直すよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。
 
@@ -32,9 +31,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - 期待値の行を、リテラル以外の部分も含めて書き直す
 
 ## 前提条件
-- 特別なプロンプト指定は不要。
 - [record-test-failure-values](../../postToolUse/record-test-failure-values/README.md) hookが記録したテストの失敗を使う。記録がなければ何も拒否しない。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外
 - テストファイルの中だけを対象にするため、実装の修正は拒否しない。

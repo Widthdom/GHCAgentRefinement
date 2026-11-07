@@ -1,8 +1,13 @@
 import json
 import os
-import tempfile
-import uuid
+import runpy
 from datetime import datetime, timezone
+
+
+# 状態の保存先は共通のutilityで決める。utilityのフォルダーの親がutilitiesである。
+_state_path_utility = runpy.run_path(os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'get-state-path', 'get-state-path.py',
+))
 
 
 # ユーザーがこのセッションでhookの変更に触れたかの状態。
@@ -12,17 +17,8 @@ from datetime import datetime, timezone
 
 
 def get_state_path(session_id):
-    # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。ファイル自体は自動削除しない。
-    if not isinstance(session_id, str) or not session_id.strip():
-        raise ValueError('sessionId must be a non-empty UUID string.')
-    try:
-        parsed_session_id = uuid.UUID(session_id.strip())
-    except ValueError:
-        raise ValueError('sessionId must be a valid UUID.') from None
-    return os.path.join(
-        tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'hook-change-requests',
-        f'{parsed_session_id}.json',
-    )
+    # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
+    return _state_path_utility['get_state_path']('hook-change-requests', session_id, '.json')
 
 
 def is_permitted(state_path):

@@ -32,12 +32,16 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
         )}
 
     def __new_sandbox(self):
-        # 指示ファイルを差し替えるため、.githubからの相対位置を保ってスクリプトを一時ディレクトリへ複製する。
+        # 指示ファイルを差し替えるため、.githubからの相対位置を保ってスクリプトと読み込むutilityを一時ディレクトリへ複製する。
         root = tempfile.mkdtemp(prefix='ghc-give-subagents-instructions-test-')
         self.addCleanup(shutil.rmtree, root)
-        directory = os.path.join(root, '.github', 'hooks', 'helpers', 'events', 'userPromptSubmitted', _hook_name)
+        helpers_directory = os.path.join(root, '.github', 'hooks', 'helpers')
+        directory = os.path.join(helpers_directory, 'events', 'userPromptSubmitted', _hook_name)
         os.makedirs(directory)
         shutil.copy(_hook_path, directory)
+        utility_directory = os.path.join(helpers_directory, 'utilities', 'read-hook-input')
+        os.makedirs(utility_directory)
+        shutil.copy(os.path.join(_hooks_directory, 'helpers', 'utilities', 'read-hook-input', 'read-hook-input.py'), utility_directory)
         return os.path.join(directory, f'{_hook_name}.py'), os.path.join(root, '.github', 'copilot-instructions.md')
 
     @staticmethod

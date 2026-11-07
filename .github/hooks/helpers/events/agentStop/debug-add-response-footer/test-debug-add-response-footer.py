@@ -11,10 +11,11 @@ import time
 import uuid
 from datetime import datetime
 from unittest.mock import Mock, patch
-from pathlib import Path
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'debug-add-response-footer.py')
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))), 'utilities')
 
 
 def _to_compressed_json(value):
@@ -71,15 +72,15 @@ class DebugResponseFooterTests(unittest.TestCase):
 
     def test_footer_workflow(self):
         invalid_inputs = [
-            {'Name': 'Empty input', 'Json': '', 'Error': 'agentStop hook input is empty.'},
-            {'Name': 'Whitespace input', 'Json': '   \t\n', 'Error': 'agentStop hook input is empty.'},
+            {'Name': 'Empty input', 'Json': '', 'Error': 'Failed to parse agentStop hook input: hook input is empty.'},
+            {'Name': 'Whitespace input', 'Json': '   \t\n', 'Error': 'Failed to parse agentStop hook input: hook input is empty.'},
             {'Name': 'Invalid JSON', 'Json': '{invalid-json}', 'Error': 'Failed to parse agentStop hook input:'},
             {'Name': 'Invalid UTF-8', 'Json': b'{"sessionId":"\xff"}', 'Error': 'Failed to parse agentStop hook input:'},
-            {'Name': 'Array JSON', 'Json': '[]', 'Error': 'agentStop hook input must be a JSON object.'},
-            {'Name': 'String JSON', 'Json': '"not-an-object"', 'Error': 'agentStop hook input must be a JSON object.'},
-            {'Name': 'Null JSON', 'Json': 'null', 'Error': 'agentStop hook input must be a JSON object.'},
-            {'Name': 'Boolean JSON', 'Json': 'true', 'Error': 'agentStop hook input must be a JSON object.'},
-            {'Name': 'Single object array', 'Json': '[{}]', 'Error': 'agentStop hook input must be a JSON object.'},
+            {'Name': 'Array JSON', 'Json': '[]', 'Error': 'Failed to parse agentStop hook input: hook input must be a JSON object.'},
+            {'Name': 'String JSON', 'Json': '"not-an-object"', 'Error': 'Failed to parse agentStop hook input: hook input must be a JSON object.'},
+            {'Name': 'Null JSON', 'Json': 'null', 'Error': 'Failed to parse agentStop hook input: hook input must be a JSON object.'},
+            {'Name': 'Boolean JSON', 'Json': 'true', 'Error': 'Failed to parse agentStop hook input: hook input must be a JSON object.'},
+            {'Name': 'Single object array', 'Json': '[{}]', 'Error': 'Failed to parse agentStop hook input: hook input must be a JSON object.'},
         ]
 
         for case in invalid_inputs:
@@ -99,32 +100,32 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         missing_path_cases = [
             {'Name': 'Missing transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid}),
-             'Error': 'agentStop hook transcriptPath must be a string.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
             {'Name': 'Whitespace transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid, 'transcriptPath': '   '}),
-             'Error': 'agentStop hook transcriptPath must not be empty or whitespace.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
             {'Name': 'Nonexistent transcriptPath', 'Json': _to_compressed_json(
                 {'sessionId': valid_guid, 'transcriptPath': os.path.join(self.__temp_dir, 'not-found.jsonl')}),
-             'Error': 'Transcript path is not a file'},
+             'Error': 'Failed to parse agentStop hook input: transcript path is not a file'},
             {'Name': 'Directory transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid, 'transcriptPath': self.__temp_dir}),
-             'Error': 'Transcript path is not a file'},
+             'Error': 'Failed to parse agentStop hook input: transcript path is not a file'},
             {'Name': 'Non-string snake_case transcript_path', 'Json': _to_compressed_json(
                 {'sessionId': valid_guid, 'transcript_path': []}),
-             'Error': 'agentStop hook transcriptPath must be a string.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
             {'Name': 'Non-string transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid, 'transcriptPath': []}),
-             'Error': 'agentStop hook transcriptPath must be a string.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
             {'Name': 'Invalid transcriptPath with valid snake_case path', 'Json': _to_compressed_json(
                 {'sessionId': valid_guid, 'transcriptPath': None, 'transcript_path': self.__valid_transcript}),
-             'Error': 'agentStop hook transcriptPath must be a string.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
             {'Name': 'Missing sessionId', 'Json': _to_compressed_json({'transcriptPath': self.__valid_transcript}),
-             'Error': 'agentStop hook sessionId must be a string.'},
+             'Error': 'Failed to parse agentStop hook input: sessionId must be a non-empty UUID string.'},
             {'Name': 'Non-string sessionId', 'Json': _to_compressed_json({'sessionId': [valid_guid], 'transcriptPath': self.__valid_transcript}),
-             'Error': 'agentStop hook sessionId must be a string.'},
+             'Error': 'Failed to parse agentStop hook input: sessionId must be a non-empty UUID string.'},
             {'Name': 'Whitespace sessionId', 'Json': _to_compressed_json({'sessionId': ' \t', 'transcriptPath': self.__valid_transcript}),
-             'Error': 'agentStop hook sessionId must not be empty or whitespace.'},
+             'Error': 'Failed to parse agentStop hook input: sessionId must be a non-empty UUID string.'},
             {'Name': 'Invalid sessionId', 'Json': _to_compressed_json({'sessionId': 'not-a-guid', 'transcriptPath': self.__valid_transcript}),
-             'Error': 'agentStop hook sessionId must be a valid UUID.'},
+             'Error': 'Failed to parse agentStop hook input: sessionId must be a valid UUID.'},
             {'Name': 'Case-sensitive sessionId', 'Json': _to_compressed_json({'SessionId': valid_guid, 'transcriptPath': self.__valid_transcript}),
-             'Error': 'agentStop hook sessionId must be a string.'},
+             'Error': 'Failed to parse agentStop hook input: sessionId must be a non-empty UUID string.'},
         ]
 
         for case in missing_path_cases:
@@ -305,10 +306,10 @@ class DebugResponseFooterTests(unittest.TestCase):
 
 
         current_jst = runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'get-current-jst' / 'get-current-jst.py')
+            os.path.join(_utilities_directory, 'get-current-jst', 'get-current-jst.py')
         )['current_jst']
 
-        formatted_footer = runpy.run_path(str(Path(_script_directory) / 'format-response-footer.py'))['format_response_footer'](
+        formatted_footer = runpy.run_path(os.path.join(_script_directory, 'format-response-footer.py'))['format_response_footer'](
             hooks=['none'],
             fired_hooks=['none'],
             skills=['none'],
@@ -425,7 +426,7 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         # userPromptSubmittedのhook.startはuser.messageより前に記録されるため、そこからを今回のターンとする。
         record_hook_run = runpy.run_path(
-            str(Path(_script_directory).parents[2] / 'utilities' / 'hook-activity-state' / 'hook-activity-state.py')
+            os.path.join(_utilities_directory, 'hook-activity-state', 'hook-activity-state.py')
         )['record_hook_run']
         with patch.object(tempfile, 'tempdir', self.__temp_dir):
             for timestamp, event_name, hook_name, fired in (
@@ -455,9 +456,9 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         _write_all_text(collection_transcript, '\n'.join(map(_to_compressed_json, events)) + '\n')
 
-        get_hooks = runpy.run_path(str(Path(_script_directory) / 'get-used-hooks.py'))['get_used_hooks']
+        get_hooks = runpy.run_path(os.path.join(_script_directory, 'get-used-hooks.py'))['get_used_hooks']
 
-        get_skills = runpy.run_path(str(Path(_script_directory) / 'get-used-skills.py'))['get_used_skills']
+        get_skills = runpy.run_path(os.path.join(_script_directory, 'get-used-skills.py'))['get_used_skills']
 
         if get_hooks(collection_transcript, hooks_directory) != ['a-first', 'm-repo', 'z-last']:
             raise AssertionError('Expected current-turn hooks in name order, retaining correction history.')
@@ -465,7 +466,7 @@ class DebugResponseFooterTests(unittest.TestCase):
         if get_skills(collection_transcript) != ['first', 'second']:
             raise AssertionError('Expected distinct skill names in invocation order, retaining correction history.')
 
-        get_fired_hooks = runpy.run_path(str(Path(_script_directory) / 'get-fired-hooks.py'))['get_fired_hooks']
+        get_fired_hooks = runpy.run_path(os.path.join(_script_directory, 'get-fired-hooks.py'))['get_fired_hooks']
 
         with patch.object(tempfile, 'tempdir', self.__temp_dir):
             if get_fired_hooks(collection_transcript, self.__enabled_session_id) != ['deny-hook', 'prompt-hook']:
@@ -529,9 +530,9 @@ class DebugResponseFooterTests(unittest.TestCase):
                         get_fired_hooks(collection_transcript, self.__enabled_session_id)
 
     def test_footer_validation(self):
-        format_footer = runpy.run_path(str(Path(_script_directory) / 'format-response-footer.py'))['format_response_footer']
+        format_footer = runpy.run_path(os.path.join(_script_directory, 'format-response-footer.py'))['format_response_footer']
 
-        validate_footer = runpy.run_path(str(Path(_script_directory) / 'check-response-footer.py'))['test_response_footer']
+        validate_footer = runpy.run_path(os.path.join(_script_directory, 'check-response-footer.py'))['test_response_footer']
 
         current_jst = '2026-10-21 12:00:00 JST'
 
@@ -569,7 +570,7 @@ class DebugResponseFooterTests(unittest.TestCase):
             raise AssertionError('Expected the fired hooks section to state that agentStop hooks are excluded.')
 
     def test_transcript_and_polling_helpers(self):
-        hook = runpy.run_path(str(Path(_script_directory) / 'debug-add-response-footer.py'))
+        hook = runpy.run_path(os.path.join(_script_directory, 'debug-add-response-footer.py'))
 
         last_message_transcript = os.path.join(self.__temp_dir, 'last-message.jsonl')
 
@@ -593,7 +594,7 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         _write_all_text(flush_transcript, '\n' + _to_compressed_json(start_event) + '\n{"type":')
 
-        waiter = runpy.run_path(str(Path(_script_directory).parents[2] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py'))
+        waiter = runpy.run_path(os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py'))
         is_event_recorded = waiter['_is_agent_stop_event_recorded']
         wait_for_event = waiter['wait_for_agent_stop_event']
 

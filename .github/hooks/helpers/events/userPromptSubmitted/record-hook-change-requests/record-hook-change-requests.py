@@ -1,10 +1,17 @@
 import io
-import json
 import os
 import re
 import runpy
 import sys
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 
 
 # hookの変更に触れたとみなす語。hookの名前（フォルダー名）は別にリポジトリから集める。
@@ -63,23 +70,15 @@ def main():
     try:
         # 拒否側のpreToolUse hookと状態の形式・保存先を共有する。
         state = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'hook-change-request-state', 'hook-change-request-state.py',
+            _utilities_directory, 'hook-change-request-state', 'hook-change-request-state.py',
         ))
 
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
         prompt = hook_input.get('prompt')
         if not isinstance(prompt, str):
             raise ValueError('prompt must be a string.')
         state_path = state['get_state_path'](hook_input.get('sessionId'))
-        cwd = hook_input.get('cwd')
-        if not isinstance(cwd, str) or not os.path.isabs(cwd):
-            raise ValueError('cwd must be an absolute path.')
+        cwd = _hook_input['get_cwd'](hook_input)
 
         # サブエージェントへの依頼は親のエージェントが書いたもので、ユーザーの依頼ではないため記録しない。
         # 記録すると、エージェントがサブエージェントへの依頼でhookの変更を自ら許可できてしまう。

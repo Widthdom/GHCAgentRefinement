@@ -1,8 +1,17 @@
 import io
 import json
-import pathlib
+import os
+import runpy
 import sys
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 
 
 def main():
@@ -11,12 +20,7 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='backslashreplace', newline='\n')
 
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
         # サブエージェントへの依頼のときだけ、入力にagentIdが含まれる。
         # 親のセッションにはsessionStartのload-copilot-instructions hookが指示を渡すため、ここでは何もしない。
         agent_id = hook_input.get('agentId')
@@ -29,14 +33,16 @@ def main():
         return 2
 
     # サブエージェントではsessionStartが発火しないため、親と同じ指示ファイルを依頼文に添えて渡す。
-    # .parents[5]：6階層上。ここでは .github ディレクトリ
-    instructions_path = pathlib.Path(__file__).absolute().parents[5] / 'copilot-instructions.md'
-    if not instructions_path.is_file():
+    # utilities → helpers → hooks → .github の順に上がる。
+    instructions_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(_utilities_directory))), 'copilot-instructions.md',
+    )
+    if not os.path.isfile(instructions_path):
         print(f'Copilot instructions file not found: {instructions_path}', file=sys.stderr)
         return 2
 
     # `utf-8-sig` を指定することで、BOMが存在する場合は取り除いて読むことができる。
-    with instructions_path.open(encoding='utf-8-sig', newline='') as instructions_file:
+    with open(instructions_path, encoding='utf-8-sig', newline='') as instructions_file:
         instructions = instructions_file.read()
 
     if not instructions.strip():

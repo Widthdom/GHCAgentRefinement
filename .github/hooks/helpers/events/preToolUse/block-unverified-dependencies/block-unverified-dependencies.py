@@ -8,9 +8,17 @@ import os
 import re
 import runpy
 import sqlite3
-import subprocess
 import sys
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 
 
 # 依存を書くファイルの種類。ファイル名（`/` 区切りのパスの末尾）で判定する。
@@ -168,16 +176,11 @@ class _Environment:
         return self.__cache('files', self.__list_files_uncached)
 
     def __list_files_uncached(self):
-        if self.__root is not None:
-            try:
-                result = subprocess.run(
-                    ['git', '-C', self.__root, 'ls-files', '-co', '--exclude-standard', '-z'],
-                    capture_output=True, timeout=_GIT_TIMEOUT_SECONDS, check=False,
-                )
-                if result.returncode == 0:
-                    return [path for path in result.stdout.decode('utf-8', errors='replace').split('\0') if path][:_MAX_LISTED_FILES]
-            except (OSError, subprocess.TimeoutExpired):
-                pass
+        output = None if self.__root is None else _git['get_git_output'](
+            self.__root, ['ls-files', '-co', '--exclude-standard', '-z'], _GIT_TIMEOUT_SECONDS,
+        )
+        if output is not None:
+            return [path for path in output.split('\0') if path][:_MAX_LISTED_FILES]
         base = self.__root or self.__cwd
         files = []
         for current, directories, filenames in os.walk(base):
@@ -355,20 +358,6 @@ class _Environment:
         return self.__installed_module_names()
 
 
-def _get_repository_root(cwd):
-    try:
-        result = subprocess.run(
-            ['git', '-C', cwd, 'rev-parse', '--show-toplevel'],
-            capture_output=True, timeout=_GIT_TIMEOUT_SECONDS, check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if result.returncode != 0:
-        return None
-    root = result.stdout.decode('utf-8', errors='replace').strip()
-    return os.path.realpath(root) if root else None
-
-
 def _format_finding(environment, ecosystem, name, version, manifest_directory, version_only):
     if version_only:
         return f'{_ECOSYSTEM_LABELS[ecosystem]} `{name}` version `{version}` (not in the local package cache)'
@@ -390,37 +379,21 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
         state = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'verified-packages-state', 'verified-packages-state.py',
+            _utilities_directory, 'verified-packages-state', 'verified-packages-state.py',
         ))
         state_path = state['get_state_path'](hook_input.get('sessionId'))
-        cwd = hook_input.get('cwd')
-        if not isinstance(cwd, str) or not cwd.strip():
-            raise ValueError('cwd must be a non-empty string.')
-        if not os.path.isabs(cwd):
-            raise ValueError('cwd must be an absolute path.')
-        # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
-        tool_name = hook_input.get('toolName')
-        if not isinstance(tool_name, str) or not tool_name.strip():
-            raise ValueError('toolName must be a non-empty string.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        cwd = _hook_input['get_cwd'](hook_input)
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         # 編集ツールの引数の解析は、共通utilityで行う。
         extract_edit_tool_changes = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+            _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
         ))['extract_edit_tool_changes']
         real_cwd = os.path.realpath(cwd)
         added = []
-        for change in extract_edit_tool_changes(tool_name, hook_input['toolArgs']):
+        for change in extract_edit_tool_changes(tool_name, tool_args):
             path = os.path.realpath(os.path.join(cwd, change['path']))
             kind = _get_kind(path.replace(os.sep, '/'))
             if kind is None:
@@ -442,7 +415,10 @@ def main():
             return 0
 
         verified = state['get_verified'](state_path)
-        environment = _Environment(real_cwd, _get_repository_root(real_cwd), state)
+        repository_root = _git['get_repository_root'](real_cwd, _GIT_TIMEOUT_SECONDS)
+        if repository_root is not None:
+            repository_root = os.path.realpath(repository_root)
+        environment = _Environment(real_cwd, repository_root, state)
         findings = []
         for ecosystem, name, version, manifest_directory, name_exists in added:
             if (ecosystem, _normalize_name(state, ecosystem, name)) in verified:

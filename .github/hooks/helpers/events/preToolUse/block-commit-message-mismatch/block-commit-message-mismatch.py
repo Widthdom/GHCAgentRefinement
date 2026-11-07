@@ -6,11 +6,8 @@ import re
 import runpy
 import shlex
 import sqlite3
-import subprocess
 import sys
-import tempfile
 import time
-import uuid
 from typing import cast
 
 
@@ -19,6 +16,9 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
+_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
 ))['filter_first_time_denials']
@@ -225,16 +225,7 @@ def _run_git(cwd, *arguments):
     remaining = _GIT_DEADLINE - time.monotonic()
     if remaining <= 0:
         return None
-    try:
-        result = subprocess.run(
-            ['git', '-c', 'core.quotePath=false', *arguments], cwd=cwd,
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=remaining,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    if result.returncode != 0:
-        return None
-    return result.stdout.decode('utf-8', errors='replace')
+    return _git['get_git_output'](cwd, ['-c', 'core.quotePath=false', *arguments], remaining)
 
 
 def _get_commit_changes(commit, cwd, staged_before):
@@ -324,30 +315,12 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
-        session_id = hook_input.get('sessionId')
-        if not isinstance(session_id, str) or not session_id.strip():
-            raise ValueError('sessionId must be a non-empty UUID string.')
-        try:
-            parsed_session_id = uuid.UUID(session_id.strip())
-        except ValueError:
-            raise ValueError('sessionId must be a valid UUID.') from None
-        cwd = hook_input.get('cwd')
-        if not isinstance(cwd, str) or not os.path.isabs(cwd):
-            raise ValueError('cwd must be an absolute path.')
-        # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
-        tool_name = hook_input.get('toolName')
-        if not isinstance(tool_name, str) or not tool_name.strip():
-            raise ValueError('toolName must be a non-empty string.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        hook_input = _hook_input['read_hook_input']()
+        state_path = _get_state_path('block-commit-message-mismatch', hook_input.get('sessionId'))
+        cwd = _hook_input['get_cwd'](hook_input)
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        tool_args = _unwrap_tool_args(hook_input['toolArgs']) if tool_name.removeprefix('functions.') in _SHELL_TOOL_NAMES else None
+        tool_args = _unwrap_tool_args(tool_args) if tool_name.removeprefix('functions.') in _SHELL_TOOL_NAMES else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
 
         reason = None
@@ -359,12 +332,6 @@ def main():
             missing, missing_tests = _get_mismatches(commit['message'], *changes)
             if not missing and not missing_tests:
                 continue
-            # hookは呼び出しごとに別プロセスなので、拒否したメッセージのハッシュをセッションUUID別に保存する。
-            # DBファイル自体は自動削除しない。
-            state_path = os.path.join(
-                tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-commit-message-mismatch',
-                f'{parsed_session_id}.sqlite3',
-            )
             if _record_denial(state_path, commit['message']):
                 reason = _get_deny_reason(missing, missing_tests)
                 break

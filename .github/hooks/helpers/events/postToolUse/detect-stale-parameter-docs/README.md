@@ -7,7 +7,7 @@ postToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_re
 編集した関数の引数と、docstringやXMLドキュメントコメントに書いた引数が食い違っていれば、ドキュメントを今の引数に合わせるよう助言する。
 
 ## 処理詳細
-1. 編集ツールの引数を [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析し、ファイルごとに書き込んだ内容を集める。
+1. 編集ツールの引数を [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析し、ファイルごとに書き込んだ内容を集める。
 2. 拡張子が `.py`・`.pyi`・`.cs` のファイルについて、編集後のファイルを読む。
 3. 引数を記述した関数のうち、宣言かドキュメントの行に、書き込んだ行（前後の空白を除いて一致）を含むものを、編集した関数とみなす。
 4. 編集した関数ごとに、ドキュメントに書いた引数名と宣言の引数名を比べる。
@@ -35,9 +35,6 @@ def parse(self, text, *, strict=False):
         strict: Whether to reject unknown tokens.
     """
 ```
-
-## 前提条件
-- 特別なプロンプト指定は不要。
 
 ## 例外
 - 引数を記述していないドキュメント（概要だけのdocstring、`<param>` のないXMLドキュメントコメント）は、引数を書く方針ではないとみなして対象外とする。見出しの下の項目を読めない形式（`name -- 説明` など）も対象外とする。

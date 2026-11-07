@@ -7,8 +7,6 @@ import re
 import runpy
 import sqlite3
 import sys
-import tempfile
-import uuid
 from typing import cast
 
 
@@ -17,6 +15,8 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
 ))['filter_first_time_denials']
@@ -96,30 +96,10 @@ def main(arguments=None):
     try:
         definitions = _load_definitions(parsed_arguments.definitions_path)
 
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
-        session_id = hook_input.get('sessionId')
-        if not isinstance(session_id, str) or not session_id.strip():
-            raise ValueError('sessionId must be a non-empty UUID string.')
-        try:
-            parsed_session_id = uuid.UUID(session_id.strip())
-        except ValueError:
-            raise ValueError('sessionId must be a valid UUID.') from None
-        cwd = hook_input.get('cwd')
-        if not isinstance(cwd, str) or not cwd.strip():
-            raise ValueError('cwd must be a non-empty string.')
-        if not os.path.isabs(cwd):
-            raise ValueError('cwd must be an absolute path.')
-        # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
-        tool_name = hook_input.get('toolName')
-        if not isinstance(tool_name, str) or not tool_name.strip():
-            raise ValueError('toolName must be a non-empty string.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        hook_input = _hook_input['read_hook_input']()
+        state_path = _get_state_path('block-elided-rewrites', hook_input.get('sessionId'))
+        cwd = _hook_input['get_cwd'](hook_input)
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         normalized_cwd = os.path.normcase(os.path.realpath(cwd))
         # (拒否のキー, 理由) のリスト。同じファイルでも種類の異なる拒否は、それぞれ1回ずつ行う。
@@ -128,7 +108,7 @@ def main(arguments=None):
         extract_edit_tool_changes = runpy.run_path(os.path.join(
             _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
         ))['extract_edit_tool_changes']
-        for change in extract_edit_tool_changes(tool_name, hook_input['toolArgs']):
+        for change in extract_edit_tool_changes(tool_name, tool_args):
             path = os.path.normcase(os.path.realpath(os.path.join(cwd, change['path'])))
             display_path = _get_display_path(path, normalized_cwd)
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
@@ -154,12 +134,6 @@ def main(arguments=None):
 
         reasons = []
         if candidates:
-            # hookは呼び出しごとに別プロセスなので、拒否済みのファイルをセッションUUID別に保存する。
-            # DBファイル自体は自動削除しない。
-            state_path = os.path.join(
-                tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-elided-rewrites',
-                f'{parsed_session_id}.sqlite3',
-            )
             reasons = _filter_first_time_denials(state_path, candidates)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check elided rewrites: {ex}', file=sys.stderr)

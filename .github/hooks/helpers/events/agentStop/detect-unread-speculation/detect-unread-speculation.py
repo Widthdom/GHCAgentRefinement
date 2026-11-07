@@ -5,7 +5,6 @@ import os
 import re
 import runpy
 import sqlite3
-import subprocess
 import sys
 from typing import cast
 
@@ -15,6 +14,9 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
+_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
@@ -37,6 +39,7 @@ _LINE_SUFFIX_PATTERN = re.compile(r'(?::\d+(?:-\d+)?|#L\d+(?:-L?\d+)?)$')
 _NON_PATH_CHARACTERS = re.compile(r'[\s<>{}*?\[\]|$%=@,;"\'()!^&+]')
 _EXTENSION_PATTERN = re.compile(r'\.[A-Za-z0-9]+$')
 _MAX_REPORTED_FILES = 10
+_GIT_TIMEOUT_SECONDS = 5
 _REASON_PREFIX = 'The final response speculates about files'
 
 
@@ -66,33 +69,20 @@ def _load_definitions(definitions_path):
 
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の最終応答と本hookによる差し戻し済みか、セッション全体でコマンド・検索ツールに渡した文字列を集める。
-    # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
-    last_assistant_msg = None
-    already_requested = False
-    command_texts = []
-    for event in runpy.run_path(
-        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
-    )['read_jsonl_objects'](transcript_path):
-        data = event.get('data', {})
-        if not isinstance(data, dict):
-            raise ValueError('Event data must be a JSON object.')
-        event_type = event.get('type')
-        content = data.get('content')
-
-        if event_type == 'user.message':
-            if data.get('delivery') != 'queued':
-                last_assistant_msg = None
-                already_requested = False
-            elif isinstance(content, str) and content.startswith(_REASON_PREFIX):
-                already_requested = True
-        elif event_type == 'assistant.message':
-            if isinstance(content, str) and content.strip():
-                last_assistant_msg = content
-        elif event_type == 'tool.execution_start':
-            tool_name = data.get('toolName')
-            if isinstance(tool_name, str) and tool_name.removeprefix('functions.') in _COMMAND_READ_TOOL_NAMES:
-                command_texts.extend(_collect_json_string_values(data.get('arguments')))
-    return last_assistant_msg, already_requested, command_texts
+    turns = _turn_events['get_turns'](transcript_path)
+    command_texts = [
+        text
+        for events in turns
+        for event_type, data in events
+        if event_type == 'tool.execution_start' and isinstance(data.get('toolName'), str)
+        and data['toolName'].removeprefix('functions.') in _COMMAND_READ_TOOL_NAMES
+        for text in _collect_json_string_values(data.get('arguments'))
+    ]
+    return (
+        _turn_events['get_last_assistant_message'](turns[-1]),
+        _turn_events['is_already_requested'](turns[-1], _REASON_PREFIX),
+        command_texts,
+    )
 
 
 def _get_sentences(response):
@@ -128,19 +118,6 @@ def _get_speculative_references(response, speculation_patterns):
             for candidate in _get_candidates(sentence):
                 references.setdefault(candidate, None)
     return list(references)
-
-
-def _get_repository_root(cwd):
-    # gitがない、またはリポジトリ外の場合はNoneを返し、cwd基準でだけ解決する。
-    try:
-        result = subprocess.run(
-            ['git', 'rev-parse', '--show-toplevel'], cwd=cwd,
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=5, check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    root = result.stdout.decode('utf-8', errors='replace').strip()
-    return root if result.returncode == 0 and root else None
 
 
 def _resolve_file(candidate, cwd, repository_root):
@@ -196,38 +173,13 @@ def main():
         return 2
 
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            print('agentStop hook input is empty.', file=sys.stderr)
-            return 2
-        hook_input = json.loads(hook_input_json)
-    except (OSError, UnicodeError, json.JSONDecodeError) as ex:
-        print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
-        return 2
+        hook_input = _hook_input['read_hook_input']()
+        # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
+        if hook_input.get('agentId'):
+            return 0
+        transcript_path = _hook_input['get_transcript_path'](hook_input)
+        cwd = _hook_input['get_cwd'](hook_input)
 
-    if not isinstance(hook_input, dict):
-        print('agentStop hook input must be a JSON object.', file=sys.stderr)
-        return 2
-
-    # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
-    if hook_input.get('agentId'):
-        return 0
-
-    transcript_path = hook_input.get('transcriptPath')
-    if not isinstance(transcript_path, str) or not transcript_path.strip():
-        print('agentStop hook transcriptPath must be a non-empty string.', file=sys.stderr)
-        return 2
-
-    if not os.path.isfile(transcript_path):
-        print(f'Transcript path is not a file or could not be verified as a file: {transcript_path}', file=sys.stderr)
-        return 2
-
-    cwd = hook_input.get('cwd')
-    if not isinstance(cwd, str) or not cwd.strip() or not os.path.isabs(cwd):
-        print('agentStop hook cwd must be a non-empty absolute path.', file=sys.stderr)
-        return 2
-
-    try:
         # 記録側のpostToolUse hookと状態の形式・保存先を共有する。
         state = runpy.run_path(os.path.join(_utilities_directory, 'known-files-state', 'known-files-state.py'))
         state_path = state['get_state_path'](hook_input.get('sessionId'))
@@ -245,7 +197,8 @@ def main():
         if not references:
             return 0
 
-        repository_root = _get_repository_root(cwd)
+        # gitがない、またはリポジトリ外の場合は、cwd基準でだけ解決する。
+        repository_root = _git['get_repository_root'](cwd, _GIT_TIMEOUT_SECONDS)
         seen_keys = _get_seen_keys(state, state_path)
         unread = []
         for candidate in references:
@@ -257,7 +210,7 @@ def main():
             if _is_read_by_command(full_path, candidate, cwd, command_texts):
                 continue
             unread.append(candidate)
-    except (OSError, ValueError, sqlite3.Error) as ex:
+    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to inspect unread speculation: {ex}', file=sys.stderr)
         return 2
 

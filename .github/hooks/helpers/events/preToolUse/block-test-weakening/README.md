@@ -9,9 +9,8 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 処理詳細
 1. [test-weakening-definitions.json](./test-weakening-definitions.json) から、テストファイルのパス（`testFilePatterns`）、アサーション（`assertionPatterns`）、テストを弱める行（`weakeningPatterns`）の正規表現を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
-   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・置換前の内容（`old_str`）を除く引数の文字列（`str_replace_editor` の `view`・`undo_edit` は除く）
-   - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）と削除行（`-`）、`*** Delete File:` のファイル
-   - 各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
+   - `apply_patch` の `*** Delete File:` のファイルも対象とする。
+   - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
 3. cwdからの相対パス（`/` 区切り）が `testFilePatterns` のいずれかに一致するファイルについて、次のいずれかに該当すれば拒否の候補とする。
    - 骨抜き：書き込む内容に、`weakeningPatterns` に一致する行がある。ただし、同じ行が既存の内容（置換前の内容、パッチの削除行、ファイルの現在の内容）にあれば除く。
    - アサーションの減少：`assertionPatterns` に一致する行の数が、置換前の内容より書き込む内容で少ない。`create` での上書きはファイルの現在の内容と、削除は現在の内容と空の内容とを比べる。
@@ -27,10 +26,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |JavaScriptのスキップ・限定実行|`it.skip(`・`describe.only(`・`test.todo(`・`xit(`・`fdescribe(`|
 |常に成功するアサーション|`Assert.True(true)`・`Assert.Pass()`・`assert True`・`self.assertTrue(True)`・`expect(true).toBe(true)`|
 |アサーション（数える対象）|`Assert.*(`・`CollectionAssert.*(`・`.Should()`・`assert*(`・`assert` 文・`assert_eq!(`・`expect(`・`t.Error(`・`t.Fatal(`・`pytest.raises(`|
-
-## 前提条件
-- 特別なプロンプト指定は不要。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外
 - シェルによる書き込みは対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../block-shell-file-edits/README.md) hookが拒否する。

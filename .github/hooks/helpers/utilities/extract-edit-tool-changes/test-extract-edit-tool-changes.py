@@ -15,8 +15,8 @@ from hook_test_output import run_tests
 
 def _change(path, written='', removed='', **values):
     return {
-        'path': path, 'written': written, 'removed': removed, 'deleted': False, 'full_content': None,
-        'replacement': None, 'patch_lines': None, **values,
+        'path': path, 'written': written, 'removed': removed, 'deleted': False, 'moved_to': None,
+        'full_content': None, 'replacement': None, 'patch_lines': None, **values,
     }
 
 
@@ -88,6 +88,22 @@ class ExtractEditToolChangesTests(unittest.TestCase):
         self.assertEqual(
             _extract('apply_patch', _PATCH, include_deleted=True),
             [*expected, _change('src/c.py', deleted=True, patch_lines=[])],
+        )
+
+    def test_patch_move(self):
+        # `*** Move to:` の移動先を、移動元のファイルの変更に記録する。行の内容には含めない。
+        patch = '\n'.join([
+            '*** Begin Patch',
+            '*** Update File: src/old.py',
+            '*** Move to: src/new.py',
+            '@@',
+            '-a',
+            '+b',
+            '*** End Patch',
+        ])
+        self.assertEqual(
+            _extract('apply_patch', patch),
+            [_change('src/old.py', 'b', 'a', moved_to='src/new.py', patch_lines=[('-', 'a'), ('+', 'b')])],
         )
 
     def test_not_written(self):

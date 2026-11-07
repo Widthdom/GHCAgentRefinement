@@ -9,9 +9,8 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 処理詳細
 1. [time-bomb-definitions.json](./time-bomb-definitions.json) から、対象とする日付の範囲（今日の `pastDays` 日前から `futureDays` 日後まで）、現在時刻の参照の正規表現（`clockPatterns`）、時計の固定の正規表現（`frozenClockPatterns`）を読み込む。テストファイルの判定には [block-test-weakening](../block-test-weakening/README.md) hookの [test-weakening-definitions.json](../block-test-weakening/test-weakening-definitions.json) の `testFilePatterns` を使う。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
-   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・置換前の内容（`old_str`）を除く引数の文字列（`str_replace_editor` の `view`・`undo_edit` は除く）。`create` での上書きはファイルの現在の内容と比べる。
-   - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）と削除行（`-`）。`*** Delete File:` は対象外とする。
-   - 各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
+   - `create` での上書きは、ファイルの現在の内容と比べる。
+   - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
 3. cwdからの相対パス（`/` 区切り）が `testFilePatterns` に一致するファイルについて、置換前の内容にない行（書き加えた行）から日付のリテラルを探す。
 4. 書き加えた日付が範囲内で、編集後のファイル（現在の内容と書き込む内容）に `clockPatterns` があり、`frozenClockPatterns` がなければ拒否の候補とする。
 5. 候補のうち、このセッションで同じファイルをまだ拒否していないものがあれば、現在時刻から日付を求めるか時計を固定するよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。
@@ -34,9 +33,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ```
 
 ## 前提条件
-- 特別なプロンプト指定は不要。
 - 今日の日付は、hookを実行する環境のローカル時刻で決める。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外
 - 範囲外の日付（既定では昨日より前と1年より後）は対象外とする。遠い過去・未来との比較は結果が変わらないため。

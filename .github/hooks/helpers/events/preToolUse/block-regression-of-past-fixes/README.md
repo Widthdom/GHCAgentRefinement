@@ -8,7 +8,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 処理詳細
 1. [past-fix-definitions.json](./past-fix-definitions.json) から、修正コミットのメッセージに一致する正規表現（`fixCommitPatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
-2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに、書き込む内容と置換前の内容を特定する。各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
+2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに、書き込む内容と置換前の内容を特定する。各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
 3. 既存のファイルについて、編集で消える行の行番号を求める。書き込む内容に同じ行（前後の空白は無視する）が残る行と、単語の文字を含まない行（`}`・空行など）は除く。
    - `edit`・`str_replace`（置換）：現在のファイルで置換前の内容（`old_str`）が最初に現れる位置から、その行を特定する。
    - `create`（上書き）：現在のファイルの各行。
@@ -36,9 +36,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ```
 
 ## 前提条件
-- 特別なプロンプト指定は不要。
 - `git` が必要。インストール状況は [check-required-tools](../../sessionStart/check-required-tools/README.md) hookが確認する。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外
 - 行を足すだけの編集（`insert` を含む）と、修正コミット由来の行を残す編集は対象外とする。

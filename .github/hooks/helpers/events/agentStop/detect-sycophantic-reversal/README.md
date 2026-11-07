@@ -8,17 +8,14 @@ agentStop（エージェントの応答終了時）
 
 ## 処理詳細
 1. [sycophantic-reversal-definitions.json](./sycophantic-reversal-definitions.json) から、根拠確認ツール名（`evidenceToolNames`）、反論とみなす正規表現（`pushbackPatterns`）、主張の翻しとみなす正規表現（`reversalPatterns`）を読み込む。ファイルがない場合、形式に違反する場合、不正な正規表現を含む場合は標準エラーに原因を出力して異常終了する。
-2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（Copilotはトランスクリプトへ非同期に追記するため、発動直後は最終応答が未書き込みのことがある）。
+2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[wait-for-agent-stop-event](../../../utilities/wait-for-agent-stop-event/README.md)）。
 3. ユーザーの最新の依頼と、それより前の応答の有無、依頼以降の最終応答と根拠確認ツールの使用有無を集める。
 4. 最新の依頼が反論・疑問（「違うのでは？」「本当に？」「Are you sure?」など）で、最終応答が主張を翻す表現（「ご指摘の通り」「誤りだった」「You're right」など）を含み、依頼以降に根拠確認ツールを1つも使っていなければ差し戻す。
 5. 差し戻しは `{"decision":"block","reason":"..."}` を標準出力し、根拠を確認したうえで同意するか元の主張を維持するよう求める。
 
-## 前提条件
-- 特別なプロンプト指定は不要。
-
 ## 例外
 - 翻す対象となる応答がない最初の依頼は検査しない。
-- hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
+- 依頼の区切りは [get-turn-events](../../../utilities/get-turn-events/README.md) の規則に従う。
 - コードブロック内は判定に使わない。
 
 ## 制約と限界

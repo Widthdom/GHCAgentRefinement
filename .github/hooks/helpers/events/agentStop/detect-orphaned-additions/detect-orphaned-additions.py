@@ -4,7 +4,6 @@ import json
 import os
 import re
 import runpy
-import subprocess
 import sys
 from typing import cast
 
@@ -14,7 +13,10 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 
 
 _IGNORED_REFERENCE_FILE_PATTERNS_KEY = 'ignoredReferenceFilePatterns'
@@ -97,53 +99,18 @@ def _load_test_file_patterns(path):
 
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・編集・本hookによる差し戻し済みかを集める。
-    # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
     # 編集ツールの引数の解析は、共通utilityで行う。
     extract_edit_tool_changes = runpy.run_path(
         os.path.join(_utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py')
     )['extract_edit_tool_changes']
-    last_assistant_msg = None
-    changes = []
-    already_requested = False
-    for event in runpy.run_path(
-        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
-    )['read_jsonl_objects'](transcript_path):
-        data = event.get('data', {})
-        if not isinstance(data, dict):
-            raise ValueError('Event data must be a JSON object.')
-        event_type = event.get('type')
-
-        if event_type == 'user.message':
-            content = data.get('content')
-            if data.get('delivery') != 'queued':
-                last_assistant_msg = None
-                changes.clear()
-                already_requested = False
-            elif isinstance(content, str) and content.startswith(_REASON_PREFIX):
-                already_requested = True
-        elif event_type == 'assistant.message':
-            content = data.get('content')
-            if isinstance(content, str) and content.strip():
-                last_assistant_msg = content
-        elif event_type == 'tool.execution_start':
-            tool_name = data.get('toolName')
-            if isinstance(tool_name, str):
-                changes.extend(extract_edit_tool_changes(tool_name, data.get('arguments')))
-    return last_assistant_msg, changes, already_requested
-
-
-def _run_git(cwd, arguments, allowed_return_codes=(0,)):
-    # gitがない、リポジトリ外、または検索に失敗した場合はNoneを返す。参照を数えられないだけなので異常終了にはしない。
-    try:
-        result = subprocess.run(
-            ['git', *arguments], cwd=cwd,
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=_GIT_TIMEOUT_SECONDS, check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if result.returncode not in allowed_return_codes:
-        return None
-    return result.stdout.decode('utf-8', errors='replace')
+    events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
+    changes = [
+        change
+        for event_type, data in events
+        if event_type == 'tool.execution_start' and isinstance(data.get('toolName'), str)
+        for change in extract_edit_tool_changes(data['toolName'], data.get('arguments'))
+    ]
+    return _turn_events['get_last_assistant_message'](events), changes, already_requested
 
 
 def _read_file_lines(path):
@@ -228,10 +195,11 @@ def _find_orphans(candidates, repository_root, ignored_reference_file_patterns, 
     arguments = ['grep', '--untracked', '-I', '-n', '-w', '-F', '--null']
     for name in names:
         arguments.extend(['-e', name])
-    # 一致がない場合、git grepは終了コード1を返す。
-    output = _run_git(repository_root, arguments, allowed_return_codes=(0, 1))
-    if output is None:
+    # 一致がない場合、git grepは終了コード1を返す。gitがない、または検索に失敗した場合は、参照を数えられないだけなので異常終了にはしない。
+    result = _git['run_git'](repository_root, arguments, _GIT_TIMEOUT_SECONDS)
+    if result is None or result.returncode not in (0, 1):
         return None
+    output = result.stdout.decode('utf-8', errors='replace')
     name_patterns = {name: re.compile(r'(?<![\w$])' + re.escape(name) + r'(?![\w$])') for name in names}
     references = {name: set() for name in names}
     for record in output.splitlines():
@@ -281,27 +249,14 @@ def main(arguments=None):
             parsed_arguments.definitions_path
         )
         test_file_patterns = _load_test_file_patterns(parsed_arguments.test_definitions_path)
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('agentStop hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('agentStop hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
 
         # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
         if hook_input.get('agentId'):
             return 0
 
-        cwd = hook_input.get('cwd')
-        if not isinstance(cwd, str) or not cwd.strip():
-            raise ValueError('cwd must be a non-empty string.')
-        if not os.path.isabs(cwd):
-            raise ValueError('cwd must be an absolute path.')
-        transcript_path = hook_input.get('transcriptPath')
-        if not isinstance(transcript_path, str) or not transcript_path.strip():
-            raise ValueError('transcriptPath must be a non-empty string.')
-        if not os.path.isfile(transcript_path):
-            raise ValueError(f'transcript path is not a file or could not be verified as a file: {transcript_path}')
+        cwd = _hook_input['get_cwd'](hook_input)
+        transcript_path = _hook_input['get_transcript_path'](hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
         runpy.run_path(
@@ -313,10 +268,10 @@ def main(arguments=None):
         if last_assistant_msg is None or already_requested or not changes:
             return 0
         # 参照はリポジトリ全体から探すため、gitがない、またはリポジトリ外の場合は検査しない。
-        repository_root = _run_git(cwd, ['rev-parse', '--show-toplevel'])
-        if repository_root is None or not repository_root.strip():
+        repository_root = _git['get_repository_root'](cwd, _GIT_TIMEOUT_SECONDS)
+        if repository_root is None:
             return 0
-        repository_root = os.path.realpath(repository_root.strip())
+        repository_root = os.path.realpath(repository_root)
         candidates = _find_candidates(
             changes, cwd, repository_root, excluded_name_patterns, languages, test_file_patterns,
         )

@@ -7,8 +7,6 @@ import runpy
 import shlex
 import sqlite3
 import sys
-import tempfile
-import uuid
 from typing import cast
 
 
@@ -17,6 +15,8 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
 ))['filter_first_time_denials']
@@ -183,29 +183,13 @@ def main():
         checked_command_pattern = check_test_runs['compile_command_pattern'](
             (*check_test_runs['TEST_COMMAND_WORDS'], *_BUILD_AND_LINT_COMMAND_WORDS)
         )
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
-        session_id = hook_input.get('sessionId')
-        if not isinstance(session_id, str) or not session_id.strip():
-            raise ValueError('sessionId must be a non-empty UUID string.')
-        try:
-            parsed_session_id = uuid.UUID(session_id.strip())
-        except ValueError:
-            raise ValueError('sessionId must be a valid UUID.') from None
-        # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
-        tool_name = hook_input.get('toolName')
-        if not isinstance(tool_name, str) or not tool_name.strip():
-            raise ValueError('toolName must be a non-empty string.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        hook_input = _hook_input['read_hook_input']()
+        state_path = _get_state_path('block-masked-exit-codes', hook_input.get('sessionId'))
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         masked = []
         command_keys = []
-        tool_args = _unwrap_tool_args(hook_input['toolArgs']) if _SHELL_TOOL_PATTERN.match(tool_name) else None
+        tool_args = _unwrap_tool_args(tool_args) if _SHELL_TOOL_PATTERN.match(tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         commands = _get_masked_commands(command, checked_command_pattern) if isinstance(command, str) else []
         if commands:
@@ -215,12 +199,6 @@ def main():
 
         denied = False
         if command_keys:
-            # hookは呼び出しごとに別プロセスなので、拒否済みのコマンドをセッションUUID別に保存する。
-            # DBファイル自体は自動削除しない。
-            state_path = os.path.join(
-                tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-masked-exit-codes',
-                f'{parsed_session_id}.sqlite3',
-            )
             # 同じコマンドの拒否は1回だけにし、意図した実行なら再実行で通す。
             # 前のツール呼び出しで `set -o pipefail` を済ませた場合など、hookから見えない事情で作業を止めないため。
             denied = bool(_filter_first_time_denials(state_path, [(key, key) for key in command_keys]))

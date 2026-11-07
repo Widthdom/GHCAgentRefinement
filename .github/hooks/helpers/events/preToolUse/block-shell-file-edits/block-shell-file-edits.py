@@ -5,7 +5,6 @@ import os
 import re
 import runpy
 import shlex
-import subprocess
 import sys
 from typing import cast
 
@@ -15,10 +14,13 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 
 
+_GIT_TIMEOUT_SECONDS = 5
 _SHELL_TOOL_PATTERN = re.compile(r'^(?:functions\.)?(bash|powershell)$', re.IGNORECASE)
 _DENY_REASON = (
     'Shell command denied: it writes to the following git-tracked files: {files}. '
@@ -331,20 +333,11 @@ def _get_tracked_files(paths):
             by_directory.setdefault(os.path.dirname(path), set()).add(path)
     tracked = set()
     for directory, files in by_directory.items():
-        try:
-            result = subprocess.run(
-                ['git', '-C', directory, 'ls-files', '-z'],
-                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=5,
-            )
-        except (OSError, subprocess.TimeoutExpired):
-            # gitがない場合は判定できないため許可する。gitの導入はcheck-required-tools hookが案内する。
+        output = _git['get_git_output'](directory, ['ls-files', '-z'], _GIT_TIMEOUT_SECONDS)
+        # gitがない場合は判定できないため許可する。gitの導入はcheck-required-tools hookが案内する。
+        if output is None:
             continue
-        if result.returncode != 0:
-            continue
-        names = {
-            os.path.normcase(name) for name in result.stdout.decode('utf-8', errors='replace').split('\0')
-            if name and '/' not in name
-        }
+        names = {os.path.normcase(name) for name in output.split('\0') if name and '/' not in name}
         tracked.update(path for path in files if os.path.normcase(os.path.basename(path)) in names)
     return tracked
 
@@ -355,29 +348,15 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
 
-        cwd = hook_input.get('cwd')
-        if not isinstance(cwd, str) or not cwd.strip():
-            raise ValueError('cwd must be a non-empty string.')
-        if not os.path.isabs(cwd):
-            raise ValueError('cwd must be an absolute path.')
+        cwd = _hook_input['get_cwd'](hook_input)
         cwd = os.path.normpath(cwd)
-        # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
-        tool_name = hook_input.get('toolName')
-        if not isinstance(tool_name, str) or not tool_name.strip():
-            raise ValueError('toolName must be a non-empty string.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         paths = set()
         match = _SHELL_TOOL_PATTERN.match(tool_name)
-        tool_args = _unwrap_tool_args(hook_input['toolArgs']) if match else None
+        tool_args = _unwrap_tool_args(tool_args) if match else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         if match and isinstance(command, str):
             for base, text in _get_write_targets(command, match.group(1).lower(), cwd):

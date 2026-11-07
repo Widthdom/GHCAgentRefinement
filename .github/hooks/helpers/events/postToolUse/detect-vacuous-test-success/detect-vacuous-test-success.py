@@ -6,10 +6,17 @@ import re
 import runpy
 import sqlite3
 import sys
-import tempfile
-import uuid
 from contextlib import closing
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 
 
 _SHELL_TOOL_NAMES = {'bash', 'powershell'}
@@ -148,19 +155,6 @@ def _get_no_tests_detail(text):
     return None
 
 
-def _get_state_path(session_id):
-    # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。DBファイル自体は自動削除しない。
-    if not isinstance(session_id, str) or not session_id.strip():
-        raise ValueError('sessionId must be a non-empty UUID string.')
-    try:
-        parsed_session_id = uuid.UUID(session_id.strip())
-    except ValueError:
-        raise ValueError('sessionId must be a valid UUID.') from None
-    return os.path.join(
-        tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'test-counts', f'{parsed_session_id}.sqlite3',
-    )
-
-
 def _record_counts(state_path, command, executed, skipped):
     # 同じコマンドの前回の件数を返し、今回の件数で置き換える。コマンドは保存せず、照合用のSHA-256だけを保存する。
     # SQLiteのトランザクションで、並列のツール呼び出しでも状態の更新を取りこぼさない。
@@ -210,26 +204,15 @@ def main():
     try:
         # テストの実行かどうかの判定は、共通utilityで行う。
         is_test_command = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'check-test-runs', 'check-test-runs.py',
+            _utilities_directory, 'check-test-runs', 'check-test-runs.py',
         ))['is_test_command']
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
 
-        state_path = _get_state_path(hook_input.get('sessionId'))
-        tool_name = hook_input.get('toolName')
-        if not isinstance(tool_name, str) or not tool_name.strip():
-            raise ValueError('toolName must be a non-empty string.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        state_path = _get_state_path('test-counts', hook_input.get('sessionId'))
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         if tool_name.removeprefix('functions.') not in _SHELL_TOOL_NAMES:
             return 0
-        tool_args = hook_input['toolArgs']
         if isinstance(tool_args, str):
             try:
                 tool_args = json.loads(tool_args)

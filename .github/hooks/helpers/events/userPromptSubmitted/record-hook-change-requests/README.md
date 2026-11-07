@@ -13,9 +13,6 @@ userPromptSubmitted（メインエージェントへの依頼時）
    - hookの名前：cwdから親へたどって最初に見つかった `.github/hooks` の、`helpers/events/<event>/<hook>/`・`helpers/-repo-events/<event>/<hook>/` のフォルダー名（`block-commands` など）
 3. 含まなければ何もしない。記録済みの状態は消さない。
 
-## 前提条件
-- 特別なプロンプト指定は不要。
-
 ## 例外
 - サブエージェントへの依頼を記録すると、エージェントがサブエージェントへの依頼文にhookの語を書くだけで、変更を自ら許可できてしまう。そのため `agentId` 付きの入力は記録しない。
 

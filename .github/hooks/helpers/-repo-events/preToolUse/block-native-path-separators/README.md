@@ -26,10 +26,6 @@ OS依存の区切り（Windowsでは `\`）で相対パスを返すAPIの呼び�
 |PowerShell relative path|`Resolve-Path $file -Relative`|`-replace '\\', '/'`|
 |対象外のファイル|`*.md`・`*.markdown`・`*.rst`・`*.txt`・`*.adoc`||
 
-## 前提条件
-- 特別なプロンプト指定は不要。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
-
 ## 例外
 - 既存の行と同じ行は対象外とし、インデントの変更や周囲の編集で既存のコードを新たなものとみなさない。
 - ドキュメントのコード例で誤検知しないよう、文書のファイルは対象外とする。

@@ -24,10 +24,6 @@ preToolUse（bashまたはpowershellツールの実行前）
 |Goのゴールデンファイル更新|`go test ./... -update`・`-update-golden=true`|
 |更新用の環境変数|`UPDATE_SNAPSHOTS=1`・`UPDATE_GOLDEN=true`・`$env:UPDATE_SNAPSHOTS = '1'` など|
 
-## 前提条件
-- 特別なプロンプト指定は不要。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
-
 ## 例外
 - `-u`・`--update` は、同じ区切りの単位にテストランナー（`jest`・`vitest`・`playwright`・`npm test` など）がある場合だけ対象とする。`git push -u`・`python3 -u`・`sort -u` は対象外。
 - 更新なしのテスト実行（`npx jest`・`cargo insta test`）や、値を無効にする代入（`UPDATE_SNAPSHOTS=0`）は対象外。

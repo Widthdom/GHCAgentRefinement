@@ -5,7 +5,6 @@ import os
 import re
 import runpy
 import sqlite3
-import subprocess
 import sys
 from typing import cast
 
@@ -15,7 +14,9 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
     _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
 ))['read_stored_file_content_for_write_comparison']
@@ -81,20 +82,6 @@ def _find_removed_line_numbers(change, current):
     return {number for number, line in enumerate(current_lines, 1) if line.strip() in removed}
 
 
-def _run_git(directory, arguments):
-    # 戻り値は標準出力の文字列。gitがない、git管理下でない、失敗した場合はNoneを返して検査しない。
-    try:
-        result = subprocess.run(
-            ['git', '-C', directory, *arguments],
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=_GIT_TIMEOUT_SECONDS, check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if result.returncode != 0:
-        return None
-    return result.stdout.decode('utf-8', errors='replace')
-
-
 def _to_ranges(numbers):
     # 連続する行番号を `-L 開始,終了` の範囲にまとめる。
     ranges = []
@@ -111,7 +98,8 @@ def _blame(path, line_numbers):
     arguments = ['blame', '--porcelain']
     for start, end in _to_ranges(line_numbers):
         arguments += ['-L', f'{start},{end}']
-    output = _run_git(os.path.dirname(path), [*arguments, '--', os.path.basename(path)])
+    # gitがない、git管理下でない、失敗した場合は検査しない。
+    output = _git['get_git_output'](os.path.dirname(path), [*arguments, '--', os.path.basename(path)], _GIT_TIMEOUT_SECONDS)
     if output is None:
         return {}
     commits = {}
@@ -124,7 +112,9 @@ def _blame(path, line_numbers):
 
 def _get_messages(directory, commit_ids):
     # 戻り値は {コミットID: メッセージ全体}。区切りには本文に現れない制御文字（US・RS）を使う。
-    output = _run_git(directory, ['show', '-s', '--no-color', '--format=%H%x1f%B%x1e', *commit_ids])
+    output = _git['get_git_output'](
+        directory, ['show', '-s', '--no-color', '--format=%H%x1f%B%x1e', *commit_ids], _GIT_TIMEOUT_SECONDS,
+    )
     if output is None:
         return {}
     messages = {}
@@ -173,36 +163,20 @@ def main(arguments=None):
     try:
         patterns = _load_definitions(parsed_arguments.definitions_path)
 
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
         # 読んだコミットは、記録側のpostToolUse hookと状態の形式・保存先を共有する。
         state = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(script_directory))),
-            'utilities', 'viewed-commits-state', 'viewed-commits-state.py',
+            _utilities_directory, 'viewed-commits-state', 'viewed-commits-state.py',
         ))
         state_path = state['get_state_path'](hook_input.get('sessionId'))
-        cwd = hook_input.get('cwd')
-        if not isinstance(cwd, str) or not cwd.strip():
-            raise ValueError('cwd must be a non-empty string.')
-        if not os.path.isabs(cwd):
-            raise ValueError('cwd must be an absolute path.')
-        # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
-        tool_name = hook_input.get('toolName')
-        if not isinstance(tool_name, str) or not tool_name.strip():
-            raise ValueError('toolName must be a non-empty string.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        cwd = _hook_input['get_cwd'](hook_input)
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         # 編集ツールの引数の解析は、共通utilityで行う。
         extract_edit_tool_changes = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(script_directory))),
-            'utilities', 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+            _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
         ))['extract_edit_tool_changes']
-        changes = extract_edit_tool_changes(tool_name, hook_input['toolArgs'])
+        changes = extract_edit_tool_changes(tool_name, tool_args)
 
         real_cwd = os.path.realpath(cwd)
         viewed = None

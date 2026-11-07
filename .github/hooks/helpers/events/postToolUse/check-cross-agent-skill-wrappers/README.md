@@ -19,10 +19,6 @@ skillの正本（`.github/skills`）かラッパー（`.agents/skills`・`.claud
    - 正本がないのにラッパーが残っている
 3. 問題があれば、[skillの共通規約](../../../../../skills/create-skill/references/skill-conventions.md) に沿って直すよう促す英語の助言を `additionalContext` として渡す。
 
-## 前提条件
-
-- 特別なプロンプト指定は不要。
-
 ## 例外
 
 - 正本とラッパーがどちらもないskillは、skill自体を削除したものとして扱う。

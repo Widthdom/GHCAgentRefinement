@@ -9,9 +9,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 処理詳細
 1. [elision-definitions.json](./elision-definitions.json) から、省略を表すプレースホルダーの正規表現を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容を特定する。
-   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・置換前の内容（`old_str`）を除く引数の文字列（`str_replace_editor` の `view`・`undo_edit` は除く）
-   - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）
-   - 各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
+   - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
 3. 既存のファイルについて、次のいずれかに該当すれば拒否の候補とする。
    - 省略：書き込む内容に、定義に一致する行がある。ただし、同じ行が既存の内容（置換前の内容、パッチの削除行、ファイルの現在の内容）にあれば除く。
    - 縮小：`create`（`str_replace_editor` の `create` を含む）での上書きで、現在20行以上あるファイルが半分未満の行数になる。
@@ -25,10 +23,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |省略記号だけのコメント|`# ...`、`// …`、`<!-- ... -->`|
 |英語の省略コメント|`// ... existing code ...`、`# rest of the file unchanged`、`// (remaining methods omitted)`、`/* omitted for brevity */`|
 |日本語の省略コメント|`# 既存のコード`、`// ... 以下同じ ...`、`# 残りは変更なし`、`# (省略)`|
-
-## 前提条件
-- 特別なプロンプト指定は不要。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外
 - 新規ファイルは消える内容がないため、省略の判定から除く。骨組みとしてのプレースホルダーは許可する。

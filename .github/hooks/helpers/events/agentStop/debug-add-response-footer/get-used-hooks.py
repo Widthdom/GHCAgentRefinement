@@ -1,10 +1,13 @@
-import io
 import json
 import os
 import runpy
-import sys
-from pathlib import Path
-from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
 
 
 def get_used_hooks(transcript_path, hooks_path):
@@ -17,7 +20,7 @@ def get_used_hooks(transcript_path, hooks_path):
     hook_types = set()
 
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
+        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -57,16 +60,3 @@ def get_used_hooks(transcript_path, hooks_path):
                 used_hooks.update(entry.name for entry in entries if entry.is_dir())
 
     return sorted(used_hooks)
-
-
-if __name__ == '__main__':
-    import argparse
-
-    _parser = argparse.ArgumentParser()
-    _parser.add_argument('--transcript-path', required=True)
-    _parser.add_argument('--hooks-path', required=True)
-    _arguments = _parser.parse_args()
-    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', newline='\n')
-    for used_hook in get_used_hooks(_arguments.transcript_path, _arguments.hooks_path):
-        print(used_hook)

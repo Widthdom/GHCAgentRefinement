@@ -8,7 +8,7 @@ agentStop（エージェントの応答終了時）
 
 ## 処理詳細
 1. [lockfile-drift-definitions.json](./lockfile-drift-definitions.json) から、マニフェストの種類ごとのファイル名の正規表現（`filePattern`）、形式（`format`）、依存の宣言の場所（`json`・`toml` は `dependencyKeys`、`lines` は `linePatterns`）、ロックファイルと更新コマンド（`lockFiles`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
-2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（Copilotはトランスクリプトへ非同期に追記するため、発動直後は最終応答が未書き込みのことがある）。
+2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[wait-for-agent-stop-event](../../../utilities/wait-for-agent-stop-event/README.md)）。
 3. ユーザーの最新の依頼以降について、編集系ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）が書き込んだファイルのパスを集める。`apply_patch` は `*** Add File:`・`*** Update File:`・`*** Move to:` のパスとする。
 4. `git rev-parse --show-toplevel` でリポジトリルートを特定する。gitがない、またはリポジトリ外の場合は何もせず正常終了する。
 5. リポジトリ内で、ファイル名が `filePattern` に一致するファイルについて、HEADの内容（`git show HEAD:<パス>`）と現在の内容から依存の宣言だけを取り出して比べる。
@@ -31,12 +31,11 @@ agentStop（エージェントの応答終了時）
 |NuGet|`*.csproj`・`*.fsproj`・`*.vbproj`|`<PackageReference>`・`<PackageVersion>` の要素|`packages.lock.json`（`dotnet restore --force-evaluate`）|
 
 ## 前提条件
-- 特別なプロンプト指定は不要。
 - HEADと比べるため、gitとコミット済みのHEADが必要。
 
 ## 例外
 - サブエージェントの停止は対象外。
-- hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
+- 依頼の区切りは [get-turn-events](../../../utilities/get-turn-events/README.md) の規則に従う。
 - 依存の宣言以外の変更（`version`・`scripts`・整形など）は対象外とする。
 - 同じディレクトリにロックファイルがない構成、HEADにないマニフェスト（新規作成）、読めないマニフェスト（JSON・TOMLの構文エラー）は対象外とする。
 - ロックファイルのどれかがgit管理下にない（新たに作った）か、HEADから変わっていれば、更新済みとみなす。

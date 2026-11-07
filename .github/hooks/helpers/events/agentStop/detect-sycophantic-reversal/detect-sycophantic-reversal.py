@@ -5,8 +5,16 @@ import os
 import re
 import runpy
 import sys
-from pathlib import Path
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 
 
 # 定義ファイルのキー。evidenceToolNamesは根拠の確認とみなすツール名、pushbackPatternsはユーザーの反論・疑問、
@@ -59,40 +67,20 @@ def _load_definitions(definitions_path):
 
 def _get_turn_summary(transcript_path, evidence_tool_names):
     # ユーザーの最新の依頼、その前の応答の有無、以降の最終応答・根拠確認ツールの使用・本hookによる差し戻し済みかを集める。
-    # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
-    latest_request = None
-    had_prior_response = False
-    last_assistant_msg = None
-    used_evidence_tool = False
-    already_requested = False
-    for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
-    )['read_jsonl_objects'](transcript_path):
-        data = event.get('data', {})
-        if not isinstance(data, dict):
-            raise ValueError('Event data must be a JSON object.')
-        event_type = event.get('type')
-
-        if event_type == 'user.message':
-            content = data.get('content')
-            if data.get('delivery') != 'queued':
-                had_prior_response = last_assistant_msg is not None
-                latest_request = content if isinstance(content, str) else None
-                last_assistant_msg = None
-                used_evidence_tool = False
-                already_requested = False
-            elif isinstance(content, str) and content.startswith(_REASON_PREFIX):
-                already_requested = True
-        elif event_type == 'assistant.message':
-            content = data.get('content')
-            if isinstance(content, str) and content.strip():
-                last_assistant_msg = content
-        elif event_type == 'tool.execution_start':
-            tool_name = data.get('toolName')
-            if isinstance(tool_name, str) and tool_name.removeprefix('functions.') in evidence_tool_names:
-                used_evidence_tool = True
-
-    return latest_request, had_prior_response, last_assistant_msg, used_evidence_tool, already_requested
+    turns = _turn_events['get_turns'](transcript_path)
+    events = turns[-1]
+    used_evidence_tool = any(
+        event_type == 'tool.execution_start' and isinstance(data.get('toolName'), str)
+        and data['toolName'].removeprefix('functions.') in evidence_tool_names
+        for event_type, data in events
+    )
+    return (
+        _turn_events['get_request'](events),
+        len(turns) > 1 and _turn_events['get_last_assistant_message'](turns[-2]) is not None,
+        _turn_events['get_last_assistant_message'](events),
+        used_evidence_tool,
+        _turn_events['is_already_requested'](events, _REASON_PREFIX),
+    )
 
 
 def _is_unverified_reversal(summary, pushback_patterns, reversal_patterns):
@@ -127,40 +115,19 @@ def main():
         return 2
 
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            print('agentStop hook input is empty.', file=sys.stderr)
-            return 2
-        hook_input = json.loads(hook_input_json)
-    except (OSError, UnicodeError, json.JSONDecodeError) as ex:
-        print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
-        return 2
+        hook_input = _hook_input['read_hook_input']()
+        # サブエージェントの停止は対象外。ユーザーの反論に応答するのは親のため。
+        if hook_input.get('agentId'):
+            return 0
+        transcript_path = _hook_input['get_transcript_path'](hook_input)
 
-    if not isinstance(hook_input, dict):
-        print('agentStop hook input must be a JSON object.', file=sys.stderr)
-        return 2
-
-    # サブエージェントの停止は対象外。ユーザーの反論に応答するのは親のため。
-    if hook_input.get('agentId'):
-        return 0
-
-    transcript_path = hook_input.get('transcriptPath')
-    if not isinstance(transcript_path, str) or not transcript_path.strip():
-        print('agentStop hook transcriptPath must be a non-empty string.', file=sys.stderr)
-        return 2
-
-    if not os.path.isfile(transcript_path):
-        print(f'Transcript path is not a file or could not be verified as a file: {transcript_path}', file=sys.stderr)
-        return 2
-
-    try:
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答とツール実行を書き込み済みにする。
         runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
+            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         summary = _get_turn_summary(transcript_path, evidence_tool_names)
-    except (OSError, ValueError) as ex:
+    except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to inspect sycophantic reversal: {ex}', file=sys.stderr)
         return 2
 

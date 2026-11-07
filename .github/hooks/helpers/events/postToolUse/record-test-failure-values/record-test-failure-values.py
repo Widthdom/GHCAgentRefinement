@@ -8,6 +8,14 @@ import sys
 from typing import cast
 
 
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+
+
 _SHELL_TOOL_NAMES = {'bash', 'powershell'}
 # 行頭の装飾（pytestの `E`、差分の `-`・`+`）を許容する。
 _LINE_PREFIX = r'^\s*(?:E\s+)?[-+]?\s*'
@@ -80,32 +88,20 @@ def main():
     try:
         # テストの実行かどうかの判定は、共通utilityで行う。
         is_test_command = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'check-test-runs', 'check-test-runs.py',
+            _utilities_directory, 'check-test-runs', 'check-test-runs.py',
         ))['is_test_command']
         # 拒否側のpreToolUse hookと状態の形式・保存先を共有する。
         state = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'assertion-failure-values-state', 'assertion-failure-values-state.py',
+            _utilities_directory, 'assertion-failure-values-state', 'assertion-failure-values-state.py',
         ))
 
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
 
         state_path = state['get_state_path'](hook_input.get('sessionId'))
-        tool_name = hook_input.get('toolName')
-        if not isinstance(tool_name, str) or not tool_name.strip():
-            raise ValueError('toolName must be a non-empty string.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         if tool_name.removeprefix('functions.') not in _SHELL_TOOL_NAMES:
             return 0
-        tool_args = hook_input['toolArgs']
         if isinstance(tool_args, str):
             try:
                 tool_args = json.loads(tool_args)

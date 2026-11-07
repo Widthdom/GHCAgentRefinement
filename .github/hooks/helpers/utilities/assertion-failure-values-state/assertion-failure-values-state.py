@@ -1,10 +1,15 @@
 import hashlib
 import json
 import os
+import runpy
 import sqlite3
-import tempfile
-import uuid
 from contextlib import closing, contextmanager
+
+
+# 状態の保存先は共通のutilityで決める。utilityのフォルダーの親がutilitiesである。
+_state_path_utility = runpy.run_path(os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'get-state-path', 'get-state-path.py',
+))
 
 
 # 最新のテスト実行で失敗したアサーションの、期待値と実際の値の組の状態。
@@ -17,17 +22,8 @@ _QUOTES = ('"', "'", '`')
 
 
 def get_state_path(session_id):
-    # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。DBファイル自体は自動削除しない。
-    if not isinstance(session_id, str) or not session_id.strip():
-        raise ValueError('sessionId must be a non-empty UUID string.')
-    try:
-        parsed_session_id = uuid.UUID(session_id.strip())
-    except ValueError:
-        raise ValueError('sessionId must be a valid UUID.') from None
-    return os.path.join(
-        tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'test-failure-values',
-        f'{parsed_session_id}.sqlite3',
-    )
+    # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
+    return _state_path_utility['get_state_path']('test-failure-values', session_id)
 
 
 def normalize_value(value):

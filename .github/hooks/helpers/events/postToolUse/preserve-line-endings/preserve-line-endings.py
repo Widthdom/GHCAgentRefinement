@@ -5,10 +5,7 @@ import os
 import re
 import runpy
 import sqlite3
-import subprocess
 import sys
-import tempfile
-import uuid
 from contextlib import closing
 from typing import cast
 
@@ -18,6 +15,9 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
+_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
@@ -54,15 +54,10 @@ def _get_committed_content(path):
     # HEADのファイルを、チェックアウト時と同じ変換（core.autocrlfや.gitattributesのeol）を通して取得する。
     # 変換前の内容と比べると、WindowsのautocrlfでCRLFになった作業ツリーを誤って変更扱いしてしまう。
     # gitがない、リポジトリ外、HEADにないファイル（新規・管理外）は比較できないためNoneを返す。
-    try:
-        result = subprocess.run(
-            ['git', 'cat-file', '--filters', f'HEAD:./{os.path.basename(path)}'],
-            cwd=os.path.dirname(path), stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=_GIT_TIMEOUT_SECONDS,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if result.returncode != 0:
+    result = _git['run_git'](
+        os.path.dirname(path), ['cat-file', '--filters', f'HEAD:./{os.path.basename(path)}'], _GIT_TIMEOUT_SECONDS,
+    )
+    if result is None or result.returncode != 0:
         return None
     return result.stdout
 
@@ -141,34 +136,17 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
 
-        session_id = hook_input.get('sessionId')
-        if not isinstance(session_id, str) or not session_id.strip():
-            raise ValueError('sessionId must be a non-empty UUID string.')
-        try:
-            parsed_session_id = uuid.UUID(session_id.strip())
-        except ValueError:
-            raise ValueError('sessionId must be a valid UUID.') from None
+        state_path = _get_state_path('preserve-line-endings', hook_input.get('sessionId'))
 
-        for field in ('cwd', 'toolName'):
-            value = hook_input.get(field)
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError(f'{field} must be a non-empty string.')
-        if not os.path.isabs(hook_input['cwd']):
-            raise ValueError('cwd must be an absolute path.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        cwd = _hook_input['get_cwd'](hook_input)
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        tool_name = hook_input['toolName'].removeprefix('functions.')
+        tool_name = tool_name.removeprefix('functions.')
         if tool_name not in _EDIT_TOOL_NAMES:
             return 0
-        paths = _get_edited_paths(tool_name, _unwrap_tool_args(hook_input['toolArgs']), hook_input['cwd'])
+        paths = _get_edited_paths(tool_name, _unwrap_tool_args(tool_args), cwd)
 
         results = []
         for path in paths:
@@ -185,22 +163,18 @@ def main():
             results.append((path, file_key, _get_format_changes(committed, current)))
         # hookは呼び出しごとに別プロセスなので、通知済みの変更をセッションUUID別に保存する。
         # DBファイル自体は自動削除しない。
-        state_directory = os.path.join(
-            tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'preserve-line-endings',
-        )
-        state_path = os.path.join(state_directory, f'{parsed_session_id}.sqlite3')
         notifications = []
         # 崩れたファイルがあるか、解消した記録を消す必要がある場合だけ状態を開く。
         # 形式が崩れない通常の編集では状態ファイルを作らない。
         if any(changes for _, _, changes in results) or (results and os.path.isfile(state_path)):
-            os.makedirs(state_directory, exist_ok=True)
+            os.makedirs(os.path.dirname(state_path), exist_ok=True)
             notifications = _record_notifications(state_path, results)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check line endings: {ex}', file=sys.stderr)
         return 2
 
     if notifications:
-        cwd = os.path.normcase(os.path.realpath(hook_input['cwd']))
+        cwd = os.path.normcase(os.path.realpath(cwd))
         changes = '; '.join(
             f'{_get_display_path(path, cwd)} ({", ".join(file_changes)})' for path, file_changes in notifications
         )

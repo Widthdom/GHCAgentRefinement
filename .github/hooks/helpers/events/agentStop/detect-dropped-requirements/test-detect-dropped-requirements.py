@@ -169,14 +169,14 @@ class DetectDroppedRequirementsTests(unittest.TestCase):
     def test_invalid_input(self):
         self.__write_transcript([_agent_stop_start()])
         cases = (
-            ('empty', b'', b'agentStop hook input is empty.'),
-            ('not json', b'{', b'Failed to parse agentStop hook input:'),
-            ('invalid utf-8', b'\xff', b'Failed to parse agentStop hook input:'),
-            ('not object', b'[]', b'agentStop hook input must be a JSON object.'),
+            ('empty', b'', b'Failed to inspect dropped requirements: hook input is empty.'),
+            ('not json', b'{', b'Failed to inspect dropped requirements: Expecting property name'),
+            ('invalid utf-8', b'\xff', b"Failed to inspect dropped requirements: 'utf-8' codec can't decode"),
+            ('not object', b'[]', b'Failed to inspect dropped requirements: hook input must be a JSON object.'),
             ('no transcript', json.dumps({'timestamp': _HOOK_TIMESTAMP}).encode('utf-8'),
              b'transcriptPath must be a non-empty string.'),
             ('missing transcript', json.dumps({'transcriptPath': os.path.join(self.__root, 'none.jsonl')}).encode('utf-8'),
-             b'Transcript path is not a file'),
+             b'transcript path is not a file'),
         )
         for name, raw, message in cases:
             with self.subTest(name=name):

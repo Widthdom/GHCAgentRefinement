@@ -1,9 +1,12 @@
-import io
 import os
 import runpy
-import sys
-from pathlib import Path
-from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
 
 
 def get_used_skills(transcript_path):
@@ -13,7 +16,7 @@ def get_used_skills(transcript_path):
     used_skills = []
 
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
+        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -37,15 +40,3 @@ def get_used_skills(transcript_path):
             used_skills.append(skill_name)
 
     return used_skills
-
-
-if __name__ == '__main__':
-    import argparse
-
-    _parser = argparse.ArgumentParser()
-    _parser.add_argument('--transcript-path', required=True)
-    _arguments = _parser.parse_args()
-    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', newline='\n')
-    for used_skill in get_used_skills(_arguments.transcript_path):
-        print(used_skill)

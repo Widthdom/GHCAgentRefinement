@@ -4,7 +4,6 @@ import json
 import os
 import re
 import runpy
-import subprocess
 import sys
 import tomllib
 from typing import cast
@@ -15,6 +14,10 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
+_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
@@ -76,16 +79,6 @@ def _load_definitions(path):
     return loaded
 
 
-def _get_arguments(raw_arguments):
-    # argumentsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で記録される場合もある。
-    if isinstance(raw_arguments, str):
-        try:
-            return json.loads(raw_arguments)
-        except ValueError:
-            return raw_arguments
-    return raw_arguments
-
-
 def _get_written_paths(tool_name, arguments):
     # 戻り値は、編集系ツールが書き込むファイルのパスのリスト。削除するファイルは対象外とする。
     if tool_name == 'apply_patch':
@@ -102,47 +95,14 @@ def _get_written_paths(tool_name, arguments):
 
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・書き込んだファイル・本hookによる差し戻し済みかを集める。
-    # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
-    last_assistant_msg = None
+    events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
     paths = []
-    already_requested = False
-    for event in runpy.run_path(
-        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
-    )['read_jsonl_objects'](transcript_path):
-        data = event.get('data', {})
-        if not isinstance(data, dict):
-            raise ValueError('Event data must be a JSON object.')
-        event_type = event.get('type')
-
-        if event_type == 'user.message':
-            content = data.get('content')
-            if data.get('delivery') != 'queued':
-                last_assistant_msg = None
-                paths.clear()
-                already_requested = False
-            elif isinstance(content, str) and content.startswith(_REASON_PREFIX):
-                already_requested = True
-        elif event_type == 'assistant.message':
-            content = data.get('content')
-            if isinstance(content, str) and content.strip():
-                last_assistant_msg = content
-        elif event_type == 'tool.execution_start':
-            tool_name = data.get('toolName')
-            if isinstance(tool_name, str) and tool_name.removeprefix('functions.') in _EDIT_TOOL_NAMES:
-                paths.extend(_get_written_paths(tool_name.removeprefix('functions.'), _get_arguments(data.get('arguments'))))
-    return last_assistant_msg, paths, already_requested
-
-
-def _run_git(cwd, arguments):
-    # 戻り値は (終了コード, 標準出力のバイト列)。gitがない、またはタイムアウトした場合はNone。
-    try:
-        result = subprocess.run(
-            ['git', *arguments], cwd=cwd,
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=_GIT_TIMEOUT_SECONDS, check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return result.returncode, result.stdout
+    for event_type, data in events:
+        tool_name = data.get('toolName')
+        if (event_type == 'tool.execution_start' and isinstance(tool_name, str)
+                and tool_name.removeprefix('functions.') in _EDIT_TOOL_NAMES):
+            paths.extend(_get_written_paths(tool_name.removeprefix('functions.'), _unwrap_tool_args(data.get('arguments'))))
+    return _turn_events['get_last_assistant_message'](events), paths, already_requested
 
 
 def _resolve_keys(value, parts):
@@ -194,12 +154,12 @@ def _find_drifts(manifests, paths, cwd, repository_root):
             continue
         relative_path = os.path.relpath(path, repository_root).replace(os.sep, '/')
         # 編集前の内容はHEADのものとする。HEADにないマニフェスト（新規作成）は比べる対象がないため判定しない。
-        head = _run_git(repository_root, ['show', f'HEAD:{relative_path}'])
-        if head is None or head[0] != 0:
+        head = _git['run_git'](repository_root, ['show', f'HEAD:{relative_path}'], _GIT_TIMEOUT_SECONDS)
+        if head is None or head.returncode != 0:
             continue
         with open(path, encoding='utf-8-sig', errors='replace') as file:
             current = file.read()
-        before = _get_fingerprint(manifest, head[1].decode('utf-8-sig', errors='replace'))
+        before = _get_fingerprint(manifest, head.stdout.decode('utf-8-sig', errors='replace'))
         after = _get_fingerprint(manifest, current)
         if before is None or after is None or before == after:
             continue
@@ -213,9 +173,9 @@ def _find_drifts(manifests, paths, cwd, repository_root):
             continue
         for lock_relative_path, _ in locks:
             # git管理下でないロックファイルは新たに作ったものとみなし、HEADから変わったものとあわせて更新済みとする。
-            tracked = _run_git(repository_root, ['ls-files', '--', lock_relative_path])
-            changed = _run_git(repository_root, ['diff', '--quiet', 'HEAD', '--', lock_relative_path])
-            if tracked is None or not tracked[1].strip() or changed is None or changed[0] != 0:
+            tracked = _git['run_git'](repository_root, ['ls-files', '--', lock_relative_path], _GIT_TIMEOUT_SECONDS)
+            changed = _git['run_git'](repository_root, ['diff', '--quiet', 'HEAD', '--', lock_relative_path], _GIT_TIMEOUT_SECONDS)
+            if tracked is None or not tracked.stdout.strip() or changed is None or changed.returncode != 0:
                 break
         else:
             drifts.append((relative_path, locks))
@@ -237,27 +197,14 @@ def main(arguments=None):
 
     try:
         manifests = _load_definitions(parsed_arguments.definitions_path)
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('agentStop hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('agentStop hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
 
         # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
         if hook_input.get('agentId'):
             return 0
 
-        cwd = hook_input.get('cwd')
-        if not isinstance(cwd, str) or not cwd.strip():
-            raise ValueError('cwd must be a non-empty string.')
-        if not os.path.isabs(cwd):
-            raise ValueError('cwd must be an absolute path.')
-        transcript_path = hook_input.get('transcriptPath')
-        if not isinstance(transcript_path, str) or not transcript_path.strip():
-            raise ValueError('transcriptPath must be a non-empty string.')
-        if not os.path.isfile(transcript_path):
-            raise ValueError(f'transcript path is not a file or could not be verified as a file: {transcript_path}')
+        cwd = _hook_input['get_cwd'](hook_input)
+        transcript_path = _hook_input['get_transcript_path'](hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
         runpy.run_path(
@@ -269,12 +216,10 @@ def main(arguments=None):
         if last_assistant_msg is None or already_requested or not paths:
             return 0
         # HEADと比べるため、gitがない、またはリポジトリ外の場合は検査しない。
-        repository_root = _run_git(cwd, ['rev-parse', '--show-toplevel'])
-        if repository_root is None or repository_root[0] != 0 or not repository_root[1].strip():
+        repository_root = _git['get_repository_root'](cwd, _GIT_TIMEOUT_SECONDS)
+        if repository_root is None:
             return 0
-        drifts = _find_drifts(
-            manifests, paths, cwd, os.path.realpath(repository_root[1].decode('utf-8', errors='replace').strip()),
-        )
+        drifts = _find_drifts(manifests, paths, cwd, os.path.realpath(repository_root))
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to detect lockfile drift: {ex}', file=sys.stderr)
         return 2

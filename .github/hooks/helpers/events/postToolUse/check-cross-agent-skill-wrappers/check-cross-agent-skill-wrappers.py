@@ -5,8 +5,6 @@ import re
 import runpy
 import sqlite3
 import sys
-import tempfile
-import uuid
 from contextlib import closing
 from typing import cast
 
@@ -16,6 +14,8 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
@@ -171,34 +171,17 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
 
-        session_id = hook_input.get('sessionId')
-        if not isinstance(session_id, str) or not session_id.strip():
-            raise ValueError('sessionId must be a non-empty UUID string.')
-        try:
-            parsed_session_id = uuid.UUID(session_id.strip())
-        except ValueError:
-            raise ValueError('sessionId must be a valid UUID.') from None
+        state_path = _get_state_path('check-cross-agent-skill-wrappers', hook_input.get('sessionId'))
 
-        for field in ('cwd', 'toolName'):
-            value = hook_input.get(field)
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError(f'{field} must be a non-empty string.')
-        if not os.path.isabs(hook_input['cwd']):
-            raise ValueError('cwd must be an absolute path.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        cwd = _hook_input['get_cwd'](hook_input)
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        tool_name = hook_input['toolName'].removeprefix('functions.')
+        tool_name = tool_name.removeprefix('functions.')
         if tool_name not in _EDIT_TOOL_NAMES:
             return 0
-        paths = _get_edited_paths(tool_name, _unwrap_tool_args(hook_input['toolArgs']), hook_input['cwd'])
+        paths = _get_edited_paths(tool_name, _unwrap_tool_args(tool_args), cwd)
         skills = sorted({skill for skill in map(_get_skill, paths) if skill is not None})
         if not skills:
             return 0
@@ -208,14 +191,10 @@ def main():
             (f'{os.path.normcase(root)}\0{name}', _get_problems(root, name)) for root, name in skills
         ]
         # hookは呼び出しごとに別プロセスなので、通知済みの問題をセッションUUID別に保存する。
-        state_directory = os.path.join(
-            tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'check-cross-agent-skill-wrappers',
-        )
-        state_path = os.path.join(state_directory, f'{parsed_session_id}.sqlite3')
         problems = []
         # 問題があるか、解消した記録を消す必要がある場合だけ状態を開く。
         if any(skill_problems for _, skill_problems in results) or os.path.isfile(state_path):
-            os.makedirs(state_directory, exist_ok=True)
+            os.makedirs(os.path.dirname(state_path), exist_ok=True)
             problems = _record_notifications(state_path, results)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check cross-agent skill wrappers: {ex}', file=sys.stderr)

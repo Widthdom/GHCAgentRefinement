@@ -9,9 +9,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 処理詳細
 1. [invisible-character-definitions.json](./invisible-character-definitions.json) から、対象外のファイルのパス（`excludedFilePatterns`）と、見えない文字の正規表現（`characterPatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
-   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・`old_str` を除く引数の文字列を書き込む内容、`old_str` を置換前の内容とする（`str_replace_editor` の `view`・`undo_edit` は除く）。
-   - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。`*** Delete File:` は対象外とする。
-   - 各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
+   - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
 3. cwdからの相対パス（`/` 区切り）が `excludedFilePatterns` に一致しないファイルについて、書き込む内容の行ごとに `characterPatterns` に一致するものを拒否の候補とする。ただし、前後のASCIIの空白を除いて同じ行が既存の内容（置換前の内容、パッチの削除行、ファイルの現在の内容）にあれば除く。
 4. 候補のうち、このセッションで同じファイルをまだ拒否していないものがあれば、文字を取り除くか、意図した文字なら `chr(0x3000)` のようにコード値で書くよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。理由で示す行では、見えない文字とASCII以外の空白を `<U+XXXX>` に置き換える。
 
@@ -25,10 +23,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |ノーブレークスペース|U+00A0・U+202F|
 |コード中の全角スペース|行頭・行末のU+3000、ASCIIの文字（`!`〜`~`）に隣接するU+3000|
 |対象外のファイル|`*.md`・`*.markdown`・`*.rst`・`*.txt`・`*.adoc`|
-
-## 前提条件
-- 特別なプロンプト指定は不要。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外
 - 日本語のコメントや文の中の全角スペースは正当なため、行頭・行末とASCIIの文字に隣接するものだけを対象にする。
