@@ -99,8 +99,7 @@ def main():
     try:
         hook_input = _hook_input['read_hook_input']()
         state = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'verified-packages-state', 'verified-packages-state.py',
+            _utilities_directory, 'verified-packages-state', 'verified-packages-state.py',
         ))
         state_path = state['get_state_path'](hook_input.get('sessionId'))
         # postToolUseには、呼び出したツール1件の名前（toolName）と引数（toolArgs）、結果（toolResult）が渡される。

@@ -204,8 +204,7 @@ def main():
     try:
         # テストの実行かどうかの判定は、共通utilityで行う。
         is_test_command = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'check-test-runs', 'check-test-runs.py',
+            _utilities_directory, 'check-test-runs', 'check-test-runs.py',
         ))['is_test_command']
         hook_input = _hook_input['read_hook_input']()
 

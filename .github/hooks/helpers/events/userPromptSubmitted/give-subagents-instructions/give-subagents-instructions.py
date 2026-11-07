@@ -1,7 +1,6 @@
 import io
 import json
 import os
-import pathlib
 import runpy
 import sys
 from typing import cast
@@ -34,14 +33,16 @@ def main():
         return 2
 
     # サブエージェントではsessionStartが発火しないため、親と同じ指示ファイルを依頼文に添えて渡す。
-    # .parents[5]：6階層上。ここでは .github ディレクトリ
-    instructions_path = pathlib.Path(__file__).absolute().parents[5] / 'copilot-instructions.md'
-    if not instructions_path.is_file():
+    # utilities → helpers → hooks → .github の順に上がる。
+    instructions_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(_utilities_directory))), 'copilot-instructions.md',
+    )
+    if not os.path.isfile(instructions_path):
         print(f'Copilot instructions file not found: {instructions_path}', file=sys.stderr)
         return 2
 
     # `utf-8-sig` を指定することで、BOMが存在する場合は取り除いて読むことができる。
-    with instructions_path.open(encoding='utf-8-sig', newline='') as instructions_file:
+    with open(instructions_path, encoding='utf-8-sig', newline='') as instructions_file:
         instructions = instructions_file.read()
 
     if not instructions.strip():

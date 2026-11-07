@@ -4,7 +4,6 @@ import os
 import runpy
 import sqlite3
 import sys
-from pathlib import Path
 from typing import cast
 
 
@@ -20,7 +19,7 @@ _parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state
 def _get_last_assistant_msg(transcript_path):
     last_assistant_msg = None
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
+        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         if event.get('type') != 'assistant.message':
             continue
@@ -44,36 +43,36 @@ def _get_last_assistant_msg(transcript_path):
 
 def _get_footer_correction(transcript_path, session_id, last_assistant_msg):
     # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
-    script_directory = Path(__file__).resolve().parent
+    script_directory = os.path.dirname(os.path.abspath(__file__))
 
     current_jst = runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'get-current-jst' / 'get-current-jst.py')
+        os.path.join(_utilities_directory, 'get-current-jst', 'get-current-jst.py')
     )['current_jst']
 
-    used_hooks = runpy.run_path(str(script_directory / 'get-used-hooks.py'))['get_used_hooks'](
+    used_hooks = runpy.run_path(os.path.join(script_directory, 'get-used-hooks.py'))['get_used_hooks'](
         transcript_path,
-        # parents[4]：このスクリプトから5階層上の .github/hooks ディレクトリ。
-        str(Path(__file__).resolve().parents[4]),
+        # utilities → helpers → hooks の順に上がった .github/hooks ディレクトリ。
+        os.path.dirname(os.path.dirname(_utilities_directory)),
     ) or ['none']
 
     # hookランナーが記録した、実際に機能したhook。同時に動くagentStop hookは含めない。
-    fired_hooks = runpy.run_path(str(script_directory / 'get-fired-hooks.py'))['get_fired_hooks'](
+    fired_hooks = runpy.run_path(os.path.join(script_directory, 'get-fired-hooks.py'))['get_fired_hooks'](
         transcript_path,
         session_id,
     ) or ['none']
 
-    used_skills = runpy.run_path(str(script_directory / 'get-used-skills.py'))['get_used_skills'](
+    used_skills = runpy.run_path(os.path.join(script_directory, 'get-used-skills.py'))['get_used_skills'](
         transcript_path
     ) or ['none']
 
-    formatted_footer = runpy.run_path(str(script_directory / 'format-response-footer.py'))['format_response_footer'](
+    formatted_footer = runpy.run_path(os.path.join(script_directory, 'format-response-footer.py'))['format_response_footer'](
         used_hooks,
         fired_hooks,
         used_skills,
         current_jst,
     )
 
-    is_footer_valid = runpy.run_path(str(script_directory / 'check-response-footer.py'))['test_response_footer'](
+    is_footer_valid = runpy.run_path(os.path.join(script_directory, 'check-response-footer.py'))['test_response_footer'](
         last_assistant_msg,
         used_hooks,
         fired_hooks,
@@ -108,7 +107,7 @@ def main():
         # C# のdelegateのように、外部スクリプトから関数を取得する。
         get_debug_mode = runpy.run_path(
             # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'get-debug-mode' / 'get-debug-mode.py')
+            os.path.join(_utilities_directory, 'get-debug-mode', 'get-debug-mode.py')
         )['get_debug_mode']
     except (OSError, SyntaxError, KeyError) as ex:
         # f'...' は formatted string literalのことでf-stringとも呼ばれる。文字列の中に {式} の値を埋め込める書き方。C#の $"..." に相当する。
@@ -142,7 +141,7 @@ def main():
         # GitHub Copilot はトランスクリプトに非同期で追記するため、agentStop hookが起動した直後は、最終応答がまだ書き込まれていない可能性がある。
         # 自身のhook.startが書き込まれるまで最大5秒待ち、それより前に発生した最終応答を書き込み済みにする。
         runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
+            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg = _get_last_assistant_msg(transcript_path)

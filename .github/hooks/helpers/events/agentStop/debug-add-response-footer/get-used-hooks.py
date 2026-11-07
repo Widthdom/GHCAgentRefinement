@@ -1,7 +1,13 @@
 import json
 import os
 import runpy
-from pathlib import Path
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
 
 
 def get_used_hooks(transcript_path, hooks_path):
@@ -14,7 +20,7 @@ def get_used_hooks(transcript_path, hooks_path):
     hook_types = set()
 
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
+        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):

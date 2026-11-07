@@ -381,8 +381,7 @@ def main():
     try:
         hook_input = _hook_input['read_hook_input']()
         state = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'verified-packages-state', 'verified-packages-state.py',
+            _utilities_directory, 'verified-packages-state', 'verified-packages-state.py',
         ))
         state_path = state['get_state_path'](hook_input.get('sessionId'))
         cwd = _hook_input['get_cwd'](hook_input)
@@ -390,8 +389,7 @@ def main():
 
         # 編集ツールの引数の解析は、共通utilityで行う。
         extract_edit_tool_changes = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+            _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
         ))['extract_edit_tool_changes']
         real_cwd = os.path.realpath(cwd)
         added = []

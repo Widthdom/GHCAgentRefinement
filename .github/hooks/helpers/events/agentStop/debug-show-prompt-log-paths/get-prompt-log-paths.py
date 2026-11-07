@@ -5,12 +5,17 @@ import tempfile
 import uuid
 
 
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+
+
 def get_prompt_log_paths(transcript_path, session_id):
     session_id = uuid.UUID(str(session_id))
-    script_directory = os.path.dirname(os.path.abspath(__file__))
-    helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(script_directory)))
     read_jsonl_objects = runpy.run_path(
-        os.path.join(helpers_directory, 'utilities', 'read-jsonl-objects', 'read-jsonl-objects.py'),
+        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py'),
     )['read_jsonl_objects']
     timestamps = set()
     response_started = False

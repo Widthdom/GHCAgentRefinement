@@ -92,10 +92,8 @@ def main():
         if hook_input.get('agentId'):
             return 0
 
-        script_directory = os.path.dirname(os.path.abspath(__file__))
-        helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(script_directory)))
         get_debug_mode = runpy.run_path(
-            os.path.join(helpers_directory, 'utilities', 'get-debug-mode', 'get-debug-mode.py'),
+            os.path.join(_utilities_directory, 'get-debug-mode', 'get-debug-mode.py'),
         )['get_debug_mode']
         if not get_debug_mode(parsed_session_id):
             return 0

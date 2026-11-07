@@ -142,8 +142,7 @@ def main(arguments=None):
         test_file_patterns = _load_test_file_patterns(parsed_arguments.definitions_path)
         # 記録側のpostToolUse hookと状態の形式・保存先を共有する。
         state = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(script_directory))),
-            'utilities', 'assertion-failure-values-state', 'assertion-failure-values-state.py',
+            _utilities_directory, 'assertion-failure-values-state', 'assertion-failure-values-state.py',
         ))
 
         hook_input = _hook_input['read_hook_input']()

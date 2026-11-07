@@ -166,8 +166,7 @@ def main(arguments=None):
         hook_input = _hook_input['read_hook_input']()
         # 読んだコミットは、記録側のpostToolUse hookと状態の形式・保存先を共有する。
         state = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(script_directory))),
-            'utilities', 'viewed-commits-state', 'viewed-commits-state.py',
+            _utilities_directory, 'viewed-commits-state', 'viewed-commits-state.py',
         ))
         state_path = state['get_state_path'](hook_input.get('sessionId'))
         cwd = _hook_input['get_cwd'](hook_input)
@@ -175,8 +174,7 @@ def main(arguments=None):
 
         # 編集ツールの引数の解析は、共通utilityで行う。
         extract_edit_tool_changes = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(script_directory))),
-            'utilities', 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+            _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
         ))['extract_edit_tool_changes']
         changes = extract_edit_tool_changes(tool_name, tool_args)
 

@@ -1,7 +1,13 @@
 import os
 import runpy
 from datetime import datetime
-from pathlib import Path
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
 
 
 _FOOTER_CORRECTION_PREFIX = 'The final response footer is missing or incorrect.'
@@ -28,7 +34,7 @@ def _get_turn_started_at_ms(transcript_path):
     turn_started_at_ms = 0
     prompt_hook_started_at = None
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
+        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -51,5 +57,5 @@ def _get_turn_started_at_ms(transcript_path):
 
 def get_fired_hooks(transcript_path, session_id):
     return runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'hook-activity-state' / 'hook-activity-state.py')
+        os.path.join(_utilities_directory, 'hook-activity-state', 'hook-activity-state.py')
     )['get_fired_hooks'](session_id, _get_turn_started_at_ms(transcript_path), _EXCLUDED_EVENTS)

@@ -5,7 +5,6 @@ import os
 import re
 import runpy
 import sys
-from pathlib import Path
 from typing import cast
 
 
@@ -121,9 +120,8 @@ def main(arguments=None):
         if last_assistant_msg is None or already_requested or not changes:
             return 0
         # 新たに持ち込んだ行の照合は、共通utilityで行う。
-        find_introduced_lines_by_regex = runpy.run_path(str(
-            Path(__file__).resolve().parents[3] / 'utilities' / 'find-introduced-lines-by-regex'
-            / 'find-introduced-lines-by-regex.py'
+        find_introduced_lines_by_regex = runpy.run_path(os.path.join(
+            _utilities_directory, 'find-introduced-lines-by-regex', 'find-introduced-lines-by-regex.py',
         ))['find_introduced_lines_by_regex']
         findings = find_introduced_lines_by_regex(changes, cwd, excluded_file_patterns, debug_patterns)
     except (OSError, UnicodeError, ValueError) as ex:

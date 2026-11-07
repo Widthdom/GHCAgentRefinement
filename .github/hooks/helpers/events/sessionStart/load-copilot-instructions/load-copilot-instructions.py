@@ -1,6 +1,6 @@
 import io
 import json
-import pathlib
+import os
 import sys
 from typing import cast
 
@@ -15,17 +15,19 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='backslashreplace', newline='\n')
 
     # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
-    # .absolute()：絶対パス化（シンボリックリンクは解決しない）
-    # .parents[5]：6階層上。ここでは .github ディレクトリ
-    # / 'copilot-instructions.md'：ファイル名を結合
-    instructions_path = pathlib.Path(__file__).absolute().parents[5] / 'copilot-instructions.md'
-    if not instructions_path.is_file():
+    # os.path.abspath：絶対パス化（シンボリックリンクは解決しない）
+    # hookのフォルダー → イベントのフォルダー → events → helpers → hooks → .github の順に上がる。
+    github_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
+        os.path.dirname(os.path.abspath(__file__)),
+    )))))
+    instructions_path = os.path.join(github_directory, 'copilot-instructions.md')
+    if not os.path.isfile(instructions_path):
         print(f'Copilot instructions file not found: {instructions_path}', file=sys.stderr)
         return 2
 
     # `utf-8-sig` を指定することで、BOMが存在する場合は取り除いて読むことができる。
     # with：処理を抜けるときの後片付けを自動で行う構文（C#のusingに相当）。
-    with instructions_path.open(encoding='utf-8-sig', newline='') as instructions_file:
+    with open(instructions_path, encoding='utf-8-sig', newline='') as instructions_file:
         instructions = instructions_file.read()
 
     # Pythonの not は、対象を真偽として評価してから反転する。
