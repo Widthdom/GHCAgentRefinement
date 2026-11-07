@@ -7,14 +7,22 @@ import unittest
 
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_hook_path = os.path.join(_script_directory, 'detect-debug-leftovers.py')
+_hook_path = os.path.join(_script_directory, 'detect-temporary-code.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
 sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
 
 
 _HOOK_TIMESTAMP = 1777777777000
-_REASON_PREFIX = 'The changes in this request leave debugging code'
+_DEBUG_PREFIX = 'The changes in this request leave debugging code'
+_PLACEHOLDER_PREFIX = 'The changes in this request leave placeholder code'
+_VALID_PATTERNS = [{'name': 'x', 'pattern': 'x'}]
+_VALID_DEFINITIONS = {
+    'excludedFilePatterns': [],
+    'debugPatterns': _VALID_PATTERNS,
+    'placeholderPatterns': _VALID_PATTERNS,
+    'placeholderDisclosurePatterns': ['x'],
+}
 
 
 def _user(content, delivery='idle'):
@@ -33,9 +41,9 @@ def _agent_stop_start():
     return {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': _HOOK_TIMESTAMP}}}
 
 
-class DetectDebugLeftoversTests(unittest.TestCase):
+class DetectTemporaryCodeTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-debug-leftovers-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc-temporary-code-test-')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__workspace = os.path.join(self.__root, 'workspace')
@@ -74,13 +82,13 @@ class DetectDebugLeftoversTests(unittest.TestCase):
     def __assert_silent(self, result):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
 
-    def __assert_block(self, result, *fragments):
+    def __assert_block(self, result, prefix, *fragments):
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
         self.assertEqual(result.stderr, b'')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
         output = json.loads(result.stdout.decode('utf-8'))
         self.assertEqual(output['decision'], 'block')
-        self.assertTrue(output['reason'].startswith(_REASON_PREFIX))
+        self.assertTrue(output['reason'].startswith(prefix), output['reason'])
         for fragment in fragments:
             self.assertIn(fragment, output['reason'])
         return output['reason']
@@ -89,13 +97,15 @@ class DetectDebugLeftoversTests(unittest.TestCase):
         with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
             configuration = json.load(file)
         entries = configuration['hooks']['agentStop']
-        relative_path = '.github/hooks/helpers/events/agentStop/detect-debug-leftovers/detect-debug-leftovers.py'
+        relative_path = '.github/hooks/helpers/events/agentStop/detect-temporary-code/detect-temporary-code.py'
         matching = [entry for entry in entries if relative_path in entry['bash']]
         self.assertEqual(len(matching), 1)
         self.assertEqual(matching[0]['type'], 'command')
         self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
         self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
         self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
+
+    # デバッグ用のコード
 
     def test_blocks_debug_leftovers(self):
         for path, line, kind in [
@@ -122,7 +132,8 @@ class DetectDebugLeftoversTests(unittest.TestCase):
         ]:
             with self.subTest(line=line):
                 events = self.__created(path, f'x = 1\n    {line}\n')
-                self.__assert_block(self.__invoke(events), f'- {path}: {kind} ("{line}")')
+                reason = self.__assert_block(self.__invoke(events), _DEBUG_PREFIX, f'- {path}: {kind} ("{line}")')
+                self.assertIn('Remove them now.', reason)
 
     def test_allows_ordinary_output(self):
         for line in (
@@ -137,10 +148,57 @@ class DetectDebugLeftoversTests(unittest.TestCase):
             with self.subTest(line=line):
                 self.__assert_silent(self.__invoke(self.__created('a.py', f'{line}\n')))
 
+    def test_debug_leftovers_are_not_excused_by_placeholder_disclosure(self):
+        events = self.__created('a.js', 'debugger;\n', 'TODOを1件残した。')
+        self.__assert_block(self.__invoke(events), _DEBUG_PREFIX, '- a.js: debugger statement')
+
+    # 仮実装
+
+    def test_blocks_placeholders(self):
+        for path, line, kind in [
+            ('src/Foo.cs', 'throw new NotImplementedException();', 'NotImplementedException'),
+            ('src/Foo.cs', 'throw new System.NotImplementedException("later");', 'NotImplementedException'),
+            ('foo.py', 'raise NotImplementedError', 'NotImplementedError'),
+            ('foo.ts', "throw new Error('Not implemented');", 'not-implemented error'),
+            ('Foo.java', 'throw new UnsupportedOperationException("TODO");', 'not-implemented error'),
+            ('foo.go', 'panic("not implemented")', 'not-implemented panic'),
+            ('foo.rs', 'todo!()', 'todo macro'),
+            ('foo.rs', 'unimplemented!("x")', 'todo macro'),
+            ('Foo.kt', 'fun f(): Int = TODO()', 'todo macro'),
+            ('foo.py', '# TODO: handle errors', 'TODO comment'),
+            ('Foo.cs', '// TODO validate input', 'TODO comment'),
+            ('foo.sql', '-- TBD', 'TODO comment'),
+            ('Foo.cs', '// 後で実装する', 'deferred implementation comment'),
+            ('foo.js', '/* implement later */', 'deferred implementation comment'),
+        ]:
+            with self.subTest(line=line):
+                events = self.__created(path, f'line one\n    {line}\n')
+                reason = self.__assert_block(self.__invoke(events), _PLACEHOLDER_PREFIX, f'- {path}: {kind} ("{line}")')
+                self.assertIn('Implement these parts now.', reason)
+
+    def test_ignores_fixme_comments(self):
+        self.__assert_silent(self.__invoke(self.__created('a.py', '# FIXME: overflow when n is negative\n')))
+
+    def test_allows_disclosed_placeholders(self):
+        for response in (
+            'Parseは未実装のまま残した。',
+            '`Save` はスタブにしてある。',
+            'TODOを1件残した。',
+            'The export path is not implemented yet.',
+            'I left a stub for the parser.',
+        ):
+            with self.subTest(response=response):
+                self.__assert_silent(self.__invoke(self.__created('a.cs', 'throw new NotImplementedException();\n', response)))
+
+    # 両方の種類
+
     def test_edit_and_patch_arguments(self):
         self.__write_file('a.ts', 'function f() {\n    console.log(x);\n    return x;\n}\n')
-        self.__write_file('b.py', 'def f():\n    breakpoint()\n    return 1\n')
-        patch = '*** Begin Patch\n*** Update File: b.py\n def f():\n+    breakpoint()\n     return 1\n*** End Patch'
+        self.__write_file('b.py', 'def f():\n    breakpoint()\n    raise NotImplementedError\n')
+        patch = (
+            '*** Begin Patch\n*** Update File: b.py\n def f():\n+    breakpoint()\n'
+            '-    return 1\n+    raise NotImplementedError\n*** End Patch'
+        )
         events = [
             _user('直して'),
             _tool('functions.edit', json.dumps({
@@ -149,53 +207,82 @@ class DetectDebugLeftoversTests(unittest.TestCase):
             _tool('apply_patch', patch, call_id='c2'),
             _assistant('Done.'),
         ]
-        self.__assert_block(self.__invoke(events), '- a.ts: console output', '- b.py: Python debugger')
+        reason = self.__assert_block(self.__invoke(events), _DEBUG_PREFIX, '- a.ts: console output', '- b.py: Python debugger')
+        self.assertNotIn('NotImplementedError', reason)
+        self.__assert_block(
+            self.__invoke([*events, _user(reason, delivery='queued'), _assistant('Done.')]),
+            _PLACEHOLDER_PREFIX, '- b.py: NotImplementedError',
+        )
 
     def test_ignores_existing_removed_and_excluded_lines(self):
-        self.__write_file('kept.ts', 'console.log(x);\nlet y;\n')
+        self.__write_file('kept.ts', 'console.log(x);\nthrow new NotImplementedException();\nlet y;\n')
         self.__write_file('gone.py', 'x = 1\n')
         for path in ('notes.md', 'config.json'):
-            self.__write_file(path, 'console.log(x);\n')
+            self.__write_file(path, 'console.log(x);\n# TODO: later\n')
         events = [
             _user('直して'),
             # 置換前の内容にもある行は、元からあるものとみなす。
-            _tool('edit', {'path': 'kept.ts', 'old_str': 'console.log(x);', 'new_str': 'console.log(x);\nlet y;'}),
-            # 後の編集でファイルから消えたデバッグコードは対象外。
-            _tool('create', {'path': 'gone.py', 'file_text': 'breakpoint()\nx = 1\n'}, 'c2'),
-            _tool('create', {'path': 'notes.md', 'file_text': 'console.log(x);\n'}, 'c3'),
-            _tool('create', {'path': 'config.json', 'file_text': 'console.log(x);\n'}, 'c4'),
+            _tool('edit', {
+                'path': 'kept.ts', 'old_str': 'console.log(x);\nthrow new NotImplementedException();',
+                'new_str': 'console.log(x);\nthrow new NotImplementedException();\nlet y;',
+            }),
+            # 後の編集でファイルから消えたものは対象外。
+            _tool('create', {'path': 'gone.py', 'file_text': 'breakpoint()\nraise NotImplementedError\nx = 1\n'}, 'c2'),
+            _tool('create', {'path': 'notes.md', 'file_text': 'console.log(x);\n# TODO: later\n'}, 'c3'),
+            _tool('create', {'path': 'config.json', 'file_text': 'console.log(x);\n# TODO: later\n'}, 'c4'),
             # 閲覧、削除されたファイルへの書き込み、シェルは対象外。
-            _tool('str_replace_editor', {'command': 'view', 'path': 'kept.ts', 'new_str': 'debugger;'}, 'c5'),
-            _tool('create', {'path': 'deleted.js', 'file_text': 'debugger;'}, 'c6'),
-            _tool('bash', {'command': 'echo "debugger;" > x.js'}, 'c7'),
+            _tool('str_replace_editor', {'command': 'view', 'path': 'kept.ts', 'new_str': 'debugger;\n# TODO'}, 'c5'),
+            _tool('create', {'path': 'deleted.js', 'file_text': 'debugger;\n// TODO'}, 'c6'),
+            _tool('bash', {'command': 'echo "debugger; // TODO" > x.js'}, 'c7'),
             _assistant('直した。'),
         ]
         self.__assert_silent(self.__invoke(events))
 
     def test_only_latest_request_is_checked(self):
-        events = [*self.__created('a.js', 'debugger;\n'), _user('READMEを直して'), _assistant('直した。')]
+        events = [
+            *self.__created('a.js', 'debugger;\n// TODO\n'),
+            _user('READMEを直して'),
+            _assistant('直した。'),
+        ]
         self.__assert_silent(self.__invoke(events))
 
-    def test_blocks_only_once_per_request(self):
-        events = self.__created('a.js', 'debugger;\n')
-        reason = self.__assert_block(self.__invoke(events))
-        self.__assert_silent(self.__invoke([*events, _user(reason, delivery='queued'), _assistant('消した。')]))
-        # 割り込みのメッセージは依頼の区切りにならない。
-        self.__assert_block(self.__invoke([*events, _user('急いで', delivery='queued'), _assistant('直した。')]))
+    def test_blocks_each_kind_only_once_per_request(self):
+        for path, content, prefix in (
+            ('a.js', 'debugger;\n', _DEBUG_PREFIX),
+            ('a.cs', 'throw new NotImplementedException();\n', _PLACEHOLDER_PREFIX),
+        ):
+            with self.subTest(prefix=prefix):
+                events = self.__created(path, content)
+                reason = self.__assert_block(self.__invoke(events), prefix)
+                self.__assert_silent(self.__invoke([*events, _user(reason, delivery='queued'), _assistant('直した。')]))
+                # 割り込みのメッセージは依頼の区切りにならない。
+                self.__assert_block(self.__invoke([*events, _user('急いで', delivery='queued'), _assistant('直した。')]), prefix)
+
+    def test_reports_one_kind_at_a_time(self):
+        events = self.__created('a.js', 'debugger;\n// TODO later\n')
+        debug_reason = self.__assert_block(self.__invoke(events), _DEBUG_PREFIX, '- a.js: debugger statement')
+        self.assertNotIn('TODO', debug_reason)
+        second = [*events, _user(debug_reason, delivery='queued'), _assistant('直した。')]
+        placeholder_reason = self.__assert_block(self.__invoke(second), _PLACEHOLDER_PREFIX, '- a.js: TODO comment')
+        self.__assert_silent(self.__invoke([*second, _user(placeholder_reason, delivery='queued'), _assistant('直した。')]))
 
     def test_skips_subagents_and_turns_without_response(self):
         self.__assert_silent(self.__invoke(self.__created('a.js', 'debugger;\n'), payload={**self.__payload, 'agentId': 'sub'}))
         self.__assert_silent(self.__invoke([_user('直して'), _tool('create', {'path': 'a.js', 'file_text': 'x'})]))
 
     def test_reports_each_line_once_and_limits_findings(self):
-        reason = self.__assert_block(self.__invoke(self.__created('a.js', 'console.log(">>> here");\n')))
+        reason = self.__assert_block(self.__invoke(self.__created('a.js', 'console.log(">>> here");\n')), _DEBUG_PREFIX)
         self.assertEqual(reason.count('>>> here'), 1)
         # 同じ行でも、別のファイルに残っていればそれぞれ報告する。
         events = [*self.__created('a.js', 'debugger;\n')[:2], *self.__created('b.js', 'debugger;\n')[1:]]
-        self.__assert_block(self.__invoke(events), '- a.js: debugger statement', '- b.js: debugger statement')
-        content = ''.join(f'console.log("item {index} ");\n' for index in range(12))
-        reason = self.__assert_block(self.__invoke(self.__created('a.js', content)), 'item 9 ')
-        self.assertNotIn('item 10 ', reason)
+        self.__assert_block(self.__invoke(events), _DEBUG_PREFIX, '- a.js: debugger statement', '- b.js: debugger statement')
+        for content, prefix in (
+            (''.join(f'console.log("item {index}.");\n' for index in range(12)), _DEBUG_PREFIX),
+            (''.join(f'# TODO item {index}.\n' for index in range(12)), _PLACEHOLDER_PREFIX),
+        ):
+            with self.subTest(prefix=prefix):
+                reason = self.__assert_block(self.__invoke(self.__created('a.js', content)), prefix, 'item 9.')
+                self.assertNotIn('item 10.', reason)
 
     def test_invalid_input(self):
         for name, raw in [
@@ -211,29 +298,41 @@ class DetectDebugLeftoversTests(unittest.TestCase):
             with self.subTest(name=name):
                 result = self.__invoke(raw=raw)
                 self.assertEqual((result.returncode, result.stdout), (2, b''), name)
-                self.assertIn(b'Failed to detect debug leftovers:', result.stderr)
+                self.assertIn(b'Failed to detect temporary code:', result.stderr)
         with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write('{broken\n')
         result = self.__invoke()
         self.assertEqual((result.returncode, result.stdout), (2, b''))
 
+    def test_custom_definitions(self):
+        path = os.path.join(self.__root, 'definitions.json')
+        with open(path, 'w', encoding='utf-8', newline='\n') as file:
+            file.write(json.dumps({**_VALID_DEFINITIONS, 'debugPatterns': [{'name': 'mark', 'pattern': '^MARK$'}]}))
+        result = self.__invoke(self.__created('a.js', 'y\nMARK\n'), arguments=('--definitions-path', path))
+        self.__assert_block(result, _DEBUG_PREFIX, '- a.js: mark ("MARK")')
+
     def test_invalid_definitions(self):
-        valid_patterns = [{'name': 'x', 'pattern': 'x'}]
         for name, content in [
             ('not object', '[]'),
             ('broken json', '{'),
-            ('missing excluded', json.dumps({'debugPatterns': valid_patterns})),
-            ('empty patterns', json.dumps({'excludedFilePatterns': [], 'debugPatterns': []})),
-            ('pattern without name', json.dumps({'excludedFilePatterns': [], 'debugPatterns': [{'pattern': 'x'}]})),
-            ('invalid regex', json.dumps({'excludedFilePatterns': ['('], 'debugPatterns': valid_patterns})),
+            ('missing excluded', {key: value for key, value in _VALID_DEFINITIONS.items() if key != 'excludedFilePatterns'}),
+            ('blank excluded', {**_VALID_DEFINITIONS, 'excludedFilePatterns': [' ']}),
+            ('empty debug patterns', {**_VALID_DEFINITIONS, 'debugPatterns': []}),
+            ('debug pattern without name', {**_VALID_DEFINITIONS, 'debugPatterns': [{'pattern': 'x'}]}),
+            ('empty placeholder patterns', {**_VALID_DEFINITIONS, 'placeholderPatterns': []}),
+            ('placeholder without pattern', {**_VALID_DEFINITIONS, 'placeholderPatterns': [{'name': 'x'}]}),
+            ('empty disclosure patterns', {**_VALID_DEFINITIONS, 'placeholderDisclosurePatterns': []}),
+            ('invalid excluded regex', {**_VALID_DEFINITIONS, 'excludedFilePatterns': ['(']}),
+            ('invalid debug regex', {**_VALID_DEFINITIONS, 'debugPatterns': [{'name': 'x', 'pattern': '('}]}),
+            ('invalid disclosure regex', {**_VALID_DEFINITIONS, 'placeholderDisclosurePatterns': ['(']}),
         ]:
             with self.subTest(name=name):
                 definitions_path = os.path.join(self.__root, 'definitions.json')
                 with open(definitions_path, 'w', encoding='utf-8', newline='\n') as file:
-                    file.write(content)
+                    file.write(content if isinstance(content, str) else json.dumps(content))
                 result = self.__invoke(self.__created('a.js', 'x\n'), arguments=('--definitions-path', definitions_path))
                 self.assertEqual((result.returncode, result.stdout), (2, b''), name)
-                self.assertIn(b'Failed to detect debug leftovers:', result.stderr)
+                self.assertIn(b'Failed to detect temporary code:', result.stderr)
 
 
 if __name__ == '__main__':
