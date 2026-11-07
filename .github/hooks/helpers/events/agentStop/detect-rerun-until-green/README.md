@@ -8,7 +8,7 @@ agentStop（エージェントの応答終了時）
 
 ## 処理詳細
 1. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（Copilotはトランスクリプトへ非同期に追記するため、発動直後は最終応答や最後のツール実行の結果が未書き込みのことがある）。
-2. ユーザーの最新の依頼以降について、最終応答と、ファイル編集ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）による変更の成功、bash・powershellで実行したコマンドとその終了コードを、完了した順に集める。編集ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
+2. ユーザーの最新の依頼以降について、最終応答と、ファイル編集ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）による変更の成功、bash・powershellで実行したコマンドとその終了コードを、完了した順に集める。編集ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
 3. 最終応答（コードブロックを除く）が「テストが通った」と主張していなければ何もしない。「テストが通った」という記述と、テストとみなすコマンドは、[check-test-runs.py](../../../utilities/check-test-runs/check-test-runs.py) の基準で判定する。
 4. テストとみなすコマンドのうち最後のものが終了コード0で終わっていれば、その直前から遡り、空白の違いを除いて同じコマンドの実行だけが続く範囲で、失敗（終了コードが0以外）の回数を数える。間にファイルの編集か別のコマンドの実行があれば、そこで遡るのをやめる。
 5. 失敗が1回以上あれば、`{"decision":"block","reason":"..."}` を標準出力し、先の失敗の原因を調べて直すか、不安定なテストで再実行して通っただけである旨を最終応答に明記するよう求める。

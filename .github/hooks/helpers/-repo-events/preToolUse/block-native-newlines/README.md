@@ -8,7 +8,7 @@ Pythonで、改行を `\n` に固定せずにテキストを書き出す呼び�
 
 ## 処理詳細
 1. [newline-definitions.json](./newline-definitions.json) から、対象のファイルのパス（`includedFilePatterns`）、改行を変換する呼び出しの名前と正規表現（`translatingCalls`）、書き込みのモードの正規表現（`textWriteModePattern`）、`newline=` の指定の正規表現（`pinnedNewlinePattern`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
-2. 呼び出すツール（`toolName`・`toolArgs`）の引数を [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析し、ファイルごとに書き込む内容と置換前の内容を特定する。作成（`create`）ではファイル全体、それ以外では書き込む内容（パッチでは追加行）を検査する。パッチによるファイルの削除は対象外とする。
+2. 呼び出すツール（`toolName`・`toolArgs`）の引数を [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析し、ファイルごとに書き込む内容と置換前の内容を特定する。作成（`create`）ではファイル全体、それ以外では書き込む内容（パッチでは追加行）を検査する。パッチによるファイルの削除は対象外とする。
 3. cwdからの相対パス（`/` 区切り）が `includedFilePatterns` に一致するファイルについて、書き込む内容から `translatingCalls` の呼び出しを探す。文字列リテラルとコメントの中は除く。
 4. 呼び出しの括弧の範囲（複数行にわたってもよい）の引数に `pinnedNewlinePattern` があれば除く。`requiresTextWriteMode` が `true` の呼び出しは、引数の文字列リテラルに `textWriteModePattern` に一致するもの（書き込みのモード）がなければ除く。
 5. 呼び出しの先頭の行が、前後の空白を除いて既存の内容（置換前の内容、パッチの削除行、ファイルの現在の内容）にあれば除く。
