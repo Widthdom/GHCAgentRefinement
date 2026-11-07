@@ -147,7 +147,7 @@ class DetectEditOscillationTests(unittest.TestCase):
         payload = {**self.__payload, 'toolArgs': {'path': outside}}
         self.__assert_silent(self.__edit('A', payload, outside))
         self.__assert_silent(self.__edit('B', payload, outside))
-        self.__assert_notification(self.__edit('A', payload, outside), os.path.normcase(outside))
+        self.__assert_notification(self.__edit('A', payload, outside), os.path.normcase(outside).replace(os.sep, '/'))
 
     def test_skips_non_edit_tools_and_missing_paths(self):
         cases = (

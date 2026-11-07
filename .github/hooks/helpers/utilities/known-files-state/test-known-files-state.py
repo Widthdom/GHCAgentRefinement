@@ -25,18 +25,6 @@ class KnownFilesStateTests(unittest.TestCase):
         self.addCleanup(tempdir.stop)
         self.__temp_directory = temporary.name
 
-    def test_tool_args(self):
-        get_tool_args = _utility['get_tool_args']
-        self.assertEqual(get_tool_args({'path': 'a'}), {'path': 'a'})
-        self.assertEqual(get_tool_args('{"path":"a"}'), {'path': 'a'})
-        # 生のパッチ文字列はそのまま返す。
-        self.assertEqual(get_tool_args('*** Begin Patch'), '*** Begin Patch')
-        self.assertIsNone(get_tool_args(None))
-
-    def test_collect_strings(self):
-        value = {'a': 'x', 'b': ['y', {'c': 'z', 'd': 1}], 'e': None}
-        self.assertEqual(list(_utility['collect_strings'](value)), ['x', 'y', 'z'])
-
     def test_state_path(self):
         session_id = uuid.uuid4()
         self.assertEqual(

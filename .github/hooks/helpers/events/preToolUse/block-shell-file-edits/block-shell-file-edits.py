@@ -3,10 +3,20 @@ import io
 import json
 import os
 import re
+import runpy
 import shlex
 import subprocess
 import sys
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 _SHELL_TOOL_PATTERN = re.compile(r'^(?:functions\.)?(bash|powershell)$', re.IGNORECASE)
@@ -339,27 +349,6 @@ def _get_tracked_files(paths):
     return tracked
 
 
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。大文字小文字は表記のまま示す。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.normcase(os.path.commonpath([cwd, path])) == os.path.normcase(cwd):
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path
-
-
-def _get_tool_args(raw_tool_args):
-    # argsはJSONオブジェクトのほか、JSON文字列で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
-
-
 def main():
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
@@ -388,7 +377,7 @@ def main():
 
         paths = set()
         match = _SHELL_TOOL_PATTERN.match(tool_name)
-        tool_args = _get_tool_args(hook_input['toolArgs']) if match else None
+        tool_args = _unwrap_tool_args(hook_input['toolArgs']) if match else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         if match and isinstance(command, str):
             for base, text in _get_write_targets(command, match.group(1).lower(), cwd):

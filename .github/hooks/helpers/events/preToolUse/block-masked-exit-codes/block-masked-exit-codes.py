@@ -9,8 +9,18 @@ import sqlite3
 import sys
 import tempfile
 import uuid
-from contextlib import closing
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_filter_first_time_denials = runpy.run_path(os.path.join(
+    _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
+))['filter_first_time_denials']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 # powershellはパイプラインの終了コードの扱いが異なるため、bashだけを対象にする。
@@ -160,33 +170,6 @@ def _format_command(command):
     return f'"{command}"'
 
 
-def _record_denials(state_path, command_keys):
-    # 戻り値は、今回初めて拒否するコマンドがあるか。同じコマンドの拒否は1回だけにし、意図した実行なら再実行で通す。
-    # 前のツール呼び出しで `set -o pipefail` を済ませた場合など、hookから見えない事情で作業を止めないため。
-    # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    denied = False
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute('CREATE TABLE IF NOT EXISTS denials (command TEXT PRIMARY KEY)')
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            for command_key in command_keys:
-                if connection.execute('INSERT OR IGNORE INTO denials (command) VALUES (?)', (command_key,)).rowcount:
-                    denied = True
-    return denied
-
-
-def _get_tool_args(raw_tool_args):
-    # argsはJSONオブジェクトのほか、JSON文字列で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
-
-
 def main():
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
@@ -195,8 +178,7 @@ def main():
     try:
         # 終了コードが成否を表すコマンド（テスト・ビルド・静的検査）。`latest` などの語中は除く。
         check_test_runs = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'check-test-runs', 'check-test-runs.py',
+            _utilities_directory, 'check-test-runs', 'check-test-runs.py',
         ))
         checked_command_pattern = check_test_runs['compile_command_pattern'](
             (*check_test_runs['TEST_COMMAND_WORDS'], *_BUILD_AND_LINT_COMMAND_WORDS)
@@ -223,7 +205,7 @@ def main():
 
         masked = []
         command_keys = []
-        tool_args = _get_tool_args(hook_input['toolArgs']) if _SHELL_TOOL_PATTERN.match(tool_name) else None
+        tool_args = _unwrap_tool_args(hook_input['toolArgs']) if _SHELL_TOOL_PATTERN.match(tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         commands = _get_masked_commands(command, checked_command_pattern) if isinstance(command, str) else []
         if commands:
@@ -239,7 +221,9 @@ def main():
                 tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-masked-exit-codes',
                 f'{parsed_session_id}.sqlite3',
             )
-            denied = _record_denials(state_path, command_keys)
+            # 同じコマンドの拒否は1回だけにし、意図した実行なら再実行で通す。
+            # 前のツール呼び出しで `set -o pipefail` を済ませた場合など、hookから見えない事情で作業を止めないため。
+            denied = bool(_filter_first_time_denials(state_path, [(key, key) for key in command_keys]))
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check masked exit codes: {ex}', file=sys.stderr)
         return 2

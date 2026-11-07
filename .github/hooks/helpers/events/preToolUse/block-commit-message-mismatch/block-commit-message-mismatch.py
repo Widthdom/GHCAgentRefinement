@@ -3,6 +3,7 @@ import io
 import json
 import os
 import re
+import runpy
 import shlex
 import sqlite3
 import subprocess
@@ -10,8 +11,18 @@ import sys
 import tempfile
 import time
 import uuid
-from contextlib import closing
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_filter_first_time_denials = runpy.run_path(os.path.join(
+    _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
+))['filter_first_time_denials']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 _SHELL_TOOL_NAMES = {'bash', 'powershell'}
@@ -50,16 +61,6 @@ _MAX_UNTRACKED_FILE_BYTES = 1024 * 1024
 # gitの実行全体の期限。hookの `timeoutSec`（10秒）より前に打ち切り、判定できなければコミットを通す。
 _GIT_DEADLINE = time.monotonic() + 7
 _DENY_REASON_PREFIX = 'Commit denied: the commit message describes changes that are not in the commit'
-
-
-def _get_tool_args(raw_tool_args):
-    # argsはJSONオブジェクトのほか、JSON文字列で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
 
 
 def _split_heredoc(command):
@@ -293,16 +294,10 @@ def _get_mismatches(message, paths, text):
 
 
 def _record_denial(state_path, message):
-    # 同じメッセージの拒否はセッションで1回だけにし、意図したメッセージなら再実行で通す。
-    # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
+    # 戻り値は、このメッセージを今回初めて拒否するか。同じメッセージの拒否はセッションで1回だけにし、意図したメッセージなら再実行で通す。
+    # 状態にはメッセージを保存せず、照合用のSHA-256だけを保存する。
     digest = hashlib.sha256(message.encode('utf-8')).hexdigest()
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute('CREATE TABLE IF NOT EXISTS denials (digest TEXT PRIMARY KEY)')
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            return connection.execute('INSERT OR IGNORE INTO denials (digest) VALUES (?)', (digest,)).rowcount > 0
+    return bool(_filter_first_time_denials(state_path, [(digest, message)]))
 
 
 def _get_deny_reason(missing, missing_tests):
@@ -352,7 +347,7 @@ def main():
         if 'toolArgs' not in hook_input:
             raise ValueError('toolArgs is required.')
 
-        tool_args = _get_tool_args(hook_input['toolArgs']) if tool_name.removeprefix('functions.') in _SHELL_TOOL_NAMES else None
+        tool_args = _unwrap_tool_args(hook_input['toolArgs']) if tool_name.removeprefix('functions.') in _SHELL_TOOL_NAMES else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
 
         reason = None

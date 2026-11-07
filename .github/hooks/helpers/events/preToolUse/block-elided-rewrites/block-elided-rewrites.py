@@ -9,8 +9,21 @@ import sqlite3
 import sys
 import tempfile
 import uuid
-from contextlib import closing
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_filter_first_time_denials = runpy.run_path(os.path.join(
+    _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
+))['filter_first_time_denials']
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
+    _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
+))['read_stored_file_content_for_write_comparison']
 
 
 # 上書きで、既存の行数がこれ以上あり、新しい行数がこの割合未満になれば縮小とみなす。
@@ -51,14 +64,6 @@ def _load_definitions(path):
     return compiled
 
 
-def _read_existing(path):
-    try:
-        with open(path, encoding='utf-8', errors='replace') as file:
-            return file.read()
-    except OSError:
-        return None
-
-
 def _find_elision_lines(definitions, written, existing):
     # 既存の内容に同じ行があるプレースホルダーは、元からあるものとみなす。
     existing_lines = {line.strip() for line in existing.splitlines()}
@@ -73,38 +78,6 @@ def _find_elision_lines(definitions, written, existing):
 
 def _count_lines(text):
     return len(text.splitlines())
-
-
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path
-
-
-def _record_denials(state_path, candidates):
-    # candidates：(ファイルキー, 種類, 理由) のリスト。戻り値は、今回初めて拒否する理由のリスト。
-    # 同じファイルの同じ種類の拒否は1回だけにし、意図した編集なら再実行で通す。
-    # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    reasons = []
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute(
-            'CREATE TABLE IF NOT EXISTS denials (file TEXT NOT NULL, kind TEXT NOT NULL, PRIMARY KEY (file, kind))'
-        )
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            for file_key, kind, reason in candidates:
-                if connection.execute(
-                    'INSERT OR IGNORE INTO denials (file, kind) VALUES (?, ?)', (file_key, kind),
-                ).rowcount:
-                    reasons.append(reason)
-    return reasons
 
 
 def main(arguments=None):
@@ -149,25 +122,25 @@ def main(arguments=None):
             raise ValueError('toolArgs is required.')
 
         normalized_cwd = os.path.normcase(os.path.realpath(cwd))
+        # (拒否のキー, 理由) のリスト。同じファイルでも種類の異なる拒否は、それぞれ1回ずつ行う。
         candidates = []
         # 編集ツールの引数の解析は、共通utilityで行う。
         extract_edit_tool_changes = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+            _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
         ))['extract_edit_tool_changes']
         for change in extract_edit_tool_changes(tool_name, hook_input['toolArgs']):
             path = os.path.normcase(os.path.realpath(os.path.join(cwd, change['path'])))
             display_path = _get_display_path(path, normalized_cwd)
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
             file_key = hashlib.sha256(path.encode('utf-8')).hexdigest()
-            current = _read_existing(path) if os.path.isfile(path) else None
+            current = _read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None
             # 新規ファイルには消える内容がないため、骨組みとしてのプレースホルダーを許可する。
             if current is None:
                 continue
 
             lines = _find_elision_lines(definitions, change['written'], '\n'.join([change['removed'], current]))
             if lines:
-                candidates.append((file_key, _ELISION, _ELISION_REASON.format(
+                candidates.append((f'{file_key}:{_ELISION}', _ELISION_REASON.format(
                     files=display_path, lines=', '.join(f'"{line}"' for line in lines[:3]),
                 )))
 
@@ -175,7 +148,7 @@ def main(arguments=None):
                 old_lines = _count_lines(current)
                 new_lines = _count_lines(change['full_content'])
                 if old_lines >= _MIN_SHRINK_LINES and new_lines < old_lines * _SHRINK_RATIO:
-                    candidates.append((file_key, _SHRINK, _SHRINK_REASON.format(
+                    candidates.append((f'{file_key}:{_SHRINK}', _SHRINK_REASON.format(
                         file=display_path, new=new_lines, old=old_lines,
                     )))
 
@@ -187,7 +160,7 @@ def main(arguments=None):
                 tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-elided-rewrites',
                 f'{parsed_session_id}.sqlite3',
             )
-            reasons = _record_denials(state_path, candidates)
+            reasons = _filter_first_time_denials(state_path, candidates)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check elided rewrites: {ex}', file=sys.stderr)
         return 2

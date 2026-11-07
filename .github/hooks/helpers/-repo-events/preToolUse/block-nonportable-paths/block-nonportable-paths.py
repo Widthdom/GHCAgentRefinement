@@ -8,6 +8,17 @@ import unicodedata
 from typing import cast
 
 
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
+))['collect_json_string_values']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+
+
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 _PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+)$')
 _INVALID_CHARACTERS = frozenset('<>:"\\|?*')
@@ -32,11 +43,11 @@ def _invalid_name_reason(name):
     return None
 
 
-def _get_operations(tool_name, tool_args, helpers):
+def _get_operations(tool_name, tool_args):
     destinations = []
     removed = set()
     if tool_name == 'apply_patch':
-        for text in helpers['collect_strings'](tool_args):
+        for text in _collect_json_string_values(tool_args):
             operation = None
             source = None
             for line in text.split('\n'):
@@ -135,14 +146,10 @@ def main():
         tool_name = tool_name.removeprefix('functions.')
         if tool_name not in _EDIT_TOOL_NAMES:
             return 0
-        helpers = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'known-files-state', 'known-files-state.py',
-        ))
-        tool_args = helpers['get_tool_args'](hook_input['toolArgs'])
+        tool_args = _unwrap_tool_args(hook_input['toolArgs'])
         if tool_name == 'apply_patch' and not isinstance(tool_args, (str, dict)):
             raise ValueError('apply_patch toolArgs must be a patch string or JSON object.')
-        destinations, removed = _get_operations(tool_name, tool_args, helpers)
+        destinations, removed = _get_operations(tool_name, tool_args)
         findings = _check_paths(cwd, destinations, removed)
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to check portable paths: {ex}', file=sys.stderr)

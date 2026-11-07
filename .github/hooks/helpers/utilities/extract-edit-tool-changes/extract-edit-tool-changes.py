@@ -1,9 +1,18 @@
-import json
+import os
 import re
+import runpy
 
 # 編集ツールの呼び出し1件から、ファイルごとの変更を取り出す。
 # 書き込む内容を検査するpreToolUse hook、編集後のファイルを確かめるpostToolUse hook、
 # 依頼中の編集を振り返るagentStop hookが共有する。
+
+# 他のutilityの処理は、スクリプトから読み込む。utilityのフォルダーの親がutilitiesである。
+_utilities_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
+))['collect_json_string_values']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+
 _EDIT_TOOL_NAMES = frozenset({'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'})
 # 書き込む内容ではない引数と、置換前の内容を表す引数。
 _IGNORED_KEYS = frozenset({'path', 'command'})
@@ -13,28 +22,6 @@ _FULL_CONTENT_KEYS = ('file_text', 'content')
 # 書き込みではないstr_replace_editorのコマンド。undo_editは書き込む内容を引数に持たない。
 _NON_WRITE_COMMANDS = frozenset({'view', 'undo_edit'})
 _PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
-
-
-def _get_tool_args(raw_tool_args):
-    # 引数はJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
-
-
-def _collect_strings(value, ignored_keys=frozenset()):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            if key not in ignored_keys:
-                yield from _collect_strings(item, ignored_keys)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _collect_strings(item, ignored_keys)
 
 
 def _get_patch_changes(text):
@@ -77,9 +64,9 @@ def extract_edit_tool_changes(tool_name, raw_tool_args, include_deleted=False):
     tool_name = tool_name.removeprefix('functions.')
     if tool_name not in _EDIT_TOOL_NAMES:
         return []
-    tool_args = _get_tool_args(raw_tool_args)
+    tool_args = _unwrap_tool_args(raw_tool_args)
     if tool_name == 'apply_patch':
-        changes = [change for text in _collect_strings(tool_args) for change in _get_patch_changes(text)]
+        changes = [change for text in _collect_json_string_values(tool_args) for change in _get_patch_changes(text)]
         return [change for change in changes if include_deleted or not change['deleted']]
     if not isinstance(tool_args, dict):
         return []
@@ -94,8 +81,8 @@ def extract_edit_tool_changes(tool_name, raw_tool_args, include_deleted=False):
     new = _get_first_string(tool_args, _NEW_TEXT_KEYS)
     return [{
         'path': path,
-        'written': '\n'.join(_collect_strings(tool_args, _IGNORED_KEYS | frozenset(_REMOVED_TEXT_KEYS))),
-        'removed': '\n'.join(text for key in _REMOVED_TEXT_KEYS for text in _collect_strings(tool_args.get(key))),
+        'written': '\n'.join(_collect_json_string_values(tool_args, _IGNORED_KEYS | frozenset(_REMOVED_TEXT_KEYS))),
+        'removed': '\n'.join(text for key in _REMOVED_TEXT_KEYS for text in _collect_json_string_values(tool_args.get(key))),
         'deleted': False,
         'full_content': _get_first_string(tool_args, _FULL_CONTENT_KEYS) if is_create else None,
         'replacement': (old, new) if old and new is not None else None,

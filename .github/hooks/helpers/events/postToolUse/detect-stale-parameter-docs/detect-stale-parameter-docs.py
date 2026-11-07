@@ -5,8 +5,15 @@ import os
 import re
 import runpy
 import sys
-from pathlib import Path
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 
 
 _PYTHON_EXTENSIONS = ('.py', '.pyi')
@@ -241,17 +248,6 @@ def _find_csharp_mismatches(source, written_lines):
     return mismatches
 
 
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示す。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.normcase(os.path.commonpath([cwd, path])) == os.path.normcase(cwd):
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path.replace(os.sep, '/')
-
-
 def _format_report(display_path, line_number, name, stale, missing):
     details = []
     if stale:
@@ -283,7 +279,7 @@ def main():
         if 'toolArgs' not in hook_input:
             raise ValueError('toolArgs is required.')
         extract_edit_tool_changes = runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'extract-edit-tool-changes' / 'extract-edit-tool-changes.py')
+            os.path.join(_utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py')
         )['extract_edit_tool_changes']
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to detect stale parameter docs: {ex}', file=sys.stderr)

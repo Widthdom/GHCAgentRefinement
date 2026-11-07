@@ -10,8 +10,22 @@ import sqlite3
 import sys
 import tempfile
 import uuid
-from contextlib import closing
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_filter_first_time_denials = runpy.run_path(os.path.join(
+    _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
+))['filter_first_time_denials']
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
+    _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
+))['read_stored_file_content_for_write_comparison']
 
 
 _TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
@@ -56,10 +70,7 @@ def _load_test_file_patterns(path):
         isinstance(pattern, str) and pattern.strip() for pattern in patterns
     ):
         raise ValueError(f'test file definitions require a non-empty array of non-empty strings for {_TEST_FILE_PATTERNS_KEY}.')
-    try:
-        return [re.compile(pattern) for pattern in patterns]
-    except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {_TEST_FILE_PATTERNS_KEY}: {ex}') from None
+    return _build_regex_matchers(patterns, _TEST_FILE_PATTERNS_KEY)
 
 
 def _load_definitions(path):
@@ -85,25 +96,6 @@ def _load_definitions(path):
         except re.PatternError as ex:
             raise ValueError(f'invalid regular expression in {key}: {ex}') from None
     return loaded
-
-
-def _read_existing(path):
-    try:
-        with open(path, encoding='utf-8', errors='replace') as file:
-            return file.read()
-    except OSError:
-        return None
-
-
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示す。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path.replace(os.sep, '/')
 
 
 def _to_date(year, month, day):
@@ -156,14 +148,8 @@ def _find_time_bomb(definitions, today, added, content):
 def _record_denial(state_path, path):
     # 戻り値は、このファイルを今回初めて拒否するか。同じファイルの拒否はセッションで1回だけにする。
     # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
     file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute('CREATE TABLE IF NOT EXISTS denials (file TEXT PRIMARY KEY)')
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            return bool(connection.execute('INSERT OR IGNORE INTO denials (file) VALUES (?)', (file_key,)).rowcount)
+    return bool(_filter_first_time_denials(state_path, [(file_key, path)]))
 
 
 def _parse_today(value):
@@ -223,8 +209,7 @@ def main(arguments=None):
 
         # 編集ツールの引数の解析は、共通utilityで行う。
         extract_edit_tool_changes = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+            _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
         ))['extract_edit_tool_changes']
         changes = extract_edit_tool_changes(tool_name, hook_input['toolArgs'])
 
@@ -236,7 +221,7 @@ def main(arguments=None):
             # テストファイルのパターンはOSによらず `/` 区切りのパスに対して照合する。
             if not any(pattern.search(display_path) for pattern in test_file_patterns):
                 continue
-            current = (_read_existing(path) if os.path.isfile(path) else None) or ''
+            current = (_read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None) or ''
             # 上書きではファイル全体と現在の内容、それ以外では書き込む内容と置換前の内容を比べる。
             # 現在時刻の参照は、編集後のファイルにあればよいため、現在の内容と書き込む内容の両方から探す。
             if change['full_content'] is not None:

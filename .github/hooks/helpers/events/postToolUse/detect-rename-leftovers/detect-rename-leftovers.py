@@ -2,9 +2,21 @@ import io
 import json
 import os
 import re
+import runpy
 import subprocess
 import sys
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
+))['collect_json_string_values']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 # ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
@@ -40,27 +52,6 @@ _LEFTOVER_CONTEXT = (
 )
 
 
-def _get_tool_args(raw_tool_args):
-    # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
-
-
-def _collect_strings(value):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for item in value.values():
-            yield from _collect_strings(item)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _collect_strings(item)
-
-
 def _get_patch_changes(text):
     # パッチをファイルごとに分け、削除行（`-`）と追加行（`+`）の組にする。
     changes = []
@@ -82,7 +73,7 @@ def _get_changes(tool_name, tool_args):
     # 戻り値は {path, removed（置換前の内容）, written（置換後の内容）} のリスト。
     # 置換前の内容が分からない上書き（create）と挿入（insert）は、名前の変更を判断できないため対象外とする。
     if tool_name == 'apply_patch':
-        return [change for text in _collect_strings(tool_args) for change in _get_patch_changes(text)]
+        return [change for text in _collect_json_string_values(tool_args) for change in _get_patch_changes(text)]
     if not isinstance(tool_args, dict):
         return []
     if tool_name == 'str_replace_editor' and tool_args.get('command') != 'str_replace':
@@ -187,7 +178,7 @@ def main():
     if tool_name not in _EDIT_TOOL_NAMES:
         return 0
     renames = []
-    for change in _get_changes(tool_name, _get_tool_args(hook_input['toolArgs'])):
+    for change in _get_changes(tool_name, _unwrap_tool_args(hook_input['toolArgs'])):
         for rename in _find_renames(change['removed'], change['written']):
             if rename not in renames:
                 renames.append(rename)

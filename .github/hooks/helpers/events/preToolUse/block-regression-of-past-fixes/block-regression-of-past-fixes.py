@@ -10,6 +10,17 @@ import sys
 from typing import cast
 
 
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
+    _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
+))['read_stored_file_content_for_write_comparison']
+
+
 _FIX_COMMIT_PATTERNS_KEY = 'fixCommitPatterns'
 _GIT_TIMEOUT_SECONDS = 4
 # `git blame --porcelain` の各行の見出し（コミットID、元の行番号、現在の行番号、[まとまりの行数]）。
@@ -41,26 +52,6 @@ def _load_definitions(path):
         return [re.compile(pattern) for pattern in patterns]
     except re.PatternError as ex:
         raise ValueError(f'invalid regular expression in {_FIX_COMMIT_PATTERNS_KEY}: {ex}') from None
-
-
-def _read_existing(path):
-    # 改行コードは `\n` に揃えて読み、CRLFのファイルでも置換前の内容（`\n` 区切り）を探せるようにする。
-    try:
-        with open(path, encoding='utf-8', errors='replace') as file:
-            return file.read()
-    except OSError:
-        return None
-
-
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示す。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path.replace(os.sep, '/')
 
 
 def _is_significant(line):
@@ -218,7 +209,7 @@ def main(arguments=None):
         findings = []
         for change in changes:
             path = os.path.realpath(os.path.join(cwd, change['path']))
-            current = _read_existing(path) if os.path.isfile(path) else None
+            current = _read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None
             if not current:
                 continue
             line_numbers = _find_removed_line_numbers(change, current)

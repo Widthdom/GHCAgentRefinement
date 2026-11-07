@@ -1,8 +1,16 @@
 import os
+import runpy
 
 # 依頼中の編集で新たに持ち込んだ行（introduced lines）のうち、正規表現に一致するものを探す。
 # デバッグ用のコードを残す応答を差し戻すagentStop hook（detect-debug-leftovers）と、
 # 仮実装を残す応答を差し戻すagentStop hook（detect-stub-placeholders）が共有する。
+
+# 他のutilityの処理は、スクリプトから読み込む。utilityのフォルダーの親がutilitiesである。
+_utilities_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
+    _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
+))['read_stored_file_content_for_write_comparison']
 
 
 def _normalize_lines(text):
@@ -11,22 +19,8 @@ def _normalize_lines(text):
 
 
 def _read_lines(path):
-    try:
-        with open(path, encoding='utf-8', errors='replace') as file:
-            return _normalize_lines(file.read())
-    except OSError:
-        return None
-
-
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示す。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path.replace(os.sep, '/')
+    text = _read_stored_file_content_for_write_comparison(path)
+    return None if text is None else _normalize_lines(text)
 
 
 def _get_line(text, position):

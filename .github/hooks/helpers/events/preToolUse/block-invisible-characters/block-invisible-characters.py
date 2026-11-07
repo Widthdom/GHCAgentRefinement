@@ -3,15 +3,28 @@ import hashlib
 import io
 import json
 import os
-import re
 import runpy
 import sqlite3
 import sys
 import tempfile
 import unicodedata
 import uuid
-from contextlib import closing
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_filter_first_time_denials = runpy.run_path(os.path.join(
+    _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
+))['filter_first_time_denials']
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
+    _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
+))['read_stored_file_content_for_write_comparison']
 
 
 _EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
@@ -31,13 +44,6 @@ _DENY_REASON = (
     'the edit and confirm that the escape was not turned into the character itself. Retry this edit unchanged only if '
     'neither removing nor rewriting the character is appropriate; this check denies it only once per file.'
 )
-
-
-def _compile_patterns(patterns, key):
-    try:
-        return [re.compile(pattern) for pattern in patterns]
-    except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {key}: {ex}') from None
 
 
 def _load_definitions(path):
@@ -62,32 +68,13 @@ def _load_definitions(path):
             'invisible character definitions require a non-empty array of objects with non-empty strings for name '
             f'and pattern in {_CHARACTER_PATTERNS_KEY}.'
         )
-    character_patterns = _compile_patterns(
+    character_patterns = _build_regex_matchers(
         [definition['pattern'] for definition in character_definitions], _CHARACTER_PATTERNS_KEY,
     )
     return (
-        _compile_patterns(excluded, _EXCLUDED_FILE_PATTERNS_KEY),
+        _build_regex_matchers(excluded, _EXCLUDED_FILE_PATTERNS_KEY),
         [(definition['name'], pattern) for definition, pattern in zip(character_definitions, character_patterns)],
     )
-
-
-def _read_existing(path):
-    try:
-        with open(path, encoding='utf-8', errors='replace') as file:
-            return file.read()
-    except OSError:
-        return None
-
-
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path
 
 
 def _make_visible(text):
@@ -121,23 +108,6 @@ def _format_snippet(line):
     if len(snippet) > _MAX_SNIPPET_LENGTH:
         snippet = snippet[:_MAX_SNIPPET_LENGTH] + '...'
     return f'"{snippet}"'
-
-
-def _record_denials(state_path, candidates):
-    # candidates：(ファイルキー, 理由) のリスト。戻り値は、今回初めて拒否する理由のリスト。
-    # 同じファイルの拒否は1回だけにし、意図した編集なら再実行で通す。
-    # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    reasons = []
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute('CREATE TABLE IF NOT EXISTS denials (file TEXT PRIMARY KEY)')
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            for file_key, reason in candidates:
-                if connection.execute('INSERT OR IGNORE INTO denials (file) VALUES (?)', (file_key,)).rowcount:
-                    reasons.append(reason)
-    return reasons
 
 
 def main(arguments=None):
@@ -185,16 +155,15 @@ def main(arguments=None):
         candidates = []
         # 編集ツールの引数の解析は、共通utilityで行う。
         extract_edit_tool_changes = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+            _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
         ))['extract_edit_tool_changes']
         for change in extract_edit_tool_changes(tool_name, hook_input['toolArgs']):
             path = os.path.realpath(os.path.join(cwd, change['path']))
             display_path = _get_display_path(path, real_cwd)
-            # パターンはOSによらず `/` 区切りのパスに対して照合する。
-            if any(pattern.search(display_path.replace(os.sep, '/')) for pattern in excluded_file_patterns):
+            # パターンは、get-display-pathがOSによらず `/` 区切りで返すパスに対して照合する。
+            if any(pattern.search(display_path) for pattern in excluded_file_patterns):
                 continue
-            current = (_read_existing(path) if os.path.isfile(path) else None) or ''
+            current = (_read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None) or ''
             kinds, lines = _find_invisible_characters(
                 character_patterns, change['written'], '\n'.join([change['removed'], current]),
             )
@@ -214,7 +183,7 @@ def main(arguments=None):
                 tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-invisible-characters',
                 f'{parsed_session_id}.sqlite3',
             )
-            reasons = _record_denials(state_path, candidates)
+            reasons = _filter_first_time_denials(state_path, candidates)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check invisible characters: {ex}', file=sys.stderr)
         return 2

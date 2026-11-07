@@ -7,8 +7,17 @@ import runpy
 import subprocess
 import sys
 import tomllib
-from pathlib import Path
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
+))['collect_json_string_values']
 
 
 # ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
@@ -67,17 +76,6 @@ def _load_definitions(path):
     return loaded
 
 
-def _collect_strings(value):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for item in value.values():
-            yield from _collect_strings(item)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _collect_strings(item)
-
-
 def _get_arguments(raw_arguments):
     # argumentsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で記録される場合もある。
     if isinstance(raw_arguments, str):
@@ -93,7 +91,7 @@ def _get_written_paths(tool_name, arguments):
     if tool_name == 'apply_patch':
         return [
             match.group(1)
-            for text in _collect_strings(arguments) for line in text.splitlines()
+            for text in _collect_json_string_values(arguments) for line in text.splitlines()
             if (match := _PATCH_FILE_PATTERN.match(line) or _PATCH_MOVE_PATTERN.match(line))
         ]
     if not isinstance(arguments, dict) or arguments.get('command') in ('view', 'undo_edit'):
@@ -109,7 +107,7 @@ def _get_turn_summary(transcript_path):
     paths = []
     already_requested = False
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
+        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -263,7 +261,7 @@ def main(arguments=None):
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
         runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
+            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, paths, already_requested = _get_turn_summary(transcript_path)

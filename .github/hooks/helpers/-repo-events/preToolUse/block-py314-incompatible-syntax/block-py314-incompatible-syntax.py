@@ -3,9 +3,19 @@ import io
 import json
 import os
 import re
+import runpy
 import sys
 import warnings
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 # 判定の基準とするPythonのバージョン。これより新しい文法も、古い文法（Python 2の構文など）も拒否する。
@@ -28,16 +38,6 @@ _DENY_REASON = (
 class _UndeterminedContent(Exception):
     # 編集後の内容を特定できない場合（置換前の内容が見つからないなど）。ツール自体が失敗するため検査しない。
     pass
-
-
-def _get_tool_args(raw_tool_args):
-    # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
 
 
 def _read_current(path):
@@ -185,17 +185,6 @@ def _get_syntax_error(source, path):
     return None
 
 
-def _get_display_path(path, cwd):
-    # cwd配下のファイルは、OSによらず `/` 区切りの相対パスで示す。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path.replace(os.sep, '/')
-
-
 def main():
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
@@ -224,7 +213,7 @@ def main():
         tool_name = tool_name.removeprefix('functions.')
         if tool_name in _EDIT_TOOL_NAMES:
             cwd = os.path.abspath(cwd)
-            for path, content in _get_contents(tool_name, _get_tool_args(hook_input['toolArgs']), cwd):
+            for path, content in _get_contents(tool_name, _unwrap_tool_args(hook_input['toolArgs']), cwd):
                 # 実行中のPythonが基準より古いと、基準の文法を誤って拒否するため判定しない。
                 if sys.version_info < _TARGET_VERSION:
                     raise ValueError(f'Python {_TARGET_VERSION[0]}.{_TARGET_VERSION[1]} or later is required.')
