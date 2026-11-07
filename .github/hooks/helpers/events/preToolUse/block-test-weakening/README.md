@@ -28,9 +28,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |常に成功するアサーション|`Assert.True(true)`・`Assert.Pass()`・`assert True`・`self.assertTrue(True)`・`expect(true).toBe(true)`|
 |アサーション（数える対象）|`Assert.*(`・`CollectionAssert.*(`・`.Should()`・`assert*(`・`assert` 文・`assert_eq!(`・`expect(`・`t.Error(`・`t.Fatal(`・`pytest.raises(`|
 
-## 前提条件
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
-
 ## 例外
 - シェルによる書き込みは対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../block-shell-file-edits/README.md) hookが拒否する。
 

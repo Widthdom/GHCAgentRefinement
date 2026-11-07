@@ -24,9 +24,6 @@ Pythonで、改行を `\n` に固定せずにテキストを書き出す呼び�
 |TextIOWrapper|`io.TextIOWrapper(buffer, encoding='utf-8')`|`io.TextIOWrapper(buffer, encoding='utf-8', newline='\n')`|
 |text-mode temporary file|`tempfile.NamedTemporaryFile(mode='w')`|`NamedTemporaryFile(mode='w', encoding='utf-8', newline='\n')`|
 
-## 前提条件
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
-
 ## 例外
 - `newline=''` など、`\n` 以外の値の指定も、改行を変換しない指定として認める。
 - バイナリのモード（`'wb'` など）、読み込みのモード（`'r'`・モードの省略）、モードを変数で渡す呼び出しは対象外とする。

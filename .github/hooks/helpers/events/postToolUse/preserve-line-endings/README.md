@@ -21,7 +21,6 @@ postToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_re
 ## 前提条件
 
 - gitを使う。gitがない環境では何もしない。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外
 

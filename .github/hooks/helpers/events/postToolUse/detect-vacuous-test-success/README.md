@@ -43,10 +43,6 @@ postToolUse（bash・powershellツールが成功した直後）
 |`testing: warning: no tests to run`|go test|
 |`No tests executed`|PHPUnit|
 
-## 前提条件
-
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
-
 ## 例外
 
 - go testの `[no test files]` のパッケージは数えない。

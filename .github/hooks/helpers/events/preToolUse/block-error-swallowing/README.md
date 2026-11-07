@@ -30,9 +30,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |診断の抑止|`# type: ignore`・`# noqa`・`# pylint: disable`・`// @ts-ignore`・`eslint-disable`・`#pragma warning disable`・`@SuppressWarnings`・`//nolint`・`#[allow(`|
 |対象外のファイル|`*.md`・`*.markdown`・`*.rst`・`*.txt`・`*.adoc`|
 
-## 前提条件
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
-
 ## 例外
 - `2>/dev/null` は対象外とする。標準エラーを隠すだけで終了コードは伝わり、`command -v` などの正当な用途が多いため。
 - ドキュメントのコード例で誤検知しないよう、文書のファイルは対象外とする。

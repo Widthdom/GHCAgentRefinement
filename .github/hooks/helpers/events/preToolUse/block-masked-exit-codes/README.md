@@ -20,10 +20,6 @@ preToolUse（bashツールの実行前）
 - 先頭の環境変数の代入（`CI=1`）、`env`・`sudo`・`time`・`nohup`・`xargs`・`timeout <時間>` などのラッパーは読み飛ばし、その後のコマンドで判定する。
 - `cat`・`grep`・`rg`・`find`・`ls`・`git`・`head`・`tail` などの読むだけのコマンドは、`grep test` のように語を含んでも対象外とする。
 
-## 前提条件
-
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
-
 ## 例外
 
 - 次のコマンドは許可する。

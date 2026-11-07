@@ -38,7 +38,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 前提条件
 - [record-test-failure-values](../../postToolUse/record-test-failure-values/README.md) hookが記録したテストの失敗を使う。記録がなければ何も拒否しない。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外
 - テストファイルと文章のファイルは対象外とする。

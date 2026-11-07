@@ -37,7 +37,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 前提条件
 - `git` が必要。インストール状況は [check-required-tools](../../sessionStart/check-required-tools/README.md) hookが確認する。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外
 - 行を足すだけの編集（`insert` を含む）と、修正コミット由来の行を残す編集は対象外とする。

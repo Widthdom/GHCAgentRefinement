@@ -27,9 +27,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |同じ呼び出しで求めた期待値|`var expected = calc.Add(1, 2); Assert.Equal(expected, calc.Add(1, 2));`|
 |テスト対象の差し替え|`test_parse*` での `patch("app.parse")`・`mocker.patch.object(Parser, "parse")`・`monkeypatch.setattr("app.parse", ...)`|
 
-## 前提条件
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
-
 ## 例外
 - 標準ライブラリ（`builtins`・`os`・`sys`・`time`・`datetime`・`random`・`subprocess`・`socket`・`shutil`・`io`）と組み込み関数の差し替えは、依存の置き換えとして対象外とする。
 - 3文字未満の名前の差し替えは、テスト名との偶然の一致とみなして対象外とする。

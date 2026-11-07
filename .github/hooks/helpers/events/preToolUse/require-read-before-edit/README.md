@@ -19,7 +19,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 前提条件
 
 - [record-seen-files](../../postToolUse/record-seen-files/README.md) hookの記録で既読を判定する。状態は [known-files-state.py](../../../utilities/known-files-state/known-files-state.py) でrecord-seen-files hook・[detect-unread-speculation](../../agentStop/detect-unread-speculation/README.md) hookと共有する。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外
 

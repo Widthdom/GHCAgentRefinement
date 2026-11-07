@@ -11,9 +11,6 @@ postToolUse（ツール `bash`・`powershell` が成功した直後）
 2. 出力（`toolResult.textResultForLlm`）から色付けのエスケープシーケンスを除き、既定の書式の見出し行 `commit <コミットID>` を探す。
 3. 見出し行のコミットIDを、このセッションでメッセージを読んだコミットとして [viewed-commits-state.py](../../../utilities/viewed-commits-state/viewed-commits-state.py) に記録する。
 
-## 前提条件
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
-
 ## 例外
 - `git log --oneline` や `--format` で見出し行を出さない表示は、件名しか読んでいないため記録しない。
 - `git show` が失敗した場合（出力に見出し行がない場合）は記録しない。

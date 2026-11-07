@@ -30,7 +30,6 @@ git commit -m '`parse` と `render` を直し、docs/guide.md を更新した'
 
 ## 前提条件
 - `git` コマンドが使えること。
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外
 - メッセージを書かないコミット（エディターで書く、`--no-edit`、`-C`・`-c`・`--fixup`・`--squash` で流用する）や、読めないメッセージのファイルは対象外とする。

@@ -26,9 +26,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |英語の省略コメント|`// ... existing code ...`、`# rest of the file unchanged`、`// (remaining methods omitted)`、`/* omitted for brevity */`|
 |日本語の省略コメント|`# 既存のコード`、`// ... 以下同じ ...`、`# 残りは変更なし`、`# (省略)`|
 
-## 前提条件
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
-
 ## 例外
 - 新規ファイルは消える内容がないため、省略の判定から除く。骨組みとしてのプレースホルダーは許可する。
 - `...` だけの行（Pythonの `Ellipsis` など）や、行の途中の `...` は対象外とする。コメント記号で始まり、省略の表現が行頭近くにある行だけを対象とする。

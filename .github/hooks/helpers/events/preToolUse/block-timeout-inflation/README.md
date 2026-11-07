@@ -50,9 +50,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |再試行|`retry`・`MAX_RETRIES`・`stop_after_attempt`|
 |間隔・バックオフ・期限|`POLL_INTERVAL`・`backoff`・`deadline`|
 
-## 前提条件
-- Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
-
 ## 例外
 - ロジックの変更を伴う編集は、原因に手を入れた可能性があるため対象外とする。同じ行の末尾にコメントを加えた場合も、行の形が変わるため対象外になる。
 - 文書のファイルは対象外とする。設定ファイル（YAML・JSONなど）は、CIのタイムアウトなどがあるため対象にする。
