@@ -26,21 +26,3 @@ def format_response_footer(hooks, fired_hooks, skills, current_jst):
         f'{current_jst}'
     )
     return footer + '\n\n'
-
-
-if __name__ == '__main__':
-    import argparse
-    import sys
-
-    _parser = argparse.ArgumentParser()
-    _parser.add_argument('--hooks', nargs='+', required=True)
-    _parser.add_argument('--fired-hooks', nargs='+', required=True)
-    _parser.add_argument('--skills', nargs='+', required=True)
-    _parser.add_argument('--current-jst', required=True)
-    _arguments = _parser.parse_args()
-    # Write bytes to preserve line endings.
-    sys.stdout.buffer.write(
-        format_response_footer(
-            _arguments.hooks, _arguments.fired_hooks, _arguments.skills, _arguments.current_jst,
-        ).encode('utf-8')
-    )

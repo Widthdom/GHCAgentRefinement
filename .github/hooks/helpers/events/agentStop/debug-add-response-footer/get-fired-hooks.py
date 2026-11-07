@@ -1,10 +1,7 @@
-import io
 import os
 import runpy
-import sys
 from datetime import datetime
 from pathlib import Path
-from typing import cast
 
 
 _FOOTER_CORRECTION_PREFIX = 'The final response footer is missing or incorrect.'
@@ -56,16 +53,3 @@ def get_fired_hooks(transcript_path, session_id):
     return runpy.run_path(
         str(Path(__file__).resolve().parents[3] / 'utilities' / 'hook-activity-state' / 'hook-activity-state.py')
     )['get_fired_hooks'](session_id, _get_turn_started_at_ms(transcript_path), _EXCLUDED_EVENTS)
-
-
-if __name__ == '__main__':
-    import argparse
-
-    _parser = argparse.ArgumentParser()
-    _parser.add_argument('--transcript-path', required=True)
-    _parser.add_argument('--session-id', required=True)
-    _arguments = _parser.parse_args()
-    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', newline='\n')
-    for fired_hook in get_fired_hooks(_arguments.transcript_path, _arguments.session_id):
-        print(fired_hook)
