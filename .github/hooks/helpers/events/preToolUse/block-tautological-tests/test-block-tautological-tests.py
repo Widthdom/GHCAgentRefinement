@@ -21,8 +21,8 @@ _ORIGINAL = (
 )
 
 
-def _run_hook(input_bytes, *arguments):
-    return subprocess.run([sys.executable, _hook_path, *arguments], input=input_bytes, capture_output=True)
+def _run_hook(input_bytes):
+    return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True)
 
 
 class BlockTautologicalTestsTests(unittest.TestCase):
@@ -193,16 +193,6 @@ class BlockTautologicalTestsTests(unittest.TestCase):
                 result = _run_hook(input_bytes)
                 self.assertEqual(result.returncode, 2, input_bytes)
                 self.assertIn(b'Failed to check tautological tests', result.stderr)
-
-    def test_invalid_definitions_fail(self):
-        definitions_path = os.path.join(self.__directory, 'definitions.json')
-        for content in ['{', '[]', '{"testFilePatterns": []}', '{"testFilePatterns": ["("]}']:
-            with self.subTest(content=content):
-                with open(definitions_path, 'w', encoding='utf-8', newline='\n') as file:
-                    file.write(content)
-                hook_input = {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'create', 'toolArgs': {}}
-                result = _run_hook(json.dumps(hook_input).encode('utf-8'), '--definitions-path', definitions_path)
-                self.assertEqual(result.returncode, 2, content)
 
 
 if __name__ == '__main__':

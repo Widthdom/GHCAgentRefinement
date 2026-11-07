@@ -7,7 +7,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 テストファイルへ、値をそれ自身と比べるアサーションや、テスト対象そのものを差し替えるモックを新たに書き込む編集を1回拒否する。
 
 ## 処理詳細
-1. [block-test-weakening](../block-test-weakening/README.md) hookの [test-weakening-definitions.json](../block-test-weakening/test-weakening-definitions.json) から、テストファイルとみなすパスの正規表現（`testFilePatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
+1. [check-test-files](../../../utilities/check-test-files/README.md) utilityで、テストファイルの判定の定義を読み込む。定義のファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から書き込む内容と対象のファイルを特定する。
    - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
 3. テストファイルでなければ何もしない。

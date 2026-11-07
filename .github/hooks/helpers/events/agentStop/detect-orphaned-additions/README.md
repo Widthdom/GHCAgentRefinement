@@ -7,7 +7,7 @@ agentStop（エージェントの応答終了時）
 今回の依頼で追加した関数・型などの定義のうち、どこからも参照されていないものや、テストからしか参照されていないものを検出し、呼び出し元につなぐか削除するよう差し戻す。
 
 ## 処理詳細
-1. [orphaned-addition-definitions.json](./orphaned-addition-definitions.json) から、参照に数えないファイルのパス（`ignoredReferenceFilePatterns`）、対象外の名前（`excludedNamePatterns`）、言語ごとの定義（`languages`）を読み込む。また、[block-test-weakening](../../preToolUse/block-test-weakening/README.md) hookの [test-weakening-definitions.json](../../preToolUse/block-test-weakening/test-weakening-definitions.json) から、テストファイルのパス（`testFilePatterns`）を読み込む。いずれかのファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
+1. [orphaned-addition-definitions.json](./orphaned-addition-definitions.json) から、参照に数えないファイルのパス（`ignoredReferenceFilePatterns`）、対象外の名前（`excludedNamePatterns`）、言語ごとの定義（`languages`）を読み込む。また、[check-test-files](../../../utilities/check-test-files/README.md) utilityで、テストファイルの判定の定義を読み込む。いずれかのファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[wait-for-agent-stop-event](../../../utilities/wait-for-agent-stop-event/README.md)）。
 3. ユーザーの最新の依頼以降について、編集系ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）が書き込む内容と、置換前の内容を集める。
    - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。

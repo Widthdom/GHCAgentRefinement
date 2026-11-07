@@ -7,12 +7,12 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 テストが失敗した後、テストファイルの期待値を失敗時の実際の値に書き換える編集を拒否し、テストではなく実装を直すよう求める。
 
 ## 処理詳細
-1. [block-test-weakening](../block-test-weakening/README.md) hookの [test-weakening-definitions.json](../block-test-weakening/test-weakening-definitions.json) から、テストファイルのパスの正規表現（`testFilePatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
+1. [check-test-files](../../../utilities/check-test-files/README.md) utilityで、テストファイルの判定の定義を読み込む。定義のファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. このセッションで [record-test-failure-values](../../postToolUse/record-test-failure-values/README.md) hookが記録した、最新のテスト実行の失敗の期待値と実際の値の組を読み込む。記録がなければ許可する。
 3. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
    - `create` での上書きは、ファイルの現在の内容と比べる。
    - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
-4. cwdからの相対パス（`/` 区切り）が `testFilePatterns` のいずれかに一致するファイルについて、置換前の行と書き込む行のうち、リテラル（文字列・数値・真偽値・null）以外の部分が一致する組を対応させる。同じ位置のリテラルが、記録した期待値から実際の値に変わっていれば拒否の候補とする。
+4. cwdからの相対パス（`/` 区切り）がテストファイルに当たるファイルについて、置換前の行と書き込む行のうち、リテラル（文字列・数値・真偽値・null）以外の部分が一致する組を対応させる。同じ位置のリテラルが、記録した期待値から実際の値に変わっていれば拒否の候補とする。
 5. 候補のうち、このセッションで同じファイルをまだ拒否していないものがあれば、テストではなく実装を直すよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。
 
 ## 例
@@ -45,7 +45,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 備考
 - テストが失敗したとき、エージェントが実装を直さずに、期待値をテスト対象の現在の出力に書き換えて成功させる事故を、書き込む前に防ぐためのhook。アサーションを消さずに済むため、[block-test-weakening](../block-test-weakening/README.md) hookでは検出できない。
-- テストファイルの判定はblock-test-weakening hookと定義を共有し、二重管理しない。
+- テストファイルの判定は、テストファイルを扱う他のhookと同じ基準にするため、utilityの定義を共有する。
 - 実装に期待値を返す分岐を加えてテストを通す編集は、[block-hardcoding-for-tests](../block-hardcoding-for-tests/README.md) hookが拒否する。
 - 状態は [assertion-failure-values-state.py](../../../utilities/assertion-failure-values-state/assertion-failure-values-state.py) で [record-test-failure-values hook](../../postToolUse/record-test-failure-values/README.md) ・ [block-hardcoding-for-tests hook](../../preToolUse/block-hardcoding-for-tests/README.md) と共有する。値とファイルパスは保存せず、照合用のSHA-256と拒否済みのファイルだけを保存する。テストの失敗が記録されていなければ状態ファイルを作らない。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。

@@ -1,4 +1,3 @@
-import argparse
 import builtins
 import hashlib
 import io
@@ -17,7 +16,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
@@ -27,8 +26,6 @@ _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
     _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
 ))['read_stored_file_content_for_write_comparison']
 
-
-_TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
 
 # 2つの値を比べるアサーションの呼び出し。最初の2引数を比べる。
 _TWO_ARGUMENT_ASSERTION_PATTERN = re.compile(
@@ -84,23 +81,6 @@ _DENY_REASON = (
     'If the comparison is intended, for example a test of reflexive Equals or of determinism, retry the same edit; '
     'this check denies it only once.'
 )
-
-
-def _load_test_file_patterns(path):
-    # テストファイルの判定はblock-test-weakening hookの定義を共有し、二重管理しない。
-    with open(path, encoding='utf-8-sig') as definitions_file:
-        definitions = json.load(definitions_file)
-    patterns = definitions.get(_TEST_FILE_PATTERNS_KEY) if isinstance(definitions, dict) else None
-    if not isinstance(patterns, list) or not patterns or not all(
-        isinstance(pattern, str) and pattern.strip() for pattern in patterns
-    ):
-        raise ValueError(f'test file definitions require a non-empty array of non-empty strings for {_TEST_FILE_PATTERNS_KEY}.')
-    return _build_regex_matchers(patterns, _TEST_FILE_PATTERNS_KEY)
-
-
-def _is_test_file(test_file_patterns, display_path):
-    # パターンは、get-display-pathがOSによらず `/` 区切りで返すパスに対して照合する。
-    return any(pattern.search(display_path) for pattern in test_file_patterns)
 
 
 def _normalize(text):
@@ -310,24 +290,13 @@ def _format_findings(findings):
     return ', '.join(f'"{finding}"' for finding in findings[:3])
 
 
-def main(arguments=None):
+def main():
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
-    # テスト用に定義ファイルを差し替えられるようにする。
-    script_directory = os.path.dirname(os.path.abspath(__file__))
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--definitions-path',
-        default=os.path.join(
-            os.path.dirname(script_directory), 'block-test-weakening', 'test-weakening-definitions.json',
-        ),
-    )
-    parsed_arguments = parser.parse_args(arguments)
-
     try:
-        test_file_patterns = _load_test_file_patterns(parsed_arguments.definitions_path)
+        test_file_patterns = _check_test_files['load_test_file_patterns']()
 
         hook_input = _hook_input['read_hook_input']()
         state_path = _get_state_path('block-tautological-tests', hook_input.get('sessionId'))
@@ -345,7 +314,7 @@ def main(arguments=None):
             path = os.path.realpath(os.path.join(cwd, change['path']))
             # テストファイルの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
             display_path = _get_display_path(path, real_cwd)
-            if not _is_test_file(test_file_patterns, display_path):
+            if not _check_test_files['is_test_file'](test_file_patterns, display_path):
                 continue
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
             file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()

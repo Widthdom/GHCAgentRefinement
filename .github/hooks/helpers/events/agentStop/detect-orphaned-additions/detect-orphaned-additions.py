@@ -16,13 +16,13 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 
 
 _IGNORED_REFERENCE_FILE_PATTERNS_KEY = 'ignoredReferenceFilePatterns'
 _EXCLUDED_NAME_PATTERNS_KEY = 'excludedNamePatterns'
 _LANGUAGES_KEY = 'languages'
-_TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
 _GIT_TIMEOUT_SECONDS = 10
 _REASON_PREFIX = 'The changes in this request add definitions that nothing uses'
 _MAX_FINDINGS = 10
@@ -85,16 +85,6 @@ def _load_definitions(path):
         _build_regex_matchers(definitions[_EXCLUDED_NAME_PATTERNS_KEY], _EXCLUDED_NAME_PATTERNS_KEY),
         [_load_language(language) for language in languages],
     )
-
-
-def _load_test_file_patterns(path):
-    # テストファイルの判定は block-test-weakening hookの定義を共有する。
-    with open(path, encoding='utf-8-sig') as definitions_file:
-        definitions = json.load(definitions_file)
-    if not isinstance(definitions, dict) or not _is_string_list(definitions.get(_TEST_FILE_PATTERNS_KEY), False):
-        raise ValueError(f'test file definitions require a non-empty array of non-empty strings for '
-                         f'{_TEST_FILE_PATTERNS_KEY}.')
-    return _build_regex_matchers(definitions[_TEST_FILE_PATTERNS_KEY], _TEST_FILE_PATTERNS_KEY)
 
 
 def _get_turn_summary(transcript_path):
@@ -164,7 +154,7 @@ def _find_candidates(changes, cwd, repository_root, excluded_name_patterns, lang
         # パターンの照合と理由での表示は、OSによらず `/` 区切りのパスで行う。
         relative_path = os.path.relpath(full_path, repository_root).replace(os.sep, '/')
         language = _get_language(languages, relative_path)
-        if language is None or any(pattern.search(relative_path) for pattern in test_file_patterns):
+        if language is None or _check_test_files['is_test_file'](test_file_patterns, relative_path):
             continue
         removed_lines = {line.strip() for line in removed.splitlines()}
         for pattern in language[2]:
@@ -209,7 +199,7 @@ def _find_orphans(candidates, repository_root, ignored_reference_file_patterns, 
         path, line_number, content = parts[0], int(parts[1]), parts[2]
         if any(pattern.search(path) for pattern in ignored_reference_file_patterns):
             continue
-        is_test = any(pattern.search(path) for pattern in test_file_patterns)
+        is_test = _check_test_files['is_test_file'](test_file_patterns, path)
         for name, pattern in name_patterns.items():
             if pattern.search(content):
                 references[name].add((path, line_number, is_test))
@@ -235,20 +225,13 @@ def main(arguments=None):
     parser.add_argument(
         '--definitions-path', default=os.path.join(script_directory, 'orphaned-addition-definitions.json'),
     )
-    parser.add_argument(
-        '--test-definitions-path',
-        default=os.path.join(
-            os.path.dirname(os.path.dirname(script_directory)), 'preToolUse', 'block-test-weakening',
-            'test-weakening-definitions.json',
-        ),
-    )
     parsed_arguments = parser.parse_args(arguments)
 
     try:
         ignored_reference_file_patterns, excluded_name_patterns, languages = _load_definitions(
             parsed_arguments.definitions_path
         )
-        test_file_patterns = _load_test_file_patterns(parsed_arguments.test_definitions_path)
+        test_file_patterns = _check_test_files['load_test_file_patterns']()
         hook_input = _hook_input['read_hook_input']()
 
         # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。

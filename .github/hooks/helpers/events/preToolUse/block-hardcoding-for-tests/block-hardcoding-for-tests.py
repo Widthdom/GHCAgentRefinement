@@ -1,4 +1,3 @@
-import argparse
 import io
 import json
 import os
@@ -15,14 +14,13 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
     _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
 ))['read_stored_file_content_for_write_comparison']
 
 
-_TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
 # コードではなく文章のファイル。説明用のコード例を書く編集は拒否しない。
 _DOCUMENT_EXTENSIONS = {'.md', '.markdown', '.txt', '.rst', '.adoc'}
 # 行の中のリテラル（文字列・数値・真偽値・null）。block-goalpost-moving hookと同じ基準。
@@ -50,23 +48,6 @@ _DENY_REASON = (
     'If this branch is a genuine rule of the specification, for example a base case or a documented special value, '
     'retry the same edit; this check denies it only once per file.'
 )
-
-
-def _load_test_file_patterns(path):
-    # テストファイルの判定はblock-test-weakening hookの定義を共有し、二重管理しない。
-    with open(path, encoding='utf-8-sig') as definitions_file:
-        definitions = json.load(definitions_file)
-    patterns = definitions.get(_TEST_FILE_PATTERNS_KEY) if isinstance(definitions, dict) else None
-    if not isinstance(patterns, list) or not patterns or not all(
-        isinstance(pattern, str) and pattern.strip() for pattern in patterns
-    ):
-        raise ValueError(f'test file definitions require a non-empty array of non-empty strings for {_TEST_FILE_PATTERNS_KEY}.')
-    return _build_regex_matchers(patterns, _TEST_FILE_PATTERNS_KEY)
-
-
-def _is_test_file(test_file_patterns, display_path):
-    # パターンは、get-display-pathがOSによらず `/` 区切りで返すパスに対して照合する。
-    return any(pattern.search(display_path) for pattern in test_file_patterns)
 
 
 def _mask_literals(line):
@@ -122,24 +103,13 @@ def _shorten(value):
     return value if len(value) <= _MAX_DISPLAY_LENGTH else value[:_MAX_DISPLAY_LENGTH] + '...'
 
 
-def main(arguments=None):
+def main():
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
-    # テスト用に定義ファイルを差し替えられるようにする。
-    script_directory = os.path.dirname(os.path.abspath(__file__))
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        '--definitions-path',
-        default=os.path.join(
-            os.path.dirname(script_directory), 'block-test-weakening', 'test-weakening-definitions.json',
-        ),
-    )
-    parsed_arguments = parser.parse_args(arguments)
-
     try:
-        test_file_patterns = _load_test_file_patterns(parsed_arguments.definitions_path)
+        test_file_patterns = _check_test_files['load_test_file_patterns']()
         # 記録側のpostToolUse hookと状態の形式・保存先を共有する。
         state = runpy.run_path(os.path.join(
             _utilities_directory, 'assertion-failure-values-state', 'assertion-failure-values-state.py',
@@ -170,7 +140,7 @@ def main(arguments=None):
                 path = os.path.realpath(os.path.join(cwd, change['path']))
                 # テストファイルの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
                 display_path = _get_display_path(path, real_cwd)
-                if _is_test_file(test_file_patterns, display_path) or (
+                if _check_test_files['is_test_file'](test_file_patterns, display_path) or (
                     os.path.splitext(path)[1].lower() in _DOCUMENT_EXTENSIONS
                 ):
                     continue

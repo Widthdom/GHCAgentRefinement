@@ -1,12 +1,4 @@
 {
-  "testFilePatterns": [
-    "(?i)(?:^|/)(?:tests?|__tests__|specs?)/",
-    "(?i)(?:^|/)[^/]*\\.(?:unit|integration)?tests?/",
-    "(?:^|/)[^/]*Tests?\\.(?:cs|fs|vb|java|kt)$",
-    "(?i)(?:^|/)test[_-][^/]*\\.(?:py|ps1)$",
-    "(?i)_test\\.(?:py|go|rs)$",
-    "(?i)\\.(?:test|spec)\\.[cm]?[jt]sx?$"
-  ],
   "assertionPatterns": [
     "\\bAssert(?:That)?\\.\\w+\\s*[(<]",
     "\\bCollectionAssert\\.\\w+\\s*\\(|\\bStringAssert\\.\\w+\\s*\\(",

@@ -18,6 +18,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
@@ -28,7 +29,6 @@ _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
 ))['read_stored_file_content_for_write_comparison']
 
 
-_TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
 # 文字列の中の日付（`2026-11-03`・`2026/11/03`）。バージョン番号（`1.2026-...`）の一部は除く。
 _ISO_DATE_PATTERN = re.compile(r'(?<![\d.])(20\d{2})([-/])(\d{1,2})\2(\d{1,2})(?!\d)')
 # 年・月・日を引数に取る日付の生成（C#・Python・Java・Kotlin・Ruby・Go・Rust）。月は1始まり。
@@ -59,18 +59,6 @@ _DENY_REASON = (
     'does not depend on the day it runs. If the date is intended to be absolute, retry the same edit; this check '
     'denies it only once per file.'
 )
-
-
-def _load_test_file_patterns(path):
-    # テストファイルの判定はblock-test-weakening hookの定義を共有し、二重管理しない。
-    with open(path, encoding='utf-8-sig') as definitions_file:
-        definitions = json.load(definitions_file)
-    patterns = definitions.get(_TEST_FILE_PATTERNS_KEY) if isinstance(definitions, dict) else None
-    if not isinstance(patterns, list) or not patterns or not all(
-        isinstance(pattern, str) and pattern.strip() for pattern in patterns
-    ):
-        raise ValueError(f'test file definitions require a non-empty array of non-empty strings for {_TEST_FILE_PATTERNS_KEY}.')
-    return _build_regex_matchers(patterns, _TEST_FILE_PATTERNS_KEY)
 
 
 def _load_definitions(path):
@@ -168,19 +156,13 @@ def main(arguments=None):
     script_directory = os.path.dirname(os.path.abspath(__file__))
     parser = argparse.ArgumentParser()
     parser.add_argument('--definitions-path', default=os.path.join(script_directory, 'time-bomb-definitions.json'))
-    parser.add_argument(
-        '--test-file-definitions-path',
-        default=os.path.join(
-            os.path.dirname(script_directory), 'block-test-weakening', 'test-weakening-definitions.json',
-        ),
-    )
     parser.add_argument('--today', type=_parse_today, default=None)
     parsed_arguments = parser.parse_args(arguments)
     today = parsed_arguments.today or datetime.date.today()
 
     try:
         definitions = _load_definitions(parsed_arguments.definitions_path)
-        test_file_patterns = _load_test_file_patterns(parsed_arguments.test_file_definitions_path)
+        test_file_patterns = _check_test_files['load_test_file_patterns']()
 
         hook_input = _hook_input['read_hook_input']()
         state_path = _get_state_path('block-time-bomb-literals', hook_input.get('sessionId'))
@@ -199,7 +181,7 @@ def main(arguments=None):
             path = os.path.realpath(os.path.join(cwd, change['path']))
             display_path = _get_display_path(path, real_cwd)
             # テストファイルのパターンはOSによらず `/` 区切りのパスに対して照合する。
-            if not any(pattern.search(display_path) for pattern in test_file_patterns):
+            if not _check_test_files['is_test_file'](test_file_patterns, display_path):
                 continue
             current = (_read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None) or ''
             # 上書きではファイル全体と現在の内容、それ以外では書き込む内容と置換前の内容を比べる。

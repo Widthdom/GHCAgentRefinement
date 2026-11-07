@@ -16,6 +16,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
@@ -26,7 +27,6 @@ _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
 ))['read_stored_file_content_for_write_comparison']
 
 
-_TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
 _ASSERTION_PATTERNS_KEY = 'assertionPatterns'
 _WEAKENING_PATTERNS_KEY = 'weakeningPatterns'
 _WEAKENING = 'weakening'
@@ -51,9 +51,10 @@ def _load_definitions(path):
         definitions = json.load(definitions_file)
     if not isinstance(definitions, dict):
         raise ValueError('test weakening definitions must be a JSON object.')
-    for key in (_TEST_FILE_PATTERNS_KEY, _ASSERTION_PATTERNS_KEY):
-        if not _is_non_empty_string_list(definitions.get(key)):
-            raise ValueError(f'test weakening definitions require a non-empty array of non-empty strings for {key}.')
+    if not _is_non_empty_string_list(definitions.get(_ASSERTION_PATTERNS_KEY)):
+        raise ValueError(
+            f'test weakening definitions require a non-empty array of non-empty strings for {_ASSERTION_PATTERNS_KEY}.'
+        )
     weakening_definitions = definitions.get(_WEAKENING_PATTERNS_KEY)
     if not isinstance(weakening_definitions, list) or not weakening_definitions or not all(
         isinstance(definition, dict) and all(
@@ -69,15 +70,9 @@ def _load_definitions(path):
         [definition['pattern'] for definition in weakening_definitions], _WEAKENING_PATTERNS_KEY,
     )
     return (
-        _build_regex_matchers(definitions[_TEST_FILE_PATTERNS_KEY], _TEST_FILE_PATTERNS_KEY),
         _build_regex_matchers(definitions[_ASSERTION_PATTERNS_KEY], _ASSERTION_PATTERNS_KEY),
         [(definition['name'], pattern) for definition, pattern in zip(weakening_definitions, weakening_patterns)],
     )
-
-
-def _is_test_file(test_file_patterns, display_path):
-    # パターンは、get-display-pathがOSによらず `/` 区切りで返すパスに対して照合する。
-    return any(pattern.search(display_path) for pattern in test_file_patterns)
 
 
 def _find_weakening_lines(weakening_patterns, written, existing):
@@ -112,9 +107,8 @@ def main(arguments=None):
     parsed_arguments = parser.parse_args(arguments)
 
     try:
-        test_file_patterns, assertion_patterns, weakening_patterns = _load_definitions(
-            parsed_arguments.definitions_path,
-        )
+        assertion_patterns, weakening_patterns = _load_definitions(parsed_arguments.definitions_path)
+        test_file_patterns = _check_test_files['load_test_file_patterns']()
 
         hook_input = _hook_input['read_hook_input']()
         state_path = _get_state_path('block-test-weakening', hook_input.get('sessionId'))
@@ -132,7 +126,7 @@ def main(arguments=None):
             path = os.path.realpath(os.path.join(cwd, change['path']))
             # テストファイルの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
             display_path = _get_display_path(path, real_cwd)
-            if not _is_test_file(test_file_patterns, display_path):
+            if not _check_test_files['is_test_file'](test_file_patterns, display_path):
                 continue
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
             file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
