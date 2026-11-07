@@ -2,12 +2,24 @@ import io
 import json
 import os
 import re
+import runpy
 import sqlite3
 import sys
 import tempfile
 import uuid
 from contextlib import closing
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
+))['collect_json_string_values']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 # SDKがファイル書き込みとして扱う組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
@@ -32,31 +44,10 @@ _SYNC_CONTEXT = (
 )
 
 
-def _get_tool_args(raw_tool_args):
-    # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
-
-
-def _collect_strings(value):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for item in value.values():
-            yield from _collect_strings(item)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _collect_strings(item)
-
-
 def _get_edited_paths(tool_name, tool_args, cwd):
     if tool_name == 'apply_patch':
         # 削除・移動元も含める。正本を消したときに、残ったラッパーを検出するため。
-        paths = [match for text in _collect_strings(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)]
+        paths = [match for text in _collect_json_string_values(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)]
     else:
         path = tool_args.get('path') if isinstance(tool_args, dict) else None
         paths = [path] if isinstance(path, str) and path.strip() else []
@@ -207,7 +198,7 @@ def main():
         tool_name = hook_input['toolName'].removeprefix('functions.')
         if tool_name not in _EDIT_TOOL_NAMES:
             return 0
-        paths = _get_edited_paths(tool_name, _get_tool_args(hook_input['toolArgs']), hook_input['cwd'])
+        paths = _get_edited_paths(tool_name, _unwrap_tool_args(hook_input['toolArgs']), hook_input['cwd'])
         skills = sorted({skill for skill in map(_get_skill, paths) if skill is not None})
         if not skills:
             return 0

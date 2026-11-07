@@ -4,12 +4,27 @@ import io
 import json
 import os
 import re
+import runpy
 import sqlite3
 import sys
 import tempfile
 import uuid
-from contextlib import closing
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
+))['collect_json_string_values']
+_filter_first_time_denials = runpy.run_path(os.path.join(
+    _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
+))['filter_first_time_denials']
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 # ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
@@ -51,30 +66,9 @@ def _load_definitions(path):
     return compiled[0], compiled[1]
 
 
-def _get_tool_args(raw_tool_args):
-    # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
-
-
-def _collect_strings(value):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for item in value.values():
-            yield from _collect_strings(item)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _collect_strings(item)
-
-
 def _get_paths(tool_name, tool_args):
     if tool_name == 'apply_patch':
-        return [match.group(1) for text in _collect_strings(tool_args) for match in _PATCH_FILE_PATTERN.finditer(text)]
+        return [match.group(1) for text in _collect_json_string_values(tool_args) for match in _PATCH_FILE_PATTERN.finditer(text)]
     if not isinstance(tool_args, dict):
         return []
     # str_replace_editorのviewは閲覧なので対象外とする。
@@ -92,20 +86,9 @@ def _read_head(path):
         return []
 
 
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path
-
-
 def _get_evidence(path_patterns, marker_patterns, path, display_path):
-    # パターンはOSによらず `/` 区切りのパスに対して照合する。
-    if any(pattern.search(display_path.replace(os.sep, '/')) for pattern in path_patterns):
+    # パターンは、get-display-pathがOSによらず `/` 区切りで返すパスに対して照合する。
+    if any(pattern.search(display_path) for pattern in path_patterns):
         return _PATH_EVIDENCE.format(file=display_path)
     # 新規ファイルには再生成で失われる手編集がないため、目印は既存のファイルだけで確かめる。
     if os.path.isfile(path):
@@ -113,23 +96,6 @@ def _get_evidence(path_patterns, marker_patterns, path, display_path):
             if any(pattern.search(line) for pattern in marker_patterns):
                 return _MARKER_EVIDENCE.format(file=display_path, marker=line.strip()[:_MAX_MARKER_LENGTH])
     return None
-
-
-def _record_denials(state_path, candidates):
-    # candidates：(ファイルキー, 根拠) のリスト。戻り値は、今回初めて拒否する根拠のリスト。
-    # 同じファイルの拒否は1回だけにし、意図した編集なら再実行で通す。
-    # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    evidence = []
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute('CREATE TABLE IF NOT EXISTS denials (file TEXT NOT NULL PRIMARY KEY)')
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            for file_key, file_evidence in candidates:
-                if connection.execute('INSERT OR IGNORE INTO denials (file) VALUES (?)', (file_key,)).rowcount:
-                    evidence.append(file_evidence)
-    return evidence
 
 
 def main(arguments=None):
@@ -177,7 +143,7 @@ def main(arguments=None):
         candidates = {}
         tool_name = tool_name.removeprefix('functions.')
         if tool_name in _EDIT_TOOL_NAMES:
-            for relative_path in _get_paths(tool_name, _get_tool_args(hook_input['toolArgs'])):
+            for relative_path in _get_paths(tool_name, _unwrap_tool_args(hook_input['toolArgs'])):
                 path = os.path.realpath(os.path.join(cwd, relative_path))
                 # パスの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
                 evidence = _get_evidence(path_patterns, marker_patterns, path, _get_display_path(path, real_cwd))
@@ -193,7 +159,7 @@ def main(arguments=None):
                 tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-generated-file-edits',
                 f'{parsed_session_id}.sqlite3',
             )
-            evidence = _record_denials(state_path, list(candidates.items()))
+            evidence = _filter_first_time_denials(state_path, candidates.items())
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check generated file edits: {ex}', file=sys.stderr)
         return 2

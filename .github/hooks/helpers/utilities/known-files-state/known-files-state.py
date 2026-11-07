@@ -1,5 +1,4 @@
 import hashlib
-import json
 import os
 import sqlite3
 import tempfile
@@ -15,27 +14,6 @@ from contextlib import closing, contextmanager
 #   denied：読まずに編集しようとして1回拒否した。
 SEEN = 'seen'
 DENIED = 'denied'
-
-
-def get_tool_args(raw_tool_args):
-    # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
-
-
-def collect_strings(value):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for item in value.values():
-            yield from collect_strings(item)
-    elif isinstance(value, list):
-        for item in value:
-            yield from collect_strings(item)
 
 
 def get_state_path(session_id):

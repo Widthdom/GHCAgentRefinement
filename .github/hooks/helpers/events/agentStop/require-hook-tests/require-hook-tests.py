@@ -4,8 +4,18 @@ import os
 import re
 import runpy
 import sys
-from pathlib import Path
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
+))['collect_json_string_values']
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 
 
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
@@ -24,7 +34,7 @@ _PYTHON_COMMAND = 'python' if sys.platform == 'win32' else 'python3'
 
 def _get_edited_paths(tool_name, arguments):
     if tool_name == 'apply_patch':
-        return [match for text in _collect_strings(arguments) for match in _PATCH_FILE_PATTERN.findall(text)]
+        return [match for text in _collect_json_string_values(arguments) for match in _PATCH_FILE_PATTERN.findall(text)]
     if not isinstance(arguments, dict):
         return []
     # str_replace_editorのviewは閲覧なので対象外とする。
@@ -32,17 +42,6 @@ def _get_edited_paths(tool_name, arguments):
         return []
     path = arguments.get('path')
     return [path] if isinstance(path, str) and path.strip() else []
-
-
-def _collect_strings(value):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for item in value.values():
-            yield from _collect_strings(item)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _collect_strings(item)
 
 
 def _get_turn_events(transcript_path):
@@ -53,7 +52,7 @@ def _get_turn_events(transcript_path):
     started = {}
     already_requested = False
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
+        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -202,17 +201,6 @@ def _get_unverified(events, cwd):
     return unverified, unchanged_readmes
 
 
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.normcase(os.path.commonpath([cwd, path])) == os.path.normcase(cwd):
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path
-
-
 def _get_block_reason(unverified, unchanged_readmes, cwd):
     lines = [f"{_REASON_PREFIX} since the user's latest request, but their tests have not passed since the last change:"]
     for info, status in unverified:
@@ -277,7 +265,7 @@ def main():
     try:
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最後のツール実行の結果を書き込み済みにする。
         runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
+            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         events, already_requested = _get_turn_events(transcript_path)

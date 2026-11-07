@@ -4,8 +4,18 @@ import os
 import re
 import runpy
 import sys
-from pathlib import Path
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
+))['collect_json_string_values']
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 
 
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
@@ -23,7 +33,7 @@ _MAX_COMMAND_LENGTH = 200
 
 def _get_edited_paths(tool_name, arguments):
     if tool_name == 'apply_patch':
-        return [match for text in _collect_strings(arguments) for match in _PATCH_FILE_PATTERN.findall(text)]
+        return [match for text in _collect_json_string_values(arguments) for match in _PATCH_FILE_PATTERN.findall(text)]
     if not isinstance(arguments, dict):
         return []
     # str_replace_editorのviewは閲覧なので対象外とする。
@@ -31,17 +41,6 @@ def _get_edited_paths(tool_name, arguments):
         return []
     path = arguments.get('path')
     return [path] if isinstance(path, str) and path.strip() else []
-
-
-def _collect_strings(value):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for item in value.values():
-            yield from _collect_strings(item)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _collect_strings(item)
 
 
 def _get_turn_events(transcript_path):
@@ -53,7 +52,7 @@ def _get_turn_events(transcript_path):
     last_assistant_msg = None
     already_requested = False
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
+        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -99,18 +98,6 @@ def _get_turn_events(transcript_path):
     return events, last_assistant_msg, already_requested
 
 
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示す。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    absolute = os.path.normpath(os.path.join(cwd, path))
-    try:
-        if os.path.normcase(os.path.commonpath([cwd, absolute])) == os.path.normcase(cwd):
-            return os.path.relpath(absolute, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return absolute.replace(os.sep, '/')
-
-
 def _get_stale_edits(events, cwd, is_test_command):
     # 最後のテスト実行が成功し、その後に対象のファイルを変更していれば、(テストコマンド, 変更したファイル) を返す。
     # 最後のテスト実行が失敗・未実行の場合は、verify-completion-claims hookが扱うため対象外とする。
@@ -129,7 +116,7 @@ def _get_stale_edits(events, cwd, is_test_command):
     for kind, value in events[last_test_index + 1:]:
         if kind != 'edit':
             continue
-        display_path = _get_display_path(value, cwd)
+        display_path = _get_display_path(os.path.normpath(os.path.join(cwd, value)), cwd)
         if display_path.lower().endswith(_DOCUMENT_EXTENSIONS) or _HOOKS_PATH_PATTERN.search(display_path):
             continue
         key = os.path.normcase(display_path)
@@ -199,11 +186,11 @@ def main():
     try:
         # テストの実行かどうかの判定は、共通utilityで行う。
         check_test_runs = runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'check-test-runs' / 'check-test-runs.py')
+            os.path.join(_utilities_directory, 'check-test-runs', 'check-test-runs.py')
         )
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と最後のツール実行の結果を書き込み済みにする。
         runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
+            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         events, last_assistant_msg, already_requested = _get_turn_events(transcript_path)

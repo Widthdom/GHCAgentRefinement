@@ -8,6 +8,17 @@ import sys
 from typing import cast
 
 
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
+))['collect_json_string_values']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+
+
 # 成功すればファイルの内容を把握したとみなせる組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
 #   view・str_replace_editorのview：内容を読んだ。
 #   編集系：置換やパッチの適用には現在の内容との一致が必要で、作成したファイルは内容を自分で書いた。
@@ -16,10 +27,10 @@ _READ_TOOL_NAMES = {'view', 'edit', 'create', 'insert', 'str_replace_editor', 'a
 _PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update) File|Move to): (.+?)\s*$', re.MULTILINE)
 
 
-def _get_read_paths(tool_name, tool_args, state):
+def _get_read_paths(tool_name, tool_args):
     if tool_name == 'apply_patch':
         return [
-            match for text in state['collect_strings'](tool_args) for match in _PATCH_FILE_PATTERN.findall(text)
+            match for text in _collect_json_string_values(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)
         ]
     path = tool_args.get('path') if isinstance(tool_args, dict) else None
     return [path] if isinstance(path, str) and path.strip() else []
@@ -33,8 +44,7 @@ def main():
     try:
         # 拒否側のpreToolUse hookと状態の形式・保存先を共有する。
         state = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'known-files-state', 'known-files-state.py',
+            _utilities_directory, 'known-files-state', 'known-files-state.py',
         ))
 
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
@@ -57,9 +67,9 @@ def main():
         tool_name = hook_input['toolName'].removeprefix('functions.')
         if tool_name not in _READ_TOOL_NAMES:
             return 0
-        tool_args = state['get_tool_args'](hook_input['toolArgs'])
+        tool_args = _unwrap_tool_args(hook_input['toolArgs'])
         paths = {
-            state['normalize_path'](hook_input['cwd'], path) for path in _get_read_paths(tool_name, tool_args, state)
+            state['normalize_path'](hook_input['cwd'], path) for path in _get_read_paths(tool_name, tool_args)
         }
         # ディレクトリの一覧表示や、消えたファイルは記録しない。
         keys = sorted(state['get_file_key'](path) for path in paths if os.path.isfile(path))

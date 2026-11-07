@@ -6,8 +6,15 @@ import re
 import runpy
 import subprocess
 import sys
-from pathlib import Path
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 
 
 _IGNORED_REFERENCE_FILE_PATTERNS_KEY = 'ignoredReferenceFilePatterns'
@@ -26,13 +33,6 @@ _BLOCK_REASON = (
     'this repository (for example, a public API or an entry point a framework invokes by name), keep it and say so in '
     'the response.'
 )
-
-
-def _compile_patterns(patterns, key, flags=0):
-    try:
-        return [re.compile(pattern, flags) for pattern in patterns]
-    except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {key}: {ex}') from None
 
 
 def _is_string_list(value, allow_empty=True):
@@ -56,12 +56,12 @@ def _load_language(definition):
     if not _is_string_list(definition_patterns, allow_empty=False):
         raise ValueError(f'definitionPatterns in {key} must be a non-empty array of non-empty strings.')
     # 定義は行頭から照合するため、行頭は各行に一致させる。
-    compiled = _compile_patterns(definition_patterns, key, re.MULTILINE)
+    compiled = _build_regex_matchers(definition_patterns, key, re.MULTILINE)
     if any('name' not in pattern.groupindex for pattern in compiled):
         raise ValueError(f'each definitionPattern in {key} requires a named group "name".')
     return (
-        _compile_patterns([definition['filePattern']], key)[0],
-        None if annotation is None else _compile_patterns([annotation], key)[0],
+        _build_regex_matchers([definition['filePattern']], key)[0],
+        None if annotation is None else _build_regex_matchers([annotation], key)[0],
         compiled,
     )
 
@@ -79,8 +79,8 @@ def _load_definitions(path):
     if not isinstance(languages, list) or not languages:
         raise ValueError(f'orphaned addition definitions require a non-empty array for {_LANGUAGES_KEY}.')
     return (
-        _compile_patterns(definitions[_IGNORED_REFERENCE_FILE_PATTERNS_KEY], _IGNORED_REFERENCE_FILE_PATTERNS_KEY),
-        _compile_patterns(definitions[_EXCLUDED_NAME_PATTERNS_KEY], _EXCLUDED_NAME_PATTERNS_KEY),
+        _build_regex_matchers(definitions[_IGNORED_REFERENCE_FILE_PATTERNS_KEY], _IGNORED_REFERENCE_FILE_PATTERNS_KEY),
+        _build_regex_matchers(definitions[_EXCLUDED_NAME_PATTERNS_KEY], _EXCLUDED_NAME_PATTERNS_KEY),
         [_load_language(language) for language in languages],
     )
 
@@ -92,7 +92,7 @@ def _load_test_file_patterns(path):
     if not isinstance(definitions, dict) or not _is_string_list(definitions.get(_TEST_FILE_PATTERNS_KEY), False):
         raise ValueError(f'test file definitions require a non-empty array of non-empty strings for '
                          f'{_TEST_FILE_PATTERNS_KEY}.')
-    return _compile_patterns(definitions[_TEST_FILE_PATTERNS_KEY], _TEST_FILE_PATTERNS_KEY)
+    return _build_regex_matchers(definitions[_TEST_FILE_PATTERNS_KEY], _TEST_FILE_PATTERNS_KEY)
 
 
 def _get_turn_summary(transcript_path):
@@ -100,13 +100,13 @@ def _get_turn_summary(transcript_path):
     # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
     # 編集ツールの引数の解析は、共通utilityで行う。
     extract_edit_tool_changes = runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'extract-edit-tool-changes' / 'extract-edit-tool-changes.py')
+        os.path.join(_utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py')
     )['extract_edit_tool_changes']
     last_assistant_msg = None
     changes = []
     already_requested = False
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
+        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -305,7 +305,7 @@ def main(arguments=None):
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
         runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
+            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, changes, already_requested = _get_turn_summary(transcript_path)

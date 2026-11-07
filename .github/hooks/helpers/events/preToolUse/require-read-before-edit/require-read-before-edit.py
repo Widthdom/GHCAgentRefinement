@@ -8,6 +8,18 @@ import sys
 from typing import cast
 
 
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
+))['collect_json_string_values']
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+
+
 # 既存ファイルを書き換える組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 # パッチで既存の内容を書き換えるファイル。追加・削除・移動先は内容を把握する必要がないため対象外とする。
@@ -19,10 +31,10 @@ _DENY_REASON = (
 )
 
 
-def _get_edited_paths(tool_name, tool_args, state):
+def _get_edited_paths(tool_name, tool_args):
     if tool_name == 'apply_patch':
         return [
-            match for text in state['collect_strings'](tool_args) for match in _PATCH_FILE_PATTERN.findall(text)
+            match for text in _collect_json_string_values(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)
         ]
     if not isinstance(tool_args, dict):
         return []
@@ -31,17 +43,6 @@ def _get_edited_paths(tool_name, tool_args, state):
         return []
     path = tool_args.get('path')
     return [path] if isinstance(path, str) and path.strip() else []
-
-
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path
 
 
 def _deny_unread_files(state, state_path, paths):
@@ -66,8 +67,7 @@ def main():
     try:
         # 記録側のpostToolUse hookと状態の形式・保存先を共有する。
         state = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'known-files-state', 'known-files-state.py',
+            _utilities_directory, 'known-files-state', 'known-files-state.py',
         ))
 
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
@@ -93,9 +93,9 @@ def main():
         paths = set()
         tool_name = tool_name.removeprefix('functions.')
         if tool_name in _EDIT_TOOL_NAMES:
-            tool_args = state['get_tool_args'](hook_input['toolArgs'])
+            tool_args = _unwrap_tool_args(hook_input['toolArgs'])
             paths.update(
-                state['normalize_path'](cwd, path) for path in _get_edited_paths(tool_name, tool_args, state)
+                state['normalize_path'](cwd, path) for path in _get_edited_paths(tool_name, tool_args)
             )
         # 新規作成と、存在しないファイルへの編集（ツール側で失敗する）は対象外とする。
         existing_paths = sorted(path for path in paths if os.path.isfile(path))

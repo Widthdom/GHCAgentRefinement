@@ -5,13 +5,25 @@ import io
 import json
 import os
 import re
+import runpy
 import sqlite3
 import subprocess
 import sys
 import tempfile
 import uuid
-from contextlib import closing
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_filter_first_time_denials = runpy.run_path(os.path.join(
+    _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
+))['filter_first_time_denials']
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 # ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
@@ -79,16 +91,6 @@ def _load_definitions(path):
             'keywords': keywords,
         })
     return {'ignore_files': ignore_files, 'config_files': config_files}
-
-
-def _get_tool_args(raw_tool_args):
-    # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
 
 
 def _read_current(path):
@@ -341,28 +343,11 @@ def _find_matched_file(entry, files):
     return None
 
 
-def _get_display_path(path, cwd):
-    # cwd配下のファイルは、OSによらず `/` 区切りの相対パスで示す。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path.replace(os.sep, '/')
-
-
 def _record_denial(state_path, path):
     # 戻り値は、このファイルを今回初めて拒否するか。同じファイルの拒否はセッションで1回だけにする。
     # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
     file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute('CREATE TABLE IF NOT EXISTS denials (file TEXT PRIMARY KEY)')
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            return bool(connection.execute('INSERT OR IGNORE INTO denials (file) VALUES (?)', (file_key,)).rowcount)
+    return bool(_filter_first_time_denials(state_path, [(file_key, path)]))
 
 
 def main(arguments=None):
@@ -407,7 +392,7 @@ def main(arguments=None):
             raise ValueError('toolArgs is required.')
 
         tool_name = tool_name.removeprefix('functions.')
-        edits = _get_edits(tool_name, _get_tool_args(hook_input['toolArgs']), cwd) if tool_name in _EDIT_TOOL_NAMES else []
+        edits = _get_edits(tool_name, _unwrap_tool_args(hook_input['toolArgs']), cwd) if tool_name in _EDIT_TOOL_NAMES else []
 
         candidates = []
         tracked_files_by_directory = {}

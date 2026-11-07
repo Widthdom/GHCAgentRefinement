@@ -5,8 +5,19 @@ import os
 import re
 import runpy
 import sys
-from pathlib import Path
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
+))['collect_json_string_values']
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 
 
 # ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
@@ -35,13 +46,6 @@ _BLOCK_REASON = (
 )
 
 
-def _compile_patterns(patterns, key):
-    try:
-        return [re.compile(pattern) for pattern in patterns]
-    except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {key}: {ex}') from None
-
-
 def _load_definitions(path):
     # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     with open(path, encoding='utf-8-sig') as definitions_file:
@@ -53,24 +57,13 @@ def _load_definitions(path):
         raise ValueError(
             f'unrequested change definitions require an array of non-empty strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
         )
-    patterns = [_compile_patterns(excluded, _EXCLUDED_FILE_PATTERNS_KEY)]
+    patterns = [_build_regex_matchers(excluded, _EXCLUDED_FILE_PATTERNS_KEY)]
     for key in (_FORMATTING_REQUEST_PATTERNS_KEY, _REMOVAL_REQUEST_PATTERNS_KEY):
         value = definitions.get(key)
         if not isinstance(value, list) or not value or not all(isinstance(item, str) and item.strip() for item in value):
             raise ValueError(f'unrequested change definitions require a non-empty array of non-empty strings for {key}.')
-        patterns.append(_compile_patterns(value, key))
+        patterns.append(_build_regex_matchers(value, key))
     return tuple(patterns)
-
-
-def _collect_strings(value):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for item in value.values():
-            yield from _collect_strings(item)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _collect_strings(item)
 
 
 def _is_whitespace_only(old, new):
@@ -108,7 +101,7 @@ def _get_patch_changes(text):
 def _get_changes(tool_name, arguments):
     # 戻り値は {path, deleted, moved_to（移動先またはNone）, whitespace_only} のリスト。
     if tool_name == 'apply_patch':
-        return [change for text in _collect_strings(arguments) for change in _get_patch_changes(text)]
+        return [change for text in _collect_json_string_values(arguments) for change in _get_patch_changes(text)]
     if not isinstance(arguments, dict):
         return []
     # str_replace_editorのviewは閲覧なので対象外とする。
@@ -147,7 +140,7 @@ def _get_turn_summary(transcript_path):
     started = {}
     already_requested = False
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
+        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -186,21 +179,10 @@ def _get_turn_summary(transcript_path):
     return '\n'.join(request_texts), '\n'.join(response_texts), changes, already_requested
 
 
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path
-
-
 def _is_mentioned(display_path, text):
     # ファイル名、または十分に長い拡張子を除いた名前・親ディレクトリ名が、依頼か応答にあれば言及したとみなす。
     # パスは `/` 区切りで照合し、大文字小文字は区別しない。
-    parts = display_path.replace(os.sep, '/').split('/')
+    parts = display_path.split('/')
     name = parts[-1]
     candidates = [name.casefold()]
     stem = os.path.splitext(name)[0]
@@ -279,7 +261,7 @@ def main(arguments=None):
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
         runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
+            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         request_text, response_text, changes, already_requested = _get_turn_summary(transcript_path)

@@ -7,8 +7,17 @@ import runpy
 import sqlite3
 import subprocess
 import sys
-from pathlib import Path
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
+))['collect_json_string_values']
 
 
 # 定義ファイルのキー。speculationPatternsは推測とみなす表現の正規表現。
@@ -55,14 +64,14 @@ def _load_definitions(definitions_path):
         raise ValueError(f'Invalid regular expression in {_SPECULATION_PATTERNS_KEY}: {ex}') from ex
 
 
-def _get_turn_summary(transcript_path, state):
+def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の最終応答と本hookによる差し戻し済みか、セッション全体でコマンド・検索ツールに渡した文字列を集める。
     # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
     last_assistant_msg = None
     already_requested = False
     command_texts = []
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
+        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -82,7 +91,7 @@ def _get_turn_summary(transcript_path, state):
         elif event_type == 'tool.execution_start':
             tool_name = data.get('toolName')
             if isinstance(tool_name, str) and tool_name.removeprefix('functions.') in _COMMAND_READ_TOOL_NAMES:
-                command_texts.extend(state['collect_strings'](data.get('arguments')))
+                command_texts.extend(_collect_json_string_values(data.get('arguments')))
     return last_assistant_msg, already_requested, command_texts
 
 
@@ -220,15 +229,15 @@ def main():
 
     try:
         # 記録側のpostToolUse hookと状態の形式・保存先を共有する。
-        state = runpy.run_path(str(Path(__file__).resolve().parents[3] / 'utilities' / 'known-files-state' / 'known-files-state.py'))
+        state = runpy.run_path(os.path.join(_utilities_directory, 'known-files-state', 'known-files-state.py'))
         state_path = state['get_state_path'](hook_input.get('sessionId'))
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答とツール実行を書き込み済みにする。
         runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
+            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
-        last_assistant_msg, already_requested, command_texts = _get_turn_summary(transcript_path, state)
+        last_assistant_msg, already_requested, command_texts = _get_turn_summary(transcript_path)
         # 同じ依頼で差し戻すのは1回だけにし、確認できない場合に停止できなくなるのを防ぐ。
         if last_assistant_msg is None or already_requested:
             return 0

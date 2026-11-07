@@ -9,9 +9,21 @@ import sqlite3
 import sys
 import tempfile
 import uuid
-from contextlib import closing
-from pathlib import Path
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_filter_first_time_denials = runpy.run_path(os.path.join(
+    _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
+))['filter_first_time_denials']
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
+    _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
+))['read_stored_file_content_for_write_comparison']
 
 
 _INCLUDED_FILE_PATTERNS_KEY = 'includedFilePatterns'
@@ -160,46 +172,10 @@ def _find_unpinned_calls(definitions, written, existing):
     return kinds, snippets
 
 
-def _read_existing(path):
-    try:
-        with open(path, encoding='utf-8', errors='replace') as file:
-            return file.read()
-    except OSError:
-        return None
-
-
-def _get_display_path(path, cwd):
-    # cwd配下のファイルは、OSによらず `/` 区切りの相対パスで示す。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path.replace(os.sep, '/')
-
-
 def _format_snippet(snippet):
     if len(snippet) > _MAX_SNIPPET_LENGTH:
         snippet = snippet[:_MAX_SNIPPET_LENGTH] + '...'
     return f'"{snippet}"'
-
-
-def _record_denials(state_path, candidates):
-    # candidates：(ファイルキー, 理由) のリスト。戻り値は、今回初めて拒否する理由のリスト。
-    # 同じファイルの拒否は1回だけにし、意図した編集なら再実行で通す。
-    # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    reasons = []
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute('CREATE TABLE IF NOT EXISTS denials (file TEXT PRIMARY KEY)')
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            for file_key, reason in candidates:
-                if connection.execute('INSERT OR IGNORE INTO denials (file) VALUES (?)', (file_key,)).rowcount:
-                    reasons.append(reason)
-    return reasons
 
 
 def main(arguments=None):
@@ -218,7 +194,7 @@ def main(arguments=None):
     try:
         definitions = _load_definitions(parsed_arguments.definitions_path)
         extract_edit_tool_changes = runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'extract-edit-tool-changes' / 'extract-edit-tool-changes.py')
+            os.path.join(_utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py')
         )['extract_edit_tool_changes']
 
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
@@ -251,7 +227,7 @@ def main(arguments=None):
             display_path = _get_display_path(path, real_cwd)
             if not any(pattern.search(display_path) for pattern in definitions[0]):
                 continue
-            current = (_read_existing(path) if os.path.isfile(path) else None) or ''
+            current = (_read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None) or ''
             written = change['full_content'] if change['full_content'] is not None else change['written']
             kinds, snippets = _find_unpinned_calls(definitions, written, '\n'.join([change['removed'], current]))
             if snippets:
@@ -270,7 +246,7 @@ def main(arguments=None):
                 tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-native-newlines',
                 f'{parsed_session_id}.sqlite3',
             )
-            reasons = _record_denials(state_path, candidates)
+            reasons = _filter_first_time_denials(state_path, candidates)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check native newlines: {ex}', file=sys.stderr)
         return 2

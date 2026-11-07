@@ -3,8 +3,24 @@ import io
 import json
 import os
 import re
+import runpy
 import sys
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
+))['collect_json_string_values']
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
+    _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
+))['read_stored_file_content_for_write_comparison']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 # ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
@@ -46,28 +62,6 @@ def _load_definitions(path):
     return compiled
 
 
-def _get_tool_args(raw_tool_args):
-    # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
-
-
-def _collect_strings(value, ignored_keys=frozenset()):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for key, item in value.items():
-            if key not in ignored_keys:
-                yield from _collect_strings(item, ignored_keys)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _collect_strings(item, ignored_keys)
-
-
 def _split_patch(text):
     # パッチの追加行（`+`）を書き込む内容、削除行（`-`）を既存の内容として分ける。
     added = []
@@ -83,7 +77,7 @@ def _split_patch(text):
 def _get_write(tool_name, tool_args):
     # 戻り値は (書き込む内容, 置換前の内容, 対象パスのリスト)。
     if tool_name == 'apply_patch':
-        texts = list(_collect_strings(tool_args))
+        texts = list(_collect_json_string_values(tool_args))
         parts = [_split_patch(text) for text in texts]
         paths = [match for text in texts for match in _PATCH_FILE_PATTERN.findall(text)]
         return '\n'.join(added for added, _ in parts), '\n'.join(removed for _, removed in parts), paths
@@ -92,8 +86,8 @@ def _get_write(tool_name, tool_args):
     # str_replace_editorのviewは閲覧なので対象外とする。
     if tool_name == 'str_replace_editor' and tool_args.get('command') == 'view':
         return '', '', []
-    written = '\n'.join(_collect_strings(tool_args, _IGNORED_KEYS | _REMOVED_TEXT_KEYS))
-    removed = '\n'.join(text for key in _REMOVED_TEXT_KEYS for text in _collect_strings(tool_args.get(key)))
+    written = '\n'.join(_collect_json_string_values(tool_args, _IGNORED_KEYS | _REMOVED_TEXT_KEYS))
+    removed = '\n'.join(text for key in _REMOVED_TEXT_KEYS for text in _collect_json_string_values(tool_args.get(key)))
     path = tool_args.get('path')
     return written, removed, [path] if isinstance(path, str) and path.strip() else []
 
@@ -107,15 +101,6 @@ def _is_placeholder(value):
     return len(value) >= _PLACEHOLDER_RUN_LENGTH and len(set(value[-_PLACEHOLDER_RUN_LENGTH:])) == 1
 
 
-def _read_existing(path):
-    # 既に書かれている値を再び書くのは新たな漏えいではないため、照合用に現在の内容を読む。
-    try:
-        with open(path, encoding='utf-8', errors='replace') as file:
-            return file.read()
-    except OSError:
-        return ''
-
-
 def _find_secret_names(definitions, written, existing):
     names = []
     for name, pattern in definitions:
@@ -125,17 +110,6 @@ def _find_secret_names(definitions, written, existing):
         ):
             names.append(name)
     return names
-
-
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path
 
 
 def main(arguments=None):
@@ -176,7 +150,7 @@ def main(arguments=None):
         findings = []
         tool_name = tool_name.removeprefix('functions.')
         if tool_name in _EDIT_TOOL_NAMES:
-            written, removed, paths = _get_write(tool_name, _get_tool_args(hook_input['toolArgs']))
+            written, removed, paths = _get_write(tool_name, _unwrap_tool_args(hook_input['toolArgs']))
             resolved_paths = sorted({os.path.normcase(os.path.realpath(os.path.join(cwd, path))) for path in paths})
             display_paths = ', '.join(_get_display_path(path, normalized_cwd) for path in resolved_paths) or tool_name
 
@@ -185,7 +159,10 @@ def main(arguments=None):
                 files = ', '.join(_get_display_path(path, normalized_cwd) for path in env_paths)
                 findings.append(f'{files} is an environment file that usually holds secrets')
 
-            existing = '\n'.join([removed, *(_read_existing(path) for path in resolved_paths if os.path.isfile(path))])
+            # 既に書かれている値を再び書くのは新たな漏えいではないため、照合用に現在の内容を読む。
+            existing = '\n'.join([
+                removed, *(_read_stored_file_content_for_write_comparison(path) or '' for path in resolved_paths if os.path.isfile(path)),
+            ])
             names = _find_secret_names(definitions, written, existing)
             if names:
                 findings.append(f'the content for {display_paths} looks like it contains a secret ({", ".join(names)})')

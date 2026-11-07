@@ -2,11 +2,18 @@ import argparse
 import io
 import json
 import os
-import re
 import runpy
 import sys
 from pathlib import Path
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 
 
 _EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
@@ -21,13 +28,6 @@ _BLOCK_REASON = (
     'deferred), state in the response which parts remain unimplemented and why. Do not report the work as complete '
     'while placeholders remain.'
 )
-
-
-def _compile_patterns(patterns, key):
-    try:
-        return [re.compile(pattern) for pattern in patterns]
-    except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {key}: {ex}') from None
 
 
 def _is_string_list(value):
@@ -54,13 +54,13 @@ def _load_definitions(path):
             'stub placeholder definitions require a non-empty array of objects with non-empty strings for name and '
             f'pattern in {_PLACEHOLDER_PATTERNS_KEY}.'
         )
-    placeholder_patterns = _compile_patterns(
+    placeholder_patterns = _build_regex_matchers(
         [definition['pattern'] for definition in placeholder_definitions], _PLACEHOLDER_PATTERNS_KEY,
     )
     return (
-        _compile_patterns(definitions[_EXCLUDED_FILE_PATTERNS_KEY], _EXCLUDED_FILE_PATTERNS_KEY),
+        _build_regex_matchers(definitions[_EXCLUDED_FILE_PATTERNS_KEY], _EXCLUDED_FILE_PATTERNS_KEY),
         [(definition['name'], pattern) for definition, pattern in zip(placeholder_definitions, placeholder_patterns)],
-        _compile_patterns(definitions[_DISCLOSURE_PATTERNS_KEY], _DISCLOSURE_PATTERNS_KEY),
+        _build_regex_matchers(definitions[_DISCLOSURE_PATTERNS_KEY], _DISCLOSURE_PATTERNS_KEY),
     )
 
 
@@ -69,13 +69,13 @@ def _get_turn_summary(transcript_path):
     # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
     # 編集ツールの引数の解析は、共通utilityで行う。
     extract_edit_tool_changes = runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'extract-edit-tool-changes' / 'extract-edit-tool-changes.py')
+        os.path.join(_utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py')
     )['extract_edit_tool_changes']
     last_assistant_msg = None
     changes = []
     already_requested = False
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
+        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -149,7 +149,7 @@ def main(arguments=None):
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
         runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
+            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, changes, already_requested = _get_turn_summary(transcript_path)

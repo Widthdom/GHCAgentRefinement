@@ -7,6 +7,18 @@ import sys
 from typing import cast
 
 
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
+))['collect_json_string_values']
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+
+
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 _SHELL_TOOL_NAMES = {'bash', 'powershell'}
 # パッチで追加・更新・削除するファイルと移動先。
@@ -49,30 +61,9 @@ _DENY_REASON = (
 _MAX_COMMAND_LENGTH = 200
 
 
-def _get_tool_args(raw_tool_args):
-    # toolArgsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で渡される場合もある。
-    if isinstance(raw_tool_args, str):
-        try:
-            return json.loads(raw_tool_args)
-        except ValueError:
-            return raw_tool_args
-    return raw_tool_args
-
-
-def _collect_strings(value):
-    if isinstance(value, str):
-        yield value
-    elif isinstance(value, dict):
-        for item in value.values():
-            yield from _collect_strings(item)
-    elif isinstance(value, list):
-        for item in value:
-            yield from _collect_strings(item)
-
-
 def _get_edited_paths(tool_name, tool_args):
     if tool_name == 'apply_patch':
-        return [match for text in _collect_strings(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)]
+        return [match for text in _collect_json_string_values(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)]
     if not isinstance(tool_args, dict):
         return []
     # str_replace_editorのviewは閲覧なので対象外とする。
@@ -80,17 +71,6 @@ def _get_edited_paths(tool_name, tool_args):
         return []
     path = tool_args.get('path')
     return [path] if isinstance(path, str) and path.strip() else []
-
-
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示す。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.normcase(os.path.commonpath([cwd, path])) == os.path.normcase(cwd):
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path.replace(os.sep, '/')
 
 
 def _get_targets(tool_name, tool_args, cwd):
@@ -122,8 +102,7 @@ def main():
     try:
         # 記録側のuserPromptSubmitted hookと状態の形式・保存先を共有する。
         state = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'hook-change-request-state', 'hook-change-request-state.py',
+            _utilities_directory, 'hook-change-request-state', 'hook-change-request-state.py',
         ))
 
         hook_input_json = sys.stdin.buffer.read().decode('utf-8')
@@ -144,7 +123,7 @@ def main():
             raise ValueError('toolArgs is required.')
 
         targets = _get_targets(
-            tool_name.removeprefix('functions.'), _get_tool_args(hook_input['toolArgs']), os.path.normpath(cwd),
+            tool_name.removeprefix('functions.'), _unwrap_tool_args(hook_input['toolArgs']), os.path.normpath(cwd),
         )
         if not targets or state['is_permitted'](state_path):
             return 0

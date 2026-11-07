@@ -212,7 +212,7 @@ class PreserveLineEndingsTests(unittest.TestCase):
         os.makedirs(nested)
         self.__commit(b'a\r\nb\r\n')
         payload = {**self.__payload, 'cwd': nested, 'toolArgs': {'path': os.path.join('..', '対象.py')}}
-        self.__assert_notification(self.__edit(b'a\nb\n', payload), f'{os.path.normcase(self.__target)} (line endings changed from CRLF to LF)')
+        self.__assert_notification(self.__edit(b'a\nb\n', payload), f'{os.path.normcase(self.__target).replace(os.sep, "/")} (line endings changed from CRLF to LF)')
 
     def test_skips_files_without_committed_version(self):
         self.__commit(b'a\r\nb\r\n')

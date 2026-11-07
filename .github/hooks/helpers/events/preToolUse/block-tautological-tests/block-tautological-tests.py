@@ -10,8 +10,22 @@ import sqlite3
 import sys
 import tempfile
 import uuid
-from contextlib import closing
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_filter_first_time_denials = runpy.run_path(os.path.join(
+    _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
+))['filter_first_time_denials']
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
+    _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
+))['read_stored_file_content_for_write_comparison']
 
 
 _TEST_FILE_PATTERNS_KEY = 'testFilePatterns'
@@ -72,13 +86,6 @@ _DENY_REASON = (
 )
 
 
-def _compile_patterns(patterns, key):
-    try:
-        return [re.compile(pattern) for pattern in patterns]
-    except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {key}: {ex}') from None
-
-
 def _load_test_file_patterns(path):
     # テストファイルの判定はblock-test-weakening hookの定義を共有し、二重管理しない。
     with open(path, encoding='utf-8-sig') as definitions_file:
@@ -88,32 +95,12 @@ def _load_test_file_patterns(path):
         isinstance(pattern, str) and pattern.strip() for pattern in patterns
     ):
         raise ValueError(f'test file definitions require a non-empty array of non-empty strings for {_TEST_FILE_PATTERNS_KEY}.')
-    return _compile_patterns(patterns, _TEST_FILE_PATTERNS_KEY)
-
-
-def _read_existing(path):
-    try:
-        with open(path, encoding='utf-8', errors='replace') as file:
-            return file.read()
-    except OSError:
-        return None
-
-
-def _get_display_path(path, cwd):
-    # cwd配下のファイルはOSによらず `/` 区切りの相対パスで示し、理由を短くする。
-    # Windowsでドライブが異なる場合、commonpathはValueErrorになるため絶対パスのまま示す。
-    try:
-        if os.path.commonpath([cwd, path]) == cwd:
-            return os.path.relpath(path, cwd).replace(os.sep, '/')
-    except ValueError:
-        pass
-    return path
+    return _build_regex_matchers(patterns, _TEST_FILE_PATTERNS_KEY)
 
 
 def _is_test_file(test_file_patterns, display_path):
-    # パターンはOSによらず `/` 区切りのパスに対して照合する。
-    slash_path = display_path.replace(os.sep, '/')
-    return any(pattern.search(slash_path) for pattern in test_file_patterns)
+    # パターンは、get-display-pathがOSによらず `/` 区切りで返すパスに対して照合する。
+    return any(pattern.search(display_path) for pattern in test_file_patterns)
 
 
 def _normalize(text):
@@ -319,27 +306,6 @@ def _find_self_mocks(written, context):
     return self_mocks
 
 
-def _record_denials(state_path, candidates):
-    # candidates：(ファイルキー, 種類, 理由) のリスト。戻り値は、今回初めて拒否する理由のリスト。
-    # 同じファイルの同じ種類の拒否は1回だけにし、意図した編集なら再実行で通す。
-    # SQLiteのトランザクションで、並列のツール呼び出しでも重複して拒否しない。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    reasons = []
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute(
-            'CREATE TABLE IF NOT EXISTS denials (file TEXT NOT NULL, kind TEXT NOT NULL, PRIMARY KEY (file, kind))'
-        )
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            for file_key, kind, reason in candidates:
-                if connection.execute(
-                    'INSERT OR IGNORE INTO denials (file, kind) VALUES (?, ?)', (file_key, kind),
-                ).rowcount:
-                    reasons.append(reason)
-    return reasons
-
-
 def _format_findings(findings):
     return ', '.join(f'"{finding}"' for finding in findings[:3])
 
@@ -389,11 +355,11 @@ def main(arguments=None):
             raise ValueError('toolArgs is required.')
 
         real_cwd = os.path.realpath(cwd)
+        # (拒否のキー, 理由) のリスト。同じファイルでも種類の異なる拒否は、それぞれ1回ずつ行う。
         candidates = []
         # 編集ツールの引数の解析は、共通utilityで行う。
         extract_edit_tool_changes = runpy.run_path(os.path.join(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-            'utilities', 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+            _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
         ))['extract_edit_tool_changes']
         for change in extract_edit_tool_changes(tool_name, hook_input['toolArgs']):
             path = os.path.realpath(os.path.join(cwd, change['path']))
@@ -403,17 +369,17 @@ def main(arguments=None):
                 continue
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
             file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
-            current = (_read_existing(path) if os.path.isfile(path) else None) or ''
+            current = (_read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None) or ''
             context = '\n'.join([change['removed'], current])
 
             tautologies = _find_tautologies(change['written'], context)
             if tautologies:
-                candidates.append((file_key, _TAUTOLOGY, _TAUTOLOGY_REASON.format(
+                candidates.append((f'{file_key}:{_TAUTOLOGY}', _TAUTOLOGY_REASON.format(
                     file=display_path, assertions=_format_findings(tautologies),
                 )))
             self_mocks = _find_self_mocks(change['written'], context)
             if self_mocks:
-                candidates.append((file_key, _SELF_MOCK, _SELF_MOCK_REASON.format(
+                candidates.append((f'{file_key}:{_SELF_MOCK}', _SELF_MOCK_REASON.format(
                     file=display_path, mocks=_format_findings(self_mocks),
                 )))
 
@@ -425,7 +391,7 @@ def main(arguments=None):
                 tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-tautological-tests',
                 f'{parsed_session_id}.sqlite3',
             )
-            reasons = _record_denials(state_path, candidates)
+            reasons = _filter_first_time_denials(state_path, candidates)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check tautological tests: {ex}', file=sys.stderr)
         return 2

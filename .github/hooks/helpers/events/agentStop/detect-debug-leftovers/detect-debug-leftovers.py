@@ -9,6 +9,14 @@ from pathlib import Path
 from typing import cast
 
 
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+
+
 _EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
 _DEBUG_PATTERNS_KEY = 'debugPatterns'
 _REASON_PREFIX = 'The changes in this request leave debugging code'
@@ -20,14 +28,6 @@ _BLOCK_REASON = (
     'data, and a debugger call stops the program. Remove them now. If one is intended (for example, the output of a '
     'command-line tool or logging the user asked for), keep it and say so in the response.'
 )
-
-
-def _compile_patterns(patterns, key):
-    # 行全体に一致させる定義（`debugger` 文など）のため、行頭・行末は各行に一致させる。
-    try:
-        return [re.compile(pattern, re.MULTILINE) for pattern in patterns]
-    except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {key}: {ex}') from None
 
 
 def _load_definitions(path):
@@ -52,9 +52,12 @@ def _load_definitions(path):
             'debug leftover definitions require a non-empty array of objects with non-empty strings for name and '
             f'pattern in {_DEBUG_PATTERNS_KEY}.'
         )
-    debug_patterns = _compile_patterns([definition['pattern'] for definition in debug_definitions], _DEBUG_PATTERNS_KEY)
+    # 行全体に一致させる定義（`debugger` 文など）のため、行頭・行末は各行に一致させる。
+    debug_patterns = _build_regex_matchers(
+        [definition['pattern'] for definition in debug_definitions], _DEBUG_PATTERNS_KEY, re.MULTILINE,
+    )
     return (
-        _compile_patterns(excluded, _EXCLUDED_FILE_PATTERNS_KEY),
+        _build_regex_matchers(excluded, _EXCLUDED_FILE_PATTERNS_KEY),
         [(definition['name'], pattern) for definition, pattern in zip(debug_definitions, debug_patterns)],
     )
 
@@ -64,13 +67,13 @@ def _get_turn_summary(transcript_path):
     # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
     # 編集ツールの引数の解析は、共通utilityで行う。
     extract_edit_tool_changes = runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'extract-edit-tool-changes' / 'extract-edit-tool-changes.py')
+        os.path.join(_utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py')
     )['extract_edit_tool_changes']
     last_assistant_msg = None
     changes = []
     already_requested = False
     for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
+        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
     )['read_jsonl_objects'](transcript_path):
         data = event.get('data', {})
         if not isinstance(data, dict):
@@ -142,7 +145,7 @@ def main(arguments=None):
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
         runpy.run_path(
-            str(Path(__file__).resolve().parents[3] / 'utilities' / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
+            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, changes, already_requested = _get_turn_summary(transcript_path)
