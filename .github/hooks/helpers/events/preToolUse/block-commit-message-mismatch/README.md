@@ -29,7 +29,6 @@ git commit -m '`parse` と `render` を直し、docs/guide.md を更新した'
 ```
 
 ## 前提条件
-- 特別なプロンプト指定は不要。
 - `git` コマンドが使えること。
 - Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 

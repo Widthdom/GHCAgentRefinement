@@ -29,7 +29,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |アサーション（数える対象）|`Assert.*(`・`CollectionAssert.*(`・`.Should()`・`assert*(`・`assert` 文・`assert_eq!(`・`expect(`・`t.Error(`・`t.Fatal(`・`pytest.raises(`|
 
 ## 前提条件
-- 特別なプロンプト指定は不要。
 - Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外

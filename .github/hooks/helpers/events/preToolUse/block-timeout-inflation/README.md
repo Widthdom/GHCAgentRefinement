@@ -51,7 +51,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |間隔・バックオフ・期限|`POLL_INTERVAL`・`backoff`・`deadline`|
 
 ## 前提条件
-- 特別なプロンプト指定は不要。
 - Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外

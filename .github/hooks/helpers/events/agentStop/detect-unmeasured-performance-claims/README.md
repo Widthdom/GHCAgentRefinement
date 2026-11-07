@@ -21,9 +21,6 @@ agentStop（エージェントの応答終了時）
 |推測・未計測（対象外にする）|`はず`・`見込み`・`可能性`・`かもしれない`・`期待`・`想定`・`理論上`・`未計測`・`計測していない`・`should`・`might`・`expected to`・`likely`・`not measured`・`isn't` など|
 |計測とみなすコマンド|`hyperfine`・BenchmarkDotNet などの `bench` を含むコマンド・`go test -bench`・`cargo bench`・`pytest --benchmark-only`・`timeit`・`cProfile`・`py-spy`・`memray`・`tracemalloc`・`valgrind`・`dotnet-counters`・`dotnet-trace`・`perf stat`・`k6`・`wrk`・`time <コマンド>`・`Measure-Command`・`perf_counter`・`Stopwatch`・`performance.now` など|
 
-## 前提条件
-- 特別なプロンプト指定は不要。
-
 ## 例外
 - サブエージェントの停止は対象外。
 - hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。

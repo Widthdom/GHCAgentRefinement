@@ -32,7 +32,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - 期待値の行を、リテラル以外の部分も含めて書き直す
 
 ## 前提条件
-- 特別なプロンプト指定は不要。
 - [record-test-failure-values](../../postToolUse/record-test-failure-values/README.md) hookが記録したテストの失敗を使う。記録がなければ何も拒否しない。
 - Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 

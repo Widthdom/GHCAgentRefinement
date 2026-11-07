@@ -40,7 +40,6 @@ agentStop（エージェントの応答終了時）
 |Goの標準インターフェースのメソッド|`String`・`Error`・`ServeHTTP`・`Len`・`Less`・`Swap`・`MarshalJSON`・`UnmarshalJSON`|
 
 ## 前提条件
-- 特別なプロンプト指定は不要。
 - gitを使う。gitがない、またはリポジトリ外の場合は何もしない。
 
 ## 例外

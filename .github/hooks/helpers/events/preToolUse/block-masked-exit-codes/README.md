@@ -22,7 +22,6 @@ preToolUse（bashツールの実行前）
 
 ## 前提条件
 
-- 特別なプロンプト指定は不要。
 - Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外

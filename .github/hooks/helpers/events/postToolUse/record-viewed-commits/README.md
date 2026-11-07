@@ -12,7 +12,6 @@ postToolUse（ツール `bash`・`powershell` が成功した直後）
 3. 見出し行のコミットIDを、このセッションでメッセージを読んだコミットとして [viewed-commits-state.py](../../../utilities/viewed-commits-state/viewed-commits-state.py) に記録する。
 
 ## 前提条件
-- 特別なプロンプト指定は不要。
 - Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外

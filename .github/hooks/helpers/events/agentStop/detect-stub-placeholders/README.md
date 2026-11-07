@@ -30,9 +30,6 @@ agentStop（エージェントの応答終了時）
 |実装の先送りを示すコメント|`// 後で実装`・`# 未実装`・`/* implement later */`・`// stub implementation`|
 |対象外のファイル|`*.md`・`*.markdown`・`*.rst`・`*.txt`・`*.adoc`・`*.json`|
 
-## 前提条件
-- 特別なプロンプト指定は不要。
-
 ## 例外
 - 編集の途中で仮実装を置くのは正当な手順のため、書き込む時点では拒否せず、応答終了時に最終的なファイルに残っているものだけを検出する。
 - `FIXME` は対象外とする。[add-fixme-comment](../../../../../skills/add-fixme-comment/SKILL.md) skillが依頼範囲外の不具合の目印として意図的に書き込むため。

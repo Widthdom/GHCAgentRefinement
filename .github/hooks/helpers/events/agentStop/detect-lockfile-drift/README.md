@@ -31,7 +31,6 @@ agentStop（エージェントの応答終了時）
 |NuGet|`*.csproj`・`*.fsproj`・`*.vbproj`|`<PackageReference>`・`<PackageVersion>` の要素|`packages.lock.json`（`dotnet restore --force-evaluate`）|
 
 ## 前提条件
-- 特別なプロンプト指定は不要。
 - HEADと比べるため、gitとコミット済みのHEADが必要。
 
 ## 例外

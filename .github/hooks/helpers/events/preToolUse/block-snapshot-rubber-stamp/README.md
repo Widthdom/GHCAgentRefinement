@@ -25,7 +25,6 @@ preToolUse（bashまたはpowershellツールの実行前）
 |更新用の環境変数|`UPDATE_SNAPSHOTS=1`・`UPDATE_GOLDEN=true`・`$env:UPDATE_SNAPSHOTS = '1'` など|
 
 ## 前提条件
-- 特別なプロンプト指定は不要。
 - Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外

@@ -25,7 +25,6 @@ preToolUse（bashまたはpowershellツールの実行前）
 
 ## 前提条件
 
-- 特別なプロンプト指定は不要。
 - gitを使う。gitの導入は [check-required-tools](../../sessionStart/check-required-tools/README.md) hookが案内する。
 
 ## 例外

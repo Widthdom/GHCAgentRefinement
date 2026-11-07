@@ -32,7 +32,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |スクリプト内部での書き込み|`python -c "open(..., 'w')"`・`write_text`・`os.remove`・`shutil.move`・`[IO.File]::WriteAllText`・`fs.writeFileSync` など|
 
 ## 前提条件
-- 特別なプロンプト指定は不要。hookを変更する作業では、依頼で `hook`・`フック`・イベント名・hookの名前のいずれかに触れればよい。
+- hookを変更する作業では、依頼で `hook`・`フック`・イベント名・hookの名前のいずれかに触れればよい。
 - [record-hook-change-requests](../../userPromptSubmitted/record-hook-change-requests/README.md) hookの記録で許可を判定する。
 
 ## 例外

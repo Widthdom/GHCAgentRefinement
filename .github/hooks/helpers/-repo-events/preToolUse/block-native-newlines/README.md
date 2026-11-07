@@ -25,7 +25,6 @@ Pythonで、改行を `\n` に固定せずにテキストを書き出す呼び�
 |text-mode temporary file|`tempfile.NamedTemporaryFile(mode='w')`|`NamedTemporaryFile(mode='w', encoding='utf-8', newline='\n')`|
 
 ## 前提条件
-- 特別なプロンプト指定は不要。
 - Python 3.14以降の標準の `sqlite3` を使うため、SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ## 例外
