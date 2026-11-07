@@ -40,7 +40,7 @@ agentStop（エージェントの応答終了時）
 - 同じ依頼で差し戻すのは1回だけ。判定を誤った場合でも停止できるよう、2回目以降の応答は検査しない。
 
 ## 背景
-複数の項目を列挙した依頼で、一部の項目を黙って取りこぼす事故を防ぐ。[verify-completion-claims](../verify-completion-claims/README.md) hookは報告した内容の真偽を確かめ、このhookは報告されなかった項目を確かめる。
+複数の項目を列挙した依頼で、一部の項目を黙って取りこぼす事故を防ぐ。[verify-test-pass-claims](../verify-test-pass-claims/README.md) hookは報告したテストの成功の真偽を確かめ、このhookは報告されなかった項目を確かめる。
 
 ## 備考
 - テスト用に `--definitions-path` で定義ファイルを差し替えられる。

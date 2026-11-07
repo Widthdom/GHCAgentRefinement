@@ -35,7 +35,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - 正規表現で検出するため、定義にない形式（条件分岐による早期の `return` など）は見逃す。期待値をテスト対象の出力に合わせる書き換えは [block-goalpost-moving](../block-goalpost-moving/README.md) hookが拒否する。
 
 ## 備考
-- テストが失敗したとき、エージェントが実装を直さずに、テストをスキップしたり、アサーションを消したり、常に成功するアサーションに置き換えたりして成功させる事故を、書き込む前に防ぐためのhook。テストの成功の主張を確かめる [verify-completion-claims](../../agentStop/verify-completion-claims/README.md) hookと組み合わせ、テストを弱めて成功させる抜け道を塞ぐ。
+- テストが失敗したとき、エージェントが実装を直さずに、テストをスキップしたり、アサーションを消したり、常に成功するアサーションに置き換えたりして成功させる事故を、書き込む前に防ぐためのhook。テストの成功の主張を確かめる [verify-test-pass-claims](../../agentStop/verify-test-pass-claims/README.md) hookと組み合わせ、テストを弱めて成功させる抜け道を塞ぐ。
 - 限定実行（`.only` など）は、他のテストを実行させなくするため、スキップと同じく骨抜きとして扱う。
 - 新規のテストファイルでも、スキップや限定実行の行は骨抜きとして扱う。
 - 状態にはファイルパスを保存せず、照合用のSHA-256と拒否の種類だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block-test-weakening/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。

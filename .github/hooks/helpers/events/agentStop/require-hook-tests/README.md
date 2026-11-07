@@ -43,4 +43,4 @@ hookの実装・定義・テストを変更したのに、最後の変更の後�
 - 拒否などで実行されなかったコマンドは終了コードが記録されないため、成功とみなさない。
 
 ## 備考
-- [verify-completion-claims](../verify-completion-claims/README.md) は「テストが通った」と主張した場合だけ検査する。本hookは主張の有無によらず、hookを変更したらテストの成功を求める。
+- [verify-test-pass-claims](../verify-test-pass-claims/README.md) は「テストが通った」と主張した場合だけ検査する。本hookは主張の有無によらず、hookを変更したらテストの成功を求める。
