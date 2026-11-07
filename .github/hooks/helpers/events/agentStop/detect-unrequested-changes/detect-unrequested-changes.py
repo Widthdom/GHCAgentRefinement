@@ -13,19 +13,12 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
-))['collect_json_string_values']
+_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 
 
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-_OLD_TEXT_KEYS = ('old_str', 'old_string')
-_NEW_TEXT_KEYS = ('new_str', 'new_string')
-_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
-_PATCH_MOVE_PATTERN = re.compile(r'^\*\*\* Move to: (.+?)\s*$')
 _WHITESPACE_PATTERN = re.compile(r'\s+')
 _EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
 _FORMATTING_REQUEST_PATTERNS_KEY = 'formattingRequestPatterns'
@@ -71,111 +64,54 @@ def _is_whitespace_only(old, new):
     return old != new and bool(old.strip()) and _WHITESPACE_PATTERN.sub('', old) == _WHITESPACE_PATTERN.sub('', new)
 
 
-def _get_patch_changes(text):
-    # パッチをファイルごとに分け、削除・移動と、追加行と削除行が空白だけ異なる変更を特定する。
-    changes = []
-    for line in text.splitlines():
-        match = _PATCH_FILE_PATTERN.match(line)
-        move = _PATCH_MOVE_PATTERN.match(line)
-        if match:
-            changes.append({'path': match.group(2), 'kind': match.group(1), 'moved_to': None, 'added': [], 'removed': []})
-        elif changes and move:
-            changes[-1]['moved_to'] = move.group(1)
-        elif changes and line.startswith('+'):
-            changes[-1]['added'].append(line[1:])
-        elif changes and line.startswith('-'):
-            changes[-1]['removed'].append(line[1:])
-    return [
-        {
-            'path': change['path'],
-            'deleted': change['kind'] == 'Delete',
-            'moved_to': change['moved_to'],
-            'whitespace_only': change['kind'] == 'Update' and _is_whitespace_only(
-                '\n'.join(change['removed']), '\n'.join(change['added']),
-            ),
-        }
-        for change in changes
-    ]
-
-
-def _get_changes(tool_name, arguments):
-    # 戻り値は {path, deleted, moved_to（移動先またはNone）, whitespace_only} のリスト。
-    if tool_name == 'apply_patch':
-        return [change for text in _collect_json_string_values(arguments) for change in _get_patch_changes(text)]
-    if not isinstance(arguments, dict):
-        return []
-    # str_replace_editorのviewは閲覧なので対象外とする。
-    if tool_name == 'str_replace_editor' and arguments.get('command') == 'view':
-        return []
-    path = arguments.get('path')
-    if not isinstance(path, str) or not path.strip():
-        return []
-    old = next((arguments[key] for key in _OLD_TEXT_KEYS if isinstance(arguments.get(key), str)), None)
-    new = next((arguments[key] for key in _NEW_TEXT_KEYS if isinstance(arguments.get(key), str)), None)
-    return [{
-        'path': path,
-        'deleted': False,
-        'moved_to': None,
-        'whitespace_only': old is not None and new is not None and _is_whitespace_only(old, new),
-    }]
-
-
-def _get_arguments(raw_arguments):
-    # argumentsはJSONオブジェクトのほか、JSON文字列や生のパッチ文字列（apply_patch）で記録される場合もある。
-    if isinstance(raw_arguments, str):
-        try:
-            return json.loads(raw_arguments)
-        except ValueError:
-            return raw_arguments
-    return raw_arguments
+def _is_whitespace_only_change(change):
+    # パッチでは削除行と追加行、置換では置換前後の内容を比べる。作成・挿入・削除は対象外。
+    if change['patch_lines'] is not None:
+        return _is_whitespace_only(change['removed'], change['written'])
+    return change['replacement'] is not None and _is_whitespace_only(*change['replacement'])
 
 
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、依頼の文・応答の文・変更・本hookによる差し戻し済みかを集める。
-    # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
     # 割り込みで追加された指示も依頼に含める。
+    # 変更は {path, deleted, moved_to（移動先またはNone）, whitespace_only} のリスト。
+    # 編集ツールの引数の解析は、共通utilityで行う。
+    extract_edit_tool_changes = runpy.run_path(
+        os.path.join(_utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py')
+    )['extract_edit_tool_changes']
+    events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
     request_texts = []
     response_texts = []
     changes = []
     started = {}
-    already_requested = False
-    for event in runpy.run_path(
-        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
-    )['read_jsonl_objects'](transcript_path):
-        data = event.get('data', {})
-        if not isinstance(data, dict):
-            raise ValueError('Event data must be a JSON object.')
-        event_type = event.get('type')
-
+    for event_type, data in events:
+        content = data.get('content')
         if event_type == 'user.message':
-            content = data.get('content')
-            if data.get('delivery') != 'queued':
-                request_texts.clear()
-                response_texts.clear()
-                changes.clear()
-                started.clear()
-                already_requested = False
-            if isinstance(content, str) and content.startswith(_REASON_PREFIX):
-                already_requested = True
-            elif isinstance(content, str):
+            if isinstance(content, str) and not content.startswith(_REASON_PREFIX):
                 request_texts.append(content)
         elif event_type == 'assistant.message':
-            content = data.get('content')
             if isinstance(content, str) and content.strip():
                 response_texts.append(content)
         elif event_type == 'tool.execution_start':
             call_id = data.get('toolCallId')
             tool_name = data.get('toolName')
-            if (isinstance(call_id, str) and isinstance(tool_name, str)
-                    and tool_name.removeprefix('functions.') in _EDIT_TOOL_NAMES):
-                started[call_id] = (tool_name.removeprefix('functions.'), data.get('arguments'))
+            if isinstance(call_id, str) and isinstance(tool_name, str):
+                started[call_id] = (tool_name, data.get('arguments'))
         elif event_type == 'tool.execution_complete':
             call_id = data.get('toolCallId')
             if not isinstance(call_id, str) or call_id not in started:
                 continue
             tool_name, arguments = started.pop(call_id)
             if data.get('success') is True:
-                changes.extend(_get_changes(tool_name, _get_arguments(arguments)))
+                changes.extend(
+                    {
+                        'path': change['path'],
+                        'deleted': change['deleted'],
+                        'moved_to': change['moved_to'],
+                        'whitespace_only': _is_whitespace_only_change(change),
+                    }
+                    for change in extract_edit_tool_changes(tool_name, arguments, include_deleted=True)
+                )
     return '\n'.join(request_texts), '\n'.join(response_texts), changes, already_requested
 
 
@@ -237,27 +173,14 @@ def main(arguments=None):
 
     try:
         definitions = _load_definitions(parsed_arguments.definitions_path)
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('agentStop hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('agentStop hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
 
         # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
         if hook_input.get('agentId'):
             return 0
 
-        cwd = hook_input.get('cwd')
-        if not isinstance(cwd, str) or not cwd.strip():
-            raise ValueError('cwd must be a non-empty string.')
-        if not os.path.isabs(cwd):
-            raise ValueError('cwd must be an absolute path.')
-        transcript_path = hook_input.get('transcriptPath')
-        if not isinstance(transcript_path, str) or not transcript_path.strip():
-            raise ValueError('transcriptPath must be a non-empty string.')
-        if not os.path.isfile(transcript_path):
-            raise ValueError(f'transcript path is not a file or could not be verified as a file: {transcript_path}')
+        cwd = _hook_input['get_cwd'](hook_input)
+        transcript_path = _hook_input['get_transcript_path'](hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
         runpy.run_path(

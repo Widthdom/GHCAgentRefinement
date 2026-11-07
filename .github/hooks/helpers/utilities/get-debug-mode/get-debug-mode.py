@@ -1,12 +1,16 @@
 import json
 import os
-import tempfile
+import runpy
+
+# 状態の保存先は共通のutilityで決める。utilityのフォルダーの親がutilitiesである。
+_get_state_path = runpy.run_path(os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'get-state-path', 'get-state-path.py',
+))['get_state_path']
 
 
 def get_debug_mode(session_id):
-    debug_state_file_path = os.path.join(
-        tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'debug-mode', f'{session_id}.json',
-    )
+    # session_id：sessionIdの文字列、または解析済みのUUID。状態はset-debug-mode hookが書き込む。
+    debug_state_file_path = _get_state_path('debug-mode', str(session_id), '.json')
     if not os.path.isfile(debug_state_file_path):
         return False
 

@@ -12,6 +12,7 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
@@ -105,25 +106,13 @@ def main():
             _utilities_directory, 'hook-change-request-state', 'hook-change-request-state.py',
         ))
 
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
         state_path = state['get_state_path'](hook_input.get('sessionId'))
-        cwd = hook_input.get('cwd')
-        if not isinstance(cwd, str) or not os.path.isabs(cwd):
-            raise ValueError('cwd must be an absolute path.')
-        # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
-        tool_name = hook_input.get('toolName')
-        if not isinstance(tool_name, str) or not tool_name.strip():
-            raise ValueError('toolName must be a non-empty string.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        cwd = _hook_input['get_cwd'](hook_input)
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         targets = _get_targets(
-            tool_name.removeprefix('functions.'), _unwrap_tool_args(hook_input['toolArgs']), os.path.normpath(cwd),
+            tool_name.removeprefix('functions.'), _unwrap_tool_args(tool_args), os.path.normpath(cwd),
         )
         if not targets or state['is_permitted'](state_path):
             return 0

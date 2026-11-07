@@ -3,7 +3,6 @@ import json
 import os
 import re
 import runpy
-import subprocess
 import sys
 from typing import cast
 
@@ -13,17 +12,15 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
-))['collect_json_string_values']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
+_extract_edit_tool_changes = runpy.run_path(os.path.join(
+    _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+))['extract_edit_tool_changes']
 
 
 # ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
 _EDIT_TOOL_NAMES = {'edit', 'str_replace_editor', 'apply_patch'}
-_REMOVED_TEXT_KEYS = ('old_str', 'old_string')
-_WRITTEN_TEXT_KEYS = ('new_str', 'new_string')
-_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
 # 他のファイルから参照される定義。ローカル変数の名前の変更は、他のファイルに参照が残らないため対象外とする。
 _DEFINITION_PATTERNS = [
     re.compile(r'\b(?:class|interface|struct|enum|record|trait|protocol|type)\s+(?P<name>[A-Za-z_]\w*)'),
@@ -52,38 +49,17 @@ _LEFTOVER_CONTEXT = (
 )
 
 
-def _get_patch_changes(text):
-    # パッチをファイルごとに分け、削除行（`-`）と追加行（`+`）の組にする。
-    changes = []
-    for line in text.splitlines():
-        match = _PATCH_FILE_PATTERN.match(line)
-        if match:
-            changes.append({'path': match.group(2), 'removed': [], 'written': []})
-        elif changes and line.startswith('-'):
-            changes[-1]['removed'].append(line[1:])
-        elif changes and line.startswith('+'):
-            changes[-1]['written'].append(line[1:])
-    return [
-        {'path': change['path'], 'removed': '\n'.join(change['removed']), 'written': '\n'.join(change['written'])}
-        for change in changes
-    ]
-
-
 def _get_changes(tool_name, tool_args):
     # 戻り値は {path, removed（置換前の内容）, written（置換後の内容）} のリスト。
     # 置換前の内容が分からない上書き（create）と挿入（insert）は、名前の変更を判断できないため対象外とする。
-    if tool_name == 'apply_patch':
-        return [change for text in _collect_json_string_values(tool_args) for change in _get_patch_changes(text)]
-    if not isinstance(tool_args, dict):
-        return []
-    if tool_name == 'str_replace_editor' and tool_args.get('command') != 'str_replace':
-        return []
-    path = tool_args.get('path')
-    removed = next((tool_args[key] for key in _REMOVED_TEXT_KEYS if isinstance(tool_args.get(key), str)), None)
-    written = next((tool_args[key] for key in _WRITTEN_TEXT_KEYS if isinstance(tool_args.get(key), str)), None)
-    if not isinstance(path, str) or not path.strip() or removed is None or written is None:
-        return []
-    return [{'path': path, 'removed': removed, 'written': written}]
+    changes = []
+    for change in _extract_edit_tool_changes(tool_name, tool_args):
+        if change['patch_lines'] is not None:
+            changes.append({'path': change['path'], 'removed': change['removed'], 'written': change['written']})
+        elif change['replacement'] is not None:
+            removed, written = change['replacement']
+            changes.append({'path': change['path'], 'removed': removed, 'written': written})
+    return changes
 
 
 def _get_defined_names(text):
@@ -113,33 +89,16 @@ def _find_renames(removed, written):
     return list(zip(old_names, new_names))
 
 
-def _get_repository_root(cwd):
-    try:
-        result = subprocess.run(
-            ['git', '-C', cwd, 'rev-parse', '--show-toplevel'],
-            capture_output=True, timeout=_GIT_TIMEOUT_SECONDS, check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    if result.returncode != 0:
-        return None
-    return result.stdout.decode('utf-8', errors='replace').strip() or None
-
-
 def _find_locations(root, name):
     # git管理下と、無視されていない未追跡のファイルから、単語として一致する行を探す。
-    try:
-        result = subprocess.run(
-            ['git', '-C', root, 'grep', '-n', '-I', '-w', '-F', '--untracked', '-e', name, '--'],
-            capture_output=True, timeout=_GIT_TIMEOUT_SECONDS, check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return []
-    # git grepは一致がなければ終了コード1、エラーなら2以上を返す。
-    if result.returncode != 0:
+    # git grepは一致がなければ終了コード1、エラーなら2以上を返すため、どちらも一致なしとして扱う。
+    output = _git['get_git_output'](
+        root, ['grep', '-n', '-I', '-w', '-F', '--untracked', '-e', name, '--'], _GIT_TIMEOUT_SECONDS,
+    )
+    if output is None:
         return []
     locations = []
-    for line in result.stdout.decode('utf-8', errors='replace').splitlines():
+    for line in output.splitlines():
         path, _, rest = line.partition(':')
         line_number, _, _ = rest.partition(':')
         if path and line_number.isdigit():
@@ -153,23 +112,9 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
-        cwd = hook_input.get('cwd')
-        if not isinstance(cwd, str) or not cwd.strip():
-            raise ValueError('cwd must be a non-empty string.')
-        if not os.path.isabs(cwd):
-            raise ValueError('cwd must be an absolute path.')
-        # postToolUseには、呼び出したツール1件の名前（toolName）と引数（toolArgs）が渡される。
-        tool_name = hook_input.get('toolName')
-        if not isinstance(tool_name, str) or not tool_name.strip():
-            raise ValueError('toolName must be a non-empty string.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        hook_input = _hook_input['read_hook_input']()
+        cwd = _hook_input['get_cwd'](hook_input)
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
     except (UnicodeError, ValueError) as ex:
         print(f'Failed to detect rename leftovers: {ex}', file=sys.stderr)
         return 2
@@ -178,14 +123,14 @@ def main():
     if tool_name not in _EDIT_TOOL_NAMES:
         return 0
     renames = []
-    for change in _get_changes(tool_name, _unwrap_tool_args(hook_input['toolArgs'])):
+    for change in _get_changes(tool_name, tool_args):
         for rename in _find_renames(change['removed'], change['written']):
             if rename not in renames:
                 renames.append(rename)
     if not renames:
         return 0
     # gitがない、またはリポジトリ外では探せないため何もしない。
-    root = _get_repository_root(cwd)
+    root = _git['get_repository_root'](cwd, _GIT_TIMEOUT_SECONDS)
     if root is None:
         return 0
 

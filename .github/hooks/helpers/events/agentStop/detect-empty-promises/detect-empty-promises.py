@@ -4,8 +4,16 @@ import os
 import re
 import runpy
 import sys
-from pathlib import Path
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 
 
 # 作業を後回しにすると約束する表現。エージェントには応答の後に作業する機会がないため、果たされない。
@@ -43,33 +51,11 @@ _MAX_PROMISE_LENGTH = 200
 
 def _get_turn(transcript_path, extract_edit_tool_changes):
     # ユーザーの最新の依頼以降の最終応答と、FIXMEコメントを書き込んだかを返す。本hookによる差し戻し済みかも返す。
-    # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
+    events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
     started = {}
-    last_assistant_msg = None
     wrote_fixme = False
-    already_requested = False
-    for event in runpy.run_path(
-        str(Path(__file__).resolve().parents[3] / 'utilities' / 'read-jsonl-objects' / 'read-jsonl-objects.py')
-    )['read_jsonl_objects'](transcript_path):
-        data = event.get('data', {})
-        if not isinstance(data, dict):
-            raise ValueError('Event data must be a JSON object.')
-        event_type = event.get('type')
-
-        if event_type == 'user.message':
-            content = data.get('content')
-            if data.get('delivery') != 'queued':
-                started.clear()
-                last_assistant_msg = None
-                wrote_fixme = False
-                already_requested = False
-            elif isinstance(content, str) and content.startswith(_REASON_PREFIX):
-                already_requested = True
-        elif event_type == 'assistant.message':
-            content = data.get('content')
-            if isinstance(content, str) and content.strip():
-                last_assistant_msg = content
-        elif event_type == 'tool.execution_start':
+    for event_type, data in events:
+        if event_type == 'tool.execution_start':
             call_id = data.get('toolCallId')
             tool_name = data.get('toolName')
             if isinstance(call_id, str) and isinstance(tool_name, str):
@@ -84,7 +70,7 @@ def _get_turn(transcript_path, extract_edit_tool_changes):
                 for change in extract_edit_tool_changes(tool_name, arguments)
             ):
                 wrote_fixme = True
-    return last_assistant_msg, wrote_fixme, already_requested
+    return _turn_events['get_last_assistant_message'](events), wrote_fixme, already_requested
 
 
 def _find_promises(response):
@@ -125,45 +111,23 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            print('agentStop hook input is empty.', file=sys.stderr)
-            return 2
-        hook_input = json.loads(hook_input_json)
-    except (OSError, UnicodeError, json.JSONDecodeError) as ex:
-        print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
-        return 2
+        hook_input = _hook_input['read_hook_input']()
+        # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
+        if hook_input.get('agentId'):
+            return 0
+        transcript_path = _hook_input['get_transcript_path'](hook_input)
 
-    if not isinstance(hook_input, dict):
-        print('agentStop hook input must be a JSON object.', file=sys.stderr)
-        return 2
-
-    # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
-    if hook_input.get('agentId'):
-        return 0
-
-    transcript_path = hook_input.get('transcriptPath')
-    if not isinstance(transcript_path, str) or not transcript_path.strip():
-        print('agentStop hook transcriptPath must be a non-empty string.', file=sys.stderr)
-        return 2
-
-    if not os.path.isfile(transcript_path):
-        print(f'Transcript path is not a file or could not be verified as a file: {transcript_path}', file=sys.stderr)
-        return 2
-
-    utilities = Path(__file__).resolve().parents[3] / 'utilities'
-    try:
         # 編集ツールの引数の解析は、共通utilityで行う。
         extract_edit_tool_changes = runpy.run_path(
-            str(utilities / 'extract-edit-tool-changes' / 'extract-edit-tool-changes.py')
+            os.path.join(_utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py')
         )['extract_edit_tool_changes']
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答を書き込み済みにする。
         runpy.run_path(
-            str(utilities / 'wait-for-agent-stop-event' / 'wait-for-agent-stop-event.py')
+            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, wrote_fixme, already_requested = _get_turn(transcript_path, extract_edit_tool_changes)
-    except (OSError, ValueError) as ex:
+    except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to inspect deferred promises: {ex}', file=sys.stderr)
         return 2
 

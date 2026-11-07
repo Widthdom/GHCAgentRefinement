@@ -12,6 +12,8 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
@@ -46,33 +48,11 @@ def _get_edited_paths(tool_name, arguments):
 def _get_turn_events(transcript_path):
     # ユーザーの最新の依頼以降の、編集ツールで変更したファイルとシェル実行を完了した順に集め、最終応答も返す。
     # 戻り値は (('edit', パス) または ('shell', (コマンド, 終了コード)) のリスト, 最終応答, 本hookによる差し戻し済みか)。
-    # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
+    turn_events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
     events = []
     started = {}
-    last_assistant_msg = None
-    already_requested = False
-    for event in runpy.run_path(
-        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
-    )['read_jsonl_objects'](transcript_path):
-        data = event.get('data', {})
-        if not isinstance(data, dict):
-            raise ValueError('Event data must be a JSON object.')
-        event_type = event.get('type')
-
-        if event_type == 'user.message':
-            content = data.get('content')
-            if data.get('delivery') != 'queued':
-                events.clear()
-                started.clear()
-                last_assistant_msg = None
-                already_requested = False
-            elif isinstance(content, str) and content.startswith(_REASON_PREFIX):
-                already_requested = True
-        elif event_type == 'assistant.message':
-            content = data.get('content')
-            if isinstance(content, str) and content.strip():
-                last_assistant_msg = content
-        elif event_type == 'tool.execution_start':
+    for event_type, data in turn_events:
+        if event_type == 'tool.execution_start':
             call_id = data.get('toolCallId')
             tool_name = data.get('toolName')
             if isinstance(call_id, str) and isinstance(tool_name, str):
@@ -95,7 +75,7 @@ def _get_turn_events(transcript_path):
                 exit_code = shell_execution.get('exitCode') if isinstance(shell_execution, dict) else None
                 # 拒否などで実行されなかった場合は終了コードが記録されないため、成功とみなさない。
                 events.append(('shell', (arguments['command'], exit_code if type(exit_code) is int else None)))
-    return events, last_assistant_msg, already_requested
+    return events, _turn_events['get_last_assistant_message'](turn_events), already_requested
 
 
 def _get_stale_edits(events, cwd, is_test_command):
@@ -151,39 +131,13 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            print('agentStop hook input is empty.', file=sys.stderr)
-            return 2
-        hook_input = json.loads(hook_input_json)
-    except (OSError, UnicodeError, json.JSONDecodeError) as ex:
-        print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
-        return 2
+        hook_input = _hook_input['read_hook_input']()
+        # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
+        if hook_input.get('agentId'):
+            return 0
+        cwd = os.path.normpath(_hook_input['get_cwd'](hook_input))
+        transcript_path = _hook_input['get_transcript_path'](hook_input)
 
-    if not isinstance(hook_input, dict):
-        print('agentStop hook input must be a JSON object.', file=sys.stderr)
-        return 2
-
-    # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
-    if hook_input.get('agentId'):
-        return 0
-
-    cwd = hook_input.get('cwd')
-    if not isinstance(cwd, str) or not os.path.isabs(cwd):
-        print('agentStop hook cwd must be an absolute path.', file=sys.stderr)
-        return 2
-    cwd = os.path.normpath(cwd)
-
-    transcript_path = hook_input.get('transcriptPath')
-    if not isinstance(transcript_path, str) or not transcript_path.strip():
-        print('agentStop hook transcriptPath must be a non-empty string.', file=sys.stderr)
-        return 2
-
-    if not os.path.isfile(transcript_path):
-        print(f'Transcript path is not a file or could not be verified as a file: {transcript_path}', file=sys.stderr)
-        return 2
-
-    try:
         # テストの実行かどうかの判定は、共通utilityで行う。
         check_test_runs = runpy.run_path(
             os.path.join(_utilities_directory, 'check-test-runs', 'check-test-runs.py')
@@ -194,7 +148,7 @@ def main():
         )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         events, last_assistant_msg, already_requested = _get_turn_events(transcript_path)
-    except (OSError, ValueError) as ex:
+    except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to inspect stale verification: {ex}', file=sys.stderr)
         return 2
 

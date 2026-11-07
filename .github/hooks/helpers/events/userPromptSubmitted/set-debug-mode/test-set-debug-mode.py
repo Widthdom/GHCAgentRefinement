@@ -101,15 +101,15 @@ class SetDebugModeTests(unittest.TestCase):
             {'Name': 'null prompt', 'Json': f'{{"sessionId":"{self.__session_id}","prompt":null}}', 'Error': 'prompt must be a string'},
             {'Name': 'empty prompt', 'Json': f'{{"sessionId":"{self.__session_id}","prompt":""}}', 'Error': 'prompt must not be empty or whitespace'},
             {'Name': 'whitespace prompt', 'Json': f'{{"sessionId":"{self.__session_id}","prompt":"  "}}', 'Error': 'prompt must not be empty or whitespace'},
-            {'Name': 'missing session ID', 'Json': '{"prompt":"?? debug prompt"}', 'Error': 'sessionId must be a string'},
+            {'Name': 'missing session ID', 'Json': '{"prompt":"?? debug prompt"}', 'Error': 'sessionId must be a non-empty UUID string'},
             {'Name': 'invalid session ID', 'Json': '{"sessionId":"not-a-guid","prompt":"?? debug prompt"}', 'Error': 'sessionId must be a valid UUID'},
-            {'Name': 'unsupported session_id', 'Json': f'{{"session_id":"{self.__session_id}","prompt":"?? debug prompt"}}', 'Error': 'sessionId must be a string'},
+            {'Name': 'unsupported session_id', 'Json': f'{{"session_id":"{self.__session_id}","prompt":"?? debug prompt"}}', 'Error': 'sessionId must be a non-empty UUID string'},
             {'Name': 'invalid UTF-8', 'Json': b'{"prompt":"\xff"}', 'Error': 'Failed to parse'},
             {'Name': 'unescaped control character', 'Json': '{"prompt":"??\x01"}', 'Error': 'Failed to parse'},
             {'Name': 'wrong prompt casing', 'Json': _to_compressed_json({'sessionId': self.__session_id, 'Prompt': '??'}),
              'Error': 'prompt must be a string'},
             {'Name': 'wrong sessionId casing', 'Json': _to_compressed_json({'SessionId': self.__session_id, 'prompt': '??'}),
-             'Error': 'sessionId must be a string'},
+             'Error': 'sessionId must be a non-empty UUID string'},
         ]
 
         for value in (0, 1.5, True, False, [], ['??'], {}, {'text': '??'}):
@@ -130,14 +130,14 @@ class SetDebugModeTests(unittest.TestCase):
             self.__invalid_cases.append({
                 'Name': f'non-string sessionId {value!r}',
                 'Json': _to_compressed_json({'sessionId': value, 'prompt': '??'}),
-                'Error': 'sessionId must be a string',
+                'Error': 'sessionId must be a non-empty UUID string',
             })
 
         for value in ('', ' ', '\t\r\n', '\u3000'):
             self.__invalid_cases.append({
                 'Name': f'empty or whitespace sessionId {value!r}',
                 'Json': _to_compressed_json({'sessionId': value, 'prompt': '??'}),
-                'Error': 'sessionId must not be empty or whitespace',
+                'Error': 'sessionId must be a non-empty UUID string',
             })
 
         for value in ('../' + self.__session_id, self.__session_id[:-1], 'g' * 32):

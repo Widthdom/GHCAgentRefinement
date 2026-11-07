@@ -1,12 +1,21 @@
 import io
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
-import uuid
 from datetime import datetime, timezone
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 
 
 _REVIEW_REASON = (
@@ -33,53 +42,18 @@ def main():
     # agentStopのタイミングでCopilotがPythonプロセスを起動し、
     # 標準入力パイプにイベント情報をJSON形式で書き込むので、それを読み込む。
     # このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
-    #   改行コードを変換せずに扱うため、バイト列として読み取ってからUTF-8として復号化する。
+    # 状態ファイルの保存先は、状態を設定するuserPromptSubmitted hookと共有する。
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        # Pythonの not は、対象を真偽として評価してから反転する。
-        # strip() が返すのは文字列だが、真偽として判定されれば空文字列はFalse、それ以外はTrueとなる。
-        #   if not text:   # 文字列が空のとき
-        #   if not items:  # リストなどの空のとき
-        #   if not data:   # 辞書などの空のとき
-        if not hook_input_json.strip():
-            print('agentStop hook input is empty.', file=sys.stderr)
-            return 2
-        hook_input = json.loads(hook_input_json)
-    except (OSError, UnicodeError, json.JSONDecodeError) as ex:
+        hook_input = _hook_input['read_hook_input']()
+        state_path = _get_state_path('adversarial-review', hook_input.get('sessionId'), '.json')
+    except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
         return 2
-
-    # 変換結果がJSONオブジェクト（最外側が{}）でなければ異常終了。
-    if not isinstance(hook_input, dict):
-        print('agentStop hook input must be a JSON object.', file=sys.stderr)
-        return 2
-
-    # getはキーが無くてもNoneを返す。
-    session_id = hook_input.get('sessionId')
-
-    if not isinstance(session_id, str):
-        print('agentStop hook sessionId must be a string.', file=sys.stderr)
-        return 2
-
-    if not session_id.strip():
-        print('agentStop hook sessionId must not be empty or whitespace.', file=sys.stderr)
-        return 2
-
-    try:
-        parsed_session_id = uuid.UUID(session_id.strip())
-    except ValueError:
-        print('agentStop hook sessionId must be a valid UUID.', file=sys.stderr)
-        return 2
+    state_directory = os.path.dirname(state_path)
 
     # サブエージェントの停止では親セッションの状態を消費しない。
     if hook_input.get('agentId'):
         return 0
-
-    # tempfile.gettempdir() は、環境変数 TMPDIR・TEMP・TMP や OS 標準の候補から、利用可能な一時フォルダーを選んで返す。
-    state_directory = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'adversarial-review')
-
-    # 状態ファイルのパスを決定。
-    state_path = os.path.join(state_directory, f'{parsed_session_id}.json')
 
     # 'r'：読み込みモード。
     try:
@@ -132,21 +106,11 @@ def main():
     if not pending:
         return 0
 
-    # getはキーが無くてもNoneを返す。
     # cwd：Current Working Directory。絶対パスで指定される。
-    cwd = hook_input.get('cwd')
-
-    if not isinstance(cwd, str):
-        print('agentStop hook cwd must be a string.', file=sys.stderr)
-        return 2
-
-    if not cwd.strip():
-        print('agentStop hook cwd must not be empty or whitespace.', file=sys.stderr)
-        return 2
-
-    # os.path.isabs：引数が絶対パスかどうかを判定する。
-    if not os.path.isabs(cwd):
-        print('agentStop hook cwd must be an absolute path.', file=sys.stderr)
+    try:
+        cwd = _hook_input['get_cwd'](hook_input)
+    except ValueError as ex:
+        print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
         return 2
 
     # シェルを介さずにgit statusを実行する。

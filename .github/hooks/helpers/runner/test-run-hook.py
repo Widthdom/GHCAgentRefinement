@@ -17,6 +17,7 @@ _helpers_directory = os.path.dirname(_script_directory)
 _hooks_directory = os.path.dirname(_helpers_directory)
 _runner_path = os.path.join(_script_directory, 'run-hook.py')
 _state_helper_path = os.path.join(_helpers_directory, 'utilities', 'hook-activity-state', 'hook-activity-state.py')
+_COPIED_UTILITIES = ('hook-activity-state', 'get-state-path')
 _RUNNER = '.github/hooks/helpers/runner/run-hook.py'
 # Pythonが無い環境でも動く必要があるため、ランナーを通さないhook。
 _DIRECT_HOOKS = ('block-commands', 'check-python')
@@ -63,9 +64,14 @@ class RunHookTests(unittest.TestCase):
         self.__repository = os.path.join(self.__root, 'repository')
         self.__helpers = os.path.join(self.__repository, '.github', 'hooks', 'helpers')
         os.makedirs(os.path.join(self.__helpers, 'runner'))
-        os.makedirs(os.path.join(self.__helpers, 'utilities', 'hook-activity-state'))
         shutil.copy(_runner_path, os.path.join(self.__helpers, 'runner', 'run-hook.py'))
-        shutil.copy(_state_helper_path, os.path.join(self.__helpers, 'utilities', 'hook-activity-state', 'hook-activity-state.py'))
+        # 記録の読み書きに使うutilityと、それが読み込むutilityを複製する。
+        for utility in _COPIED_UTILITIES:
+            os.makedirs(os.path.join(self.__helpers, 'utilities', utility))
+            shutil.copy(
+                os.path.join(_helpers_directory, 'utilities', utility, f'{utility}.py'),
+                os.path.join(self.__helpers, 'utilities', utility, f'{utility}.py'),
+            )
         self.__fake_hook = '.github/hooks/helpers/events/preToolUse/fake-hook/fake-hook.py'
         self.__write_file(self.__fake_hook, _FAKE_HOOK)
         self.__temp_directory = os.path.join(self.__root, 'temp')

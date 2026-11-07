@@ -4,9 +4,17 @@ import os
 import runpy
 import sqlite3
 import sys
-import uuid
 from pathlib import Path
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['parse_session_id']
 
 
 def _get_last_assistant_msg(transcript_path):
@@ -88,57 +96,12 @@ def main():
     # agentStopのタイミングで本スクリプトの呼び出し元であるCopilotがPythonプロセスを起動し
     # 標準入力パイプにツール名や引数を含むイベント情報をJSON形式で書き込むので、それを読み込む。
     # このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
-    #   改行コードを変換せずに扱うため、バイト列として読み取ってからUTF-8として復号化する。
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        # Pythonの not は、対象を真偽として評価してから反転する。
-        # strip() が返すのは文字列だが、真偽として判定されれば空文字列はFalse、それ以外はTrueとなる。
-        #   if not text:   # 文字列が空のとき
-        #   if not items:  # リストなどが空のとき
-        #   if not data:   # 辞書などが空のとき
-        if not hook_input_json.strip():
-            print('agentStop hook input is empty.', file=sys.stderr)
-            return 2
-        hook_input = json.loads(hook_input_json)
-    except (OSError, UnicodeError, json.JSONDecodeError) as ex:
+        hook_input = _hook_input['read_hook_input']()
+        transcript_path = _hook_input['get_transcript_path'](hook_input)
+        parsed_session_id = _parse_session_id(hook_input.get('sessionId'))
+    except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
-        return 2
-
-    # 変換結果がJSONオブジェクト（最外側が{}）でなければ異常終了。
-    #   文字列・数値・null・（最外側が[]である）配列などはここを通過させない。
-    if not isinstance(hook_input, dict):
-        print('agentStop hook input must be a JSON object.', file=sys.stderr)
-        return 2
-
-    # getはキーが無くてもNoneを返す。
-    transcript_path = hook_input.get('transcriptPath')
-    if not isinstance(transcript_path, str):
-        print('agentStop hook transcriptPath must be a string.', file=sys.stderr)
-        return 2
-
-    if not transcript_path.strip():
-        print('agentStop hook transcriptPath must not be empty or whitespace.', file=sys.stderr)
-        return 2
-
-    if not os.path.isfile(transcript_path):
-        print(f'Transcript path is not a file or could not be verified as a file: {transcript_path}', file=sys.stderr)
-        return 2
-
-    # getはキーが無くてもNoneを返す。
-    session_id = hook_input.get('sessionId')
-
-    if not isinstance(session_id, str):
-        print('agentStop hook sessionId must be a string.', file=sys.stderr)
-        return 2
-
-    if not session_id.strip():
-        print('agentStop hook sessionId must not be empty or whitespace.', file=sys.stderr)
-        return 2
-
-    try:
-        parsed_session_id = uuid.UUID(session_id.strip())
-    except ValueError:
-        print('agentStop hook sessionId must be a valid UUID.', file=sys.stderr)
         return 2
 
     try:

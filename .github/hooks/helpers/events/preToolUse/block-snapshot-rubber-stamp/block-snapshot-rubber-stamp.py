@@ -6,8 +6,6 @@ import re
 import runpy
 import sqlite3
 import sys
-import tempfile
-import uuid
 from typing import cast
 
 
@@ -16,6 +14,8 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
 ))['filter_first_time_denials']
@@ -80,39 +80,17 @@ def main(arguments=None):
     try:
         update_commands = _load_update_commands(parsed_arguments.definitions_path)
 
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
-        session_id = hook_input.get('sessionId')
-        if not isinstance(session_id, str) or not session_id.strip():
-            raise ValueError('sessionId must be a non-empty UUID string.')
-        try:
-            parsed_session_id = uuid.UUID(session_id.strip())
-        except ValueError:
-            raise ValueError('sessionId must be a valid UUID.') from None
-        # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
-        tool_name = hook_input.get('toolName')
-        if not isinstance(tool_name, str) or not tool_name.strip():
-            raise ValueError('toolName must be a non-empty string.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        hook_input = _hook_input['read_hook_input']()
+        state_path = _get_state_path('block-snapshot-rubber-stamp', hook_input.get('sessionId'))
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        tool_args = _unwrap_tool_args(hook_input['toolArgs']) if tool_name.removeprefix('functions.') in _SHELL_TOOL_NAMES else None
+        tool_args = _unwrap_tool_args(tool_args) if tool_name.removeprefix('functions.') in _SHELL_TOOL_NAMES else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         kinds = _get_update_kinds(update_commands, command) if isinstance(command, str) else []
 
         # 一括更新がなければ、状態ファイルを作らずに許可する。
         denied_kinds = []
         if kinds:
-            # hookは呼び出しごとに別プロセスなので、拒否済みの種類をセッションUUID別に保存する。
-            # DBファイル自体は自動削除しない。
-            state_path = os.path.join(
-                tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-snapshot-rubber-stamp',
-                f'{parsed_session_id}.sqlite3',
-            )
             # 同じ種類の拒否はセッションで1回だけにし、意図した更新なら再実行で通す。
             denied_kinds = _filter_first_time_denials(state_path, [(kind, kind) for kind in kinds])
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:

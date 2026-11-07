@@ -1,5 +1,4 @@
 import io
-import json
 import os
 import re
 import runpy
@@ -13,6 +12,7 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
@@ -47,29 +47,18 @@ def main():
             _utilities_directory, 'known-files-state', 'known-files-state.py',
         ))
 
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
 
         state_path = state['get_state_path'](hook_input.get('sessionId'))
-        for field in ('cwd', 'toolName'):
-            value = hook_input.get(field)
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError(f'{field} must be a non-empty string.')
-        if not os.path.isabs(hook_input['cwd']):
-            raise ValueError('cwd must be an absolute path.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        cwd = _hook_input['get_cwd'](hook_input)
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        tool_name = hook_input['toolName'].removeprefix('functions.')
+        tool_name = tool_name.removeprefix('functions.')
         if tool_name not in _READ_TOOL_NAMES:
             return 0
-        tool_args = _unwrap_tool_args(hook_input['toolArgs'])
+        tool_args = _unwrap_tool_args(tool_args)
         paths = {
-            state['normalize_path'](hook_input['cwd'], path) for path in _get_read_paths(tool_name, tool_args)
+            state['normalize_path'](cwd, path) for path in _get_read_paths(tool_name, tool_args)
         }
         # ディレクトリの一覧表示や、消えたファイルは記録しない。
         keys = sorted(state['get_file_key'](path) for path in paths if os.path.isfile(path))

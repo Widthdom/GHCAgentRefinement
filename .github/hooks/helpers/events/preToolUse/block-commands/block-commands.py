@@ -3,8 +3,17 @@ import io
 import json
 import os
 import re
+import runpy
 import sys
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 
 
 def _is_non_empty_string(value):
@@ -127,26 +136,11 @@ def main(definitions_path=None):
     # preToolUseのタイミングで本スクリプトの呼び出し元であるCopilotがPythonプロセスを起動し
     # 標準入力パイプにツール名や引数を含むイベント情報をJSON形式で書き込むので、それを読み込む。
     # このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
-    #   改行コードを変換せずに扱うため、バイト列として読み取ってからUTF-8として復号化する。
+    #   空、JSONとして解析できない、JSONオブジェクト（最外側が{}）でない入力は異常終了。
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        # Pythonの not は、対象を真偽として評価してから反転する。
-        # strip() が返すのは文字列だが、真偽として判定されれば空文字列はFalse、それ以外はTrueとなる。
-        #   if not text:   # 文字列が空のとき
-        #   if not items:  # リストなどが空のとき
-        #   if not data:   # 辞書などが空のとき
-        if not hook_input_json.strip():
-            _write_stderr_msg_and_deny('preToolUse hook input is empty.')
-            return 2
-        hook_input = json.loads(hook_input_json)
-    except (OSError, UnicodeError, json.JSONDecodeError) as ex:
+        hook_input = _hook_input['read_hook_input']()
+    except (OSError, UnicodeError, ValueError) as ex:
         _write_stderr_msg_and_deny(f'Failed to parse preToolUse hook input: {ex}')
-        return 2
-
-    # 変換結果がJSONオブジェクト（最外側が{}）でなければ異常終了。
-    #   文字列・数値・null・（最外側が[]である）配列などはここを通過させない。
-    if not isinstance(hook_input, dict):
-        _write_stderr_msg_and_deny('preToolUse hook input must be a JSON object.')
         return 2
 
     # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。

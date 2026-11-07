@@ -10,6 +10,7 @@ postToolUse（ファイル編集ツール `edit`・`str_replace_editor`・`apply
 1. ツール引数から、置換前の内容と置換後の内容の組を特定する。
    - `edit`・`str_replace_editor`（`str_replace`）：`old_str` を置換前、`new_str` を置換後の内容とする。
    - `apply_patch`：ファイルごとに、パッチの削除行（`-`）を置換前、追加行（`+`）を置換後の内容とする。
+   - 各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
 2. 置換前と置換後の内容から、それぞれ定義の名前を取り出す。置換前だけにある名前（置換後に単語として現れない）と、置換後だけにある名前（置換前に単語として現れない）が同じ数なら、現れた順に組にして名前の変更とみなす。
 3. リポジトリのルートで `git grep -n -I -w -F --untracked` を実行し、古い名前が単語として残る場所を探す。git管理下のファイルと、無視されていない未追跡のファイルが対象になる。
 4. 残っていれば、名前の変更と場所（`パス:行番号`）を最大10件まで示し、文字列・設定・ドキュメントを含む残りの参照の更新か、別のものを指すことの確認を促す英語の助言を `additionalContext` として渡す。

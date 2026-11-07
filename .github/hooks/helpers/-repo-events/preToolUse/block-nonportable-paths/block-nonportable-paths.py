@@ -13,6 +13,7 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
@@ -129,24 +130,13 @@ def main():
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
     try:
-        raw_input = sys.stdin.buffer.read().decode('utf-8')
-        if not raw_input.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(raw_input)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
-        cwd = hook_input.get('cwd')
-        if not isinstance(cwd, str) or not cwd.strip() or not os.path.isabs(cwd):
-            raise ValueError('cwd must be a non-empty absolute path.')
-        tool_name = hook_input.get('toolName')
-        if not isinstance(tool_name, str) or not tool_name.strip():
-            raise ValueError('toolName must be a non-empty string.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        hook_input = _hook_input['read_hook_input']()
+        cwd = _hook_input['get_cwd'](hook_input)
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
         tool_name = tool_name.removeprefix('functions.')
         if tool_name not in _EDIT_TOOL_NAMES:
             return 0
-        tool_args = _unwrap_tool_args(hook_input['toolArgs'])
+        tool_args = _unwrap_tool_args(tool_args)
         if tool_name == 'apply_patch' and not isinstance(tool_args, (str, dict)):
             raise ValueError('apply_patch toolArgs must be a patch string or JSON object.')
         destinations, removed = _get_operations(tool_name, tool_args)

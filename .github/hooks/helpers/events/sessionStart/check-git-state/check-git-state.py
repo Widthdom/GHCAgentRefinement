@@ -1,9 +1,19 @@
 import io
 import json
 import os
-import subprocess
+import runpy
 import sys
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
+
 
 _GIT_TIMEOUT_SECONDS = 5
 # gitディレクトリ内の目印と、それが示す途中の操作。worktreeごとのgitディレクトリに置かれる。
@@ -23,17 +33,6 @@ _ADDITIONAL_CONTEXT = (
 )
 
 
-def _run_git(cwd, *args):
-    # gitがない、タイムアウトした場合はNoneを返す。終了コードは呼び出し元で判定する。
-    try:
-        return subprocess.run(
-            ['git', *args], cwd=cwd, stdin=subprocess.DEVNULL, capture_output=True,
-            text=True, encoding='utf-8', errors='replace', timeout=_GIT_TIMEOUT_SECONDS,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-
-
 def _get_in_progress_operations(git_directory):
     operations = [
         description for marker, description in _OPERATION_MARKERS
@@ -46,11 +45,10 @@ def _get_in_progress_operations(git_directory):
 
 
 def _get_git_state_messages(cwd):
-    result = _run_git(cwd, 'rev-parse', '--absolute-git-dir')
+    git_directory = (_git['get_git_output'](cwd, ['rev-parse', '--absolute-git-dir'], _GIT_TIMEOUT_SECONDS) or '').strip()
     # gitがない、またはリポジトリ外の場合は何も知らせない。
-    if result is None or result.returncode != 0 or not result.stdout.strip():
+    if not git_directory:
         return []
-    git_directory = result.stdout.strip()
 
     messages = []
     operations = _get_in_progress_operations(git_directory)
@@ -58,19 +56,19 @@ def _get_git_state_messages(cwd):
         messages.append(f'{" and ".join(operations).capitalize()} is in progress.')
 
     # 未解決の衝突は `git ls-files -u` にステージ番号付きで現れる。1ファイルにつき最大3行あるため、パスで数える。
-    unmerged = _run_git(cwd, '-c', 'core.quotePath=false', 'ls-files', '--unmerged')
-    if unmerged is not None and unmerged.returncode == 0:
-        paths = sorted({line.split('\t', 1)[1] for line in unmerged.stdout.splitlines() if '\t' in line})
+    unmerged = _git['get_git_output'](cwd, ['-c', 'core.quotePath=false', 'ls-files', '--unmerged'], _GIT_TIMEOUT_SECONDS)
+    if unmerged is not None:
+        paths = sorted({line.split('\t', 1)[1] for line in unmerged.splitlines() if '\t' in line})
         if paths:
             shown = ', '.join(paths[:10]) + (f', and {len(paths) - 10} more' if len(paths) > 10 else '')
             messages.append(f'{len(paths)} file(s) have unresolved conflicts: {shown}.')
 
     # rebaseやbisectの途中はHEADが切り離されるのが通常のため、途中の操作がないときだけ知らせる。
     if not operations:
-        symbolic = _run_git(cwd, 'symbolic-ref', '--quiet', 'HEAD')
+        symbolic = _git['run_git'](cwd, ['symbolic-ref', '--quiet', 'HEAD'], _GIT_TIMEOUT_SECONDS)
         if symbolic is not None and symbolic.returncode == 1:
-            head = _run_git(cwd, 'rev-parse', '--short', 'HEAD')
-            commit = head.stdout.strip() if head is not None and head.returncode == 0 else 'unknown'
+            head = _git['get_git_output'](cwd, ['rev-parse', '--short', 'HEAD'], _GIT_TIMEOUT_SECONDS)
+            commit = head.strip() if head is not None else 'unknown'
             messages.append(
                 f'HEAD is detached at {commit}. New commits will not belong to any branch.'
             )
@@ -83,17 +81,8 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
-        cwd = hook_input.get('cwd')
-        if not isinstance(cwd, str) or not cwd.strip():
-            raise ValueError('cwd must be a non-empty string.')
-        if not os.path.isabs(cwd):
-            raise ValueError('cwd must be an absolute path.')
+        hook_input = _hook_input['read_hook_input']()
+        cwd = _hook_input['get_cwd'](hook_input)
         if not os.path.isdir(cwd):
             raise ValueError('cwd must be an existing directory.')
     except (OSError, UnicodeError, ValueError) as ex:

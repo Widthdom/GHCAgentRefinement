@@ -10,8 +10,9 @@ agentStop（エージェントの応答終了時）
 1. [unrequested-change-definitions.json](./unrequested-change-definitions.json) から、対象外のファイルのパス（`excludedFilePatterns`）、整形を依頼したとみなす正規表現（`formattingRequestPatterns`）、削除・移動を依頼したとみなす正規表現（`removalRequestPatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（Copilotはトランスクリプトへ非同期に追記するため、発動直後は最終応答が未書き込みのことがある）。
 3. ユーザーの最新の依頼以降について、依頼の文（割り込みの指示を含む）、応答の文（途中の応答を含む）、編集系ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）の変更を集める。`tool.execution_start` と `tool.execution_complete` を `toolCallId` で対応させ、完了イベントの `success` が `true` の呼び出しだけを対象とする。
-   - `edit`・`create`・`insert`・`str_replace_editor`：`path` のファイルの変更とする（`str_replace_editor` の `view` は除く）。`old_str` と `new_str` があれば、空白だけが異なるかを判定する。
+   - `edit`・`create`・`insert`・`str_replace_editor`：`path` のファイルの変更とする（`str_replace_editor` の `view`・`undo_edit` は除く）。`old_str` と `new_str` があれば、空白だけが異なるかを判定する。
    - `apply_patch`：`*** Add File:`・`*** Update File:`・`*** Delete File:` ごとの変更とし、`*** Move to:` を移動とする。`*** Update File:` の削除行（`-`）と追加行（`+`）が空白だけ異なるかを判定する。
+   - 各ツールの引数は [extract-edit-tool-changes.py](../../../utilities/extract-edit-tool-changes/extract-edit-tool-changes.py) で解析する。
 4. cwdからの相対パス（`/` 区切り）が `excludedFilePatterns` に一致しないファイルについて、次のいずれかに該当するものを検出する。
    - 依頼の文が `formattingRequestPatterns` に一致しないのに、空白（インデント・改行・行末の空白）だけを変えた。
    - 依頼の文が `removalRequestPatterns` に一致しないのに、`apply_patch` でファイルを削除・移動した。

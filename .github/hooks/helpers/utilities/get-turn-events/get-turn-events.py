@@ -1,0 +1,57 @@
+import os
+import runpy
+
+# トランスクリプトをユーザーの依頼ごとに分ける。依頼の範囲を検査するagentStop hookが共有する。
+# hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
+
+_read_jsonl_objects = runpy.run_path(os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'read-jsonl-objects', 'read-jsonl-objects.py',
+))['read_jsonl_objects']
+
+
+def get_turns(transcript_path):
+    # イベントを (種類, data) の組にし、依頼ごとのリストに分けて返す。
+    # 先頭の要素は最初の依頼より前のイベント、以降の要素は依頼のuser.messageから始まる。要素は常に1つ以上ある。
+    turns = [[]]
+    for event in _read_jsonl_objects(transcript_path):
+        data = event.get('data', {})
+        if not isinstance(data, dict):
+            raise ValueError('Event data must be a JSON object.')
+        event_type = event.get('type')
+        if event_type == 'user.message' and data.get('delivery') != 'queued':
+            turns.append([])
+        turns[-1].append((event_type, data))
+    return turns
+
+
+def is_already_requested(events, reason_prefix):
+    # 依頼のイベントの中に、reason_prefixで始まるhookの差し戻しがあるか（hookが差し戻し済みか）を返す。
+    return any(
+        event_type == 'user.message' and data.get('delivery') == 'queued'
+        and isinstance(data.get('content'), str) and data['content'].startswith(reason_prefix)
+        for event_type, data in events
+    )
+
+
+def get_latest_turn(transcript_path, reason_prefix):
+    # ユーザーの最新の依頼以降のイベントと、reason_prefixで始まる差し戻しで本hookが差し戻し済みかを返す。
+    events = get_turns(transcript_path)[-1]
+    return events, is_already_requested(events, reason_prefix)
+
+
+def get_request(events):
+    # 依頼の文を返す。依頼のuser.messageから始まらない場合と、文字列でない場合はNone。
+    if events and events[0][0] == 'user.message' and events[0][1].get('delivery') != 'queued':
+        content = events[0][1].get('content')
+        return content if isinstance(content, str) else None
+    return None
+
+
+def get_last_assistant_message(events):
+    # 空白以外を含む最後のassistant.messageの文を返す。なければNone。
+    last_assistant_msg = None
+    for event_type, data in events:
+        content = data.get('content')
+        if event_type == 'assistant.message' and isinstance(content, str) and content.strip():
+            last_assistant_msg = content
+    return last_assistant_msg

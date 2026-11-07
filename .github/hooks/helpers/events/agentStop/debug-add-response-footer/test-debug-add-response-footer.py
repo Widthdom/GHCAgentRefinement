@@ -71,15 +71,15 @@ class DebugResponseFooterTests(unittest.TestCase):
 
     def test_footer_workflow(self):
         invalid_inputs = [
-            {'Name': 'Empty input', 'Json': '', 'Error': 'agentStop hook input is empty.'},
-            {'Name': 'Whitespace input', 'Json': '   \t\n', 'Error': 'agentStop hook input is empty.'},
+            {'Name': 'Empty input', 'Json': '', 'Error': 'Failed to parse agentStop hook input: hook input is empty.'},
+            {'Name': 'Whitespace input', 'Json': '   \t\n', 'Error': 'Failed to parse agentStop hook input: hook input is empty.'},
             {'Name': 'Invalid JSON', 'Json': '{invalid-json}', 'Error': 'Failed to parse agentStop hook input:'},
             {'Name': 'Invalid UTF-8', 'Json': b'{"sessionId":"\xff"}', 'Error': 'Failed to parse agentStop hook input:'},
-            {'Name': 'Array JSON', 'Json': '[]', 'Error': 'agentStop hook input must be a JSON object.'},
-            {'Name': 'String JSON', 'Json': '"not-an-object"', 'Error': 'agentStop hook input must be a JSON object.'},
-            {'Name': 'Null JSON', 'Json': 'null', 'Error': 'agentStop hook input must be a JSON object.'},
-            {'Name': 'Boolean JSON', 'Json': 'true', 'Error': 'agentStop hook input must be a JSON object.'},
-            {'Name': 'Single object array', 'Json': '[{}]', 'Error': 'agentStop hook input must be a JSON object.'},
+            {'Name': 'Array JSON', 'Json': '[]', 'Error': 'Failed to parse agentStop hook input: hook input must be a JSON object.'},
+            {'Name': 'String JSON', 'Json': '"not-an-object"', 'Error': 'Failed to parse agentStop hook input: hook input must be a JSON object.'},
+            {'Name': 'Null JSON', 'Json': 'null', 'Error': 'Failed to parse agentStop hook input: hook input must be a JSON object.'},
+            {'Name': 'Boolean JSON', 'Json': 'true', 'Error': 'Failed to parse agentStop hook input: hook input must be a JSON object.'},
+            {'Name': 'Single object array', 'Json': '[{}]', 'Error': 'Failed to parse agentStop hook input: hook input must be a JSON object.'},
         ]
 
         for case in invalid_inputs:
@@ -99,32 +99,32 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         missing_path_cases = [
             {'Name': 'Missing transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid}),
-             'Error': 'agentStop hook transcriptPath must be a string.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
             {'Name': 'Whitespace transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid, 'transcriptPath': '   '}),
-             'Error': 'agentStop hook transcriptPath must not be empty or whitespace.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
             {'Name': 'Nonexistent transcriptPath', 'Json': _to_compressed_json(
                 {'sessionId': valid_guid, 'transcriptPath': os.path.join(self.__temp_dir, 'not-found.jsonl')}),
-             'Error': 'Transcript path is not a file'},
+             'Error': 'Failed to parse agentStop hook input: transcript path is not a file'},
             {'Name': 'Directory transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid, 'transcriptPath': self.__temp_dir}),
-             'Error': 'Transcript path is not a file'},
+             'Error': 'Failed to parse agentStop hook input: transcript path is not a file'},
             {'Name': 'Non-string snake_case transcript_path', 'Json': _to_compressed_json(
                 {'sessionId': valid_guid, 'transcript_path': []}),
-             'Error': 'agentStop hook transcriptPath must be a string.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
             {'Name': 'Non-string transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid, 'transcriptPath': []}),
-             'Error': 'agentStop hook transcriptPath must be a string.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
             {'Name': 'Invalid transcriptPath with valid snake_case path', 'Json': _to_compressed_json(
                 {'sessionId': valid_guid, 'transcriptPath': None, 'transcript_path': self.__valid_transcript}),
-             'Error': 'agentStop hook transcriptPath must be a string.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
             {'Name': 'Missing sessionId', 'Json': _to_compressed_json({'transcriptPath': self.__valid_transcript}),
-             'Error': 'agentStop hook sessionId must be a string.'},
+             'Error': 'Failed to parse agentStop hook input: sessionId must be a non-empty UUID string.'},
             {'Name': 'Non-string sessionId', 'Json': _to_compressed_json({'sessionId': [valid_guid], 'transcriptPath': self.__valid_transcript}),
-             'Error': 'agentStop hook sessionId must be a string.'},
+             'Error': 'Failed to parse agentStop hook input: sessionId must be a non-empty UUID string.'},
             {'Name': 'Whitespace sessionId', 'Json': _to_compressed_json({'sessionId': ' \t', 'transcriptPath': self.__valid_transcript}),
-             'Error': 'agentStop hook sessionId must not be empty or whitespace.'},
+             'Error': 'Failed to parse agentStop hook input: sessionId must be a non-empty UUID string.'},
             {'Name': 'Invalid sessionId', 'Json': _to_compressed_json({'sessionId': 'not-a-guid', 'transcriptPath': self.__valid_transcript}),
-             'Error': 'agentStop hook sessionId must be a valid UUID.'},
+             'Error': 'Failed to parse agentStop hook input: sessionId must be a valid UUID.'},
             {'Name': 'Case-sensitive sessionId', 'Json': _to_compressed_json({'SessionId': valid_guid, 'transcriptPath': self.__valid_transcript}),
-             'Error': 'agentStop hook sessionId must be a string.'},
+             'Error': 'Failed to parse agentStop hook input: sessionId must be a non-empty UUID string.'},
         ]
 
         for case in missing_path_cases:

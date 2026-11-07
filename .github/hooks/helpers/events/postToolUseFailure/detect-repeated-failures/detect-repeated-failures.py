@@ -2,13 +2,21 @@ import hashlib
 import io
 import json
 import os
+import runpy
 import sqlite3
 import sys
-import tempfile
 import time
-import uuid
 from contextlib import closing
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 
 
 _FAILURE_THRESHOLD = 3
@@ -67,50 +75,32 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
+        hook_input = _hook_input['read_hook_input']()
 
-        session_id = hook_input.get('sessionId')
-        if not isinstance(session_id, str) or not session_id.strip():
-            raise ValueError('sessionId must be a non-empty UUID string.')
-        try:
-            parsed_session_id = uuid.UUID(session_id.strip())
-        except ValueError:
-            raise ValueError('sessionId must be a valid UUID.') from None
+        state_path = _get_state_path('repeated-failures', hook_input.get('sessionId'))
 
         # サブエージェントの失敗を親の失敗として数えない。
         if hook_input.get('agentId'):
             return 0
 
-        for field in ('cwd', 'toolName', 'error'):
-            value = hook_input.get(field)
-            if not isinstance(value, str) or not value.strip():
-                raise ValueError(f'{field} must be a non-empty string.')
-        if not os.path.isabs(hook_input['cwd']):
-            raise ValueError('cwd must be an absolute path.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        cwd = _hook_input['get_cwd'](hook_input)
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        error = hook_input.get('error')
+        if not isinstance(error, str) or not error.strip():
+            raise ValueError('error must be a non-empty string.')
 
         # 引数中のJSONオブジェクトは、キーの記述順が違っても同一と判定する。
         # コマンド・引数・エラー本文は保存せず、比較用のSHA-256だけを保存する。
         identity = json.dumps(
-            [os.path.normcase(os.path.realpath(hook_input['cwd'])),
-             hook_input['toolName'], hook_input['toolArgs'], hook_input['error']],
+            [os.path.normcase(os.path.realpath(cwd)),
+             tool_name, tool_args, error],
             ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False,
         )
         fingerprint = hashlib.sha256(identity.encode('utf-8')).hexdigest()
 
         # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
         # 期限切れレコードは次回失敗時に削除する。DBファイル自体は自動削除しない。
-        state_directory = os.path.join(
-            tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'repeated-failures',
-        )
-        os.makedirs(state_directory, exist_ok=True)
-        state_path = os.path.join(state_directory, f'{parsed_session_id}.sqlite3')
+        os.makedirs(os.path.dirname(state_path), exist_ok=True)
         should_notify = _record_failure(state_path, fingerprint)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to detect repeated tool failures: {ex}', file=sys.stderr)

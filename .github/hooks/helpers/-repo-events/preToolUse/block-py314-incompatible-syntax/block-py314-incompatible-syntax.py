@@ -14,6 +14,7 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
@@ -191,29 +192,15 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input_json = sys.stdin.buffer.read().decode('utf-8')
-        if not hook_input_json.strip():
-            raise ValueError('hook input is empty.')
-        hook_input = json.loads(hook_input_json)
-        if not isinstance(hook_input, dict):
-            raise ValueError('hook input must be a JSON object.')
-        cwd = hook_input.get('cwd')
-        if not isinstance(cwd, str) or not cwd.strip():
-            raise ValueError('cwd must be a non-empty string.')
-        if not os.path.isabs(cwd):
-            raise ValueError('cwd must be an absolute path.')
-        # preToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
-        tool_name = hook_input.get('toolName')
-        if not isinstance(tool_name, str) or not tool_name.strip():
-            raise ValueError('toolName must be a non-empty string.')
-        if 'toolArgs' not in hook_input:
-            raise ValueError('toolArgs is required.')
+        hook_input = _hook_input['read_hook_input']()
+        cwd = _hook_input['get_cwd'](hook_input)
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         findings = []
         tool_name = tool_name.removeprefix('functions.')
         if tool_name in _EDIT_TOOL_NAMES:
             cwd = os.path.abspath(cwd)
-            for path, content in _get_contents(tool_name, _unwrap_tool_args(hook_input['toolArgs']), cwd):
+            for path, content in _get_contents(tool_name, _unwrap_tool_args(tool_args), cwd):
                 # 実行中のPythonが基準より古いと、基準の文法を誤って拒否するため判定しない。
                 if sys.version_info < _TARGET_VERSION:
                     raise ValueError(f'Python {_TARGET_VERSION[0]}.{_TARGET_VERSION[1]} or later is required.')
