@@ -6,7 +6,7 @@ _helpers_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
     'helpers',
 )
-_repository_root = os.path.dirname(os.path.dirname(_helpers_directory))
+_repository_root = os.path.dirname(os.path.dirname(os.path.dirname(_helpers_directory)))
 _test_paths = []
 
 for current_directory, _, filenames in os.walk(_helpers_directory):
@@ -22,7 +22,7 @@ if not _test_paths:
 
 _failed_tests = []
 for test_path in _test_paths:
-    relative_test_path = os.path.relpath(test_path, _repository_root)
+    relative_test_path = os.path.relpath(test_path, _repository_root).replace(os.sep, '/')
     print(f'Running {relative_test_path}...', flush=True)
     try:
         result = subprocess.run([sys.executable, test_path], cwd=_repository_root, check=False)

@@ -1,7 +1,7 @@
 # .github/hooks/tests README
 
 ## test-all-hooks
-- [test-all-hooks.py](./test-all-hooks.py) は `.github/hooks/helpers` 配下のすべての `test-*.py` を実行する。
+- [test-all-hooks.py](./test-all-hooks.py) は `.github/hooks/helpers` 配下のすべての `test-*.py` を、リポジトリルートをカレントディレクトリとして実行する。実行中のファイルは、リポジトリルート相対の `/` 区切りのパスで表示する。
 - 各テストファイルは `unittest` 形式で進捗、実行件数、実行時間、結果を標準エラーに出力する。
 - 最後の `Passed all <件数> hook test files.` は成功したテストファイル数を表し、続けて `OK` を出力する。失敗したファイルや起動失敗がある場合は理由と `NG` を標準エラーに出力し、終了コード2を返す。
 

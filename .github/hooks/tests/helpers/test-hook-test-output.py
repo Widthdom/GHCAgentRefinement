@@ -168,7 +168,7 @@ class AllHooksOutputTests(unittest.TestCase):
                 runpy.run_path(os.path.join(_tests_directory, 'test-all-hooks.py'))
             except SystemExit as ex:
                 exit_code = ex.code
-        return exit_code, stdout.getvalue(), stderr.getvalue(), run.call_count
+        return exit_code, stdout.getvalue(), stderr.getvalue(), run.call_args_list
 
     def test_success(self):
         result = self.__invoke([
@@ -177,7 +177,10 @@ class AllHooksOutputTests(unittest.TestCase):
         self.assertEqual(result[0], 0)
         self.assertTrue(result[1].endswith('Passed all 2 hook test files.\nOK\n'))
         self.assertEqual(result[2], '')
-        self.assertEqual(result[3], 2)
+        self.assertEqual(len(result[3]), 2)
+        # テストはリポジトリルートで実行し、パスはリポジトリルート相対の `/` 区切りで表示する。
+        self.assertEqual(result[3][0].kwargs['cwd'], os.path.dirname(os.path.dirname(os.path.dirname(_tests_directory))))
+        self.assertIn('Running .github/hooks/helpers/test-first.py...', result[1])
 
     def test_failure_continues_other_files(self):
         result = self.__invoke([
@@ -187,7 +190,7 @@ class AllHooksOutputTests(unittest.TestCase):
         self.assertNotIn('OK', result[1])
         self.assertIn('exited with code 1', result[2])
         self.assertTrue(result[2].endswith('NG\n'))
-        self.assertEqual(result[3], 2)
+        self.assertEqual(len(result[3]), 2)
 
     def test_start_failure(self):
         result = self.__invoke([OSError('start detail'), subprocess.CompletedProcess([], 0)])
@@ -195,7 +198,7 @@ class AllHooksOutputTests(unittest.TestCase):
         self.assertIn('start detail', result[2])
         self.assertIn('could not start', result[2])
         self.assertTrue(result[2].endswith('NG\n'))
-        self.assertEqual(result[3], 2)
+        self.assertEqual(len(result[3]), 2)
 
     def test_no_test_files(self):
         result = self.__invoke([], filenames=())
@@ -203,7 +206,7 @@ class AllHooksOutputTests(unittest.TestCase):
         self.assertEqual(result[1], '')
         self.assertIn('No hook tests found', result[2])
         self.assertTrue(result[2].endswith('NG\n'))
-        self.assertEqual(result[3], 0)
+        self.assertEqual(len(result[3]), 0)
 
 
 if __name__ == '__main__':
