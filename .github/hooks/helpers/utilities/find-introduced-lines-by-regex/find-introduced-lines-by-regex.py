@@ -2,8 +2,7 @@ import os
 import runpy
 
 # 依頼中の編集で新たに持ち込んだ行（introduced lines）のうち、正規表現に一致するものを探す。
-# デバッグ用のコードを残す応答を差し戻すagentStop hook（detect-debug-leftovers）と、
-# 仮実装を残す応答を差し戻すagentStop hook（detect-stub-placeholders）が共有する。
+# デバッグ用のコードや仮実装を残す応答を差し戻すagentStop hook（detect-temporary-code）が使う。
 
 # 他のutilityの処理は、スクリプトから読み込む。utilityのフォルダーの親がutilitiesである。
 _utilities_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

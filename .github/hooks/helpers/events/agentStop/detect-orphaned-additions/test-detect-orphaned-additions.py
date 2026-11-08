@@ -267,15 +267,6 @@ class DetectOrphanedAdditionsTests(unittest.TestCase):
                 )
                 self.assertEqual((result.returncode, result.stdout), (2, b''), name)
                 self.assertIn(b'Failed to detect orphaned additions:', result.stderr)
-        test_definitions_path = os.path.join(self.__root, 'test-definitions.json')
-        with open(test_definitions_path, 'w', encoding='utf-8', newline='\n') as file:
-            file.write(json.dumps({'testFilePatterns': []}))
-        result = self.__invoke(
-            self.__created('src/calc.py', 'def helper():\n    pass\n'),
-            arguments=('--test-definitions-path', test_definitions_path),
-        )
-        self.assertEqual((result.returncode, result.stdout), (2, b''))
-        self.assertIn(b'Failed to detect orphaned additions:', result.stderr)
 
 
 if __name__ == '__main__':

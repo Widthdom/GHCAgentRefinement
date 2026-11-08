@@ -36,6 +36,6 @@ preToolUse（bashツールの実行前）
 
 ## 備考
 
-- pipefailがないとパイプラインの終了コードは最後のコマンド（`tail`・`grep`・`tee` など）のものになり、テストやビルドが失敗しても成功として返る。エージェントがその結果を根拠に成功を報告する事故を、実行前に防ぐためのhook。verify-completion-claims hookはトランスクリプトの終了コードで「テストが通った」という主張を検証するため、終了コードが隠れると検証をすり抜ける。その抜け道を塞ぐ。
+- pipefailがないとパイプラインの終了コードは最後のコマンド（`tail`・`grep`・`tee` など）のものになり、テストやビルドが失敗しても成功として返る。エージェントがその結果を根拠に成功を報告する事故を、実行前に防ぐためのhook。[verify-test-pass-claims](../../agentStop/verify-test-pass-claims/README.md) hookはトランスクリプトの終了コードで「テストが通った」という主張を検証するため、終了コードが隠れると検証をすり抜ける。その抜け道を塞ぐ。
 - 状態にはコマンドを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block-masked-exit-codes/<セッションID>.sqlite3` に保存する。拒否しないコマンドでは状態ファイルを作らない。
 - 不正な入力では異常終了する。Copilotはhookの異常終了をツール実行の拒否として扱う。

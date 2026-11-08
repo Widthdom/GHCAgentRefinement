@@ -261,12 +261,11 @@ class BlockTestWeakeningTests(unittest.TestCase):
         for name, content in [
             ('not json', '{'),
             ('not object', '[]'),
-            ('missing test file patterns', {'assertionPatterns': ['x'], 'weakeningPatterns': valid_weakening}),
-            ('empty assertion patterns', {'testFilePatterns': ['x'], 'assertionPatterns': [], 'weakeningPatterns': valid_weakening}),
-            ('missing weakening pattern', {'testFilePatterns': ['x'], 'assertionPatterns': ['x'], 'weakeningPatterns': [{'name': 'x'}]}),
-            ('invalid test file regex', {'testFilePatterns': ['('], 'assertionPatterns': ['x'], 'weakeningPatterns': valid_weakening}),
-            ('invalid weakening regex', {'testFilePatterns': ['x'], 'assertionPatterns': ['x'],
-                                         'weakeningPatterns': [{'name': 'x', 'pattern': '('}]}),
+            ('missing assertion patterns', {'weakeningPatterns': valid_weakening}),
+            ('empty assertion patterns', {'assertionPatterns': [], 'weakeningPatterns': valid_weakening}),
+            ('missing weakening pattern', {'assertionPatterns': ['x'], 'weakeningPatterns': [{'name': 'x'}]}),
+            ('invalid assertion regex', {'assertionPatterns': ['('], 'weakeningPatterns': valid_weakening}),
+            ('invalid weakening regex', {'assertionPatterns': ['x'], 'weakeningPatterns': [{'name': 'x', 'pattern': '('}]}),
         ]:
             with self.subTest(name=name):
                 path = os.path.join(self.__directory, f'definitions-{name.replace(" ", "-")}.json')

@@ -14,11 +14,6 @@
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-debug-leftovers/detect-debug-leftovers.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-debug-leftovers/detect-debug-leftovers.py"
-      },
-      {
-        "type": "command",
         "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-dropped-requirements/detect-dropped-requirements.py",
         "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-dropped-requirements/detect-dropped-requirements.py"
       },
@@ -44,23 +39,13 @@
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-rerun-until-green/detect-rerun-until-green.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-rerun-until-green/detect-rerun-until-green.py"
-      },
-      {
-        "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-stale-verification/detect-stale-verification.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-stale-verification/detect-stale-verification.py"
-      },
-      {
-        "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-stub-placeholders/detect-stub-placeholders.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-stub-placeholders/detect-stub-placeholders.py"
-      },
-      {
-        "type": "command",
         "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-sycophantic-reversal/detect-sycophantic-reversal.py",
         "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-sycophantic-reversal/detect-sycophantic-reversal.py"
+      },
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-temporary-code/detect-temporary-code.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/detect-temporary-code/detect-temporary-code.py"
       },
       {
         "type": "command",
@@ -89,8 +74,8 @@
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/verify-completion-claims/verify-completion-claims.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/verify-completion-claims/verify-completion-claims.py"
+        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/verify-test-pass-claims/verify-test-pass-claims.py",
+        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/verify-test-pass-claims/verify-test-pass-claims.py"
       }
     ]
   }

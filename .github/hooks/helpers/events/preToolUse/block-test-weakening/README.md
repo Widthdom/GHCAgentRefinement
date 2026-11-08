@@ -7,11 +7,11 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 テストファイルにスキップ・限定実行・常に成功するアサーションを加える編集や、アサーションを減らす編集を拒否し、テストではなく実装を直すよう求める。
 
 ## 処理詳細
-1. [test-weakening-definitions.json](./test-weakening-definitions.json) から、テストファイルのパス（`testFilePatterns`）、アサーション（`assertionPatterns`）、テストを弱める行（`weakeningPatterns`）の正規表現を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
+1. [test-weakening-definitions.json](./test-weakening-definitions.json) から、アサーション（`assertionPatterns`）、テストを弱める行（`weakeningPatterns`）の正規表現を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。テストファイルの判定の定義は [check-test-files](../../../utilities/check-test-files/README.md) utilityで読み込む。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
    - `apply_patch` の `*** Delete File:` のファイルも対象とする。
    - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
-3. cwdからの相対パス（`/` 区切り）が `testFilePatterns` のいずれかに一致するファイルについて、次のいずれかに該当すれば拒否の候補とする。
+3. cwdからの相対パス（`/` 区切り）が [check-test-files](../../../utilities/check-test-files/README.md) の規則でテストファイルに当たるファイルについて、次のいずれかに該当すれば拒否の候補とする。
    - 骨抜き：書き込む内容に、`weakeningPatterns` に一致する行がある。ただし、同じ行が既存の内容（置換前の内容、パッチの削除行、ファイルの現在の内容）にあれば除く。
    - アサーションの減少：`assertionPatterns` に一致する行の数が、置換前の内容より書き込む内容で少ない。`create` での上書きはファイルの現在の内容と、削除は現在の内容と空の内容とを比べる。
 4. 候補のうち、このセッションで同じファイル・同じ種類をまだ拒否していないものがあれば、テストではなく実装を直すよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。
@@ -20,7 +20,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 |種類|例|
 |--|--|
-|テストファイル|`test_*.py`・`*_test.py`・`*_test.go`・`*Tests.cs`・`*Test.java`・`*.test.ts`・`*.spec.js`・`test-*.py`・`tests/`・`__tests__/`・`spec/`・`*.Tests/` 配下|
 |スキップの属性・デコレーター|`[Fact(Skip = "...")]`・`[Ignore]`・`@Disabled`・`#[ignore]`・`@pytest.mark.skip`・`@pytest.mark.xfail`・`@unittest.skipIf(...)`|
 |スキップの呼び出し|`pytest.skip(...)`・`self.skipTest(...)`・`t.Skip(...)`・`Assert.Inconclusive(...)`|
 |JavaScriptのスキップ・限定実行|`it.skip(`・`describe.only(`・`test.todo(`・`xit(`・`fdescribe(`|
@@ -36,9 +35,8 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - 正規表現で検出するため、定義にない形式（条件分岐による早期の `return` など）は見逃す。期待値をテスト対象の出力に合わせる書き換えは [block-goalpost-moving](../block-goalpost-moving/README.md) hookが拒否する。
 
 ## 備考
-- テストが失敗したとき、エージェントが実装を直さずに、テストをスキップしたり、アサーションを消したり、常に成功するアサーションに置き換えたりして成功させる事故を、書き込む前に防ぐためのhook。テストの成功の主張を確かめる [verify-completion-claims](../../agentStop/verify-completion-claims/README.md) hookと組み合わせ、テストを弱めて成功させる抜け道を塞ぐ。
+- テストが失敗したとき、エージェントが実装を直さずに、テストをスキップしたり、アサーションを消したり、常に成功するアサーションに置き換えたりして成功させる事故を、書き込む前に防ぐためのhook。テストの成功の主張を確かめる [verify-test-pass-claims](../../agentStop/verify-test-pass-claims/README.md) hookと組み合わせ、テストを弱めて成功させる抜け道を塞ぐ。
 - 限定実行（`.only` など）は、他のテストを実行させなくするため、スキップと同じく骨抜きとして扱う。
 - 新規のテストファイルでも、スキップや限定実行の行は骨抜きとして扱う。
 - 状態にはファイルパスを保存せず、照合用のSHA-256と拒否の種類だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block-test-weakening/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
-- `testFilePatterns` はblock-goalpost-moving hookもテストファイルの判定に使う。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。

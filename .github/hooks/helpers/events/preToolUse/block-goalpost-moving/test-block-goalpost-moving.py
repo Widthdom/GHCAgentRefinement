@@ -49,10 +49,10 @@ class BlockGoalpostMovingTests(unittest.TestCase):
             self.__root, 'ghc-agent-refinement', 'hook-states', 'test-failure-values', f'{self.__session_id}.sqlite3',
         )
 
-    def __run_process(self, path, hook_input, *arguments):
+    def __run_process(self, path, hook_input):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
-            [sys.executable, path, *arguments], input=raw,
+            [sys.executable, path], input=raw,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.__environment, timeout=10,
         )
 
@@ -208,25 +208,6 @@ class BlockGoalpostMovingTests(unittest.TestCase):
                 result = self.__run_process(_hook_path, hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertEqual(result.stdout, b'', name)
-                self.assertIn(b'Failed to check goalpost moving:', result.stderr)
-
-    def test_invalid_definitions(self):
-        valid_input = {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 'edit', 'toolArgs': {}}
-        for name, content in [
-            ('missing file', None),
-            ('not json', '{'),
-            ('not object', '[]'),
-            ('missing test file patterns', {'assertionPatterns': ['x']}),
-            ('empty test file patterns', {'testFilePatterns': []}),
-            ('invalid regex', {'testFilePatterns': ['(']}),
-        ]:
-            with self.subTest(name=name):
-                path = os.path.join(self.__root, f'definitions-{name.replace(" ", "-")}.json')
-                if content is not None:
-                    with open(path, 'w', encoding='utf-8', newline='\n') as file:
-                        file.write(content if isinstance(content, str) else json.dumps(content))
-                result = self.__run_process(_hook_path, valid_input, '--definitions-path', path)
-                self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to check goalpost moving:', result.stderr)
 
 

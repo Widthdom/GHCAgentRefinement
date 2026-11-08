@@ -1,8 +1,8 @@
 import re
 
 # コマンドがテストの実行か、応答が「テストが通った」と書いているかを判定する。
-# テストの実行結果を扱うhook（verify-completion-claims・detect-stale-verification・detect-rerun-until-green・
-# record-test-failure-values・detect-vacuous-test-success）と、テストを含む検証コマンドの終了コードを隠させないhook（block-masked-exit-codes）が共有する。
+# テストの実行結果を扱うhook（verify-test-pass-claims・record-test-failure-values・detect-vacuous-test-success）と、
+# テストを含む検証コマンドの終了コードを隠させないhook（block-masked-exit-codes）が共有する。
 
 # テストの実行とみなすコマンドの語（正規表現）。`test-all-hooks.py`・`npm test`・`pytest` などを含む。
 TEST_COMMAND_WORDS = ('tests?', 'pytest', 'unittest', 'jest', 'vitest', 'mocha', 'rspec', 'phpunit', 'ctest', 'tox', 'pester')
