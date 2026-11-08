@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -136,7 +137,6 @@ class ReviewModeTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-    from hook_test_output import run_tests
+    _run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
-    run_tests()
+    _run_tests()

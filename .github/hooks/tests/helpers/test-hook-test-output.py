@@ -7,10 +7,8 @@ import sys
 import unittest
 from unittest.mock import patch
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from hook_test_output import HookTestRunner, run_tests
-
-
+_test_output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hook-test-output.py')
+_test_output = runpy.run_path(_test_output_path)
 _tests_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -28,17 +26,17 @@ class HookTestOutputTests(unittest.TestCase):
             unittest.FunctionTestCase(first),
             unittest.FunctionTestCase(second),
         ])
-        result = HookTestRunner(stream=stream).run(suite)
+        result = _test_output['HookTestRunner'](stream=stream).run(suite)
         self.assertTrue(result.wasSuccessful())
         self.assertTrue(stream.getvalue().startswith('..\n'))
         self.assertTrue(stream.getvalue().endswith('OK\n'))
 
     def __invoke(self, body, *arguments):
         source = (
+            'import runpy\n'
             'import sys\n'
-            f'sys.path.insert(0, {os.path.join(_tests_directory, "helpers")!r})\n'
             'import unittest\n'
-            'from hook_test_output import run_tests\n'
+            f'run_tests = runpy.run_path({_test_output_path!r})["run_tests"]\n'
             f'sys.argv = ["test-example.py", *{list(arguments)!r}]\n'
             'class ExampleTests(unittest.TestCase):\n'
             f'{body}\n'
@@ -210,4 +208,4 @@ class AllHooksOutputTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _test_output['run_tests']()

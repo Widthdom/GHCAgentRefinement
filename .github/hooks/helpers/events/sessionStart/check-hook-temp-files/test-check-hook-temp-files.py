@@ -17,8 +17,7 @@ _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirna
 _clean_script_path = os.path.join(
     os.path.dirname(_hooks_directory), 'skills', 'clean-hook-temp-files', 'scripts', 'clean-hook-temp-files.py',
 )
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 _STALE_SECONDS = 48 * 60 * 60 + 60
 _FRESH_SECONDS = 48 * 60 * 60 - 60
@@ -213,4 +212,4 @@ class CheckHookTempFilesTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

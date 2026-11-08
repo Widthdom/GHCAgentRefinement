@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -11,8 +12,7 @@ _hook_path = os.path.join(_script_directory, 'block-generated-file-edits.py')
 _definitions_path = os.path.join(_script_directory, 'generated-file-definitions.json')
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 
 class BlockGeneratedFileEditsTests(unittest.TestCase):
@@ -254,4 +254,4 @@ class BlockGeneratedFileEditsTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

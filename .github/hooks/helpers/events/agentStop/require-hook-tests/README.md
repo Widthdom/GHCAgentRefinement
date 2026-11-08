@@ -23,7 +23,7 @@ hookの実装・定義・テストを変更したのに、最後の変更の後�
 |`helpers/utilities/` 配下のファイル|`test-all-hooks.py`|
 |`helpers/runner/` 配下のファイル|[test-run-hook.py](../../../runner/test-run-hook.py)、[test-all-hooks.py](../../../../tests/test-all-hooks.py)|
 |`.github/hooks/<event>.json`・`.github/hooks/-repo-<event>.json`|[test-hook-configurations.py](../../../../tests/test-hook-configurations.py)、[test-all-hooks.py](../../../../tests/test-all-hooks.py)|
-|`tests/helpers/hook_test_output.py`・`tests/helpers/test-hook-test-output.py`|[test-hook-test-output.py](../../../../tests/helpers/test-hook-test-output.py)（一括実行の探索対象外のため）|
+|`tests/helpers/hook-test-output.py`・`tests/helpers/test-hook-test-output.py`|[test-hook-test-output.py](../../../../tests/helpers/test-hook-test-output.py)（一括実行の探索対象外のため）|
 |`tests/helpers/` 配下のその他のファイル|`test-all-hooks.py`（個別のテストが読み込むため）|
 |`tests/test-all-hooks.py`・`tests/test-hook-configurations.py`|そのファイル自体|
 
