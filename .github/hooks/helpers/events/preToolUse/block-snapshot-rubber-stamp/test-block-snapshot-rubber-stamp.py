@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -11,8 +12,9 @@ _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'block-snapshot-rubber-stamp.py')
 _definitions_path = os.path.join(_script_directory, 'snapshot-update-definitions.json')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
+
+_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-entry.py'))['get_hook_entry']
 
 
 class BlockSnapshotRubberStampTests(unittest.TestCase):
@@ -59,19 +61,10 @@ class BlockSnapshotRubberStampTests(unittest.TestCase):
         self.assertTrue(definitions['updateCommands'])
 
     def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        relative_path = '.github/hooks/helpers/events/preToolUse/block-snapshot-rubber-stamp/block-snapshot-rubber-stamp.py'
-        entries = [
-            entry for entry in configuration['hooks']['preToolUse']
-            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
-        ]
-        self.assertEqual(len(entries), 1)
-        self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
+        entry = _get_hook_entry(_hook_path)
         for tool_name in ('bash', 'powershell', 'functions.bash'):
-            self.assertRegex(tool_name, f'^(?:{entries[0]["matcher"]})$')
-        self.assertNotRegex('edit', f'^(?:{entries[0]["matcher"]})$')
+            self.assertRegex(tool_name, f'^(?:{entry["matcher"]})$')
+        self.assertNotRegex('edit', f'^(?:{entry["matcher"]})$')
 
     def test_bulk_snapshot_updates_are_denied(self):
         cases = [
@@ -186,4 +179,4 @@ class BlockSnapshotRubberStampTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

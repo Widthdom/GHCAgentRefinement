@@ -17,7 +17,7 @@ def _invoke_hook_input(input_json):
         [sys.executable, _hook_path],
         input=input_json if isinstance(input_json, bytes) else input_json.encode('utf-8'),
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.PIPE, timeout=30,
     )
     return completed.returncode, completed.stdout.decode('utf-8'), completed.stderr.decode('utf-8')
 
@@ -99,8 +99,7 @@ _invalid_cases = [
 ]
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 
 class CheckTargetSessionTests(unittest.TestCase):
@@ -155,4 +154,4 @@ class CheckTargetSessionTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -10,8 +11,7 @@ import uuid
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'record-hook-change-requests.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 
 class RecordHookChangeRequestsTests(unittest.TestCase):
@@ -54,18 +54,6 @@ class RecordHookChangeRequestsTests(unittest.TestCase):
     def __read_state(self):
         with open(self.__state_path, encoding='utf-8') as file:
             return json.load(file)
-
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'userPromptSubmitted.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        relative_path = '.github/hooks/helpers/events/userPromptSubmitted/record-hook-change-requests/record-hook-change-requests.py'
-        entries = configuration['hooks']['userPromptSubmitted']
-        matching = [entry for entry in entries if relative_path in entry['bash']]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['type'], 'command')
-        self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
 
     def test_prompts_mentioning_hooks_are_recorded(self):
         prompts = (
@@ -136,4 +124,4 @@ class RecordHookChangeRequestsTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

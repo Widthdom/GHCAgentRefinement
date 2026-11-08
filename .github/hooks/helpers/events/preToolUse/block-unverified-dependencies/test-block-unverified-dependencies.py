@@ -7,14 +7,14 @@ import sys
 import tempfile
 import unittest
 import uuid
+from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'block-unverified-dependencies.py')
 
 _helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
 _hooks_directory = os.path.dirname(_helpers_directory)
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 _state = runpy.run_path(os.path.join(_helpers_directory, 'utilities', 'verified-packages-state', 'verified-packages-state.py'))
 
@@ -29,10 +29,18 @@ _CSPROJ = (
 
 class BlockUnverifiedDependenciesTests(unittest.TestCase):
     def setUp(self):
-        self.__directory = os.path.realpath(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.__directory, ignore_errors=True)
+        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-unverified-dependencies-test-')
+        self.addCleanup(temporary.cleanup)
+        root = os.path.realpath(temporary.name)
+        # 確認の記録を実際の一時フォルダーに残さないよう、hookとテストの両方で一時フォルダーを差し替える。
+        self.__environment = dict(os.environ, TMPDIR=root, TEMP=root, TMP=root)
+        tempdir = patch.object(tempfile, 'tempdir', root)
+        tempdir.start()
+        self.addCleanup(tempdir.stop)
+        self.__directory = os.path.join(root, 'workspace')
+        os.makedirs(self.__directory)
         if shutil.which('git') is not None:
-            subprocess.run(['git', 'init', '-q', self.__directory], check=True)
+            subprocess.run(['git', 'init', '-q', self.__directory], check=True, timeout=30)
         # 実際のNuGetのキャッシュに左右されないよう、空の一時フォルダーを使う。
         self.__nuget_directory = os.path.join(self.__directory, '.nuget-packages')
         os.makedirs(os.path.join(self.__nuget_directory, 'newtonsoft.json', '13.0.3'))
@@ -45,7 +53,6 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
         # テストごとに別セッションとし、確認の記録を持ち越さない。
         self.__session_id = str(uuid.uuid4())
         self.__state_path = _state['get_state_path'](self.__session_id)
-        self.addCleanup(lambda path=self.__state_path: os.path.exists(path) and os.remove(path))
 
     def __write_file(self, path, content):
         full_path = os.path.join(self.__directory, path)
@@ -54,8 +61,8 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
             file.write(content)
 
     def __run_raw(self, input_bytes):
-        environment = dict(os.environ, NUGET_PACKAGES=self.__nuget_directory)
-        return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True, env=environment)
+        environment = dict(self.__environment, NUGET_PACKAGES=self.__nuget_directory)
+        return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True, env=environment, timeout=30)
 
     def __run_call(self, tool_name, tool_args):
         hook_input = {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': tool_name, 'toolArgs': tool_args}
@@ -222,4 +229,4 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

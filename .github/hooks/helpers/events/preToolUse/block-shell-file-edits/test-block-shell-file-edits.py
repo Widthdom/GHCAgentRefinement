@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -9,8 +10,9 @@ import unittest
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'block-shell-file-edits.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
+
+_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-entry.py'))['get_hook_entry']
 
 
 class BlockShellFileEditsTests(unittest.TestCase):
@@ -23,9 +25,9 @@ class BlockShellFileEditsTests(unittest.TestCase):
         for path in ('対象.txt', 'other.txt', 'untracked.txt', os.path.join('sub', 'nested.txt')):
             with open(os.path.join(self.__workspace, path), 'w', encoding='utf-8', newline='\n') as file:
                 file.write('a\n')
-        subprocess.run(['git', 'init', '-q', self.__workspace], check=True)
+        subprocess.run(['git', 'init', '-q', self.__workspace], check=True, timeout=30)
         subprocess.run(
-            ['git', '-C', self.__workspace, 'add', '--', '対象.txt', 'other.txt', 'sub/nested.txt'], check=True,
+            ['git', '-C', self.__workspace, 'add', '--', '対象.txt', 'other.txt', 'sub/nested.txt'], check=True, timeout=30,
         )
         self.__outside = os.path.join(self.__root, 'outside.txt')
         with open(self.__outside, 'w', encoding='utf-8', newline='\n') as file:
@@ -62,22 +64,13 @@ class BlockShellFileEditsTests(unittest.TestCase):
         self.assertIn(f'writes to the following git-tracked files: {files}.', output['permissionDecisionReason'])
 
     def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        relative_path = '.github/hooks/helpers/events/preToolUse/block-shell-file-edits/block-shell-file-edits.py'
-        entries = [
-            entry for entry in configuration['hooks']['preToolUse']
-            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
-        ]
-        self.assertEqual(len(entries), 1)
-        self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
+        entry = _get_hook_entry(_hook_path)
         for tool_name in ('bash', 'powershell', 'functions.bash', 'functions.powershell'):
             with self.subTest(tool_name=tool_name):
-                self.assertRegex(tool_name, f'^(?:{entries[0]["matcher"]})$')
+                self.assertRegex(tool_name, f'^(?:{entry["matcher"]})$')
         for tool_name in ('edit', 'view', 'apply_patch'):
             with self.subTest(tool_name=tool_name):
-                self.assertNotRegex(tool_name, f'^(?:{entries[0]["matcher"]})$')
+                self.assertNotRegex(tool_name, f'^(?:{entry["matcher"]})$')
 
     def test_denies_bash_writes_to_tracked_files(self):
         commands = (
@@ -222,4 +215,4 @@ class BlockShellFileEditsTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

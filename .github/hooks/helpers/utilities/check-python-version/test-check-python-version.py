@@ -9,8 +9,7 @@ _script_directory = os.path.dirname(os.path.abspath(__file__))
 _utility_path = os.path.join(_script_directory, 'check-python-version.py')
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 
 class CheckPythonVersionTests(unittest.TestCase):
@@ -29,10 +28,10 @@ class CheckPythonVersionTests(unittest.TestCase):
 
     def test_current_interpreter(self):
         # 実行中のPythonで起動し、何も出力せずに終了コードだけを返すこと。
-        result = subprocess.run([sys.executable, _utility_path], capture_output=True, check=False)
+        result = subprocess.run([sys.executable, _utility_path], capture_output=True, check=False, timeout=30)
         self.assertEqual(result.returncode, 0 if sys.version_info >= (3, 14) else 1)
         self.assertEqual((result.stdout, result.stderr), (b'', b''))
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

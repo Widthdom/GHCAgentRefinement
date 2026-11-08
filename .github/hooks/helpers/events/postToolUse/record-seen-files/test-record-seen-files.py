@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import runpy
 import sqlite3
 import subprocess
 import sys
@@ -13,8 +14,9 @@ from contextlib import closing
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'record-seen-files.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
+
+_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-entry.py'))['get_hook_entry']
 
 
 class RecordSeenFilesTests(unittest.TestCase):
@@ -67,22 +69,13 @@ class RecordSeenFilesTests(unittest.TestCase):
         return hashlib.sha256(os.path.normcase(os.path.realpath(path)).encode('utf-8')).hexdigest()
 
     def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'postToolUse.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        relative_path = '.github/hooks/helpers/events/postToolUse/record-seen-files/record-seen-files.py'
-        entries = [
-            entry for entry in configuration['hooks']['postToolUse']
-            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
-        ]
-        self.assertEqual(len(entries), 1)
-        self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
+        entry = _get_hook_entry(_hook_path)
         for tool_name in ('view', 'functions.view', 'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'):
             with self.subTest(tool_name=tool_name):
-                self.assertRegex(tool_name, f'^(?:{entries[0]["matcher"]})$')
+                self.assertRegex(tool_name, f'^(?:{entry["matcher"]})$')
         for tool_name in ('bash', 'rg', 'glob', 'skill', 'preview'):
             with self.subTest(tool_name=tool_name):
-                self.assertNotRegex(tool_name, f'^(?:{entries[0]["matcher"]})$')
+                self.assertNotRegex(tool_name, f'^(?:{entry["matcher"]})$')
 
     def test_records_viewed_and_edited_files(self):
         cases = (
@@ -182,4 +175,4 @@ class RecordSeenFilesTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

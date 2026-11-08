@@ -15,8 +15,7 @@ _definitions_path = os.path.join(_script_directory, 'required-tool-definitions.j
 _hook = runpy.run_path(_hook_path)
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 _COMMANDS = ('ast-grep', 'git', 'jq', 'rg')
 _SATISFIED = {'ast-grep': 'ast-grep 0.39.5\n', 'git': 'git version 2.47.1\n', 'jq': 'jq-1.7.1\n', 'rg': 'ripgrep 14.1.1\n'}
@@ -89,15 +88,6 @@ class CheckRequiredToolsTests(unittest.TestCase):
         self.assertEqual(stderr, f'{expected}\n')
         self.assertEqual(json.loads(stdout), {'additionalContext': _hook['_ADDITIONAL_CONTEXT'].format(message=expected)})
 
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'sessionStart.json'), encoding='utf-8') as file:
-            entries = json.load(file)['hooks']['sessionStart']
-        relative_path = '.github/hooks/helpers/events/sessionStart/check-required-tools/check-required-tools.py'
-        matching = [entry for entry in entries if relative_path in entry.get('bash', '')]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-
     def test_all_satisfied(self):
         exit_code, stderr, stdout, run = _run_main()
         self.assertEqual((exit_code, stderr, stdout), (0, '', ''))
@@ -166,14 +156,14 @@ class CheckRequiredToolsTests(unittest.TestCase):
             missing = []
             for command in _COMMANDS:
                 try:
-                    subprocess.run([command, '--version'], capture_output=True, cwd=empty_directory, env=environment)
+                    subprocess.run([command, '--version'], capture_output=True, cwd=empty_directory, env=environment, timeout=30)
                 except OSError:
                     missing.append(command)
             if not missing:
                 self.skipTest('All tools are found outside PATH, for example in System32.')
             result = subprocess.run(
                 [sys.executable, _hook_path], input=b'{"sessionId":"test"}', capture_output=True,
-                cwd=empty_directory, env=environment,
+                cwd=empty_directory, env=environment, timeout=30,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             for name, output in (('stdout', result.stdout), ('stderr', result.stderr)):
@@ -184,4 +174,4 @@ class CheckRequiredToolsTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

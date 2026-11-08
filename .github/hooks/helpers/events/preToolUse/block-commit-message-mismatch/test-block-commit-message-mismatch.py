@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -10,19 +11,20 @@ import uuid
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'block-commit-message-mismatch.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 
 _DENY_REASON_PREFIX = 'Commit denied: the commit message describes changes that are not in the commit'
-_STATE_DIRECTORY = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-commit-message-mismatch')
 
 
 class BlockCommitMessageMismatchTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-commit-message-mismatch-test-')
         self.addCleanup(temporary.cleanup)
-        self.__root = temporary.name
+        # hookの状態を実際の一時フォルダーに残さないよう、一時フォルダーを差し替える。
+        self.__environment = dict(os.environ, TMPDIR=temporary.name, TEMP=temporary.name, TMP=temporary.name)
+        self.__root = os.path.join(temporary.name, 'workspace')
+        os.makedirs(self.__root)
         self.__git('init', '-q')
         self.__write('src/app.py', 'def parse():\n    return 1\n')
         self.__git('add', '-A')
@@ -31,7 +33,7 @@ class BlockCommitMessageMismatchTests(unittest.TestCase):
     def __git(self, *arguments):
         subprocess.run(
             ['git', '-c', 'user.name=test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false', *arguments],
-            cwd=self.__root, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            cwd=self.__root, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30,
         )
 
     def __write(self, relative_path, content):
@@ -45,10 +47,7 @@ class BlockCommitMessageMismatchTests(unittest.TestCase):
         self.__git('add', '--', relative_path)
 
     def __new_session(self):
-        session_id = str(uuid.uuid4())
-        state_path = os.path.join(_STATE_DIRECTORY, f'{session_id}.sqlite3')
-        self.addCleanup(lambda: os.path.exists(state_path) and os.remove(state_path))
-        return session_id
+        return str(uuid.uuid4())
 
     def __invoke(self, command=None, session_id=None, tool_name='bash', raw=None, cwd=None):
         if raw is None:
@@ -60,7 +59,7 @@ class BlockCommitMessageMismatchTests(unittest.TestCase):
             }, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path], input=raw,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.__environment, timeout=30,
         )
 
     def __assert_allowed(self, result):
@@ -77,19 +76,6 @@ class BlockCommitMessageMismatchTests(unittest.TestCase):
         for fragment in fragments:
             self.assertIn(fragment, reason)
         return reason
-
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        self.assertEqual(configuration['version'], 1)
-        entries = configuration['hooks']['preToolUse']
-        relative_path = '.github/hooks/helpers/events/preToolUse/block-commit-message-mismatch/block-commit-message-mismatch.py'
-        matching = [entry for entry in entries if relative_path in entry['bash']]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['type'], 'command')
-        self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
 
     def test_allows_accurate_messages(self):
         self.__stage('src/app.py', 'def parse(text):\n    return len(text)\n')
@@ -230,4 +216,4 @@ class BlockCommitMessageMismatchTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

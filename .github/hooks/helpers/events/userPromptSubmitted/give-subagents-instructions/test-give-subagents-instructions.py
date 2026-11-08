@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import shutil
 import subprocess
 import sys
@@ -12,8 +13,7 @@ _hook_name = 'give-subagents-instructions'
 _hook_path = os.path.join(_script_directory, f'{_hook_name}.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
 _real_instructions_path = os.path.join(os.path.dirname(_hooks_directory), 'copilot-instructions.md')
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 
 class GiveSubagentsInstructionsTests(unittest.TestCase):
@@ -56,20 +56,8 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
         self.assertEqual(result.stderr, b'')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
-        self.assertRegex(result.stdout.decode('utf-8'), r'^[^\r\n]+\r?\n$')
+        self.assertRegex(result.stdout.decode('utf-8'), r'\A[^\r\n]+\n\Z')
         self.assertEqual(json.loads(result.stdout.decode('utf-8')), {'additionalContext': expected})
-
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'userPromptSubmitted.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        relative_path = f'.github/hooks/helpers/events/userPromptSubmitted/{_hook_name}/{_hook_name}.py'
-        entries = [
-            entry for entry in configuration['hooks']['userPromptSubmitted']
-            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
-        ]
-        self.assertEqual(len(entries), 1)
-        self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
 
     def test_passes_real_instructions_to_subagent(self):
         with open(_real_instructions_path, 'rb') as file:
@@ -105,6 +93,7 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
             (b'', 'Copilot instructions file is empty'),
             (b' \t\r\n', 'Copilot instructions file is empty'),
             (b'\xef\xbb\xbf', 'Copilot instructions file is empty'),
+            (b'\xff', 'Failed to read Copilot instructions file'),
         )
         for data, error in cases:
             with self.subTest(data=data):
@@ -130,4 +119,4 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

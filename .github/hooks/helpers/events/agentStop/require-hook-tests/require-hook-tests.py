@@ -28,6 +28,7 @@ _PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update|Delete) File|Move to
 _HOOKS_PATH_PATTERN = re.compile(r'^(.*?)/\.github/hooks/(.+)$', re.IGNORECASE)
 _ALL_HOOKS_TEST = 'test-all-hooks.py'
 _CONFIGURATION_TEST = 'test-hook-configurations.py'
+_TEST_OUTPUT_HELPER = 'hook-test-output.py'
 _TEST_OUTPUT_TEST = 'test-hook-test-output.py'
 _RUNNER_TEST = 'test-run-hook.py'
 _REASON_PREFIX = 'Hook files were changed'
@@ -132,6 +133,14 @@ def _get_requirement(path, cwd):
             'readme': None,
         })
     if len(parts) >= 2 and parts[0] == 'tests' and not parts[-1].lower().endswith('.md'):
+        # 個別のテストが読み込むその他の共通処理は、それを使う個別のテストを含む一括実行で確かめる。
+        if parts[1] == 'helpers' and parts[-1] not in (_TEST_OUTPUT_HELPER, _TEST_OUTPUT_TEST):
+            return (os.path.normcase(os.path.join(hooks_directory, 'tests', 'helpers')), {
+                'label': 'test helpers (tests/helpers)',
+                'test': os.path.join(hooks_directory, 'tests', _ALL_HOOKS_TEST),
+                'accepted': (_ALL_HOOKS_TEST,),
+                'readme': None,
+            })
         # 一括実行の探索対象外である共通出力処理と、一括実行・設定検証のテスト自体。
         if parts[1] == 'helpers':
             test_name = _TEST_OUTPUT_TEST

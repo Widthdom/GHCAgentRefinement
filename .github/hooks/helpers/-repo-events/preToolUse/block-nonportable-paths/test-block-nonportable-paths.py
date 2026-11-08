@@ -12,8 +12,9 @@ from unittest.mock import patch
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'block-nonportable-paths.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
+
+_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-entry.py'))['get_hook_entry']
 
 
 class BlockNonportablePathsTests(unittest.TestCase):
@@ -54,22 +55,11 @@ class BlockNonportablePathsTests(unittest.TestCase):
             self.assertIn(part, output['permissionDecisionReason'])
 
     def test_configuration(self):
-        with open(os.path.join(_hooks_directory, '-repo-preToolUse.json'), encoding='utf-8') as file:
-            entries = json.load(file)['hooks']['preToolUse']
-        relative = '.github/hooks/helpers/-repo-events/preToolUse/block-nonportable-paths/block-nonportable-paths.py'
-        matching = [entry for entry in entries if entry['bash'].endswith(' ' + relative)]
-        self.assertEqual(len(matching), 1)
-        entry = matching[0]
-        self.assertEqual(entry['type'], 'command')
-        self.assertEqual(entry['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative}')
-        self.assertEqual(entry['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative}')
+        entry = _get_hook_entry(_hook_path)
         self.assertEqual(entry['timeoutSec'], 10)
         for name in ('edit', 'functions.create', 'insert', 'str_replace_editor', 'apply_patch'):
             self.assertIsNotNone(re.fullmatch(entry['matcher'], name))
         self.assertIsNone(re.fullmatch(entry['matcher'], 'bash'))
-        self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
-        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
-            self.assertNotIn(relative, file.read())
 
     def test_reserved_names(self):
         names = [
@@ -255,4 +245,4 @@ class BlockNonportablePathsTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

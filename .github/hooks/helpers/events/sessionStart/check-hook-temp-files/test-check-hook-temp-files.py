@@ -17,8 +17,7 @@ _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirna
 _clean_script_path = os.path.join(
     os.path.dirname(_hooks_directory), 'skills', 'clean-hook-temp-files', 'scripts', 'clean-hook-temp-files.py',
 )
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 _STALE_SECONDS = 48 * 60 * 60 + 60
 _FRESH_SECONDS = 48 * 60 * 60 - 60
@@ -93,25 +92,13 @@ class CheckHookTempFilesTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
         self.assertEqual(result.stderr, b'')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
-        self.assertRegex(result.stdout.decode('utf-8'), r'^[^\r\n]+\r?\n$')
+        self.assertRegex(result.stdout.decode('utf-8'), r'\A[^\r\n]+\n\Z')
         output = json.loads(result.stdout.decode('utf-8'))
         self.assertEqual(set(output), {'additionalContext'})
         self.assertIn(f'{count} temporary files under {self.__root} ', output['additionalContext'])
         self.assertIn('/clean-hook-temp-files', output['additionalContext'])
 
     # 警告hook
-
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'sessionStart.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        relative_path = '.github/hooks/helpers/events/sessionStart/check-hook-temp-files/check-hook-temp-files.py'
-        entries = [
-            entry for entry in configuration['hooks']['sessionStart']
-            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
-        ]
-        self.assertEqual(len(entries), 1)
-        self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
 
     def test_warns_at_threshold_across_categories(self):
         self.__create_files(os.path.join('hook-states', 'edit-oscillation'), 200)
@@ -225,4 +212,4 @@ class CheckHookTempFilesTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

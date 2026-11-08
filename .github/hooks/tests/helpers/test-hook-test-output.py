@@ -7,10 +7,8 @@ import sys
 import unittest
 from unittest.mock import patch
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from hook_test_output import HookTestRunner, run_tests
-
-
+_test_output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hook-test-output.py')
+_test_output = runpy.run_path(_test_output_path)
 _tests_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
@@ -28,17 +26,17 @@ class HookTestOutputTests(unittest.TestCase):
             unittest.FunctionTestCase(first),
             unittest.FunctionTestCase(second),
         ])
-        result = HookTestRunner(stream=stream).run(suite)
+        result = _test_output['HookTestRunner'](stream=stream).run(suite)
         self.assertTrue(result.wasSuccessful())
         self.assertTrue(stream.getvalue().startswith('..\n'))
         self.assertTrue(stream.getvalue().endswith('OK\n'))
 
     def __invoke(self, body, *arguments):
         source = (
+            'import runpy\n'
             'import sys\n'
-            f'sys.path.insert(0, {os.path.join(_tests_directory, "helpers")!r})\n'
             'import unittest\n'
-            'from hook_test_output import run_tests\n'
+            f'run_tests = runpy.run_path({_test_output_path!r})["run_tests"]\n'
             f'sys.argv = ["test-example.py", *{list(arguments)!r}]\n'
             'class ExampleTests(unittest.TestCase):\n'
             f'{body}\n'
@@ -46,7 +44,7 @@ class HookTestOutputTests(unittest.TestCase):
         )
         return subprocess.run(
             [sys.executable, '-c', source],
-            capture_output=True, text=True, check=False,
+            capture_output=True, text=True, check=False, timeout=30,
         )
 
     def test_success(self):
@@ -56,7 +54,7 @@ class HookTestOutputTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout, '')
-        self.assertRegex(result.stderr, r'^\.\.\n-+\nRan 2 tests in \d+\.\d{3}s\n\nOK\n$')
+        self.assertRegex(result.stderr, r'\A\.\.\n-+\nRan 2 tests in \d+\.\d{3}s\n\nOK\n\Z')
 
     def test_failure(self):
         result = self.__invoke('    def test_failure(self): self.fail("failure detail")')
@@ -168,7 +166,7 @@ class AllHooksOutputTests(unittest.TestCase):
                 runpy.run_path(os.path.join(_tests_directory, 'test-all-hooks.py'))
             except SystemExit as ex:
                 exit_code = ex.code
-        return exit_code, stdout.getvalue(), stderr.getvalue(), run.call_count
+        return exit_code, stdout.getvalue(), stderr.getvalue(), run.call_args_list
 
     def test_success(self):
         result = self.__invoke([
@@ -177,7 +175,10 @@ class AllHooksOutputTests(unittest.TestCase):
         self.assertEqual(result[0], 0)
         self.assertTrue(result[1].endswith('Passed all 2 hook test files.\nOK\n'))
         self.assertEqual(result[2], '')
-        self.assertEqual(result[3], 2)
+        self.assertEqual(len(result[3]), 2)
+        # テストはリポジトリルートで実行し、パスはリポジトリルート相対の `/` 区切りで表示する。
+        self.assertEqual(result[3][0].kwargs['cwd'], os.path.dirname(os.path.dirname(os.path.dirname(_tests_directory))))
+        self.assertIn('Running .github/hooks/helpers/test-first.py...', result[1])
 
     def test_failure_continues_other_files(self):
         result = self.__invoke([
@@ -187,7 +188,7 @@ class AllHooksOutputTests(unittest.TestCase):
         self.assertNotIn('OK', result[1])
         self.assertIn('exited with code 1', result[2])
         self.assertTrue(result[2].endswith('NG\n'))
-        self.assertEqual(result[3], 2)
+        self.assertEqual(len(result[3]), 2)
 
     def test_start_failure(self):
         result = self.__invoke([OSError('start detail'), subprocess.CompletedProcess([], 0)])
@@ -195,7 +196,15 @@ class AllHooksOutputTests(unittest.TestCase):
         self.assertIn('start detail', result[2])
         self.assertIn('could not start', result[2])
         self.assertTrue(result[2].endswith('NG\n'))
-        self.assertEqual(result[3], 2)
+        self.assertEqual(len(result[3]), 2)
+
+    def test_timeout_continues_other_files(self):
+        result = self.__invoke([subprocess.TimeoutExpired([], 300), subprocess.CompletedProcess([], 0)])
+        self.assertEqual(result[0], 2)
+        self.assertIn('timed out after 300 seconds', result[2])
+        self.assertTrue(result[2].endswith('NG\n'))
+        self.assertEqual(len(result[3]), 2)
+        self.assertEqual(result[3][0].kwargs['timeout'], 300)
 
     def test_no_test_files(self):
         result = self.__invoke([], filenames=())
@@ -203,8 +212,8 @@ class AllHooksOutputTests(unittest.TestCase):
         self.assertEqual(result[1], '')
         self.assertIn('No hook tests found', result[2])
         self.assertTrue(result[2].endswith('NG\n'))
-        self.assertEqual(result[3], 0)
+        self.assertEqual(len(result[3]), 0)
 
 
 if __name__ == '__main__':
-    run_tests()
+    _test_output['run_tests']()

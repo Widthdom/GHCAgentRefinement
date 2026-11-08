@@ -13,8 +13,7 @@ from unittest.mock import patch
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'debug-log-transformed-prompt.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 
 class DebugLogTransformedPromptTests(unittest.TestCase):
@@ -75,17 +74,6 @@ class DebugLogTransformedPromptTests(unittest.TestCase):
     def __read_log(self, path):
         with open(path, 'r', encoding='utf-8', newline='') as file:
             return file.read()
-
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'userPromptTransformed.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        self.assertEqual(configuration['version'], 1)
-        self.assertEqual(set(configuration['hooks']), {'userPromptTransformed'})
-        entries = configuration['hooks']['userPromptTransformed']
-        relative_path = '.github/hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/debug-log-transformed-prompt.py'
-        self.assertEqual(entries, [{
-            'type': 'command', 'bash': f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}', 'powershell': f'python .github/hooks/helpers/runner/run-hook.py {relative_path}',
-        }])
 
     def test_records_prompts_and_added_runtime_context(self):
         path = self.__logged_path(self.__invoke())
@@ -241,4 +229,4 @@ class DebugLogTransformedPromptTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import shutil
 import subprocess
 import sys
@@ -11,8 +12,7 @@ _hook_path = os.path.join(_script_directory, 'block-secret-writes.py')
 _definitions_path = os.path.join(_script_directory, 'secret-definitions.json')
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 # このテスト自体が本hookに拒否されないよう、秘密情報に見える値は接頭辞と本体を連結して作る。
 _BODY = 'Ab3dE5gH7jK9mN1pQ3sT5vW7yZ9bC1dF3hJ5'
@@ -29,7 +29,7 @@ _SECRETS = {
 
 
 def _run_hook(input_bytes, *arguments):
-    return subprocess.run([sys.executable, _hook_path, *arguments], input=input_bytes, capture_output=True)
+    return subprocess.run([sys.executable, _hook_path, *arguments], input=input_bytes, capture_output=True, timeout=30)
 
 
 class BlockSecretWritesTests(unittest.TestCase):
@@ -201,4 +201,4 @@ class BlockSecretWritesTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

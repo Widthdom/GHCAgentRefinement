@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -10,8 +11,7 @@ import unittest
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'detect-empty-promises.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 
 _HOOK_TIMESTAMP = 1777777777000
@@ -79,19 +79,6 @@ class DetectEmptyPromisesTests(unittest.TestCase):
         for fragment in fragments:
             self.assertIn(fragment, output['reason'])
         return output['reason']
-
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        self.assertEqual(configuration['version'], 1)
-        entries = configuration['hooks']['agentStop']
-        relative_path = '.github/hooks/helpers/events/agentStop/detect-empty-promises/detect-empty-promises.py'
-        matching = [entry for entry in entries if relative_path in entry['bash']]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['type'], 'command')
-        self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
 
     def test_blocks_deferred_promises(self):
         responses = (
@@ -228,4 +215,4 @@ class DetectEmptyPromisesTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

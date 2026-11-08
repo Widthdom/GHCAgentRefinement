@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -29,7 +30,7 @@ class ReviewModeTests(unittest.TestCase):
         raw = payload if isinstance(payload, bytes) else json.dumps(payload).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path], input=raw, capture_output=True,
-            env=self.__environment, check=False,
+            env=self.__environment, check=False, timeout=30,
         )
 
     def __state(self, session_id=None):
@@ -101,7 +102,7 @@ class ReviewModeTests(unittest.TestCase):
                 payload = {'sessionId': self.__session_id, 'prompt': prompt}
                 result = subprocess.run(
                     [sys.executable, debug_hook], input=json.dumps(payload).encode('utf-8'),
-                    capture_output=True, env=self.__environment, check=False,
+                    capture_output=True, env=self.__environment, check=False, timeout=30,
                 )
                 self.assertEqual(result.returncode, 0)
                 with open(debug_path, encoding='utf-8') as file:
@@ -134,21 +135,8 @@ class ReviewModeTests(unittest.TestCase):
         self.assertEqual(result.stdout, b'')
         self.assertIn(b'Failed to save adversarial review mode:', result.stderr)
 
-    def test_configuration_preserves_existing_hook(self):
-        with open(os.path.join(_hooks_directory, 'userPromptSubmitted.json'), encoding='utf-8') as file:
-            commands = json.load(file)['hooks']['userPromptSubmitted']
-        for key, interpreter in (('bash', 'python3'), ('powershell', 'python')):
-            for hook_name in ('set-debug-mode', 'set-adversarial-review-state'):
-                with self.subTest(key=key, hook_name=hook_name):
-                    self.assertIn(
-                        f'{interpreter} .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/userPromptSubmitted/'
-                        f'{hook_name}/{hook_name}.py',
-                        [command[key] for command in commands],
-                    )
-
 
 if __name__ == '__main__':
-    sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-    from hook_test_output import run_tests
+    _run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
-    run_tests()
+    _run_tests()

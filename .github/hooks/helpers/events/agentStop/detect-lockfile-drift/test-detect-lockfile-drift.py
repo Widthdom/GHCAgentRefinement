@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import shutil
 import subprocess
 import sys
@@ -11,8 +12,7 @@ _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'detect-lockfile-drift.py')
 _definitions_path = os.path.join(_script_directory, 'lockfile-drift-definitions.json')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 
 _HOOK_TIMESTAMP = 1777777777000
@@ -73,7 +73,7 @@ class DetectLockfileDriftTests(unittest.TestCase):
         }
 
     def __git(self, *arguments):
-        subprocess.run(['git', *arguments], cwd=self.__workspace, check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(['git', *arguments], cwd=self.__workspace, check=True, stdout=subprocess.DEVNULL, timeout=30)
 
     def __write_file(self, path, content):
         full_path = os.path.join(self.__workspace, path)
@@ -117,18 +117,6 @@ class DetectLockfileDriftTests(unittest.TestCase):
     def test_definitions_are_valid_json(self):
         with open(_definitions_path, encoding='utf-8') as file:
             self.assertTrue(json.load(file)['manifests'])
-
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        entries = configuration['hooks']['agentStop']
-        relative_path = '.github/hooks/helpers/events/agentStop/detect-lockfile-drift/detect-lockfile-drift.py'
-        matching = [entry for entry in entries if relative_path in entry['bash']]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['type'], 'command')
-        self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
 
     def test_blocks_dependency_changes_with_stale_lock(self):
         cases = [
@@ -249,4 +237,4 @@ class DetectLockfileDriftTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

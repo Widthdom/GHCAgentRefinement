@@ -12,8 +12,9 @@ _hook_path = os.path.join(_script_directory, 'record-viewed-commits.py')
 
 _helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
 _hooks_directory = os.path.dirname(_helpers_directory)
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
+
+_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-entry.py'))['get_hook_entry']
 
 _state = runpy.run_path(os.path.join(_helpers_directory, 'utilities', 'viewed-commits-state', 'viewed-commits-state.py'))
 
@@ -52,19 +53,10 @@ class RecordViewedCommitsTests(unittest.TestCase):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
 
     def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'postToolUse.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        relative_path = '.github/hooks/helpers/events/postToolUse/record-viewed-commits/record-viewed-commits.py'
-        entries = [
-            entry for entry in configuration['hooks']['postToolUse']
-            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
-        ]
-        self.assertEqual(len(entries), 1)
-        self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
+        entry = _get_hook_entry(_hook_path)
         for tool_name in ('bash', 'functions.powershell'):
-            self.assertRegex(tool_name, f'^(?:{entries[0]["matcher"]})$')
-        self.assertNotRegex('edit', f'^(?:{entries[0]["matcher"]})$')
+            self.assertRegex(tool_name, f'^(?:{entry["matcher"]})$')
+        self.assertNotRegex('edit', f'^(?:{entry["matcher"]})$')
 
     def test_viewed_commits_are_recorded(self):
         cases = [
@@ -115,4 +107,4 @@ class RecordViewedCommitsTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

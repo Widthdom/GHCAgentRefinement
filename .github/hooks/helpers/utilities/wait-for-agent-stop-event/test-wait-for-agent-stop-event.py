@@ -1,7 +1,6 @@
 import json
 import os
 import runpy
-import sys
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -11,8 +10,7 @@ _utility = runpy.run_path(os.path.join(_script_directory, 'wait-for-agent-stop-e
 _wait_for_agent_stop_event = _utility['wait_for_agent_stop_event']
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 
 def _hook_start(hook_type, timestamp):
@@ -73,4 +71,4 @@ class WaitForAgentStopEventTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -10,8 +11,9 @@ import uuid
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'block-mojibake-writes.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
+
+_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-entry.py'))['get_hook_entry']
 
 # 文字化けは、テストのコード上にそのまま書かず、正しい文字列を誤った文字コードで復号して作る。
 _JAPANESE = 'これは日本語のテストです'
@@ -72,21 +74,11 @@ class BlockMojibakeWritesTests(unittest.TestCase):
         return output['permissionDecisionReason']
 
     def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        relative_path = '.github/hooks/helpers/events/preToolUse/block-mojibake-writes/block-mojibake-writes.py'
-        entries = configuration['hooks']['preToolUse']
-        matching = [
-            entry for entry in entries if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
-        ]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['type'], 'command')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(matching[0]['timeoutSec'], 10)
+        entry = _get_hook_entry(_hook_path)
+        self.assertEqual(entry['timeoutSec'], 10)
         for tool_name in ('edit', 'functions.create', 'insert', 'str_replace_editor', 'apply_patch'):
-            self.assertRegex(tool_name, f'^(?:{matching[0]["matcher"]})$')
-        self.assertNotRegex('bash', f'^(?:{matching[0]["matcher"]})$')
-        self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
+            self.assertRegex(tool_name, f'^(?:{entry["matcher"]})$')
+        self.assertNotRegex('bash', f'^(?:{entry["matcher"]})$')
 
     def test_mojibake_is_denied(self):
         cases = [
@@ -257,4 +249,4 @@ class BlockMojibakeWritesTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

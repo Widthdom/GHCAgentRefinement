@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import re
+import runpy
 import sqlite3
 import subprocess
 import sys
@@ -14,8 +15,9 @@ from contextlib import closing
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'record-test-failure-values.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
+
+_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-entry.py'))['get_hook_entry']
 
 
 def _pair_key(expected, actual):
@@ -74,20 +76,11 @@ class RecordTestFailureValuesTests(unittest.TestCase):
             return {row[0] for row in connection.execute('SELECT value FROM expected_values')}
 
     def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'postToolUse.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        relative_path = '.github/hooks/helpers/events/postToolUse/record-test-failure-values/record-test-failure-values.py'
-        entries = [
-            entry for entry in configuration['hooks']['postToolUse']
-            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
-        ]
-        self.assertEqual(len(entries), 1)
-        self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
+        entry = _get_hook_entry(_hook_path)
         for tool_name in ('bash', 'powershell', 'functions.bash'):
-            self.assertRegex(tool_name, f'^(?:{entries[0]["matcher"]})$')
+            self.assertRegex(tool_name, f'^(?:{entry["matcher"]})$')
         for tool_name in ('edit', 'view'):
-            self.assertNotRegex(tool_name, f'^(?:{entries[0]["matcher"]})$')
+            self.assertNotRegex(tool_name, f'^(?:{entry["matcher"]})$')
 
     def test_directional_formats_are_recorded(self):
         cases = [
@@ -193,4 +186,4 @@ class RecordTestFailureValuesTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

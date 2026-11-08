@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import shutil
 import subprocess
 import sys
@@ -10,12 +11,11 @@ _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'check-git-state.py')
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-from hook_test_output import run_tests
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 
 def _run_hook(input_bytes):
-    return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True)
+    return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True, timeout=30)
 
 
 def _run_hook_in(cwd):
@@ -25,7 +25,7 @@ def _run_hook_in(cwd):
 def _git(cwd, *args, check=True):
     return subprocess.run(
         ['git', '-c', 'user.name=test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false', *args],
-        cwd=cwd, check=check, capture_output=True,
+        cwd=cwd, check=check, capture_output=True, timeout=30,
     )
 
 
@@ -76,7 +76,7 @@ class CheckGitStateTests(unittest.TestCase):
         outside = os.path.join(self.__directory, 'outside')
         os.makedirs(outside)
         # 一時フォルダーの上位がリポジトリだと、リポジトリ外を作れない。
-        probe = subprocess.run(['git', 'rev-parse', '--git-dir'], cwd=outside, capture_output=True)
+        probe = subprocess.run(['git', 'rev-parse', '--git-dir'], cwd=outside, capture_output=True, timeout=30)
         if probe.returncode == 0:
             self.skipTest('The temporary directory is inside a Git repository.')
         self.__assert_silent(_run_hook_in(outside), 'A directory outside a repository must not be reported.')
@@ -157,4 +157,4 @@ class CheckGitStateTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    run_tests()
+    _run_tests()

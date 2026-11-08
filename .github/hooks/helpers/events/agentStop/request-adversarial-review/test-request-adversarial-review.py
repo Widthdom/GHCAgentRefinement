@@ -48,7 +48,7 @@ class RequestReviewTests(unittest.TestCase):
     def __git(self, *args):
         return subprocess.run(
             ['git', *args], cwd=self.__repository, env=self.__environment,
-            capture_output=True, check=True,
+            capture_output=True, check=True, timeout=30,
         )
 
     def __write(self, name, content):
@@ -59,7 +59,7 @@ class RequestReviewTests(unittest.TestCase):
         raw = payload if isinstance(payload, bytes) else json.dumps(payload).encode('utf-8')
         return subprocess.run(
             [sys.executable, path], input=raw, capture_output=True,
-            env=self.__environment, check=False,
+            env=self.__environment, check=False, timeout=30,
         )
 
     def __submit(self, prompt):
@@ -225,17 +225,7 @@ class RequestReviewTests(unittest.TestCase):
             self.assertIn(b'denied', stderr.buffer.getvalue())
         self.__assert_request(self.__stop())
 
-    def test_configuration_and_agent_contract(self):
-        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
-            commands = json.load(file)['hooks']['agentStop']
-        self.assertIn('debug-add-response-footer.py', commands[0]['bash'])
-        review_commands = [command for command in commands if 'request-adversarial-review.py' in command['bash']]
-        self.assertEqual(len(review_commands), 1)
-        for key, interpreter in (('bash', 'python3'), ('powershell', 'python')):
-            self.assertEqual(review_commands[0][key], (
-                f'{interpreter} .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/'
-                'request-adversarial-review/request-adversarial-review.py'
-            ))
+    def test_agent_contract(self):
         with open(os.path.join(
             _github_directory, 'agents', 'adversarial-review.agent.md',
         ), encoding='utf-8') as file:
@@ -253,7 +243,6 @@ class RequestReviewTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-    from hook_test_output import run_tests
+    _run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
-    run_tests()
+    _run_tests()
