@@ -56,7 +56,7 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
         self.assertEqual(result.stderr, b'')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
-        self.assertRegex(result.stdout.decode('utf-8'), r'^[^\r\n]+\r?\n$')
+        self.assertRegex(result.stdout.decode('utf-8'), r'\A[^\r\n]+\n\Z')
         self.assertEqual(json.loads(result.stdout.decode('utf-8')), {'additionalContext': expected})
 
     def test_passes_real_instructions_to_subagent(self):

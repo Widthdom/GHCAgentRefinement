@@ -54,7 +54,7 @@ def _assert_valid_output(name, result, expected_context):
         raise AssertionError(f"Hook failed for '{name}': exit {result['ExitCode']}, stderr: {result['Error']}")
     if result['OutputBytes'][:3] == b'\xef\xbb\xbf':
         raise AssertionError(f"Output contains a UTF-8 BOM for '{name}'.")
-    if re.fullmatch(r'[^\r\n]+\r?\n', result['Output']) is None:
+    if re.fullmatch(r'[^\r\n]+\n', result['Output']) is None:
         raise AssertionError(f"Output is not a single JSON line for '{name}': {result['Output']}")
     output = json.loads(result['Output'])
     if not isinstance(output, dict):

@@ -56,7 +56,7 @@ class HookTestOutputTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout, '')
-        self.assertRegex(result.stderr, r'^\.\.\n-+\nRan 2 tests in \d+\.\d{3}s\n\nOK\n$')
+        self.assertRegex(result.stderr, r'\A\.\.\n-+\nRan 2 tests in \d+\.\d{3}s\n\nOK\n\Z')
 
     def test_failure(self):
         result = self.__invoke('    def test_failure(self): self.fail("failure detail")')

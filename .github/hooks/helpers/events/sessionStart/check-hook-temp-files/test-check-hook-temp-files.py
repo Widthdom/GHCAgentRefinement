@@ -93,7 +93,7 @@ class CheckHookTempFilesTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
         self.assertEqual(result.stderr, b'')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
-        self.assertRegex(result.stdout.decode('utf-8'), r'^[^\r\n]+\r?\n$')
+        self.assertRegex(result.stdout.decode('utf-8'), r'\A[^\r\n]+\n\Z')
         output = json.loads(result.stdout.decode('utf-8'))
         self.assertEqual(set(output), {'additionalContext'})
         self.assertIn(f'{count} temporary files under {self.__root} ', output['additionalContext'])
