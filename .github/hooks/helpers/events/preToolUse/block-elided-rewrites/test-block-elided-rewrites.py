@@ -1,6 +1,5 @@
 import json
 import os
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -9,7 +8,6 @@ import uuid
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'block-elided-rewrites.py')
-_state_directory = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-elided-rewrites')
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
 sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
@@ -18,14 +16,15 @@ from hook_test_output import run_tests
 _ORIGINAL = ''.join(f'line {number}\n' for number in range(1, 41))
 
 
-def _run_hook(input_bytes, *arguments):
-    return subprocess.run([sys.executable, _hook_path, *arguments], input=input_bytes, capture_output=True)
-
-
 class BlockElidedRewritesTests(unittest.TestCase):
     def setUp(self):
-        self.__directory = os.path.realpath(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.__directory, ignore_errors=True)
+        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-elided-rewrites-test-')
+        self.addCleanup(temporary.cleanup)
+        root = os.path.realpath(temporary.name)
+        # hookの状態を実際の一時フォルダーに残さないよう、一時フォルダーを差し替える。
+        self.__environment = dict(os.environ, TMPDIR=root, TEMP=root, TMP=root)
+        self.__directory = os.path.join(root, 'workspace')
+        os.makedirs(self.__directory)
         self.__new_session()
         with open(os.path.join(self.__directory, 'app.py'), 'w', encoding='utf-8', newline='\n') as file:
             file.write(_ORIGINAL)
@@ -33,12 +32,15 @@ class BlockElidedRewritesTests(unittest.TestCase):
     def __new_session(self):
         # テストごとに別セッションとし、拒否の記録を持ち越さない。
         self.__session_id = str(uuid.uuid4())
-        state_path = os.path.join(_state_directory, f'{self.__session_id}.sqlite3')
-        self.addCleanup(lambda: os.path.exists(state_path) and os.remove(state_path))
+
+    def __run_hook(self, input_bytes, *arguments):
+        return subprocess.run(
+            [sys.executable, _hook_path, *arguments], input=input_bytes, capture_output=True, env=self.__environment, timeout=30,
+        )
 
     def __run_call(self, tool_call):
         hook_input = {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args']}
-        return _run_hook(json.dumps(hook_input).encode('utf-8'))
+        return self.__run_hook(json.dumps(hook_input).encode('utf-8'))
 
     def __assert_allowed(self, result, message):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''), message)
@@ -196,7 +198,7 @@ class BlockElidedRewritesTests(unittest.TestCase):
             ('invalid utf-8', b'\xff'),
         ]:
             with self.subTest(name=name):
-                result = _run_hook(hook_input)
+                result = self.__run_hook(hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertEqual(result.stdout, b'', name)
                 self.assertIn(b'Failed to check elided rewrites:', result.stderr)
@@ -215,7 +217,7 @@ class BlockElidedRewritesTests(unittest.TestCase):
                 path = os.path.join(self.__directory, f'definitions-{name.replace(" ", "-")}.json')
                 with open(path, 'w', encoding='utf-8', newline='\n') as file:
                     file.write(content)
-                result = _run_hook(valid_input, '--definitions-path', path)
+                result = self.__run_hook(valid_input, '--definitions-path', path)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to check elided rewrites:', result.stderr)
 

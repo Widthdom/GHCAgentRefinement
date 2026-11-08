@@ -3,8 +3,10 @@ import os
 import runpy
 import subprocess
 import sys
+import tempfile
 import unittest
 import uuid
+from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'record-verified-packages.py')
@@ -17,26 +19,33 @@ from hook_test_output import run_tests
 _state = runpy.run_path(os.path.join(_helpers_directory, 'utilities', 'verified-packages-state', 'verified-packages-state.py'))
 
 
-def _run_hook(input_bytes):
-    return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True)
-
-
 class RecordVerifiedPackagesTests(unittest.TestCase):
     def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix='ghc-record-verified-packages-test-')
+        self.addCleanup(temporary.cleanup)
+        # 確認の記録を実際の一時フォルダーに残さないよう、hookとテストの両方で一時フォルダーを差し替える。
+        self.__environment = dict(os.environ, TMPDIR=temporary.name, TEMP=temporary.name, TMP=temporary.name)
+        tempdir = patch.object(tempfile, 'tempdir', temporary.name)
+        tempdir.start()
+        self.addCleanup(tempdir.stop)
         self.__new_session()
 
     def __new_session(self):
         # テストごとに別セッションとし、確認の記録を持ち越さない。
         self.__session_id = str(uuid.uuid4())
         self.__state_path = _state['get_state_path'](self.__session_id)
-        self.addCleanup(lambda path=self.__state_path: os.path.exists(path) and os.remove(path))
+
+    def __run_hook(self, input_bytes):
+        return subprocess.run(
+            [sys.executable, _hook_path], input=input_bytes, capture_output=True, env=self.__environment, timeout=30,
+        )
 
     def __run_call(self, tool_name, tool_args, output):
         hook_input = {
             'sessionId': self.__session_id, 'cwd': os.getcwd(), 'toolName': tool_name, 'toolArgs': tool_args,
             'toolResult': {'resultType': 'success', 'textResultForLlm': output},
         }
-        result = _run_hook(json.dumps(hook_input).encode('utf-8'))
+        result = self.__run_hook(json.dumps(hook_input).encode('utf-8'))
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
         return _state['get_verified'](self.__state_path)
 
@@ -125,7 +134,7 @@ class RecordVerifiedPackagesTests(unittest.TestCase):
         ]
         for input_bytes in inputs:
             with self.subTest(input_bytes=input_bytes):
-                result = _run_hook(input_bytes)
+                result = self.__run_hook(input_bytes)
                 self.assertEqual(result.returncode, 2, input_bytes)
                 self.assertIn(b'Failed to record verified packages', result.stderr)
 

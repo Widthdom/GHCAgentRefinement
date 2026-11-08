@@ -15,14 +15,16 @@ from hook_test_output import run_tests
 
 
 _DENY_REASON_PREFIX = 'Commit denied: the commit message describes changes that are not in the commit'
-_STATE_DIRECTORY = os.path.join(tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', 'block-commit-message-mismatch')
 
 
 class BlockCommitMessageMismatchTests(unittest.TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-commit-message-mismatch-test-')
         self.addCleanup(temporary.cleanup)
-        self.__root = temporary.name
+        # hookの状態を実際の一時フォルダーに残さないよう、一時フォルダーを差し替える。
+        self.__environment = dict(os.environ, TMPDIR=temporary.name, TEMP=temporary.name, TMP=temporary.name)
+        self.__root = os.path.join(temporary.name, 'workspace')
+        os.makedirs(self.__root)
         self.__git('init', '-q')
         self.__write('src/app.py', 'def parse():\n    return 1\n')
         self.__git('add', '-A')
@@ -45,10 +47,7 @@ class BlockCommitMessageMismatchTests(unittest.TestCase):
         self.__git('add', '--', relative_path)
 
     def __new_session(self):
-        session_id = str(uuid.uuid4())
-        state_path = os.path.join(_STATE_DIRECTORY, f'{session_id}.sqlite3')
-        self.addCleanup(lambda: os.path.exists(state_path) and os.remove(state_path))
-        return session_id
+        return str(uuid.uuid4())
 
     def __invoke(self, command=None, session_id=None, tool_name='bash', raw=None, cwd=None):
         if raw is None:
@@ -60,7 +59,7 @@ class BlockCommitMessageMismatchTests(unittest.TestCase):
             }, ensure_ascii=False).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path], input=raw,
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self.__environment, timeout=30,
         )
 
     def __assert_allowed(self, result):
