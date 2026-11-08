@@ -41,7 +41,7 @@ flowchart LR
 
     LoopEnd[\作業終了/]
 
-    agentStop["<b><i><u>agentStop</u></i></b><br/><div style='text-align: left'>・hookのテスト実行催促<br/>・存在しないファイル参照検知<br/>・未読ファイルに対する推測検知<br/>・テスト通過の主張の真偽判定<br/>・未計測の性能改善主張検知<br/>・依頼項目の取りこぼし検知<br/>・果たせない後回しの約束検知<br/>・依頼外の変更検知<br/>・作業途中のコードの残置検知<br/>・ロックファイル更新漏れ検知<br/>・未使用の追加定義検知<br/>・ユーザへの迎合検知<br/>■デバッグモード有効時<br/>・プロンプト変換ログ保存先表示<br/>・回答にデバッグ情報を付与<br/>■敵対的レビューモード有効時<br/>・敵対的レビュー要請<br/></div>"]
+    agentStop["<b><i><u>agentStop</u></i></b><br/><div style='text-align: left'>□根拠のない主張の検知<br/>・存在しないファイル参照検知<br/>・未読ファイルに対する推測検知<br/>・テスト通過の主張の真偽判定<br/>・未計測の性能改善主張検知<br/>・ユーザへの迎合検知<br/>□依頼との食い違いの検知<br/>・依頼項目の取りこぼし検知<br/>・果たせない後回しの約束検知<br/>・依頼外の変更検知<br/>□仕上げ漏れの検知<br/>・hookのテスト実行催促<br/>・作業途中のコードの残置検知<br/>・ロックファイル更新漏れ検知<br/>・未使用の追加定義検知<br/>■デバッグモード有効時<br/>・プロンプト変換ログ保存先表示<br/>・回答にデバッグ情報を付与<br/>■敵対的レビューモード有効時<br/>・敵対的レビュー要請<br/></div>"]
 
     agentStopResult{"判定"}
 
@@ -279,11 +279,7 @@ flowchart LR
     <tr>
       <td rowspan="15">agentStop</td>
       <td rowspan="12"></td>
-      <td rowspan="12"></td>
-      <td>hookのテスト実行催促</td>
-      <td><a href="./hooks/helpers/events/agentStop/require-hook-tests/README.md">require-hook-tests</a></td>
-    </tr>
-    <tr>
+      <td rowspan="5">根拠のない主張の検知</td>
       <td>存在しないファイル参照検知</td>
       <td><a href="./hooks/helpers/events/agentStop/detect-phantom-references/README.md">detect-phantom-references</a></td>
     </tr>
@@ -300,6 +296,11 @@ flowchart LR
       <td><a href="./hooks/helpers/events/agentStop/detect-unmeasured-performance-claims/README.md">detect-unmeasured-performance-claims</a></td>
     </tr>
     <tr>
+      <td>ユーザへの迎合検知</td>
+      <td><a href="./hooks/helpers/events/agentStop/detect-sycophantic-reversal/README.md">detect-sycophantic-reversal</a></td>
+    </tr>
+    <tr>
+      <td rowspan="3">依頼との食い違いの検知</td>
       <td>依頼項目の取りこぼし検知</td>
       <td><a href="./hooks/helpers/events/agentStop/detect-dropped-requirements/README.md">detect-dropped-requirements</a></td>
     </tr>
@@ -312,6 +313,11 @@ flowchart LR
       <td><a href="./hooks/helpers/events/agentStop/detect-unrequested-changes/README.md">detect-unrequested-changes</a></td>
     </tr>
     <tr>
+      <td rowspan="4">仕上げ漏れの検知</td>
+      <td>hookのテスト実行催促</td>
+      <td><a href="./hooks/helpers/events/agentStop/require-hook-tests/README.md">require-hook-tests</a></td>
+    </tr>
+    <tr>
       <td>作業途中のコードの残置検知</td>
       <td><a href="./hooks/helpers/events/agentStop/detect-temporary-code/README.md">detect-temporary-code</a></td>
     </tr>
@@ -322,10 +328,6 @@ flowchart LR
     <tr>
       <td>未使用の追加定義検知</td>
       <td><a href="./hooks/helpers/events/agentStop/detect-orphaned-additions/README.md">detect-orphaned-additions</a></td>
-    </tr>
-    <tr>
-      <td>ユーザへの迎合検知</td>
-      <td><a href="./hooks/helpers/events/agentStop/detect-sycophantic-reversal/README.md">detect-sycophantic-reversal</a></td>
     </tr>
     <tr>
       <td rowspan="2">デバッグモード有効時</td>
