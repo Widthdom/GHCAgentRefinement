@@ -60,7 +60,7 @@ class DetectPhantomReferencesTests(unittest.TestCase):
     def __git(self, *arguments):
         subprocess.run(
             ['git', '-c', 'user.name=test', '-c', 'user.email=test@example.com', '-c', 'commit.gpgsign=false', *arguments],
-            cwd=self.__repository, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            cwd=self.__repository, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30,
         )
 
     def __write_file(self, relative_path, content):

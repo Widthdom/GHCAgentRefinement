@@ -45,8 +45,8 @@ class BlockExclusionEscapesTests(unittest.TestCase):
         os.makedirs(self.__directory)
         for path, content in _TRACKED_FILES.items():
             self.__write_file(path, content)
-        subprocess.run(['git', 'init', '-q'], cwd=self.__directory, check=True)
-        subprocess.run(['git', 'add', '-A'], cwd=self.__directory, check=True)
+        subprocess.run(['git', 'init', '-q'], cwd=self.__directory, check=True, timeout=30)
+        subprocess.run(['git', 'add', '-A'], cwd=self.__directory, check=True, timeout=30)
         self.__new_session()
 
     def __write_file(self, path, content):

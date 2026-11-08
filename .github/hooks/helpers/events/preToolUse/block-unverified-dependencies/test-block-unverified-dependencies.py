@@ -40,7 +40,7 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
         self.__directory = os.path.join(root, 'workspace')
         os.makedirs(self.__directory)
         if shutil.which('git') is not None:
-            subprocess.run(['git', 'init', '-q', self.__directory], check=True)
+            subprocess.run(['git', 'init', '-q', self.__directory], check=True, timeout=30)
         # 実際のNuGetのキャッシュに左右されないよう、空の一時フォルダーを使う。
         self.__nuget_directory = os.path.join(self.__directory, '.nuget-packages')
         os.makedirs(os.path.join(self.__nuget_directory, 'newtonsoft.json', '13.0.3'))
@@ -62,7 +62,7 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
 
     def __run_raw(self, input_bytes):
         environment = dict(self.__environment, NUGET_PACKAGES=self.__nuget_directory)
-        return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True, env=environment)
+        return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True, env=environment, timeout=30)
 
     def __run_call(self, tool_name, tool_args):
         hook_input = {'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': tool_name, 'toolArgs': tool_args}

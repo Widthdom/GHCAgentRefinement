@@ -73,7 +73,7 @@ class DetectLockfileDriftTests(unittest.TestCase):
         }
 
     def __git(self, *arguments):
-        subprocess.run(['git', *arguments], cwd=self.__workspace, check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(['git', *arguments], cwd=self.__workspace, check=True, stdout=subprocess.DEVNULL, timeout=30)
 
     def __write_file(self, path, content):
         full_path = os.path.join(self.__workspace, path)

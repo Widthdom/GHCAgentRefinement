@@ -30,7 +30,7 @@ class ReviewModeTests(unittest.TestCase):
         raw = payload if isinstance(payload, bytes) else json.dumps(payload).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path], input=raw, capture_output=True,
-            env=self.__environment, check=False,
+            env=self.__environment, check=False, timeout=30,
         )
 
     def __state(self, session_id=None):
@@ -102,7 +102,7 @@ class ReviewModeTests(unittest.TestCase):
                 payload = {'sessionId': self.__session_id, 'prompt': prompt}
                 result = subprocess.run(
                     [sys.executable, debug_hook], input=json.dumps(payload).encode('utf-8'),
-                    capture_output=True, env=self.__environment, check=False,
+                    capture_output=True, env=self.__environment, check=False, timeout=30,
                 )
                 self.assertEqual(result.returncode, 0)
                 with open(debug_path, encoding='utf-8') as file:

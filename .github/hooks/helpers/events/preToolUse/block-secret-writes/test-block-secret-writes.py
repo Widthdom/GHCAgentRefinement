@@ -29,7 +29,7 @@ _SECRETS = {
 
 
 def _run_hook(input_bytes, *arguments):
-    return subprocess.run([sys.executable, _hook_path, *arguments], input=input_bytes, capture_output=True)
+    return subprocess.run([sys.executable, _hook_path, *arguments], input=input_bytes, capture_output=True, timeout=30)
 
 
 class BlockSecretWritesTests(unittest.TestCase):

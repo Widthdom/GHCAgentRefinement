@@ -15,7 +15,7 @@ _run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', '
 
 
 def _run_hook(input_bytes):
-    return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True)
+    return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True, timeout=30)
 
 
 class DetectRenameLeftoversTests(unittest.TestCase):
@@ -24,7 +24,7 @@ class DetectRenameLeftoversTests(unittest.TestCase):
             self.skipTest('git is not installed.')
         self.__directory = os.path.realpath(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.__directory, ignore_errors=True)
-        subprocess.run(['git', 'init', '-q', self.__directory], check=True)
+        subprocess.run(['git', 'init', '-q', self.__directory], check=True, timeout=30)
 
     def __write_file(self, path, content, directory=None):
         full_path = os.path.join(directory or self.__directory, path)
@@ -133,7 +133,7 @@ class DetectRenameLeftoversTests(unittest.TestCase):
         self.addCleanup(shutil.rmtree, directory, ignore_errors=True)
         self.__write_file('main.py', 'parse_line()\n', directory)
         result = self.__edit('parser.py', 'def parse_line(text):', 'def parse_row(text):', directory)
-        if subprocess.run(['git', '-C', directory, 'rev-parse'], capture_output=True).returncode == 0:
+        if subprocess.run(['git', '-C', directory, 'rev-parse'], capture_output=True, timeout=30).returncode == 0:
             self.skipTest('the temporary directory is inside a git repository.')
         self.__assert_silent(result, 'outside repository')
 

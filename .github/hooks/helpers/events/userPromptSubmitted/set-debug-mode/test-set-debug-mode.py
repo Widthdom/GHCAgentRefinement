@@ -163,7 +163,7 @@ class SetDebugModeTests(unittest.TestCase):
             input=input_json if isinstance(input_json, bytes) else input_json.encode('utf-8'),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            env=environment,
+            env=environment, timeout=30,
         )
         return completed.returncode, completed.stdout.decode('utf-8'), completed.stderr.decode('utf-8')
 

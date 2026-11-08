@@ -40,7 +40,7 @@ class DetectOrphanedAdditionsTests(unittest.TestCase):
         self.__root = os.path.realpath(temporary.name)
         self.__workspace = os.path.join(self.__root, 'workspace')
         os.makedirs(self.__workspace)
-        subprocess.run(['git', 'init', '-q', self.__workspace], check=True)
+        subprocess.run(['git', 'init', '-q', self.__workspace], check=True, timeout=30)
         self.__transcript_path = os.path.join(self.__root, 'events.jsonl')
         self.__payload = {
             'sessionId': '00000000-0000-4000-8000-000000000000',

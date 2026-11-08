@@ -48,7 +48,7 @@ class RequestReviewTests(unittest.TestCase):
     def __git(self, *args):
         return subprocess.run(
             ['git', *args], cwd=self.__repository, env=self.__environment,
-            capture_output=True, check=True,
+            capture_output=True, check=True, timeout=30,
         )
 
     def __write(self, name, content):
@@ -59,7 +59,7 @@ class RequestReviewTests(unittest.TestCase):
         raw = payload if isinstance(payload, bytes) else json.dumps(payload).encode('utf-8')
         return subprocess.run(
             [sys.executable, path], input=raw, capture_output=True,
-            env=self.__environment, check=False,
+            env=self.__environment, check=False, timeout=30,
         )
 
     def __submit(self, prompt):

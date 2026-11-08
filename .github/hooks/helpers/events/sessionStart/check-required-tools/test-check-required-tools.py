@@ -156,14 +156,14 @@ class CheckRequiredToolsTests(unittest.TestCase):
             missing = []
             for command in _COMMANDS:
                 try:
-                    subprocess.run([command, '--version'], capture_output=True, cwd=empty_directory, env=environment)
+                    subprocess.run([command, '--version'], capture_output=True, cwd=empty_directory, env=environment, timeout=30)
                 except OSError:
                     missing.append(command)
             if not missing:
                 self.skipTest('All tools are found outside PATH, for example in System32.')
             result = subprocess.run(
                 [sys.executable, _hook_path], input=b'{"sessionId":"test"}', capture_output=True,
-                cwd=empty_directory, env=environment,
+                cwd=empty_directory, env=environment, timeout=30,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             for name, output in (('stdout', result.stdout), ('stderr', result.stderr)):

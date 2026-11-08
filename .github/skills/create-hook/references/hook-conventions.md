@@ -19,6 +19,7 @@
 10. 個別hookのテストは、hookのフォルダーに `test-<hook-name>.py` として置く。通常実行、条件を満たさない場合のスキップ、不正入力時の動作と終了コードを検証する。拒否hookでは許可と拒否の両方を検証する。
     - hook定義の構文、起動コマンド、並び順、hookのフォルダーとの対応は [test-hook-configurations.py](../../../hooks/tests/test-hook-configurations.py) で一括して検証する。個別のテストでは、`matcher`・`timeoutSec` などhook固有の設定だけを、[hook-entry.py](../../../hooks/tests/helpers/hook-entry.py) を `runpy.run_path` で読み込み、`get_hook_entry(<実行スクリプトのパス>)` で取得した定義の要素で検証する。
     - hookが状態やログを書く場合は、テストごとの一時フォルダーを `TMPDIR`・`TEMP`・`TMP` に指定してhookを起動し、実際の一時フォルダーに書かせない。
+    - テストから起動するプロセス（hook・`git` など）には、`subprocess.run(..., timeout=...)` や `communicate(timeout=...)` で上限を指定する。止まったプロセスで、テストや一括実行が止まらないようにする。
     - `unittest.TestCase` のテストメソッドとして記述する。[hook-test-output.py](../../../hooks/tests/helpers/hook-test-output.py) を `runpy.run_path` で読み込み、`__main__` 内で `run_tests()` を呼ぶ。import時にはテストを実行せず、一時領域は `setUp` と `addCleanup` などで管理する。
     - 一時領域に作るパスには、大文字小文字だけが違う名前（`App/` と `app/` など）を混ぜない。大文字小文字を区別しないファイルシステム（Windows・macOSの既定）では同じパスになり、OSによって結果が変わる。
     - 出力は `run_tests()` に任せ、独自の表示は加えない。複数入力の検証には `subTest`、スキップには理由付きの `skipTest` / `unittest.skip` を使う。

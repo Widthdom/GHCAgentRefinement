@@ -28,7 +28,7 @@ class CheckPythonVersionTests(unittest.TestCase):
 
     def test_current_interpreter(self):
         # 実行中のPythonで起動し、何も出力せずに終了コードだけを返すこと。
-        result = subprocess.run([sys.executable, _utility_path], capture_output=True, check=False)
+        result = subprocess.run([sys.executable, _utility_path], capture_output=True, check=False, timeout=30)
         self.assertEqual(result.returncode, 0 if sys.version_info >= (3, 14) else 1)
         self.assertEqual((result.stdout, result.stderr), (b'', b''))
 

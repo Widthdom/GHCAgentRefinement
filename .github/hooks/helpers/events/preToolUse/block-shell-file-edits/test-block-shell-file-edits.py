@@ -25,9 +25,9 @@ class BlockShellFileEditsTests(unittest.TestCase):
         for path in ('対象.txt', 'other.txt', 'untracked.txt', os.path.join('sub', 'nested.txt')):
             with open(os.path.join(self.__workspace, path), 'w', encoding='utf-8', newline='\n') as file:
                 file.write('a\n')
-        subprocess.run(['git', 'init', '-q', self.__workspace], check=True)
+        subprocess.run(['git', 'init', '-q', self.__workspace], check=True, timeout=30)
         subprocess.run(
-            ['git', '-C', self.__workspace, 'add', '--', '対象.txt', 'other.txt', 'sub/nested.txt'], check=True,
+            ['git', '-C', self.__workspace, 'add', '--', '対象.txt', 'other.txt', 'sub/nested.txt'], check=True, timeout=30,
         )
         self.__outside = os.path.join(self.__root, 'outside.txt')
         with open(self.__outside, 'w', encoding='utf-8', newline='\n') as file:

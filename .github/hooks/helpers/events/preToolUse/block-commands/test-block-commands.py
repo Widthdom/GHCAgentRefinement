@@ -191,7 +191,7 @@ class BlockCommandsTests(unittest.TestCase):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=environment,
-            creationflags=subprocess.CREATE_NO_WINDOW if entry_point == 'cmd' and code_page is not None else 0,
+            creationflags=subprocess.CREATE_NO_WINDOW if entry_point == 'cmd' and code_page is not None else 0, timeout=30,
         )
         return _HookResult(
             completed.returncode,

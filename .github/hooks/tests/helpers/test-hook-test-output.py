@@ -44,7 +44,7 @@ class HookTestOutputTests(unittest.TestCase):
         )
         return subprocess.run(
             [sys.executable, '-c', source],
-            capture_output=True, text=True, check=False,
+            capture_output=True, text=True, check=False, timeout=30,
         )
 
     def test_success(self):
@@ -197,6 +197,14 @@ class AllHooksOutputTests(unittest.TestCase):
         self.assertIn('could not start', result[2])
         self.assertTrue(result[2].endswith('NG\n'))
         self.assertEqual(len(result[3]), 2)
+
+    def test_timeout_continues_other_files(self):
+        result = self.__invoke([subprocess.TimeoutExpired([], 300), subprocess.CompletedProcess([], 0)])
+        self.assertEqual(result[0], 2)
+        self.assertIn('timed out after 300 seconds', result[2])
+        self.assertTrue(result[2].endswith('NG\n'))
+        self.assertEqual(len(result[3]), 2)
+        self.assertEqual(result[3][0].kwargs['timeout'], 300)
 
     def test_no_test_files(self):
         result = self.__invoke([], filenames=())

@@ -52,7 +52,7 @@ class PreserveLineEndingsTests(unittest.TestCase):
         subprocess.run(
             ['git', '-c', 'user.name=test', '-c', 'user.email=test@example.com', *args],
             cwd=self.__workspace, env=self.__environment, check=True,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30,
         )
 
     def __write(self, content, path=None):
