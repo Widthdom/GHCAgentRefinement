@@ -42,8 +42,12 @@ def main():
         return 2
 
     # `utf-8-sig` を指定することで、BOMが存在する場合は取り除いて読むことができる。
-    with open(instructions_path, encoding='utf-8-sig', newline='') as instructions_file:
-        instructions = instructions_file.read()
+    try:
+        with open(instructions_path, encoding='utf-8-sig', newline='') as instructions_file:
+            instructions = instructions_file.read()
+    except (OSError, UnicodeError) as ex:
+        print(f'Failed to read Copilot instructions file: {instructions_path}: {ex}', file=sys.stderr)
+        return 2
 
     if not instructions.strip():
         print(f'Copilot instructions file is empty: {instructions_path}', file=sys.stderr)

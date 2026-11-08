@@ -27,8 +27,13 @@ def main():
 
     # `utf-8-sig` を指定することで、BOMが存在する場合は取り除いて読むことができる。
     # with：処理を抜けるときの後片付けを自動で行う構文（C#のusingに相当）。
-    with open(instructions_path, encoding='utf-8-sig', newline='') as instructions_file:
-        instructions = instructions_file.read()
+    # 読み込めない・UTF-8として復号できない場合は、例外で終了せずに原因を示して終了コード2で終える。
+    try:
+        with open(instructions_path, encoding='utf-8-sig', newline='') as instructions_file:
+            instructions = instructions_file.read()
+    except (OSError, UnicodeError) as ex:
+        print(f'Failed to read Copilot instructions file: {instructions_path}: {ex}', file=sys.stderr)
+        return 2
 
     # Pythonの not は、対象を真偽として評価してから反転する。
     # strip() が返すのは文字列だが、真偽として判定されれば空文字列はFalse、それ以外はTrueとなる。

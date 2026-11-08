@@ -101,7 +101,7 @@ class LoadCopilotInstructionsTests(unittest.TestCase):
         )
         for name, data in cases:
             with self.subTest(name=name):
-                self.__assert_error(self.__invoke_with_instructions(data), 1, 'UnicodeDecodeError')
+                self.__assert_error(self.__invoke_with_instructions(data), 2, 'Failed to read Copilot instructions file')
 
     def test_unicode_paths_and_streams(self):
         root, script_path, instructions_path = self.__new_sandbox('-日本語 path')

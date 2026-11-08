@@ -93,6 +93,7 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
             (b'', 'Copilot instructions file is empty'),
             (b' \t\r\n', 'Copilot instructions file is empty'),
             (b'\xef\xbb\xbf', 'Copilot instructions file is empty'),
+            (b'\xff', 'Failed to read Copilot instructions file'),
         )
         for data, error in cases:
             with self.subTest(data=data):

@@ -10,7 +10,7 @@ sessionStart（セッション開始時）
 リポジトリルートの [.github/copilot-instructions.md](../../../../../copilot-instructions.md) を読み込み、`additionalContext` としてセッションに追加する。
 
 ## 前提条件
-- 指示ファイルが存在しない場合、または内容が空の場合はエラーとして終了する。
+- 指示ファイルが存在しない場合、読み込めない（UTF-8として復号できない場合を含む）場合、または内容が空の場合はエラーとして終了する。
 
 ## 制約と限界
 - サブエージェントではsessionStartが発火しないため、本hookの指示は届かない。サブエージェントには [give-subagents-instructions](../../userPromptSubmitted/give-subagents-instructions/README.md) hookが、依頼の送信時に同じ指示ファイルを渡す。
