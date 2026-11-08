@@ -118,18 +118,6 @@ class DetectLockfileDriftTests(unittest.TestCase):
         with open(_definitions_path, encoding='utf-8') as file:
             self.assertTrue(json.load(file)['manifests'])
 
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        entries = configuration['hooks']['agentStop']
-        relative_path = '.github/hooks/helpers/events/agentStop/detect-lockfile-drift/detect-lockfile-drift.py'
-        matching = [entry for entry in entries if relative_path in entry['bash']]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['type'], 'command')
-        self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
-
     def test_blocks_dependency_changes_with_stale_lock(self):
         cases = [
             ('npm', 'web/package.json', '"left-pad": "^1.3.0"', '"left-pad": "^1.3.0",\n    "lodash": "^4.17.21"',

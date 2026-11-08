@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import shutil
 import subprocess
 import sys
@@ -14,6 +15,8 @@ _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirna
 _repository_root = os.path.dirname(os.path.dirname(_hooks_directory))
 sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
+
+_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-entry.py'))['get_hook_entry']
 
 _WRAPPER_BODY = (
     '[正本のskill](../../../.github/skills/{name}/SKILL.md) を読み、その手順に従う。'
@@ -80,18 +83,9 @@ class CheckCrossAgentSkillWrappersTests(unittest.TestCase):
         self.assertIn(_WRAPPER_BODY.format(name='<name>'), context)
 
     def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'postToolUse.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        relative_path = '.github/hooks/helpers/events/postToolUse/check-cross-agent-skill-wrappers/check-cross-agent-skill-wrappers.py'
-        entries = [
-            entry for entry in configuration['hooks']['postToolUse']
-            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
-        ]
-        self.assertEqual(len(entries), 1)
-        self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
+        entry = _get_hook_entry(_hook_path)
         self.assertEqual(
-            entries[0]['matcher'], '(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)',
+            entry['matcher'], '(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)',
         )
 
     def test_repository_skills_are_in_sync(self):

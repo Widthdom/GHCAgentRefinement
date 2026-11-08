@@ -76,17 +76,6 @@ class DebugLogTransformedPromptTests(unittest.TestCase):
         with open(path, 'r', encoding='utf-8', newline='') as file:
             return file.read()
 
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'userPromptTransformed.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        self.assertEqual(configuration['version'], 1)
-        self.assertEqual(set(configuration['hooks']), {'userPromptTransformed'})
-        entries = configuration['hooks']['userPromptTransformed']
-        relative_path = '.github/hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/debug-log-transformed-prompt.py'
-        self.assertEqual(entries, [{
-            'type': 'command', 'bash': f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}', 'powershell': f'python .github/hooks/helpers/runner/run-hook.py {relative_path}',
-        }])
-
     def test_records_prompts_and_added_runtime_context(self):
         path = self.__logged_path(self.__invoke())
         self.assertEqual(os.path.dirname(path), self.__log_directory)

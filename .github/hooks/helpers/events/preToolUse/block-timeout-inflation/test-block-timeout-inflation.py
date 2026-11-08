@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -12,6 +13,8 @@ _hook_path = os.path.join(_script_directory, 'block-timeout-inflation.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
 sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
+
+_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-entry.py'))['get_hook_entry']
 
 
 def _edit(path, old, new):
@@ -67,16 +70,8 @@ class BlockTimeoutInflationTests(unittest.TestCase):
         return reason
 
     def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        entries = configuration['hooks']['preToolUse']
-        relative_path = '.github/hooks/helpers/events/preToolUse/block-timeout-inflation/block-timeout-inflation.py'
-        matching = [entry for entry in entries if relative_path in entry.get('bash', '')]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['type'], 'command')
-        self.assertEqual(matching[0]['matcher'], r'(?:functions\.)?(?:edit|create|insert|str_replace_editor|apply_patch)')
-        self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
+        entry = _get_hook_entry(_hook_path)
+        self.assertEqual(entry['matcher'], r'(?:functions\.)?(?:edit|create|insert|str_replace_editor|apply_patch)')
 
     def test_inflation_is_denied(self):
         for path, old, new in [

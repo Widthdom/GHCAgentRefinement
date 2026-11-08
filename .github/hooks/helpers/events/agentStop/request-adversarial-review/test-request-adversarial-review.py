@@ -225,17 +225,7 @@ class RequestReviewTests(unittest.TestCase):
             self.assertIn(b'denied', stderr.buffer.getvalue())
         self.__assert_request(self.__stop())
 
-    def test_configuration_and_agent_contract(self):
-        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
-            commands = json.load(file)['hooks']['agentStop']
-        self.assertIn('debug-add-response-footer.py', commands[0]['bash'])
-        review_commands = [command for command in commands if 'request-adversarial-review.py' in command['bash']]
-        self.assertEqual(len(review_commands), 1)
-        for key, interpreter in (('bash', 'python3'), ('powershell', 'python')):
-            self.assertEqual(review_commands[0][key], (
-                f'{interpreter} .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/agentStop/'
-                'request-adversarial-review/request-adversarial-review.py'
-            ))
+    def test_agent_contract(self):
         with open(os.path.join(
             _github_directory, 'agents', 'adversarial-review.agent.md',
         ), encoding='utf-8') as file:

@@ -80,19 +80,6 @@ class DetectEmptyPromisesTests(unittest.TestCase):
             self.assertIn(fragment, output['reason'])
         return output['reason']
 
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        self.assertEqual(configuration['version'], 1)
-        entries = configuration['hooks']['agentStop']
-        relative_path = '.github/hooks/helpers/events/agentStop/detect-empty-promises/detect-empty-promises.py'
-        matching = [entry for entry in entries if relative_path in entry['bash']]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['type'], 'command')
-        self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
-
     def test_blocks_deferred_promises(self):
         responses = (
             ('修正した。残りのlint警告は後で直します。', '- 残りのlint警告は後で直します。'),

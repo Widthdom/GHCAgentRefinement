@@ -101,18 +101,6 @@ class CheckHookTempFilesTests(unittest.TestCase):
 
     # 警告hook
 
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'sessionStart.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        relative_path = '.github/hooks/helpers/events/sessionStart/check-hook-temp-files/check-hook-temp-files.py'
-        entries = [
-            entry for entry in configuration['hooks']['sessionStart']
-            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
-        ]
-        self.assertEqual(len(entries), 1)
-        self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-
     def test_warns_at_threshold_across_categories(self):
         self.__create_files(os.path.join('hook-states', 'edit-oscillation'), 200)
         self.__create_files(os.path.join('hook-states', 'debug-mode'), 100)

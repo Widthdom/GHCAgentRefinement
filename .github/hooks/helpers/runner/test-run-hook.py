@@ -18,9 +18,6 @@ _hooks_directory = os.path.dirname(_helpers_directory)
 _runner_path = os.path.join(_script_directory, 'run-hook.py')
 _state_helper_path = os.path.join(_helpers_directory, 'utilities', 'hook-activity-state', 'hook-activity-state.py')
 _COPIED_UTILITIES = ('hook-activity-state', 'get-state-path')
-_RUNNER = '.github/hooks/helpers/runner/run-hook.py'
-# Pythonが無い環境でも動く必要があるため、ランナーを通さないhook。
-_DIRECT_HOOKS = ('block-commands', 'check-python')
 
 # 標準入力をそのまま返し、引数代わりの環境変数で動作を切り替える偽のhook。
 _FAKE_HOOK = '''import os
@@ -253,24 +250,6 @@ class RunHookTests(unittest.TestCase):
             for session_id in (None, '', 'not-a-uuid'):
                 with self.subTest(session_id=session_id), self.assertRaises(ValueError):
                     state['get_fired_hooks'](session_id, 0, ())
-
-    def test_configuration(self):
-        for filename in sorted(name for name in os.listdir(_hooks_directory) if name.endswith('.json')):
-            with open(os.path.join(_hooks_directory, filename), encoding='utf-8') as file:
-                configuration = json.load(file)
-            # このリポジトリ専用のhookの定義（-repo-<event-name>.json）は helpers/-repo-events 配下のhookを起動する。
-            events_name = '-repo-events' if filename.startswith('-repo-') else 'events'
-            for event_name, entries in configuration['hooks'].items():
-                for entry in entries:
-                    hook_name = os.path.basename(os.path.dirname(entry['bash'].split()[-1]))
-                    with self.subTest(filename=filename, event_name=event_name, hook_name=hook_name):
-                        relative_path = f'.github/hooks/helpers/{events_name}/{event_name}/{hook_name}/{hook_name}.py'
-                        if hook_name in _DIRECT_HOOKS:
-                            self.assertNotIn(_RUNNER, entry['bash'])
-                            self.assertNotIn(_RUNNER, entry['powershell'])
-                        else:
-                            self.assertEqual(entry['bash'], f'python3 {_RUNNER} {relative_path}')
-                            self.assertEqual(entry['powershell'], f'python {_RUNNER} {relative_path}')
 
 
 if __name__ == '__main__':

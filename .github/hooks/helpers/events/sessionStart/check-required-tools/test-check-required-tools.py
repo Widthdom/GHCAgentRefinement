@@ -89,15 +89,6 @@ class CheckRequiredToolsTests(unittest.TestCase):
         self.assertEqual(stderr, f'{expected}\n')
         self.assertEqual(json.loads(stdout), {'additionalContext': _hook['_ADDITIONAL_CONTEXT'].format(message=expected)})
 
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'sessionStart.json'), encoding='utf-8') as file:
-            entries = json.load(file)['hooks']['sessionStart']
-        relative_path = '.github/hooks/helpers/events/sessionStart/check-required-tools/check-required-tools.py'
-        matching = [entry for entry in entries if relative_path in entry.get('bash', '')]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-
     def test_all_satisfied(self):
         exit_code, stderr, stdout, run = _run_main()
         self.assertEqual((exit_code, stderr, stdout), (0, '', ''))

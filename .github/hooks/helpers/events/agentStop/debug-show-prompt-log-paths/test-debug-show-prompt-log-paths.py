@@ -91,15 +91,6 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
             paths.append(message['message'][len(prefix):])
         return paths
 
-    def test_configuration_is_sorted(self):
-        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        entries = configuration['hooks']['agentStop']
-        commands = [entry['bash'] for entry in entries]
-        self.assertEqual(commands, sorted(commands))
-        relative = '.github/hooks/helpers/events/agentStop/debug-show-prompt-log-paths/debug-show-prompt-log-paths.py'
-        self.assertIn({'type': 'command', 'bash': f'python3 .github/hooks/helpers/runner/run-hook.py {relative}', 'powershell': f'python .github/hooks/helpers/runner/run-hook.py {relative}'}, entries)
-
     def test_displays_current_log_as_progress(self):
         self.assertEqual(self.__displayed_paths(self.__invoke()), [self.__log_path])
 

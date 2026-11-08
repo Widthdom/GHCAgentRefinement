@@ -55,18 +55,6 @@ class RecordHookChangeRequestsTests(unittest.TestCase):
         with open(self.__state_path, encoding='utf-8') as file:
             return json.load(file)
 
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'userPromptSubmitted.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        relative_path = '.github/hooks/helpers/events/userPromptSubmitted/record-hook-change-requests/record-hook-change-requests.py'
-        entries = configuration['hooks']['userPromptSubmitted']
-        matching = [entry for entry in entries if relative_path in entry['bash']]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['type'], 'command')
-        self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
-
     def test_prompts_mentioning_hooks_are_recorded(self):
         prompts = (
             'hookを新規作成して',

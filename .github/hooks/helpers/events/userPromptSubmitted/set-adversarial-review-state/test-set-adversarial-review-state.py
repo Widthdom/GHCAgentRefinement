@@ -134,18 +134,6 @@ class ReviewModeTests(unittest.TestCase):
         self.assertEqual(result.stdout, b'')
         self.assertIn(b'Failed to save adversarial review mode:', result.stderr)
 
-    def test_configuration_preserves_existing_hook(self):
-        with open(os.path.join(_hooks_directory, 'userPromptSubmitted.json'), encoding='utf-8') as file:
-            commands = json.load(file)['hooks']['userPromptSubmitted']
-        for key, interpreter in (('bash', 'python3'), ('powershell', 'python')):
-            for hook_name in ('set-debug-mode', 'set-adversarial-review-state'):
-                with self.subTest(key=key, hook_name=hook_name):
-                    self.assertIn(
-                        f'{interpreter} .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/userPromptSubmitted/'
-                        f'{hook_name}/{hook_name}.py',
-                        [command[key] for command in commands],
-                    )
-
 
 if __name__ == '__main__':
     sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))

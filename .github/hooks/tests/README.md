@@ -6,8 +6,13 @@
 - 最後の `Passed all <件数> hook test files.` は成功したテストファイル数を表し、続けて `OK` を出力する。失敗したファイルや起動失敗がある場合は理由と `NG` を標準エラーに出力し、終了コード2を返す。
 
 ## test-hook-configurations
-- [test-hook-configurations.py](./test-hook-configurations.py) は `.github/hooks` 直下のhook設定JSONの構文と基本構造を検証する。
-- 各設定ファイルを `subTest` で検証する。
+- [test-hook-configurations.py](./test-hook-configurations.py) は `.github/hooks` 直下のhook設定JSONを一括して検証する。
+  - 構文と基本構造（`version` が1、ファイル名のイベントだけを持つ、`type` が `command` の要素の配列）
+  - 起動コマンド（hookランナーに実行スクリプトを渡す。`block-commands`・`check-python` は `.sh`・`.cmd` を直接起動する）と、実行スクリプトの存在
+  - `matcher` が正規表現として有効で、`timeoutSec` が正の整数であること
+  - 要素が実行スクリプトのパスの昇順に並んでいること
+  - `helpers/events`・`helpers/-repo-events` 配下のhookのフォルダーと定義が1対1に対応すること
+- 個別hookのテストは、[hook-entry.py](./helpers/hook-entry.py) を `runpy.run_path` で読み込み、`get_hook_entry()` で自身の定義の要素を取得して、`matcher` などhook固有の設定だけを検証する。
 
 ## unittestの出力
 - [hook_test_output.py](./helpers/hook_test_output.py) の `run_tests()` は `unittest.main()` の代わりに使う。標準の進捗・実行時間・`OK`・失敗詳細を維持し、失敗時は `FAILED (...)` に続けて `NG` を出力する。成功時は終了コード0、失敗時は1を返す。

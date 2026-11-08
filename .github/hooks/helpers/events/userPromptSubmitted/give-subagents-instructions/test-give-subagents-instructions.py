@@ -59,18 +59,6 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
         self.assertRegex(result.stdout.decode('utf-8'), r'^[^\r\n]+\r?\n$')
         self.assertEqual(json.loads(result.stdout.decode('utf-8')), {'additionalContext': expected})
 
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'userPromptSubmitted.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        relative_path = f'.github/hooks/helpers/events/userPromptSubmitted/{_hook_name}/{_hook_name}.py'
-        entries = [
-            entry for entry in configuration['hooks']['userPromptSubmitted']
-            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
-        ]
-        self.assertEqual(len(entries), 1)
-        self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-
     def test_passes_real_instructions_to_subagent(self):
         with open(_real_instructions_path, 'rb') as file:
             expected = file.read().decode('utf-8-sig')

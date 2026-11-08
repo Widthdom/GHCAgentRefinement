@@ -63,18 +63,6 @@ class DetectRepeatedFailuresTests(unittest.TestCase):
         with closing(sqlite3.connect(state_path or self.__state_path)) as connection:
             return connection.execute('SELECT fingerprint, first_seen, count FROM failures').fetchall()
 
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'postToolUseFailure.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        self.assertEqual(configuration['version'], 1)
-        self.assertEqual(set(configuration['hooks']), {'postToolUseFailure'})
-        entries = configuration['hooks']['postToolUseFailure']
-        self.assertEqual(len(entries), 1)
-        relative_path = '.github/hooks/helpers/events/postToolUseFailure/detect-repeated-failures/detect-repeated-failures.py'
-        self.assertEqual(entries[0]['type'], 'command')
-        self.assertEqual(entries[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(entries[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-
     def test_notifies_only_on_third_failure(self):
         self.__assert_silent(self.__invoke())
         self.__assert_silent(self.__invoke())

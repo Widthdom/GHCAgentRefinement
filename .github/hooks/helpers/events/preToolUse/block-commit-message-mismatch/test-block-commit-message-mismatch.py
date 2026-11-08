@@ -77,19 +77,6 @@ class BlockCommitMessageMismatchTests(unittest.TestCase):
             self.assertIn(fragment, reason)
         return reason
 
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        self.assertEqual(configuration['version'], 1)
-        entries = configuration['hooks']['preToolUse']
-        relative_path = '.github/hooks/helpers/events/preToolUse/block-commit-message-mismatch/block-commit-message-mismatch.py'
-        matching = [entry for entry in entries if relative_path in entry['bash']]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['type'], 'command')
-        self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
-
     def test_allows_accurate_messages(self):
         self.__stage('src/app.py', 'def parse(text):\n    return len(text)\n')
         self.__stage('tests/test_app.py', 'def test_parse():\n    assert True\n')

@@ -85,19 +85,6 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
         for key in ('claimPatterns', 'hedgePatterns', 'measurementCommandPatterns'):
             self.assertTrue(definitions[key], key)
 
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        entries = configuration['hooks']['agentStop']
-        relative_path = ('.github/hooks/helpers/events/agentStop/detect-unmeasured-performance-claims/'
-                         'detect-unmeasured-performance-claims.py')
-        matching = [entry for entry in entries if relative_path in entry['bash']]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['type'], 'command')
-        self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
-
     def test_blocks_unmeasured_claims(self):
         claims = [
             'ループを辞書引きに変えて高速化した。',

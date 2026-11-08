@@ -114,18 +114,6 @@ class RequireHookTestsTests(unittest.TestCase):
             self.assertIn(fragment, output['reason'])
         return output['reason']
 
-    def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'agentStop.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        entries = configuration['hooks']['agentStop']
-        relative_path = '.github/hooks/helpers/events/agentStop/require-hook-tests/require-hook-tests.py'
-        matching = [entry for entry in entries if relative_path in entry['bash']]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['type'], 'command')
-        self.assertEqual(matching[0]['bash'], f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
-        self.assertEqual([entry['bash'] for entry in entries], sorted(entry['bash'] for entry in entries))
-
     def test_blocks_hook_change_without_passing_test(self):
         alpha = self.__hook_file('preToolUse', 'alpha', 'alpha.py')
         test = self.__hook_file('preToolUse', 'alpha', 'test-alpha.py')
@@ -184,6 +172,8 @@ class RequireHookTestsTests(unittest.TestCase):
             [*_edit('e1', '.github/hooks/helpers/runner/run-hook.py'), *_shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
             [*_edit('e1', '.github/hooks/tests/helpers/hook_test_output.py'),
              *_shell('s1', 'python3 .github/hooks/tests/helpers/test-hook-test-output.py', 0)],
+            [*_edit('e1', '.github/hooks/tests/helpers/hook-entry.py'),
+             *_shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
         )
         for events in cases:
             with self.subTest(events=events):
@@ -236,6 +226,7 @@ class RequireHookTestsTests(unittest.TestCase):
             *_edit('e1', '.github/hooks/helpers/utilities/shared/shared.py'),
             *_edit('e2', '.github/hooks/preToolUse.json'),
             *_edit('e3', '.github/hooks/tests/helpers/hook_test_output.py'),
+            *_edit('e4', '.github/hooks/tests/helpers/hook-entry.py'),
             # 一括実行は共通出力処理のテストを含まない。
             *_shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 1),
         ]
@@ -246,6 +237,7 @@ class RequireHookTestsTests(unittest.TestCase):
             '- sessionStart/no-test: the test file `.github/hooks/helpers/events/sessionStart/no-test/test-no-test.py` does not exist.',
             '- shared utilities (helpers/utilities) (failed with exit code 1)',
             '- hook configurations (failed with exit code 1)',
+            '- test helpers (tests/helpers) (failed with exit code 1)',
             f'- tests/helpers/test-hook-test-output.py (not run): run `{_PYTHON_COMMAND} .github/hooks/tests/helpers/test-hook-test-output.py`',
         )
         self.assertTrue(reason.endswith(

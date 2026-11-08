@@ -1,5 +1,6 @@
 import json
 import os
+import runpy
 import subprocess
 import sys
 import tempfile
@@ -12,6 +13,8 @@ _hook_path = os.path.join(_script_directory, 'block-masked-exit-codes.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
 sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests
+
+_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-entry.py'))['get_hook_entry']
 
 
 class BlockMaskedExitCodesTests(unittest.TestCase):
@@ -58,20 +61,10 @@ class BlockMaskedExitCodesTests(unittest.TestCase):
         return output['permissionDecisionReason']
 
     def test_configuration(self):
-        with open(os.path.join(_hooks_directory, 'preToolUse.json'), encoding='utf-8') as file:
-            configuration = json.load(file)
-        entries = configuration['hooks']['preToolUse']
-        relative_path = '.github/hooks/helpers/events/preToolUse/block-masked-exit-codes/block-masked-exit-codes.py'
-        matching = [
-            entry for entry in entries
-            if entry.get('bash') == f'python3 .github/hooks/helpers/runner/run-hook.py {relative_path}'
-        ]
-        self.assertEqual(len(matching), 1)
-        self.assertEqual(matching[0]['type'], 'command')
-        self.assertEqual(matching[0]['powershell'], f'python .github/hooks/helpers/runner/run-hook.py {relative_path}')
+        entry = _get_hook_entry(_hook_path)
         for tool_name in ('bash', 'functions.bash'):
-            self.assertRegex(tool_name, f'^(?:{matching[0]["matcher"]})$')
-        self.assertNotRegex('edit', f'^(?:{matching[0]["matcher"]})$')
+            self.assertRegex(tool_name, f'^(?:{entry["matcher"]})$')
+        self.assertNotRegex('edit', f'^(?:{entry["matcher"]})$')
 
     def test_masked_checks_are_denied(self):
         for command, fragment in [
