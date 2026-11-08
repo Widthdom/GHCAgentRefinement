@@ -15,6 +15,9 @@ from unittest.mock import patch
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _helpers_directory = os.path.dirname(_script_directory)
 _hooks_directory = os.path.dirname(_helpers_directory)
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests
+
 _runner_path = os.path.join(_script_directory, 'run-hook.py')
 _state_helper_path = os.path.join(_helpers_directory, 'utilities', 'hook-activity-state', 'hook-activity-state.py')
 _COPIED_UTILITIES = ('hook-activity-state', 'get-state-path')
@@ -81,16 +84,18 @@ class RunHookTests(unittest.TestCase):
         with open(path, 'w', encoding='utf-8', newline='') as file:
             file.write(content)
 
-    def __run_hook(self, stdin, *arguments, **environment):
-        if not arguments:
-            arguments = (self.__fake_hook,)
-        env = os.environ.copy()
-        env.update({'TMPDIR': self.__temp_directory, 'TMP': self.__temp_directory, 'TEMP': self.__temp_directory})
-        env.update(environment)
+    def __environment(self, **values):
+        # 記録を実際の一時フォルダーに残さないよう、一時フォルダーを差し替える。
+        return dict(os.environ, TMPDIR=self.__temp_directory, TMP=self.__temp_directory, TEMP=self.__temp_directory, **values)
+
+    def __run_runner(self, stdin, arguments, **environment):
         return subprocess.run(
             [sys.executable, os.path.join(self.__helpers, 'runner', 'run-hook.py'), *arguments],
-            input=stdin, capture_output=True, env=env, check=False,
+            input=stdin, capture_output=True, env=self.__environment(**environment), check=False, timeout=30,
         )
+
+    def __run_hook(self, stdin, *arguments, **environment):
+        return self.__run_runner(stdin, arguments or (self.__fake_hook,), **environment)
 
     def __payload(self, **values):
         return json.dumps({'sessionId': self.__session_id, **values}).encode('utf-8')
@@ -141,26 +146,22 @@ class RunHookTests(unittest.TestCase):
 
     def test_runs_hook_in_runner_process(self):
         self.__write_file('.github/hooks/helpers/events/preToolUse/fake-hook/fake_sibling.py', "VALUE = 'sibling'\n")
-        env = os.environ.copy()
-        env.update({'TMPDIR': self.__temp_directory, 'TMP': self.__temp_directory, 'TEMP': self.__temp_directory})
-        env['FAKE_MODE'] = 'environment'
         process = subprocess.Popen(
             [sys.executable, os.path.join(self.__helpers, 'runner', 'run-hook.py'), self.__fake_hook],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env,
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            env=self.__environment(FAKE_MODE='environment'),
         )
-        stdout, stderr = process.communicate(self.__payload())
+        stdout, stderr = process.communicate(self.__payload(), timeout=30)
         self.assertEqual(process.returncode, 0, stderr)
         self.assertEqual(stdout.decode('utf-8').split(), ['sibling', str(process.pid), 'True', '__main__'])
 
     def test_killing_runner_stops_hook(self):
         # タイムアウトでランナーが終了させられたとき、hookが取り残されて副作用だけを残さないことを確かめる。
         marker = os.path.join(self.__root, 'marker')
-        env = os.environ.copy()
-        env.update({'TMPDIR': self.__temp_directory, 'TMP': self.__temp_directory, 'TEMP': self.__temp_directory})
-        env.update({'FAKE_MODE': 'sleep', 'FAKE_MARKER': marker})
         process = subprocess.Popen(
             [sys.executable, os.path.join(self.__helpers, 'runner', 'run-hook.py'), self.__fake_hook],
-            stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env,
+            stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            env=self.__environment(FAKE_MODE='sleep', FAKE_MARKER=marker),
         )
         process.stdin.write(self.__payload())
         process.stdin.close()
@@ -218,13 +219,7 @@ class RunHookTests(unittest.TestCase):
         )
         for arguments, expected_error in cases:
             with self.subTest(arguments=arguments):
-                if arguments:
-                    result = self.__run_hook(self.__payload(), *arguments)
-                else:
-                    result = subprocess.run(
-                        [sys.executable, os.path.join(self.__helpers, 'runner', 'run-hook.py')],
-                        input=self.__payload(), capture_output=True, check=False,
-                    )
+                result = self.__run_runner(self.__payload(), arguments)
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(result.stdout, b'')
                 self.assertIn(expected_error, result.stderr.decode('utf-8'))
@@ -253,6 +248,4 @@ class RunHookTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
-    from hook_test_output import run_tests
     run_tests()
