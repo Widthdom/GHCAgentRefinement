@@ -14,6 +14,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 
 
@@ -47,10 +48,7 @@ def _load_definitions(path):
             isinstance(pattern, str) and pattern.strip() for pattern in patterns
         ):
             raise ValueError(f'performance claim definitions require a non-empty array of non-empty strings for {key}.')
-        try:
-            loaded[key] = [re.compile(pattern) for pattern in patterns]
-        except re.PatternError as ex:
-            raise ValueError(f'invalid regular expression in {key}: {ex}') from None
+        loaded[key] = _build_regex_matchers(patterns, key)
     return loaded
 
 

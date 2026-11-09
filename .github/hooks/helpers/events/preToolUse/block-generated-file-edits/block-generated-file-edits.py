@@ -3,7 +3,6 @@ import hashlib
 import io
 import json
 import os
-import re
 import runpy
 import sqlite3
 import sys
@@ -16,6 +15,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _filter_first_time_denials = runpy.run_path(os.path.join(
@@ -57,10 +57,7 @@ def _load_definitions(path):
             isinstance(pattern, str) and pattern.strip() for pattern in patterns
         ):
             raise ValueError(f'generated file definitions require a non-empty array of non-empty strings for {key}.')
-        try:
-            compiled.append([re.compile(pattern) for pattern in patterns])
-        except re.PatternError as ex:
-            raise ValueError(f'invalid regular expression in {key}: {ex}') from None
+        compiled.append(_build_regex_matchers(patterns, key))
     return compiled[0], compiled[1]
 
 

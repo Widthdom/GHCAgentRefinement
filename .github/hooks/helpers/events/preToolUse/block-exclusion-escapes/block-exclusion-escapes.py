@@ -17,6 +17,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _filter_first_time_denials = runpy.run_path(os.path.join(
@@ -54,10 +55,7 @@ _DENY_REASON = (
 def _compile_patterns(values, key):
     if not isinstance(values, list) or not all(isinstance(value, str) and value.strip() for value in values):
         raise ValueError(f'exclusion definitions require an array of non-empty strings for {key}.')
-    try:
-        return [re.compile(value) for value in values]
-    except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {key}: {ex}') from None
+    return _build_regex_matchers(values, key)
 
 
 def _load_definitions(path):

@@ -15,6 +15,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
@@ -49,10 +50,8 @@ def _load_update_commands(path):
         for entry in entries
     ):
         raise ValueError(f'snapshot update definitions require a non-empty array of {{name, pattern}} for {_UPDATE_COMMANDS_KEY}.')
-    try:
-        return [(entry['name'], re.compile(entry['pattern'])) for entry in entries]
-    except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {_UPDATE_COMMANDS_KEY}: {ex}') from None
+    patterns = _build_regex_matchers([entry['pattern'] for entry in entries], _UPDATE_COMMANDS_KEY)
+    return [(entry['name'], pattern) for entry, pattern in zip(entries, patterns)]
 
 
 def _get_update_kinds(update_commands, command):
