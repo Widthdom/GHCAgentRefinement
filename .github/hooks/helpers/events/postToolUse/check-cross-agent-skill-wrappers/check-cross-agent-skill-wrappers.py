@@ -4,7 +4,6 @@ import os
 import runpy
 import sqlite3
 import sys
-from contextlib import closing
 from typing import cast
 
 
@@ -17,6 +16,9 @@ _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_filter_new_notifications = runpy.run_path(os.path.join(
+    _utilities_directory, 'filter-new-notifications', 'filter-new-notifications.py',
+))['filter_new_notifications']
 
 
 # SDKがファイル書き込みとして扱う組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
@@ -118,39 +120,6 @@ def _get_problems(root, name):
     return problems
 
 
-def _record_notifications(state_path, results):
-    # results：(skillのキー, 問題のリスト) のリスト。戻り値は、今回初めて通知する問題を含むskillの問題のリスト。
-    new_problems = []
-    # SQLiteのトランザクションで、並列に編集しても同じ問題を重複して通知しない。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute(
-            'CREATE TABLE IF NOT EXISTS notifications ('
-            'skill TEXT NOT NULL, '
-            'problem TEXT NOT NULL, '
-            'PRIMARY KEY (skill, problem))'
-        )
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            for skill_key, problems in results:
-                # 解消した問題は記録を消し、再び崩れたときに改めて通知する。
-                stored = connection.execute('SELECT problem FROM notifications WHERE skill = ?', (skill_key,)).fetchall()
-                for (problem,) in stored:
-                    if problem not in problems:
-                        connection.execute(
-                            'DELETE FROM notifications WHERE skill = ? AND problem = ?', (skill_key, problem),
-                        )
-                unnotified = [
-                    problem for problem in problems
-                    if connection.execute(
-                        'INSERT OR IGNORE INTO notifications (skill, problem) VALUES (?, ?)', (skill_key, problem),
-                    ).rowcount
-                ]
-                if unnotified:
-                    new_problems.extend(problems)
-    return new_problems
-
-
 def main():
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
@@ -174,15 +143,17 @@ def main():
             return 0
 
         # 状態のキーはルートとskill名。別のリポジトリの同名skillと区別する。
-        results = [
-            (f'{os.path.normcase(root)}\0{name}', _get_problems(root, name)) for root, name in skills
-        ]
+        results = []
+        for root, name in skills:
+            skill_problems = _get_problems(root, name)
+            results.append((f'{os.path.normcase(root)}\0{name}', skill_problems, skill_problems))
         # hookは呼び出しごとに別プロセスなので、通知済みの問題をセッションUUID別に保存する。
         problems = []
         # 問題があるか、解消した記録を消す必要がある場合だけ状態を開く。
-        if any(skill_problems for _, skill_problems in results) or os.path.isfile(state_path):
-            os.makedirs(os.path.dirname(state_path), exist_ok=True)
-            problems = _record_notifications(state_path, results)
+        if any(skill_problems for _, _, skill_problems in results) or os.path.isfile(state_path):
+            problems = [
+                problem for skill_problems in _filter_new_notifications(state_path, results) for problem in skill_problems
+            ]
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check cross-agent skill wrappers: {ex}', file=sys.stderr)
         return 2
