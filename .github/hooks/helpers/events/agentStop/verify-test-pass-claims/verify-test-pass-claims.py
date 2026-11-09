@@ -48,36 +48,18 @@ def _get_turn_summary(transcript_path, extract_edit_tool_changes):
     # 編集は ('edit', 変更したファイルのパスのリスト)、シェル実行は ('shell', (コマンド, 終了コード)) とする。
     turn_events = _turn_events['get_turns'](transcript_path)[-1]
     events = []
-    started = {}
-    for event_type, data in turn_events:
-        if event_type == 'tool.execution_start':
-            call_id = data.get('toolCallId')
-            tool_name = data.get('toolName')
-            if isinstance(call_id, str) and isinstance(tool_name, str):
-                started[call_id] = (tool_name.removeprefix('functions.'), data.get('arguments'))
-        elif event_type == 'tool.execution_complete':
-            call_id = data.get('toolCallId')
-            if call_id not in started:
-                continue
-            tool_name, arguments = started.pop(call_id)
-            command = _get_shell_command(tool_name, arguments)
-            if command is not None:
-                shell_execution = data.get('shellExecution')
-                exit_code = shell_execution.get('exitCode') if isinstance(shell_execution, dict) else None
-                # 拒否などで実行されなかった場合は終了コードが記録されないため、成功とみなさない。
-                events.append(('shell', (command, exit_code if type(exit_code) is int else None)))
-            elif data.get('success') is True:
-                changes = extract_edit_tool_changes(tool_name, arguments, include_deleted=True)
-                if changes:
-                    events.append(('edit', [
-                        path for change in changes for path in (change['path'], change['moved_to']) if path is not None
-                    ]))
-    # 完了していないシェル実行は、終了コードのない実行として最後に加える。
-    events.extend(
-        ('shell', (command, None))
-        for tool_name, arguments in started.values()
-        if (command := _get_shell_command(tool_name, arguments)) is not None
-    )
+    # 完了していないシェル実行は、終了コードのない実行として最後に加わる。
+    for tool_name, arguments, completion in _turn_events['get_tool_calls'](turn_events):
+        command = _get_shell_command(tool_name, arguments)
+        if command is not None:
+            # 拒否などで実行されなかった場合は終了コードが記録されないため、成功とみなさない。
+            events.append(('shell', (command, _turn_events['get_shell_exit_code'](completion))))
+        elif completion is not None and completion.get('success') is True:
+            changes = extract_edit_tool_changes(tool_name, arguments, include_deleted=True)
+            if changes:
+                events.append(('edit', [
+                    path for change in changes for path in (change['path'], change['moved_to']) if path is not None
+                ]))
     return events, turn_events, _turn_events['get_last_assistant_message'](turn_events)
 
 

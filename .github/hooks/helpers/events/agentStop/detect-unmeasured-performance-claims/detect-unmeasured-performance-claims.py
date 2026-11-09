@@ -57,26 +57,13 @@ def _load_definitions(path):
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・シェル実行・本hookによる差し戻し済みかを集める。
     events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
-    shell_commands = {}
-    exit_codes = {}
-    for event_type, data in events:
-        if event_type == 'tool.execution_start':
-            tool_name = data.get('toolName')
-            arguments = data.get('arguments')
-            call_id = data.get('toolCallId')
-            if (isinstance(tool_name, str) and tool_name.removeprefix('functions.') in _SHELL_TOOL_NAMES
-                    and isinstance(call_id, str) and isinstance(arguments, dict)
-                    and isinstance(arguments.get('command'), str)):
-                shell_commands[call_id] = arguments['command']
-        elif event_type == 'tool.execution_complete':
-            call_id = data.get('toolCallId')
-            shell_execution = data.get('shellExecution')
-            exit_code = shell_execution.get('exitCode') if isinstance(shell_execution, dict) else None
-            # 拒否などで実行されなかった場合は終了コードが記録されないため、計測とみなさない。
-            if isinstance(call_id, str) and type(exit_code) is int:
-                exit_codes[call_id] = exit_code
-
-    succeeded_commands = [command for call_id, command in shell_commands.items() if exit_codes.get(call_id) == 0]
+    # 拒否などで実行されなかった場合は終了コードが記録されないため、計測とみなさない。
+    succeeded_commands = [
+        arguments['command']
+        for tool_name, arguments, completion in _turn_events['get_tool_calls'](events)
+        if tool_name in _SHELL_TOOL_NAMES and isinstance(arguments, dict) and isinstance(arguments.get('command'), str)
+        and _turn_events['get_shell_exit_code'](completion) == 0
+    ]
     return _turn_events['get_last_assistant_message'](events), succeeded_commands, already_requested
 
 

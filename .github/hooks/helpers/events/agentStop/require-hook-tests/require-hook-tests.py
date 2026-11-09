@@ -16,6 +16,7 @@ _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
@@ -36,31 +37,16 @@ def _get_turn_events(transcript_path):
     # 戻り値は (('edit', パス) または ('shell', (コマンド, 終了コード)) のリスト, 本hookによる差し戻し済みか)。
     turn_events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
     events = []
-    started = {}
-    for event_type, data in turn_events:
-        if event_type == 'tool.execution_start':
-            call_id = data.get('toolCallId')
-            tool_name = data.get('toolName')
-            if isinstance(call_id, str) and isinstance(tool_name, str):
-                started[call_id] = (tool_name.removeprefix('functions.'), data.get('arguments'))
-        elif event_type == 'tool.execution_complete':
-            call_id = data.get('toolCallId')
-            if call_id not in started:
-                continue
-            tool_name, arguments = started.pop(call_id)
-            if isinstance(arguments, str):
-                try:
-                    arguments = json.loads(arguments)
-                except ValueError:
-                    pass
-            if tool_name in _EDIT_TOOL_NAMES and data.get('success') is True:
-                events.extend(('edit', path) for path in _get_edited_paths(tool_name, arguments))
-            elif (tool_name in _SHELL_TOOL_NAMES and isinstance(arguments, dict)
-                    and isinstance(arguments.get('command'), str)):
-                shell_execution = data.get('shellExecution')
-                exit_code = shell_execution.get('exitCode') if isinstance(shell_execution, dict) else None
-                # 拒否などで実行されなかった場合は終了コードが記録されないため、成功とみなさない。
-                events.append(('shell', (arguments['command'], exit_code if type(exit_code) is int else None)))
+    for tool_name, arguments, completion in _turn_events['get_tool_calls'](turn_events):
+        if completion is None:
+            continue
+        arguments = _unwrap_tool_args(arguments)
+        if tool_name in _EDIT_TOOL_NAMES and completion.get('success') is True:
+            events.extend(('edit', path) for path in _get_edited_paths(tool_name, arguments))
+        elif (tool_name in _SHELL_TOOL_NAMES and isinstance(arguments, dict)
+                and isinstance(arguments.get('command'), str)):
+            # 拒否などで実行されなかった場合は終了コードが記録されないため、成功とみなさない。
+            events.append(('shell', (arguments['command'], _turn_events['get_shell_exit_code'](completion))))
     return events, already_requested
 
 

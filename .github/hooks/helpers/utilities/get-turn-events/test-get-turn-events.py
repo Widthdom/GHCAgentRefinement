@@ -111,5 +111,36 @@ class GetTurnEventsTests(unittest.TestCase):
         self.assertIsNone(_utility['get_last_assistant_message']([('user.message', {'content': 'request'})]))
 
 
+    def test_tool_calls_in_completion_order(self):
+        events = [
+            ('tool.execution_start', {'toolCallId': 'a', 'toolName': 'functions.bash', 'arguments': '{"command":"x"}'}),
+            ('tool.execution_start', {'toolCallId': 'b', 'toolName': 'edit', 'arguments': {'path': 'p'}}),
+            ('tool.execution_start', {'toolCallId': 'c', 'toolName': 'view'}),
+            ('tool.execution_start', {'toolCallId': 1, 'toolName': 'view'}),
+            ('tool.execution_complete', {'toolCallId': 'b', 'success': True}),
+            ('tool.execution_complete', {'toolCallId': 'unknown', 'success': True}),
+            ('tool.execution_complete', {'toolCallId': 'a', 'success': False}),
+        ]
+        # 完了していない呼び出しは最後に加え、toolCallIdが文字列でない開始は対応づけられないため除く。
+        self.assertEqual(_utility['get_tool_calls'](events), [
+            ('edit', {'path': 'p'}, {'toolCallId': 'b', 'success': True}),
+            ('bash', '{"command":"x"}', {'toolCallId': 'a', 'success': False}),
+            ('view', None, None),
+        ])
+
+    def test_shell_exit_code(self):
+        for completion, expected in (
+            ({'shellExecution': {'exitCode': 0}}, 0),
+            ({'shellExecution': {'exitCode': 2}}, 2),
+            ({'shellExecution': {'exitCode': True}}, None),
+            ({'shellExecution': {'exitCode': '0'}}, None),
+            ({'shellExecution': None}, None),
+            ({}, None),
+            (None, None),
+        ):
+            with self.subTest(completion=completion):
+                self.assertEqual(_utility['get_shell_exit_code'](completion), expected)
+
+
 if __name__ == '__main__':
     _run_tests()
