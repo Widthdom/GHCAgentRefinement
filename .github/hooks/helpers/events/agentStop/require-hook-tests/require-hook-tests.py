@@ -14,16 +14,12 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
-))['collect_json_string_values']
+_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 
 
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 _SHELL_TOOL_NAMES = {'bash', 'powershell'}
-# パッチで追加・更新・削除するファイルと移動先。
-_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$', re.MULTILINE)
 # リポジトリ内のhook関連ファイル。グループ1はリポジトリルート、グループ2は `.github/hooks/` からの相対パス。
 _HOOKS_PATH_PATTERN = re.compile(r'^(.*?)/\.github/hooks/(.+)$', re.IGNORECASE)
 _ALL_HOOKS_TEST = 'test-all-hooks.py'
@@ -33,18 +29,6 @@ _TEST_OUTPUT_TEST = 'test-hook-test-output.py'
 _RUNNER_TEST = 'test-run-hook.py'
 _REASON_PREFIX = 'Hook files were changed'
 _PYTHON_COMMAND = 'python' if sys.platform == 'win32' else 'python3'
-
-
-def _get_edited_paths(tool_name, arguments):
-    if tool_name == 'apply_patch':
-        return [match for text in _collect_json_string_values(arguments) for match in _PATCH_FILE_PATTERN.findall(text)]
-    if not isinstance(arguments, dict):
-        return []
-    # str_replace_editorのviewは閲覧なので対象外とする。
-    if tool_name == 'str_replace_editor' and arguments.get('command') == 'view':
-        return []
-    path = arguments.get('path')
-    return [path] if isinstance(path, str) and path.strip() else []
 
 
 def _get_turn_events(transcript_path):

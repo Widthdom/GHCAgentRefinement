@@ -2,7 +2,6 @@ import hashlib
 import io
 import json
 import os
-import re
 import runpy
 import sqlite3
 import sys
@@ -18,16 +17,13 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
-))['collect_json_string_values']
+_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 # SDKがファイル書き込みとして扱う組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$', re.MULTILINE)
 _UTF8_BOM = b'\xef\xbb\xbf'
 _GIT_TIMEOUT_SECONDS = 5
 _FORMAT_CONTEXT = (
@@ -37,17 +33,6 @@ _FORMAT_CONTEXT = (
     'for this format change, restore the original format while keeping your intended content changes, '
     'for example by rewriting the file with the original line endings, and verify the result with git diff.'
 )
-
-
-def _get_edited_paths(tool_name, tool_args, cwd):
-    if tool_name == 'apply_patch':
-        # パッチ本文の `*** Update File: <path>` などの行から対象を集める。削除・移動元は後で実在確認により除外する。
-        paths = [match for text in _collect_json_string_values(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)]
-    else:
-        path = tool_args.get('path') if isinstance(tool_args, dict) else None
-        paths = [path] if isinstance(path, str) and path.strip() else []
-    # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。
-    return sorted({os.path.normcase(os.path.realpath(os.path.join(cwd, path))) for path in paths})
 
 
 def _get_committed_content(path):
@@ -146,7 +131,11 @@ def main():
         tool_name = tool_name.removeprefix('functions.')
         if tool_name not in _EDIT_TOOL_NAMES:
             return 0
-        paths = _get_edited_paths(tool_name, _unwrap_tool_args(tool_args), cwd)
+        # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。
+        paths = sorted({
+            os.path.normcase(os.path.realpath(os.path.join(cwd, path)))
+            for path in _get_edited_paths(tool_name, _unwrap_tool_args(tool_args))
+        })
 
         results = []
         for path in paths:

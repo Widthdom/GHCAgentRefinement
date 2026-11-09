@@ -1,7 +1,6 @@
 import io
 import json
 import os
-import re
 import runpy
 import sqlite3
 import sys
@@ -14,9 +13,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
-))['collect_json_string_values']
+_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
@@ -24,26 +21,12 @@ _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-to
 # 既存ファイルを書き換える組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 # パッチで既存の内容を書き換えるファイル。追加・削除・移動先は内容を把握する必要がないため対象外とする。
-_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* Update File: (.+?)\s*$', re.MULTILINE)
+_PATCH_OPERATIONS = frozenset({'Update File'})
 _DENY_REASON = (
     'Edit denied: you have not read the following existing files in this session: {files}. '
     'Editing from memory or assumptions risks failed replacements and broken surrounding code. '
     'View the relevant part of each file first, then redo the edit based on its current content.'
 )
-
-
-def _get_edited_paths(tool_name, tool_args):
-    if tool_name == 'apply_patch':
-        return [
-            match for text in _collect_json_string_values(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)
-        ]
-    if not isinstance(tool_args, dict):
-        return []
-    # str_replace_editorのviewは閲覧なので対象外とする。
-    if tool_name == 'str_replace_editor' and tool_args.get('command') == 'view':
-        return []
-    path = tool_args.get('path')
-    return [path] if isinstance(path, str) and path.strip() else []
 
 
 def _deny_unread_files(state, state_path, paths):
@@ -82,7 +65,7 @@ def main():
         if tool_name in _EDIT_TOOL_NAMES:
             tool_args = _unwrap_tool_args(tool_args)
             paths.update(
-                state['normalize_path'](cwd, path) for path in _get_edited_paths(tool_name, tool_args)
+                state['normalize_path'](cwd, path) for path in _get_edited_paths(tool_name, tool_args, _PATCH_OPERATIONS)
             )
         # 新規作成と、存在しないファイルへの編集（ツール側で失敗する）は対象外とする。
         existing_paths = sorted(path for path in paths if os.path.isfile(path))
