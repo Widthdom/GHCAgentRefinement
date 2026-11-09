@@ -14,23 +14,15 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
-))['collect_json_string_values']
+_extract_edit_tool_changes = runpy.run_path(os.path.join(
+    _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+))['extract_edit_tool_changes']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
     _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
 ))['read_stored_file_content_for_write_comparison']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-# 置換前の内容を表す引数。書き込む内容ではないため検査せず、既存の値の照合に使う。
-_REMOVED_TEXT_KEYS = {'old_str', 'old_string'}
-# 書き込む内容ではない引数。
-_IGNORED_KEYS = {'path', 'command'}
-_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update) File|Move to): (.+?)\s*$', re.MULTILINE)
 # `.env` と `.env.local` などは対象とし、値を含まないひな形は対象外とする。
 _ENV_FILE_PATTERN = re.compile(r'^\.env(?:\..+)?$', re.IGNORECASE)
 _ENV_TEMPLATE_SUFFIXES = ('.example', '.sample', '.template', '.dist')
@@ -61,36 +53,6 @@ def _load_definitions(path):
         except re.PatternError as ex:
             raise ValueError(f"invalid regular expression in secret definition '{definition['name']}': {ex}") from None
     return compiled
-
-
-def _split_patch(text):
-    # パッチの追加行（`+`）を書き込む内容、削除行（`-`）を既存の内容として分ける。
-    added = []
-    removed = []
-    for line in text.splitlines():
-        if line.startswith('+'):
-            added.append(line[1:])
-        elif line.startswith('-'):
-            removed.append(line[1:])
-    return '\n'.join(added), '\n'.join(removed)
-
-
-def _get_write(tool_name, tool_args):
-    # 戻り値は (書き込む内容, 置換前の内容, 対象パスのリスト)。
-    if tool_name == 'apply_patch':
-        texts = list(_collect_json_string_values(tool_args))
-        parts = [_split_patch(text) for text in texts]
-        paths = [match for text in texts for match in _PATCH_FILE_PATTERN.findall(text)]
-        return '\n'.join(added for added, _ in parts), '\n'.join(removed for _, removed in parts), paths
-    if not isinstance(tool_args, dict):
-        return '', '', []
-    # str_replace_editorのviewは閲覧なので対象外とする。
-    if tool_name == 'str_replace_editor' and tool_args.get('command') == 'view':
-        return '', '', []
-    written = '\n'.join(_collect_json_string_values(tool_args, _IGNORED_KEYS | _REMOVED_TEXT_KEYS))
-    removed = '\n'.join(text for key in _REMOVED_TEXT_KEYS for text in _collect_json_string_values(tool_args.get(key)))
-    path = tool_args.get('path')
-    return written, removed, [path] if isinstance(path, str) and path.strip() else []
 
 
 def _is_env_file(path):
@@ -135,11 +97,14 @@ def main(arguments=None):
 
         normalized_cwd = os.path.normcase(os.path.realpath(cwd))
         findings = []
-        tool_name = tool_name.removeprefix('functions.')
-        if tool_name in _EDIT_TOOL_NAMES:
-            written, removed, paths = _get_write(tool_name, _unwrap_tool_args(tool_args))
+        # 置換前の内容は書き込む内容ではないため検査せず、既存の値の照合に使う。
+        changes = _extract_edit_tool_changes(tool_name, tool_args)
+        if changes:
+            written = '\n'.join(change['written'] for change in changes)
+            removed = '\n'.join(change['removed'] for change in changes)
+            paths = [path for change in changes for path in (change['path'], change['moved_to']) if path]
             resolved_paths = sorted({os.path.normcase(os.path.realpath(os.path.join(cwd, path))) for path in paths})
-            display_paths = ', '.join(_get_display_path(path, normalized_cwd) for path in resolved_paths) or tool_name
+            display_paths = ', '.join(_get_display_path(path, normalized_cwd) for path in resolved_paths) or tool_name.removeprefix('functions.')
 
             env_paths = [path for path in resolved_paths if _is_env_file(path)]
             if env_paths:

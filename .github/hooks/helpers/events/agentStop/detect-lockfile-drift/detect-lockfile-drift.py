@@ -17,16 +17,11 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
-))['collect_json_string_values']
+_extract_edit_tool_changes = runpy.run_path(os.path.join(
+    _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+))['extract_edit_tool_changes']
 
 
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:Add|Update) File: (.+?)\s*$')
-_PATCH_MOVE_PATTERN = re.compile(r'^\*\*\* Move to: (.+?)\s*$')
 _FORMATS = {'json', 'toml', 'lines'}
 _GIT_TIMEOUT_SECONDS = 5
 _MAX_FINDINGS = 10
@@ -79,29 +74,18 @@ def _load_definitions(path):
     return loaded
 
 
-def _get_written_paths(tool_name, arguments):
-    # 戻り値は、編集系ツールが書き込むファイルのパスのリスト。削除するファイルは対象外とする。
-    if tool_name == 'apply_patch':
-        return [
-            match.group(1)
-            for text in _collect_json_string_values(arguments) for line in text.splitlines()
-            if (match := _PATCH_FILE_PATTERN.match(line) or _PATCH_MOVE_PATTERN.match(line))
-        ]
-    if not isinstance(arguments, dict) or arguments.get('command') in ('view', 'undo_edit'):
-        return []
-    path = arguments.get('path')
-    return [path] if isinstance(path, str) and path.strip() else []
-
-
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・書き込んだファイル・本hookによる差し戻し済みかを集める。
     events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
     paths = []
     for event_type, data in events:
         tool_name = data.get('toolName')
-        if (event_type == 'tool.execution_start' and isinstance(tool_name, str)
-                and tool_name.removeprefix('functions.') in _EDIT_TOOL_NAMES):
-            paths.extend(_get_written_paths(tool_name.removeprefix('functions.'), _unwrap_tool_args(data.get('arguments'))))
+        if event_type == 'tool.execution_start' and isinstance(tool_name, str):
+            # 書き込むファイルと移動先を集める。削除するファイルは対象外とする。
+            paths.extend(
+                path for change in _extract_edit_tool_changes(tool_name, data.get('arguments'))
+                for path in (change['path'], change['moved_to']) if path
+            )
     return _turn_events['get_last_assistant_message'](events), paths, already_requested
 
 

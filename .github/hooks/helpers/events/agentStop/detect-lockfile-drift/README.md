@@ -9,7 +9,7 @@ agentStop（エージェントの応答終了時）
 ## 処理詳細
 1. [lockfile-drift-definitions.json](./lockfile-drift-definitions.json) から、マニフェストの種類ごとのファイル名の正規表現（`filePattern`）、形式（`format`）、依存の宣言の場所（`json`・`toml` は `dependencyKeys`、`lines` は `linePatterns`）、ロックファイルと更新コマンド（`lockFiles`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[wait-for-agent-stop-event](../../../utilities/wait-for-agent-stop-event/README.md)）。
-3. ユーザーの最新の依頼以降について、編集系ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）が書き込んだファイルのパスを集める。`apply_patch` は `*** Add File:`・`*** Update File:`・`*** Move to:` のパスとする。
+3. ユーザーの最新の依頼以降について、編集系ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）が書き込んだファイルのパスを、[extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で集める。`apply_patch` は `*** Add File:`・`*** Update File:`・`*** Move to:` のパスとする。
 4. `git rev-parse --show-toplevel` でリポジトリルートを特定する。gitがない、またはリポジトリ外の場合は何もせず正常終了する。
 5. リポジトリ内で、ファイル名が `filePattern` に一致するファイルについて、HEADの内容（`git show HEAD:<パス>`）と現在の内容から依存の宣言だけを取り出して比べる。
    - `json`・`toml`：ドット区切りのキー（`*` はその階層のすべてのキー）の値。
