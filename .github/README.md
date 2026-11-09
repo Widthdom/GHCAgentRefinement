@@ -378,11 +378,11 @@ flowchart LR
 #### デバッグフッターにsessionStartのhookが載らない
 
 デバッグモードで回答に付与される（[debug-add-response-footer](./hooks/helpers/events/agentStop/debug-add-response-footer/README.md)）フッターに `check-python` や `load-copilot-instructions` などsessionStartのhookが載らないのは仕様。
-- 「Hooks used」は、直近のユーザー発言以降にトランスクリプトへ記録された `hook.start` のイベント種別から、起動した可能性のあるhookを推定する。ユーザー発言のたびに収集済みのイベント種別をリセットするため、最初のユーザー発言より前に動くsessionStartのhookは表示範囲外になる。
-- 「Hooks fired」は、直近のユーザー依頼の `userPromptSubmitted` の `hook.start` 以降に[hookランナー](./hooks/helpers/runner/README.md)経由で起動し、終了コードが0以外か、空・空白だけ・空のJSONオブジェクト（`{}`）以外の標準出力を返したhookが対象。sessionStartはターンの区切りより前のため対象外で、さらに `block-commands` や `check-python` はランナーを通さないため起動も機能も記録されない。
+- 「Hooks used」は、直近のユーザー発言以降にトランスクリプトへ記録された `hook.start` のイベント種別から推定するため、最初のユーザー発言より前に動くsessionStartのhookは表示範囲外になる。
+- 「Hooks fired」は、直近のユーザー依頼の `userPromptSubmitted` の `hook.start` 以降に起動したhookが対象のため、ターンの区切りより前に動くsessionStartのhookは対象外になる。
 
 #### デバッグフッターの「Hooks used」にhookが並ぶのに「Hooks fired」がnoneになる
 
-デバッグモードで回答に付与される（[debug-add-response-footer](./hooks/helpers/events/agentStop/debug-add-response-footer/README.md)）フッターに設けられている「Hooks used」はイベント種別からの推定であり、各hookが実際に出力したことを示すものではない。「Hooks fired」は上記の条件で機能したhookだけを表示し、agentStopのhookは同時実行の結果をフッター作成時点で確定できないため除外する。ランナーを通さない `block-commands` や `check-python` も対象外になる。
+「Hooks used」はイベント種別からの推定であり、各hookが実際に出力したことを示すものではない。一方「Hooks fired」は実際に機能したhookだけを表示し、agentStopのhookは除外する。そのため、ツールを呼び出さないターンでは「Hooks used」にagentStopのhookが並んでも、「Hooks fired」が `none` になることがある。フッターに載らないことや `none` だけでは、hookが起動しなかったとは判断できない。
 
-そのため、ツールを呼び出さないターンでは「Hooks used」にagentStopのhookが並んでも、「Hooks fired」が `none` になることがある。フッターに載らないことや `none` だけでは、hookが起動しなかったとは判断できない。
+各項目の対象と、hookランナーを通さないため「Hooks fired」に載らない `block-commands`・`check-python` については、[debug-add-response-footer](./hooks/helpers/events/agentStop/debug-add-response-footer/README.md) を参照。
