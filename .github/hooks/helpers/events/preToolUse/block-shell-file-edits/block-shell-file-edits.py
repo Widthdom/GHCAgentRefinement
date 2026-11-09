@@ -4,7 +4,6 @@ import json
 import os
 import re
 import runpy
-import shlex
 import sys
 from typing import cast
 
@@ -17,6 +16,7 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_split_bash_lines = runpy.run_path(os.path.join(_utilities_directory, 'split-bash-lines', 'split-bash-lines.py'))['split_bash_lines']
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 
 
@@ -38,10 +38,6 @@ _BASH_SKIP_OPERATORS = {'<', '<<', '<<-', '<<<', '<&', '>&'}
 _BASH_PUNCTUATION = set('();<>|&')
 _BASH_WRAPPERS = {'builtin', 'command', 'env', 'exec', 'nohup', 'sudo', 'time', 'xargs'}
 _BASH_CD_COMMANDS = {'cd', 'pushd'}
-# `<<<` は文字列を渡すだけなので、ヒアドキュメントとみなさない。
-_HEREDOC_PATTERN = re.compile(
-    r'(?<!<)<<(?!<)(-?)\s*(?:\'([^\'\n]*)\'|"([^"\n]*)"|\\?([^\s;&|()<>\'"]+))'
-)
 # sedは `-i`・`-i.bak`・`-ni`・`--in-place[=SUFFIX]`、perlは `-i`・`-pi`・`-i.bak` で上書き編集する。
 _SED_IN_PLACE_PATTERN = re.compile(r'^(?:-[A-Za-z]*i|--in-place(?:=|$))')
 _PERL_IN_PLACE_PATTERN = re.compile(r'^-[nplaswTtUWX0-9]*i')
@@ -64,43 +60,10 @@ def _is_bash_punctuation(token):
     return bool(token) and all(character in _BASH_PUNCTUATION for character in token)
 
 
-def _split_bash(text):
-    lexer = shlex.shlex(text, posix=True, punctuation_chars=True)
-    lexer.whitespace_split = True
-    return list(lexer)
-
-
-def _get_bash_lines(command):
-    # 引用符が閉じるまでと行末の `\` は次の行とつなげ、論理行ごとに字句へ分ける。
-    # ヒアドキュメントの本文は書き込み先ではないため読み飛ばす。
-    heredocs = []
-    buffer = ''
-    for line in command.replace('\r\n', '\n').split('\n'):
-        if heredocs:
-            delimiter, strip_tabs = heredocs[0]
-            if (line.lstrip('\t') if strip_tabs else line) == delimiter:
-                heredocs.pop(0)
-            continue
-        buffer += line
-        if re.search(r'(?<!\\)(?:\\\\)*\\$', buffer):
-            buffer = buffer[:-1]
-            continue
-        try:
-            tokens = _split_bash(buffer)
-        except ValueError:
-            buffer += '\n'
-            continue
-        yield tokens
-        for match in _HEREDOC_PATTERN.finditer(buffer):
-            heredocs.append((next(group for group in match.groups()[1:] if group is not None), match.group(1) == '-'))
-        buffer = ''
-    # 引用符が閉じないまま終わった部分は判定できないため対象外とする。
-
-
 def _tokenize_bash(command):
     # 戻り値は ('word', 語)・('write', 書き込み先)・('separator', 区切り) の列。
     items = []
-    for tokens in _get_bash_lines(command):
+    for tokens in _split_bash_lines(command):
         index = 0
         while index < len(tokens):
             token = tokens[index]
