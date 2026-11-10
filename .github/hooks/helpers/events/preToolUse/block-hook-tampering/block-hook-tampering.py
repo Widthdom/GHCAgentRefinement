@@ -13,17 +13,13 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
-))['collect_json_string_values']
+_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 _SHELL_TOOL_NAMES = {'bash', 'powershell'}
-# パッチで追加・更新・削除するファイルと移動先。
-_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$', re.MULTILINE)
 # 守るパス。hookの定義・実装・テストと、hookが保持する状態（変更の許可の記録を含む）。
 _PROTECTED_PATH_PATTERN = re.compile(r'(?:^|[/\\])(?:\.github[/\\]hooks|ghc-agent-refinement[/\\]hook-states)(?:[/\\]|$)', re.IGNORECASE)
 _PROTECTED_PATH_IN_COMMAND_PATTERN = re.compile(r'\.github[/\\]+hooks\b|ghc-agent-refinement[/\\]+hook-states\b', re.IGNORECASE)
@@ -60,18 +56,6 @@ _DENY_REASON = (
     'change explicitly.'
 )
 _MAX_COMMAND_LENGTH = 200
-
-
-def _get_edited_paths(tool_name, tool_args):
-    if tool_name == 'apply_patch':
-        return [match for text in _collect_json_string_values(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)]
-    if not isinstance(tool_args, dict):
-        return []
-    # str_replace_editorのviewは閲覧なので対象外とする。
-    if tool_name == 'str_replace_editor' and tool_args.get('command') == 'view':
-        return []
-    path = tool_args.get('path')
-    return [path] if isinstance(path, str) and path.strip() else []
 
 
 def _get_targets(tool_name, tool_args, cwd):

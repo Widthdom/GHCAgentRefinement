@@ -3,7 +3,6 @@ import hashlib
 import io
 import json
 import os
-import re
 import runpy
 import sqlite3
 import sys
@@ -18,9 +17,9 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
-))['collect_json_string_values']
+_extract_edit_tool_changes = runpy.run_path(os.path.join(
+    _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+))['extract_edit_tool_changes']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
 ))['filter_first_time_denials']
@@ -28,16 +27,8 @@ _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-displ
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
     _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
 ))['read_stored_file_content_for_write_comparison']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-# 置換前の内容を表す引数。書き込む内容ではないため検査せず、既存の内容として照合に使う。
-_REMOVED_TEXT_KEYS = {'old_str', 'old_string'}
-# 書き込む内容ではない引数。
-_IGNORED_KEYS = {'path', 'command'}
-_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
 _EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
 _NATIVE_PATH_PATTERNS_KEY = 'nativePathPatterns'
 _NORMALIZATION_PATTERNS_KEY = 'normalizationPatterns'
@@ -96,43 +87,6 @@ def _load_definitions(path):
     )
 
 
-def _get_patch_writes(text):
-    # パッチをファイルごとに分け、追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。
-    # 削除するファイルには何も書き込まないため対象外とする。
-    writes = []
-    for line in text.splitlines():
-        match = _PATCH_FILE_PATTERN.match(line)
-        if match:
-            writes.append({'path': match.group(2), 'written': [], 'removed': [], 'deleted': match.group(1) == 'Delete'})
-        elif writes and line.startswith('+'):
-            writes[-1]['written'].append(line[1:])
-        elif writes and line.startswith('-'):
-            writes[-1]['removed'].append(line[1:])
-    return [
-        (write['path'], '\n'.join(write['written']), '\n'.join(write['removed']))
-        for write in writes if not write['deleted']
-    ]
-
-
-def _get_writes(tool_name, tool_args):
-    # 戻り値は (パス, 書き込む内容, 置換前の内容) のリスト。
-    if tool_name == 'apply_patch':
-        return [write for text in _collect_json_string_values(tool_args) for write in _get_patch_writes(text)]
-    if not isinstance(tool_args, dict):
-        return []
-    # str_replace_editorのviewは閲覧なので対象外とする。
-    if tool_name == 'str_replace_editor' and tool_args.get('command') == 'view':
-        return []
-    path = tool_args.get('path')
-    if not isinstance(path, str) or not path.strip():
-        return []
-    return [(
-        path,
-        '\n'.join(_collect_json_string_values(tool_args, _IGNORED_KEYS | _REMOVED_TEXT_KEYS)),
-        '\n'.join(text for key in _REMOVED_TEXT_KEYS for text in _collect_json_string_values(tool_args.get(key))),
-    )]
-
-
 def _normalize_lines(text):
     # インデントの違いで既存の内容との照合が外れないよう、各行の前後の空白を除く。
     return {line.strip() for line in text.splitlines()}
@@ -188,24 +142,22 @@ def main(arguments=None):
 
         real_cwd = os.path.realpath(cwd)
         candidates = []
-        tool_name = tool_name.removeprefix('functions.')
-        if tool_name in _EDIT_TOOL_NAMES:
-            for write_path, written, removed in _get_writes(tool_name, _unwrap_tool_args(tool_args)):
-                path = os.path.realpath(os.path.join(cwd, write_path))
-                display_path = _get_display_path(path, real_cwd)
-                if any(pattern.search(display_path) for pattern in excluded_file_patterns):
-                    continue
-                current = (_read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None) or ''
-                kinds, snippets = _find_native_paths(
-                    native_patterns, normalization_patterns, written, '\n'.join([removed, current]),
-                )
-                if snippets:
-                    # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-                    file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
-                    candidates.append((file_key, _FINDING.format(
-                        file=display_path, kinds=', '.join(kinds),
-                        snippets=', '.join(_format_snippet(snippet) for snippet in snippets[:_MAX_SNIPPETS]),
-                    )))
+        for change in _extract_edit_tool_changes(tool_name, tool_args):
+            path = os.path.realpath(os.path.join(cwd, change['path']))
+            display_path = _get_display_path(path, real_cwd)
+            if any(pattern.search(display_path) for pattern in excluded_file_patterns):
+                continue
+            current = (_read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None) or ''
+            kinds, snippets = _find_native_paths(
+                native_patterns, normalization_patterns, change['written'], '\n'.join([change['removed'], current]),
+            )
+            if snippets:
+                # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
+                file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
+                candidates.append((file_key, _FINDING.format(
+                    file=display_path, kinds=', '.join(kinds),
+                    snippets=', '.join(_format_snippet(snippet) for snippet in snippets[:_MAX_SNIPPETS]),
+                )))
 
         reasons = []
         if candidates:

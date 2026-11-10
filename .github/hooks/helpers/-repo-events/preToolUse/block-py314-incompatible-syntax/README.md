@@ -7,13 +7,9 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 編集後のPythonファイルがPython 3.14でコンパイルできない場合（3.15以降で追加された文法、Python 2の文法、構文エラーなど）、その編集を拒否する。
 
 ## 処理詳細
-1. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から書き込み先のファイルごとに編集後のファイル全体の内容を求める。拡張子が `.py`・`.pyi`・`.pyw`（大文字小文字を区別しない）でないファイルは対象外とする。
-   - `create`・`str_replace_editor` の `create`：`file_text` を編集後の内容とする。
-   - `edit`・`str_replace_editor` の `str_replace`：現在の内容の最初の `old_str` を `new_str` に置き換える。
-   - `insert`・`str_replace_editor` の `insert`：現在の内容の `insert_line` 行目の後（`0` は先頭）に `new_str` を挿入する。
-   - `apply_patch`：`*** Add File:` は追加行（`+`）を編集後の内容とする。`*** Update File:` は現在の内容に `@@` で区切ったハンクを順に適用し、`*** Move to:` があれば移動先を書き込み先とする。`*** Delete File:` は対象外とする。
+1. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から書き込み先のファイルごとに編集前と編集後のファイル全体の内容を、[simulate-edit-tool-changes](../../../utilities/simulate-edit-tool-changes/README.md) の規則で求める。拡張子が `.py`・`.pyi`・`.pyw`（大文字小文字を区別しない）でないファイルは対象外とする。
 2. 編集後の内容を、`ast.parse`（`feature_version=(3, 14)`）で構文解析し、`compile` でコンパイルする。`SyntaxError`（`IndentationError`・`TabError` を含む）になったファイルを拒否の候補とする。警告（`SyntaxWarning` など）は対象外とする。
-3. 候補のうち、現在の内容がコンパイルできるか、まだ存在しないファイルについて、Python 3.14でコンパイルできるよう直すことを求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。理由には、cwd配下のファイルをcwdからの相対パス（`/` 区切り）で、エラーの行番号と内容とともに最大3件示す。
+3. 候補のうち、編集前の内容がコンパイルできるか、まだ存在しないファイルについて、Python 3.14でコンパイルできるよう直すことを求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。理由には、cwd配下のファイルをcwdからの相対パス（`/` 区切り）で、エラーの行番号と内容とともに最大3件示す。
 
 ## 検出する内容
 
@@ -28,8 +24,8 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - hookをPython 3.14以降で実行する。対象ファイルの判定時に3.14未満なら、3.14の文法（テンプレート文字列や括弧なしの複数例外など）を誤って拒否しないよう、異常終了する。
 
 ## 例外
-- 現在の内容が既にコンパイルできないファイルの編集は、修正途中の場合もあるため拒否しない。
-- 編集後の内容を特定できない場合（`old_str` やパッチの文脈行が見つからない、挿入行が範囲外、現在の内容がUTF-8でないなど）は、ツール自体が失敗するか判定できないため拒否しない。
+- 編集前の内容が既にコンパイルできないファイルの編集は、修正途中の場合もあるため拒否しない。
+- 編集後の内容を特定できない編集は、ツール自体が失敗するか判定できないため拒否しない。
 - シェルによる書き込みは対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../../../events/preToolUse/block-shell-file-edits/README.md) hookが拒否する。
 
 ## 制約と限界
@@ -37,8 +33,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - `feature_version` による新しい文法の判定はCPythonの文法の実装に依存し、hookを3.15以降で実行した場合、一部の新しい文法を見逃す可能性がある。
 - Python 2の `except E, ex:` は、3.14では括弧なしの複数例外（PEP 758）として正しい文法になるため検出しない。
 - 標準ライブラリAPIの有無（3.15以降で追加された関数など）は文法ではないため検出しない。
-- 置換前の内容は改行コードを変換せずに照合するため、CRLFのファイルに `\n` で書いた `old_str` は見つからず、判定しない。
-- パッチの適用は文脈行の照合（末尾の空白の違いは許容）による簡易的なもので、適用位置がツールと異なる場合がある。
+- 編集後の内容の求め方による限界（CRLFのファイルの置換、パッチの適用位置）は [simulate-edit-tool-changes](../../../utilities/simulate-edit-tool-changes/README.md) を参照。
 
 ## 備考
 - このリポジトリのPythonスクリプトはPython 3.14を最低対応とするため（[hookの共通規約](../../../../../skills/create-hook/references/hook-conventions.md) 項目6）、3.14で動かない文法を書き込む前に防ぐためのhook。

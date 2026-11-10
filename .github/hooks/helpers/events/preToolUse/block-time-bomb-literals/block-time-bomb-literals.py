@@ -79,10 +79,7 @@ def _load_definitions(path):
             isinstance(pattern, str) and pattern.strip() for pattern in patterns
         ):
             raise ValueError(f'time bomb definitions require a non-empty array of non-empty strings for {key}.')
-        try:
-            loaded[key] = [re.compile(pattern) for pattern in patterns]
-        except re.PatternError as ex:
-            raise ValueError(f'invalid regular expression in {key}: {ex}') from None
+        loaded[key] = _build_regex_matchers(patterns, key)
     return loaded
 
 

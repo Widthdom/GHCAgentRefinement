@@ -4,7 +4,6 @@ import json
 import os
 import re
 import runpy
-import shlex
 import sqlite3
 import sys
 from typing import cast
@@ -20,6 +19,7 @@ _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-p
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
 ))['filter_first_time_denials']
+_split_bash_lines = runpy.run_path(os.path.join(_utilities_directory, 'split-bash-lines', 'split-bash-lines.py'))['split_bash_lines']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
@@ -39,10 +39,6 @@ _WRAPPER_COMMANDS = {'builtin', 'command', 'env', 'exec', 'nice', 'nohup', 'sudo
 _ASSIGNMENT_PATTERN = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=')
 _PIPE_OPERATORS = {'|', '|&'}
 _REDIRECT_OPERATORS = {'>', '>>', '>|', '&>', '&>>', '<', '<<', '<<-', '<<<', '<&', '>&', '<>'}
-# `<<<` は文字列を渡すだけなので、ヒアドキュメントとみなさない。
-_HEREDOC_PATTERN = re.compile(
-    r'(?<!<)<<(?!<)(-?)\s*(?:\'([^\'\n]*)\'|"([^"\n]*)"|\\?([^\s;&|()<>\'"]+))'
-)
 # `set -o pipefail`・`set -euo pipefail` などの `o` を含むオプションの直後の語がpipefailなら設定とみなす。
 _SET_OPTION_PATTERN = re.compile(r'^([-+])[A-Za-z]*o$')
 _MAX_COMMAND_LENGTH = 120
@@ -56,43 +52,10 @@ _DENY_REASON = (
 )
 
 
-def _split_bash(text):
-    lexer = shlex.shlex(text, posix=True, punctuation_chars=True)
-    lexer.whitespace_split = True
-    return list(lexer)
-
-
-def _get_bash_lines(command):
-    # 引用符が閉じるまでと行末の `\` は次の行とつなげ、論理行ごとに字句へ分ける。
-    # ヒアドキュメントの本文はコマンドではないため読み飛ばす。
-    heredocs = []
-    buffer = ''
-    for line in command.replace('\r\n', '\n').split('\n'):
-        if heredocs:
-            delimiter, strip_tabs = heredocs[0]
-            if (line.lstrip('\t') if strip_tabs else line) == delimiter:
-                heredocs.pop(0)
-            continue
-        buffer += line
-        if re.search(r'(?<!\\)(?:\\\\)*\\$', buffer):
-            buffer = buffer[:-1]
-            continue
-        try:
-            tokens = _split_bash(buffer)
-        except ValueError:
-            buffer += '\n'
-            continue
-        yield tokens
-        for match in _HEREDOC_PATTERN.finditer(buffer):
-            heredocs.append((next(group for group in match.groups()[1:] if group is not None), match.group(1) == '-'))
-        buffer = ''
-    # 引用符が閉じないまま終わった部分は判定できないため対象外とする。
-
-
 def _get_pipelines(command):
     # 戻り値は (パイプラインの各段の語のリストのリスト, 直前までにpipefailが有効か) の列。
     pipefail = False
-    for tokens in _get_bash_lines(command):
+    for tokens in _split_bash_lines(command):
         segments = [[]]
         index = 0
         while index <= len(tokens):

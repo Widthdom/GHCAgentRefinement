@@ -39,5 +39,5 @@ agentStop（エージェントの応答終了時）
 
 ## 備考
 - 状態ファイルは作らない。差し戻し済みかはトランスクリプトの差し戻しメッセージで判定する。
-- 終了コードはトランスクリプトの `shellExecution.exitCode` から取得する。
+- 終了コードは [get-turn-events](../../../utilities/get-turn-events/README.md) の規則で、トランスクリプトの `shellExecution.exitCode` から取得する。
 - 正規表現はPythonの `re` 構文で書き、大文字小文字を区別しない場合は `(?i)` を先頭に付ける。テスト用に `--definitions-path` で定義ファイルを差し替えられる。

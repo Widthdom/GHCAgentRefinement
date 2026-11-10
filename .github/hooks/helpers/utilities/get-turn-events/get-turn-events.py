@@ -55,3 +55,28 @@ def get_last_assistant_message(events):
         if event_type == 'assistant.message' and isinstance(content, str) and content.strip():
             last_assistant_msg = content
     return last_assistant_msg
+
+
+def get_tool_calls(events):
+    # ツール呼び出しを、完了した順に (ツール名, 引数, 完了のdata) の組のリストで返す。
+    # ツール名は `functions.` 接頭辞を外す。引数は記録されたまま返す（JSON文字列の場合もある）。
+    # tool.execution_startとtool.execution_completeは `toolCallId` で対応づける。完了していない呼び出しは、完了のdataをNoneとして最後に加える。
+    started = {}
+    calls = []
+    for event_type, data in events:
+        call_id = data.get('toolCallId')
+        if event_type == 'tool.execution_start':
+            tool_name = data.get('toolName')
+            if isinstance(call_id, str) and isinstance(tool_name, str):
+                started[call_id] = (tool_name.removeprefix('functions.'), data.get('arguments'))
+        elif event_type == 'tool.execution_complete' and isinstance(call_id, str) and call_id in started:
+            calls.append((*started.pop(call_id), data))
+    calls.extend((tool_name, arguments, None) for tool_name, arguments in started.values())
+    return calls
+
+
+def get_shell_exit_code(completion):
+    # シェル実行の完了のdataから終了コードを返す。拒否などで実行されなかった場合や、完了していない場合はNone。
+    shell_execution = completion.get('shellExecution') if isinstance(completion, dict) else None
+    exit_code = shell_execution.get('exitCode') if isinstance(shell_execution, dict) else None
+    return exit_code if type(exit_code) is int else None

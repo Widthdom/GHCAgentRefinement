@@ -2,11 +2,9 @@ import hashlib
 import io
 import json
 import os
-import re
 import runpy
 import sqlite3
 import sys
-from contextlib import closing
 from typing import cast
 
 
@@ -18,16 +16,16 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
-))['collect_json_string_values']
+_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_filter_new_notifications = runpy.run_path(os.path.join(
+    _utilities_directory, 'filter-new-notifications', 'filter-new-notifications.py',
+))['filter_new_notifications']
 
 
 # SDKがファイル書き込みとして扱う組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update|Delete) File|Move to): (.+?)\s*$', re.MULTILINE)
 _UTF8_BOM = b'\xef\xbb\xbf'
 _GIT_TIMEOUT_SECONDS = 5
 _FORMAT_CONTEXT = (
@@ -37,17 +35,6 @@ _FORMAT_CONTEXT = (
     'for this format change, restore the original format while keeping your intended content changes, '
     'for example by rewriting the file with the original line endings, and verify the result with git diff.'
 )
-
-
-def _get_edited_paths(tool_name, tool_args, cwd):
-    if tool_name == 'apply_patch':
-        # パッチ本文の `*** Update File: <path>` などの行から対象を集める。削除・移動元は後で実在確認により除外する。
-        paths = [match for text in _collect_json_string_values(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)]
-    else:
-        path = tool_args.get('path') if isinstance(tool_args, dict) else None
-        paths = [path] if isinstance(path, str) and path.strip() else []
-    # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。
-    return sorted({os.path.normcase(os.path.realpath(os.path.join(cwd, path))) for path in paths})
 
 
 def _get_committed_content(path):
@@ -97,39 +84,6 @@ def _get_format_changes(committed, current):
     return changes
 
 
-def _record_notifications(state_path, results):
-    # results：(パス, パスのSHA-256, 変更点のリスト) のリスト。戻り値は、今回初めて通知する (パス, 変更点) のリスト。
-    new_notifications = []
-    # SQLiteのトランザクションで、並列に編集しても同じ変更を重複して通知しない。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute(
-            'CREATE TABLE IF NOT EXISTS notifications ('
-            'file TEXT NOT NULL, '
-            'change TEXT NOT NULL, '
-            'PRIMARY KEY (file, change))'
-        )
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            for path, file_key, changes in results:
-                # 解消した変更は記録を消し、再び崩れたときに改めて通知する。
-                stored = connection.execute('SELECT change FROM notifications WHERE file = ?', (file_key,)).fetchall()
-                for (change,) in stored:
-                    if change not in changes:
-                        connection.execute(
-                            'DELETE FROM notifications WHERE file = ? AND change = ?', (file_key, change),
-                        )
-                unnotified = [
-                    change for change in changes
-                    if connection.execute(
-                        'INSERT OR IGNORE INTO notifications (file, change) VALUES (?, ?)', (file_key, change),
-                    ).rowcount
-                ]
-                if unnotified:
-                    new_notifications.append((path, changes))
-    return new_notifications
-
-
 def main():
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
@@ -146,7 +100,11 @@ def main():
         tool_name = tool_name.removeprefix('functions.')
         if tool_name not in _EDIT_TOOL_NAMES:
             return 0
-        paths = _get_edited_paths(tool_name, _unwrap_tool_args(tool_args), cwd)
+        # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。
+        paths = sorted({
+            os.path.normcase(os.path.realpath(os.path.join(cwd, path)))
+            for path in _get_edited_paths(tool_name, _unwrap_tool_args(tool_args))
+        })
 
         results = []
         for path in paths:
@@ -160,15 +118,15 @@ def main():
                 current = file.read()
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
             file_key = hashlib.sha256(path.encode('utf-8')).hexdigest()
-            results.append((path, file_key, _get_format_changes(committed, current)))
+            changes = _get_format_changes(committed, current)
+            results.append((file_key, (path, changes), changes))
         # hookは呼び出しごとに別プロセスなので、通知済みの変更をセッションUUID別に保存する。
         # DBファイル自体は自動削除しない。
         notifications = []
         # 崩れたファイルがあるか、解消した記録を消す必要がある場合だけ状態を開く。
         # 形式が崩れない通常の編集では状態ファイルを作らない。
         if any(changes for _, _, changes in results) or (results and os.path.isfile(state_path)):
-            os.makedirs(os.path.dirname(state_path), exist_ok=True)
-            notifications = _record_notifications(state_path, results)
+            notifications = _filter_new_notifications(state_path, results)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check line endings: {ex}', file=sys.stderr)
         return 2

@@ -37,26 +37,20 @@ flowchart LR
   </thead>
   <tbody>
     <tr>
-      <td>preToolUse</td>
-      <td></td>
+      <td rowspan="4">preToolUse</td>
+      <td rowspan="4"></td>
       <td>OS依存の改行変換抑止</td>
       <td><a href="./hooks/helpers/-repo-events/preToolUse/block-native-newlines/README.md">block-native-newlines</a></td>
     </tr>
     <tr>
-      <td>preToolUse</td>
-      <td></td>
       <td>OS依存のパス区切り抑止</td>
       <td><a href="./hooks/helpers/-repo-events/preToolUse/block-native-path-separators/README.md">block-native-path-separators</a></td>
     </tr>
     <tr>
-      <td>preToolUse</td>
-      <td></td>
       <td>OS非互換のファイル名抑止</td>
       <td><a href="./hooks/helpers/-repo-events/preToolUse/block-nonportable-paths/README.md">block-nonportable-paths</a></td>
     </tr>
     <tr>
-      <td>preToolUse</td>
-      <td></td>
       <td>Py3.14非対応構文抑止</td>
       <td><a href="./hooks/helpers/-repo-events/preToolUse/block-py314-incompatible-syntax/README.md">block-py314-incompatible-syntax</a></td>
     </tr>

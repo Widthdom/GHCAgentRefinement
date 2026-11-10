@@ -3,7 +3,6 @@ import hashlib
 import io
 import json
 import os
-import re
 import runpy
 import sqlite3
 import sys
@@ -16,10 +15,9 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
-))['collect_json_string_values']
+_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
 ))['filter_first_time_denials']
@@ -30,7 +28,7 @@ _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-to
 # ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 # 削除は再生成で失われる手編集ではないため、追加と更新だけを対象とする。
-_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:Add|Update) File: (.+?)\s*$', re.MULTILINE)
+_PATCH_OPERATIONS = frozenset({'Add File', 'Update File'})
 _GENERATED_PATH_PATTERNS_KEY = 'generatedPathPatterns'
 _GENERATED_MARKER_PATTERNS_KEY = 'generatedMarkerPatterns'
 # 生成の目印は、ライセンスなどの見出しに続くファイル先頭の数行に置かれる。
@@ -59,23 +57,8 @@ def _load_definitions(path):
             isinstance(pattern, str) and pattern.strip() for pattern in patterns
         ):
             raise ValueError(f'generated file definitions require a non-empty array of non-empty strings for {key}.')
-        try:
-            compiled.append([re.compile(pattern) for pattern in patterns])
-        except re.PatternError as ex:
-            raise ValueError(f'invalid regular expression in {key}: {ex}') from None
+        compiled.append(_build_regex_matchers(patterns, key))
     return compiled[0], compiled[1]
-
-
-def _get_paths(tool_name, tool_args):
-    if tool_name == 'apply_patch':
-        return [match.group(1) for text in _collect_json_string_values(tool_args) for match in _PATCH_FILE_PATTERN.finditer(text)]
-    if not isinstance(tool_args, dict):
-        return []
-    # str_replace_editorのviewは閲覧なので対象外とする。
-    if tool_name == 'str_replace_editor' and tool_args.get('command') == 'view':
-        return []
-    path = tool_args.get('path')
-    return [path] if isinstance(path, str) and path.strip() else []
 
 
 def _read_head(path):
@@ -123,7 +106,7 @@ def main(arguments=None):
         candidates = {}
         tool_name = tool_name.removeprefix('functions.')
         if tool_name in _EDIT_TOOL_NAMES:
-            for relative_path in _get_paths(tool_name, _unwrap_tool_args(tool_args)):
+            for relative_path in _get_edited_paths(tool_name, _unwrap_tool_args(tool_args), _PATCH_OPERATIONS):
                 path = os.path.realpath(os.path.join(cwd, relative_path))
                 # パスの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
                 evidence = _get_evidence(path_patterns, marker_patterns, path, _get_display_path(path, real_cwd))

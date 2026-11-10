@@ -52,24 +52,11 @@ _MAX_PROMISE_LENGTH = 200
 def _get_turn(transcript_path, extract_edit_tool_changes):
     # ユーザーの最新の依頼以降の最終応答と、FIXMEコメントを書き込んだかを返す。本hookによる差し戻し済みかも返す。
     events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
-    started = {}
-    wrote_fixme = False
-    for event_type, data in events:
-        if event_type == 'tool.execution_start':
-            call_id = data.get('toolCallId')
-            tool_name = data.get('toolName')
-            if isinstance(call_id, str) and isinstance(tool_name, str):
-                started[call_id] = (tool_name, data.get('arguments'))
-        elif event_type == 'tool.execution_complete':
-            call_id = data.get('toolCallId')
-            if call_id not in started:
-                continue
-            tool_name, arguments = started.pop(call_id)
-            if data.get('success') is True and any(
-                _FIXME_PATTERN.search(change['written'] or '')
-                for change in extract_edit_tool_changes(tool_name, arguments)
-            ):
-                wrote_fixme = True
+    wrote_fixme = any(
+        completion is not None and completion.get('success') is True
+        and any(_FIXME_PATTERN.search(change['written']) for change in extract_edit_tool_changes(tool_name, arguments))
+        for tool_name, arguments, completion in _turn_events['get_tool_calls'](events)
+    )
     return _turn_events['get_last_assistant_message'](events), wrote_fixme, already_requested
 
 

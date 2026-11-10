@@ -9,8 +9,7 @@ OS依存の区切り（Windowsでは `\`）で相対パスを返すAPIの呼び�
 ## 処理詳細
 1. [path-separator-definitions.json](./path-separator-definitions.json) から、対象外のファイルのパス（`excludedFilePatterns`）、OS依存の区切りのパスを返す呼び出しの正規表現（`nativePathPatterns`）、`/` 区切りへの変換とみなす正規表現（`normalizationPatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
-   - `edit`・`create`・`insert`・`str_replace_editor`：`path`・`command`・`old_str` を除く引数の文字列を書き込む内容、`old_str` を置換前の内容とする（`str_replace_editor` の `view` は除く）。
-   - `apply_patch`：`*** Add File:`・`*** Update File:` ごとのパッチの追加行（`+`）を書き込む内容、削除行（`-`）を置換前の内容とする。`*** Delete File:` は対象外とする。
+   - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
 3. cwdからの相対パス（`/` 区切り）が `excludedFilePatterns` に一致しないファイルについて、書き込む内容のうち `nativePathPatterns` に一致し、同じ行で `normalizationPatterns` に一致しない行を拒否の候補とする。ただし、前後の空白を除いて同じ行が既存の内容（置換前の内容、パッチの削除行、ファイルの現在の内容）にあれば除く。
 4. 候補のうち、このセッションで同じファイルをまだ拒否していないものがあれば、パスを `/` 区切りに変換するよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。理由には、cwd配下のファイルをcwdからの相対パス（`/` 区切り）で示す。
 

@@ -43,6 +43,6 @@ agentStop（エージェントの応答終了時）
 - 1つのコマンドの中でテストを繰り返す場合（`for` での再実行や、テストランナーの再試行オプションなど）は検出しない。
 
 ## 備考
-- 終了コードはトランスクリプトの `shellExecution.exitCode` から取得する。
+- 終了コードは [get-turn-events](../../../utilities/get-turn-events/README.md) の規則で、トランスクリプトの `shellExecution.exitCode` から取得する。
 - `dotnet test | tail` のようにパイプで終了コードが隠れるコマンドは、[block-masked-exit-codes](../../preToolUse/block-masked-exit-codes/README.md) hookが実行前に拒否する。
 - 再実行だけで通ったテストを、最後に成功したテストの後の変更より先に示す。先にテストを再実行させると、先の失敗と最後のテストの間に編集が挟まり、再実行の検査に当てはまらなくなるため。

@@ -82,8 +82,6 @@ def _get_turn_summary(transcript_path):
     events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
     request_texts = []
     response_texts = []
-    changes = []
-    started = {}
     for event_type, data in events:
         content = data.get('content')
         if event_type == 'user.message':
@@ -92,26 +90,17 @@ def _get_turn_summary(transcript_path):
         elif event_type == 'assistant.message':
             if isinstance(content, str) and content.strip():
                 response_texts.append(content)
-        elif event_type == 'tool.execution_start':
-            call_id = data.get('toolCallId')
-            tool_name = data.get('toolName')
-            if isinstance(call_id, str) and isinstance(tool_name, str):
-                started[call_id] = (tool_name, data.get('arguments'))
-        elif event_type == 'tool.execution_complete':
-            call_id = data.get('toolCallId')
-            if not isinstance(call_id, str) or call_id not in started:
-                continue
-            tool_name, arguments = started.pop(call_id)
-            if data.get('success') is True:
-                changes.extend(
-                    {
-                        'path': change['path'],
-                        'deleted': change['deleted'],
-                        'moved_to': change['moved_to'],
-                        'whitespace_only': _is_whitespace_only_change(change),
-                    }
-                    for change in extract_edit_tool_changes(tool_name, arguments, include_deleted=True)
-                )
+    changes = [
+        {
+            'path': change['path'],
+            'deleted': change['deleted'],
+            'moved_to': change['moved_to'],
+            'whitespace_only': _is_whitespace_only_change(change),
+        }
+        for tool_name, arguments, completion in _turn_events['get_tool_calls'](events)
+        if completion is not None and completion.get('success') is True
+        for change in extract_edit_tool_changes(tool_name, arguments, include_deleted=True)
+    ]
     return '\n'.join(request_texts), '\n'.join(response_texts), changes, already_requested
 
 

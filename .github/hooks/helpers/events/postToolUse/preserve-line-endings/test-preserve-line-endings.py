@@ -274,7 +274,7 @@ class PreserveLineEndingsTests(unittest.TestCase):
         self.__commit('秘密の内容\r\n'.encode('utf-8'))
         self.__assert_notification(self.__edit('秘密の内容\n'.encode('utf-8')), '対象.py (line endings changed from CRLF to LF)')
         with closing(sqlite3.connect(self.__state_path)) as connection:
-            rows = connection.execute('SELECT file, change FROM notifications').fetchall()
+            rows = connection.execute('SELECT key, problem FROM notified_problems').fetchall()
         self.assertEqual(len(rows), 1)
         self.assertRegex(rows[0][0], r'^[0-9a-f]{64}$')
         with open(self.__state_path, 'rb') as file:

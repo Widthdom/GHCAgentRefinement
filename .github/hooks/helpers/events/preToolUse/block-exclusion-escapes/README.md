@@ -8,10 +8,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 処理詳細
 1. [exclusion-definitions.json](./exclusion-definitions.json) から、行ごとに除外を書く無視ファイルの名前（`ignoreFiles`）と、設定ファイルの種類ごとの名前の正規表現（`filePattern`）・除外の値を直接取り出す正規表現（`valuePatterns`、1つのグループ）・除外の値を代入するキーの正規表現（`keywordPatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
-2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに編集前と編集後の内容を求める。
-   - `create`：`file_text` を編集後の内容とする。
-   - `edit`・`str_replace_editor`：現在の内容の `old_str` を `new_str` に1回置き換える。`insert`（`command` が `insert`）は `insert_line` 行目の後に `new_str` を挿入する。`str_replace_editor` の `view`・`undo_edit` は除く。
-   - `apply_patch`：`*** Add File:` は空のファイルから、`*** Update File:` は現在の内容にハンクを適用して求める。`*** Delete File:` は対象外とする。
+2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに編集前と編集後の内容を、[simulate-edit-tool-changes](../../../utilities/simulate-edit-tool-changes/README.md) の規則で求める。まだないファイルの編集前の内容は空とする。
 3. ファイル名が `ignoreFiles` か `filePattern` に一致するファイルについて、編集前と編集後の内容からそれぞれ除外の指定を取り出し、編集後にだけあるもの（追加した除外）を求める。
    - 無視ファイル：空行・コメント（`#`）・否定（`!`）を除く各行。
    - `valuePatterns`：一致したグループ。
