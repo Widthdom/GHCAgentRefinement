@@ -12,6 +12,7 @@
   - `matcher` が正規表現として有効で、`timeoutSec` が正の整数であること
   - 要素が実行スクリプトのパスの昇順に並んでいること
   - `helpers/events`・`helpers/-repo-events` 配下のhookのフォルダーと定義が1対1に対応すること
+- フォルダーの照合ではgitの管理対象かどうかを見ない。削除済みhookのフォルダーに `__pycache__` だけが残っている場合も、定義のないhookとして検出する。
 - 個別hookのテストは、[hook-entry.py](./helpers/hook-entry.py) を `runpy.run_path` で読み込み、`get_hook_entry()` で自身の定義の要素を取得して、`matcher` などhook固有の設定だけを検証する。
 
 ## unittestの出力
