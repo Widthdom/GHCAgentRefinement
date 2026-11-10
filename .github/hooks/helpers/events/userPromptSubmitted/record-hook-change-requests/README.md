@@ -9,7 +9,7 @@ userPromptSubmitted（メインエージェントへの依頼時）
 ## 処理詳細
 1. 入力に `agentId` があれば何もしない。サブエージェントへの依頼は親のエージェントが書いたもので、ユーザーの依頼ではないため。
 2. プロンプトが次のいずれかを含めば、このセッションでhookの変更を認めた旨を状態ファイルに記録する。大文字小文字は区別しない。
-   - 語：`hook`・`hooks`・`フック`・`.github/hooks`、イベント名（`preToolUse`・`postToolUse`・`agentStop`・`sessionStart`・`userPromptSubmitted`・`userPromptTransformed`、`pre-tool-use` などの表記も含む）
+   - 語：`hook`・`hooks`・`フック`・`.github/hooks`、イベント名（`preToolUse`・`postToolUse`・`postToolUseFailure`・`agentStop`・`sessionStart`・`userPromptSubmitted`・`userPromptTransformed`、`pre-tool-use` などの表記も含む）
    - hookの名前：cwdから親へたどって最初に見つかった `.github/hooks` の、`helpers/events/<event>/<hook>/`・`helpers/-repo-events/<event>/<hook>/` のフォルダー名（`block-commands` など）
 3. 含まなければ何もしない。記録済みの状態は消さない。
 
