@@ -17,6 +17,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 _SHELL_TOOL_NAMES = {'bash', 'powershell'}
@@ -213,11 +214,7 @@ def main():
 
         if tool_name.removeprefix('functions.') not in _SHELL_TOOL_NAMES:
             return 0
-        if isinstance(tool_args, str):
-            try:
-                tool_args = json.loads(tool_args)
-            except ValueError:
-                return 0
+        tool_args = _unwrap_tool_args(tool_args)
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         if not isinstance(command, str) or not is_test_command(command):
             return 0
