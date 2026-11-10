@@ -352,7 +352,7 @@ flowchart LR
 
 ### デバッグモード
 
-先頭 `??` のプロンプトを入力するとデバッグモードになり、 `debug-` 接頭辞付きのhookが発動するようになる。詳細は[set-debug-mode hook README](./hooks/helpers/events/userPromptSubmitted/set-debug-mode/README.md)を参照。
+先頭 `??` のプロンプトを入力するとデバッグモードになり、 `debug-` 接頭辞付きのhookのデバッグ処理が有効になる。詳細は[set-debug-mode hook README](./hooks/helpers/events/userPromptSubmitted/set-debug-mode/README.md)を参照。
 
 ### 敵対的レビューモード
 
@@ -368,8 +368,8 @@ flowchart LR
 
 #### Pylanceの設定
 
-- hookのテストは、実行時に `sys.path` へ [.github/hooks/tests/helpers](./hooks/tests/helpers) を追加して共通処理を読み込む。
-- Pylanceがこの読み込みを解決できるよう、リポジトリ直下の [pyrightconfig.json](../pyrightconfig.json) で同じパスを `extraPaths` に指定している。
+- hookのテストは、[.github/hooks/tests/helpers](./hooks/tests/helpers) の共通処理を `runpy.run_path` で読み込む。
+- リポジトリ直下の [pyrightconfig.json](../pyrightconfig.json) は同じパスを `extraPaths` に指定しているが、上記の共通処理のファイルは `sys.path` ではなく指定したパスから読み込まれる。
 - hookはWindows・macOS・Linuxのすべてを対象にし、`os.name == 'nt'` などでOSごとに分岐するため、`pythonPlatform` を `All` にして、実行中のOS以外向けの分岐も解析させる。
 - このファイルがあると、Pylanceは `python.analysis.*` の設定（`typeCheckingMode` など）よりこのファイルを優先するため、ユーザー設定で変えている項目はこのファイルにも記載する。
 
