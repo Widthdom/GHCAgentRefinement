@@ -90,13 +90,6 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         valid_guid = _new_session_id()
 
-        self.__valid_transcript = os.path.join(self.__temp_dir, 'valid-transcript.jsonl')
-
-        _write_all_text(self.__valid_transcript, _to_compressed_json({
-            'type': 'assistant.message',
-            'data': {'content': 'Hello world'},
-        }) + '\n')
-
         missing_path_cases = [
             {'Name': 'Missing transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid}),
              'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
@@ -211,12 +204,6 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         _write_all_text(bad_transcript, '{bad-json\n')
 
-        self.__enabled_session_id = _new_session_id()
-
-        self.__enabled_state_path = os.path.join(self.__debug_state_dir, f'{self.__enabled_session_id}.json')
-
-        _write_all_text(self.__enabled_state_path, _to_compressed_json({'enabled': True}))
-
         bad_transcript_json = _to_compressed_json({'sessionId': self.__enabled_session_id, 'transcriptPath': bad_transcript})
 
         exit_code, output, error = self.__invoke_hook_input(bad_transcript_json)
@@ -240,9 +227,7 @@ class DebugResponseFooterTests(unittest.TestCase):
             raise AssertionError(f'Expected exit 2 for transcript without assistant.message. Got exit {exit_code}, Error: {error}')
 
 
-        valid_block_json = _to_compressed_json({'sessionId': self.__enabled_session_id, 'transcriptPath': self.__valid_transcript})
-
-        exit_code, output, error = self.__invoke_hook_input(valid_block_json)
+        exit_code, output, error = self.__invoke_hook_input(self.__valid_block_json)
 
         if exit_code != 0:
             raise AssertionError(f'Expected exit 0 for valid run with missing footer. Got exit {exit_code}, Error: {error}')
@@ -352,7 +337,7 @@ class DebugResponseFooterTests(unittest.TestCase):
         for state in ([], [{'enabled': True}], None):
             with self.subTest(state=state):
                 _write_all_text(self.__enabled_state_path, _to_compressed_json(state))
-                exit_code, output, error = self.__invoke_hook_input(valid_block_json)
+                exit_code, output, error = self.__invoke_hook_input(self.__valid_block_json)
                 if exit_code != 2 or output or 'Debug-mode state is invalid: Expected a JSON object.' not in error:
                     raise AssertionError(f'Expected explicit error for non-object state: {state!r}, {exit_code}, {error}')
 
