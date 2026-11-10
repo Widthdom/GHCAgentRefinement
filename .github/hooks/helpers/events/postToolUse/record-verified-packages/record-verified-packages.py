@@ -1,5 +1,4 @@
 import io
-import json
 import os
 import re
 import runpy
@@ -14,6 +13,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 _SHELL_TOOL_NAMES = {'bash', 'powershell'}
@@ -106,11 +106,7 @@ def main():
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         tool_name = tool_name.removeprefix('functions.')
-        if isinstance(tool_args, str):
-            try:
-                tool_args = json.loads(tool_args)
-            except ValueError:
-                return 0
+        tool_args = _unwrap_tool_args(tool_args)
         if not isinstance(tool_args, dict):
             return 0
         tool_result = hook_input.get('toolResult')

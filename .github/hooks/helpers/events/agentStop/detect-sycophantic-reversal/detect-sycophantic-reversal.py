@@ -14,6 +14,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 
 
@@ -56,12 +57,7 @@ def _load_definitions(definitions_path):
     for key in (_EVIDENCE_TOOL_NAMES_KEY, *_PATTERN_KEYS):
         if not _is_non_empty_string_list(definitions.get(key)):
             raise ValueError(f'Definitions require a non-empty array of non-empty strings for {key}.')
-    patterns = {}
-    for key in _PATTERN_KEYS:
-        try:
-            patterns[key] = tuple(re.compile(pattern) for pattern in definitions[key])
-        except re.PatternError as ex:
-            raise ValueError(f'Invalid regular expression in {key}: {ex}') from ex
+    patterns = {key: tuple(_build_regex_matchers(definitions[key], key)) for key in _PATTERN_KEYS}
     return set(definitions[_EVIDENCE_TOOL_NAMES_KEY]), patterns['pushbackPatterns'], patterns['reversalPatterns']
 
 

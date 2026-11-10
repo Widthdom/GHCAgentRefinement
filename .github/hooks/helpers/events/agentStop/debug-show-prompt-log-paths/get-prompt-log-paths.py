@@ -2,7 +2,6 @@ import glob
 import os
 import runpy
 import tempfile
-import uuid
 
 
 # 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
@@ -10,10 +9,11 @@ import uuid
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['parse_session_id']
 
 
 def get_prompt_log_paths(transcript_path, session_id):
-    session_id = uuid.UUID(str(session_id))
+    session_id = _parse_session_id(str(session_id))
     read_jsonl_objects = runpy.run_path(
         os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py'),
     )['read_jsonl_objects']
@@ -29,7 +29,7 @@ def get_prompt_log_paths(transcript_path, session_id):
         if not isinstance(hook_input, dict) or hook_input.get('agentId'):
             continue
         try:
-            event_session = uuid.UUID(str(hook_input.get('sessionId')))
+            event_session = _parse_session_id(hook_input.get('sessionId'))
         except ValueError:
             continue
         if event_session != session_id:

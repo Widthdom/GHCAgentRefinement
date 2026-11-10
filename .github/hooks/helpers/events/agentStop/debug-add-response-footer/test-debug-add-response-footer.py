@@ -363,8 +363,9 @@ class DebugResponseFooterTests(unittest.TestCase):
             ([{'type': 'assistant.message'}], 'line 1'),
             ({'type': 'assistant.message', 'data': []}, 'Event data must be a JSON object.'),
             ({'type': 'assistant.message', 'data': None}, 'Event data must be a JSON object.'),
-            # assistant.message以外の行はdataの形を問わず読み飛ばす。
-            ({'type': 'user.message', 'data': []}, 'No assistant response was found in the transcript.'),
+            # 依頼ごとに分けるget-turn-eventsの規則で、assistant.message以外の行もdataの形を検証する。
+            ({'type': 'user.message', 'data': []}, 'Event data must be a JSON object.'),
+            ({'type': 'user.message', 'data': {'content': 'request'}}, 'No assistant response was found in the transcript.'),
         ):
             with self.subTest(event=event, expected_error=expected_error):
                 _write_all_text(bad_transcript, _to_compressed_json(event) + '\n')

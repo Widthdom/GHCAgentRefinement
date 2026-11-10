@@ -7,7 +7,6 @@ import sys
 import tempfile
 import unittest
 import uuid
-from unittest.mock import patch
 
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
@@ -170,21 +169,6 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
                 self.assertEqual(result.stdout, b'')
                 self.__events.pop(0)
 
-    def test_wait_for_current_stop_handles_partial_writes_and_times_out(self):
-        wait_for_stop = runpy.run_path(_hook_path)['_wait_for_stop']
-        self.__events = [self.__event('agentStop', 110, agentId='child')]
-        self.__write_events()
-        with patch('time.monotonic', side_effect=[0, 5]), patch('time.sleep') as sleep:
-            with self.assertRaisesRegex(TimeoutError, 'not recorded within 5 seconds'):
-                wait_for_stop(self.__transcript, self.__session_id, 110)
-            sleep.assert_not_called()
-        with open(self.__transcript, 'a', encoding='utf-8', newline='\n') as file:
-            file.write('{"type":')
-        self.__events = [self.__event('agentStop', 110)]
-        with patch('time.sleep', side_effect=lambda _: self.__write_events()) as sleep:
-            wait_for_stop(self.__transcript, self.__session_id, 110)
-        sleep.assert_called_once_with(0.05)
-
     def test_logger_and_reporter_work_without_footer_files(self):
         # 共通utilitiesと新規hookだけをコピーし、既存フッターがなくても実行できることを確認する。
         copied_hooks = os.path.join(self.__root, 'repository', '.github', 'hooks')
@@ -195,7 +179,7 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
             os.makedirs(directory)
         for name in ('debug-show-prompt-log-paths.py', 'get-prompt-log-paths.py'):
             shutil.copyfile(os.path.join(_script_directory, name), os.path.join(reporter_directory, name))
-        for name in ('get-debug-mode', 'get-state-path', 'read-hook-input', 'read-jsonl-objects'):
+        for name in ('get-debug-mode', 'get-state-path', 'read-hook-input', 'read-jsonl-objects', 'wait-for-agent-stop-event'):
             os.makedirs(os.path.join(utilities, name))
             shutil.copyfile(os.path.join(_hooks_directory, 'helpers', 'utilities', name, f'{name}.py'),
                             os.path.join(utilities, name, f'{name}.py'))

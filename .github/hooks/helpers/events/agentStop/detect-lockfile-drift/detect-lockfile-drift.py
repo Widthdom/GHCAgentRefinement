@@ -2,7 +2,6 @@ import argparse
 import io
 import json
 import os
-import re
 import runpy
 import sys
 import tomllib
@@ -15,6 +14,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _extract_edit_tool_changes = runpy.run_path(os.path.join(
@@ -60,11 +60,11 @@ def _load_definitions(path):
         values = manifest.get(key)
         if not isinstance(values, list) or not values or not all(isinstance(value, str) and value.strip() for value in values):
             raise ValueError(f'manifest {name} requires a non-empty array of non-empty strings for {key}.')
-        try:
-            file_pattern = re.compile(manifest.get('filePattern') if isinstance(manifest.get('filePattern'), str) else '')
-            line_patterns = [re.compile(value) for value in values] if manifest['format'] == 'lines' else []
-        except re.PatternError as ex:
-            raise ValueError(f'invalid regular expression in manifest {name}: {ex}') from None
+        file_pattern, *line_patterns = _build_regex_matchers(
+            [manifest.get('filePattern') if isinstance(manifest.get('filePattern'), str) else '',
+             *(values if manifest['format'] == 'lines' else [])],
+            f'manifest {name}',
+        )
         if not file_pattern.pattern:
             raise ValueError(f'manifest {name} requires a non-empty filePattern.')
         loaded.append({

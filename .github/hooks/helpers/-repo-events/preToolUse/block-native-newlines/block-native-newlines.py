@@ -16,6 +16,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
@@ -49,13 +50,6 @@ _DENY_REASON = (
 )
 
 
-def _compile(pattern, key):
-    try:
-        return re.compile(pattern)
-    except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {key}: {ex}') from None
-
-
 def _load_definitions(path):
     # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     # 戻り値は (対象のファイルの正規表現のリスト, (名前, 呼び出しの正規表現, 書き込みのモードを要するか) のリスト,
@@ -81,10 +75,13 @@ def _load_definitions(path):
         if not isinstance(definitions.get(key), str) or not definitions[key].strip():
             raise ValueError(f'newline definitions require a non-empty string for {key}.')
     return (
-        [_compile(pattern, _INCLUDED_FILE_PATTERNS_KEY) for pattern in included],
-        [(call['name'], _compile(call['pattern'], _TRANSLATING_CALLS_KEY), call['requiresTextWriteMode']) for call in calls],
-        _compile(definitions[_TEXT_WRITE_MODE_PATTERN_KEY], _TEXT_WRITE_MODE_PATTERN_KEY),
-        _compile(definitions[_PINNED_NEWLINE_PATTERN_KEY], _PINNED_NEWLINE_PATTERN_KEY),
+        _build_regex_matchers(included, _INCLUDED_FILE_PATTERNS_KEY),
+        [
+            (call['name'], pattern, call['requiresTextWriteMode'])
+            for call, pattern in zip(calls, _build_regex_matchers([call['pattern'] for call in calls], _TRANSLATING_CALLS_KEY))
+        ],
+        _build_regex_matchers([definitions[_TEXT_WRITE_MODE_PATTERN_KEY]], _TEXT_WRITE_MODE_PATTERN_KEY)[0],
+        _build_regex_matchers([definitions[_PINNED_NEWLINE_PATTERN_KEY]], _PINNED_NEWLINE_PATTERN_KEY)[0],
     )
 
 

@@ -14,6 +14,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 
 
 def _is_non_empty_string(value):
@@ -122,12 +123,11 @@ def main(definitions_path=None):
             _write_stderr_msg_and_deny('Each blocked command definition requires non-empty strings for name, pattern, and reason.')
             return 2
             
-        # 正規表現が正しく書けているか検証する。
+        # 正規表現が正しく書けているか検証する。不正な場合、utilityはValueErrorを送出する。
         try:
-            # re：正規表現（regular expression）モジュール。
-            compiled_pattern = re.compile(definition['pattern'])
-        except re.PatternError as ex:
-            _write_stderr_msg_and_deny(f"Invalid regular expression in blocked command definition '{definition['name']}': {ex}")
+            compiled_pattern = _build_regex_matchers([definition['pattern']], f"blocked command definition '{definition['name']}'")[0]
+        except ValueError as ex:
+            _write_stderr_msg_and_deny(str(ex))
             return 2
 
         # コンパイル済みの正規表現と理由をturpleとしてListに追加する。

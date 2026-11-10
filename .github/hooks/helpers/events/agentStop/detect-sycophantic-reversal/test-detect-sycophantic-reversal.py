@@ -201,7 +201,7 @@ class DetectSycophanticReversalTests(unittest.TestCase):
             for value in (None, [], [''], [' '], [1], 'a'):
                 cases.append((json.dumps({**valid, key: value}), f'non-empty array of non-empty strings for {key}'))
         for key in ('pushbackPatterns', 'reversalPatterns'):
-            cases.append((json.dumps({**valid, key: ['(']}), f'Invalid regular expression in {key}'))
+            cases.append((json.dumps({**valid, key: ['(']}), f'invalid regular expression in {key}'))
         self.__write_transcript([*_pushback_turn(), _agent_stop_start()])
         for index, (content, fragment) in enumerate(cases):
             with self.subTest(content=content):

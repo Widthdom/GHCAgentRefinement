@@ -120,9 +120,9 @@ _definition_cases = [
     {'Name': 'UTF-16', 'Text': json.dumps([_valid_definition]), 'Encoding': 'utf-16', 'Error': 'Failed to parse'},
     {'Name': 'UTF-32', 'Text': json.dumps([_valid_definition]), 'Encoding': 'utf-32', 'Error': 'Failed to parse'},
     {'Name': 'invalid UTF-8', 'Bytes': b'["\xff"]', 'Error': 'Failed to parse'},
-    {'Name': 'invalid pattern', 'Text': json.dumps([{**_valid_definition, 'pattern': '['}]), 'Error': 'Invalid regular expression'},
-    {'Name': 'escaped error reason', 'Text': json.dumps([{**_valid_definition, 'name': '日本語 "rule"\\path\nnext', 'pattern': '['}]), 'Error': 'Invalid regular expression'},
-    {'Name': 'later invalid pattern', 'Text': json.dumps([_valid_definition, {**_valid_definition, 'pattern': '['}]), 'Error': 'Invalid regular expression'},
+    {'Name': 'invalid pattern', 'Text': json.dumps([{**_valid_definition, 'pattern': '['}]), 'Error': 'invalid regular expression'},
+    {'Name': 'escaped error reason', 'Text': json.dumps([{**_valid_definition, 'name': '日本語 "rule"\\path\nnext', 'pattern': '['}]), 'Error': 'invalid regular expression'},
+    {'Name': 'later invalid pattern', 'Text': json.dumps([_valid_definition, {**_valid_definition, 'pattern': '['}]), 'Error': 'invalid regular expression'},
 ]
 
 for value in (None, True, 42, 'text', []):
@@ -314,7 +314,7 @@ class BlockCommandsTests(unittest.TestCase):
                         with open(invalid_definitions, 'w', encoding='utf-8', newline='\n') as defs_file:
                             json.dump([{**_valid_definition, 'pattern': '['}], defs_file)
                         for path, expected_error in (
-                            (invalid_definitions, 'Invalid regular expression'),
+                            (invalid_definitions, 'invalid regular expression'),
                             (os.path.join(directory, 'missing.json'), 'definitions not found'),
                         ):
                             result = self.__invoke_hook_input(
@@ -347,8 +347,8 @@ class BlockCommandsTests(unittest.TestCase):
                                 os.path.join(_script_directory, filename),
                                 os.path.join(copied_script_directory, filename),
                             )
-                    # ラッパーが使うPythonのバージョン確認と、hookが読み込む入力の読み込み処理も複製する。
-                    for utility in ('check-python-version', 'read-hook-input'):
+                    # ラッパーが使うPythonのバージョン確認と、hookが読み込む入力の読み込み・正規表現のコンパイル処理も複製する。
+                    for utility in ('check-python-version', 'read-hook-input', 'build-regex-matchers'):
                         copied_utilities_directory = os.path.join(helpers_directory, 'utilities', utility)
                         os.makedirs(copied_utilities_directory)
                         shutil.copyfile(

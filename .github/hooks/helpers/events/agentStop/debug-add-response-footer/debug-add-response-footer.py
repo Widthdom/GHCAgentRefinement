@@ -14,31 +14,14 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['parse_session_id']
+_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 
 
 def _get_last_assistant_msg(transcript_path):
-    last_assistant_msg = None
-    for event in runpy.run_path(
-        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
-    )['read_jsonl_objects'](transcript_path):
-        if event.get('type') != 'assistant.message':
-            continue
-
-        # getはキーが無ければ第2引数の既定値を返す。
-        data = event.get('data', {})
-        if not isinstance(data, dict):
-            raise ValueError('Event data must be a JSON object.')
-
-        # getはキーが無くてもNoneを返す。
-        content = data.get('content')
-        if not isinstance(content, str):
-            continue
-
-        if not content.strip():
-            continue
-
-        last_assistant_msg = content
-    return last_assistant_msg
+    # トランスクリプト全体から、空白以外を含む最後の応答の文を返す。なければNone。
+    return _turn_events['get_last_assistant_message'](
+        [event for events in _turn_events['get_turns'](transcript_path) for event in events]
+    )
 
 
 def _get_footer_correction(transcript_path, session_id, last_assistant_msg):

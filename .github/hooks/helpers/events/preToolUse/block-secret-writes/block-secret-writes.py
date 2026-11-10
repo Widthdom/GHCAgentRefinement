@@ -14,6 +14,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _extract_edit_tool_changes = runpy.run_path(os.path.join(
     _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
 ))['extract_edit_tool_changes']
@@ -48,10 +49,10 @@ def _load_definitions(path):
             isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'pattern')
         ):
             raise ValueError('each secret definition requires non-empty strings for name and pattern.')
-        try:
-            compiled.append((definition['name'], re.compile(definition['pattern'])))
-        except re.PatternError as ex:
-            raise ValueError(f"invalid regular expression in secret definition '{definition['name']}': {ex}") from None
+        compiled.append((
+            definition['name'],
+            _build_regex_matchers([definition['pattern']], f"secret definition '{definition['name']}'")[0],
+        ))
     return compiled
 
 

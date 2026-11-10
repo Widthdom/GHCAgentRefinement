@@ -3,7 +3,6 @@ import hashlib
 import io
 import json
 import os
-import re
 import runpy
 import sqlite3
 import sys
@@ -16,6 +15,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
@@ -57,10 +57,7 @@ def _load_definitions(path):
             isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'pattern')
         ):
             raise ValueError('each elision definition requires non-empty strings for name and pattern.')
-        try:
-            compiled.append(re.compile(definition['pattern']))
-        except re.PatternError as ex:
-            raise ValueError(f"invalid regular expression in elision definition '{definition['name']}': {ex}") from None
+        compiled.extend(_build_regex_matchers([definition['pattern']], f"elision definition '{definition['name']}'"))
     return compiled
 
 
