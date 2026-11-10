@@ -3,9 +3,19 @@ import io
 import json
 import os
 import re
+import runpy
 import subprocess
 import sys
 from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+
 
 _ADDITIONAL_CONTEXT = (
     '{message}\n'
@@ -42,10 +52,7 @@ def _load_definitions(path):
             isinstance(install.get(platform), str) and install[platform].strip() for platform in _PLATFORMS
         ):
             raise ValueError(f'required tool {tool["name"]} requires install messages for {", ".join(_PLATFORMS)}.')
-        try:
-            version_pattern = re.compile(tool['versionPattern'])
-        except re.error as ex:
-            raise ValueError(f'invalid versionPattern for {tool["name"]}: {ex}') from None
+        version_pattern = _build_regex_matchers([tool['versionPattern']], f'versionPattern for {tool["name"]}')[0]
         minimum_version = tool.get('minimumVersion')
         loaded.append({
             'name': tool['name'],
