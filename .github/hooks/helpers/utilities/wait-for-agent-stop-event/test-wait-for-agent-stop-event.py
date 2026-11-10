@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import runpy
 import tempfile
 import unittest
@@ -37,9 +38,13 @@ class WaitForAgentStopEventTests(unittest.TestCase):
         return sleep
 
     def test_returns_without_waiting_when_recorded(self):
-        # 不完全な行・他のhook・timestampの異なるagentStopの後でも、一致するものを見つける。
+        # 不完全な行・hook.start以外・他のhook・形の異なる入力・timestampの異なるagentStopの後でも、一致するものを見つける。
         self.__write(
             '{"type":"assistant.message"', _hook_start('preToolUse', 100), _hook_start('agentStop', 99),
+            json.dumps({'type': 'tool.execution_start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': 100}}}),
+            json.dumps({'type': 'hook.start'}),
+            json.dumps({'type': 'hook.start', 'data': {'hookType': 'agentStop'}}),
+            json.dumps({'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': None}}),
             json.dumps({'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': 'unexpected'}}),
             _hook_start('agentStop', 100),
         )
@@ -63,10 +68,14 @@ class WaitForAgentStopEventTests(unittest.TestCase):
                 self.__wait(timestamp).assert_not_called()
 
     def test_rejects_invalid_events(self):
-        for line in ('[1]', json.dumps({'type': 'hook.start', 'data': []})):
+        for line, expected in (
+            ('[1]', 'Transcript event must be a JSON object at line 2.'),
+            (json.dumps({'type': 'hook.start', 'data': []}), 'Event data must be a JSON object at line 2.'),
+            (json.dumps({'type': 'hook.start', 'data': None}), 'Event data must be a JSON object at line 2.'),
+        ):
             with self.subTest(line=line):
-                self.__write(line)
-                with self.assertRaises(ValueError):
+                self.__write('{"type":"user.message"}', line)
+                with self.assertRaisesRegex(ValueError, f'^{re.escape(expected)}$'):
                     self.__wait(100)
 
 

@@ -90,13 +90,6 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         valid_guid = _new_session_id()
 
-        self.__valid_transcript = os.path.join(self.__temp_dir, 'valid-transcript.jsonl')
-
-        _write_all_text(self.__valid_transcript, _to_compressed_json({
-            'type': 'assistant.message',
-            'data': {'content': 'Hello world'},
-        }) + '\n')
-
         missing_path_cases = [
             {'Name': 'Missing transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid}),
              'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
@@ -211,12 +204,6 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         _write_all_text(bad_transcript, '{bad-json\n')
 
-        self.__enabled_session_id = _new_session_id()
-
-        self.__enabled_state_path = os.path.join(self.__debug_state_dir, f'{self.__enabled_session_id}.json')
-
-        _write_all_text(self.__enabled_state_path, _to_compressed_json({'enabled': True}))
-
         bad_transcript_json = _to_compressed_json({'sessionId': self.__enabled_session_id, 'transcriptPath': bad_transcript})
 
         exit_code, output, error = self.__invoke_hook_input(bad_transcript_json)
@@ -240,9 +227,7 @@ class DebugResponseFooterTests(unittest.TestCase):
             raise AssertionError(f'Expected exit 2 for transcript without assistant.message. Got exit {exit_code}, Error: {error}')
 
 
-        valid_block_json = _to_compressed_json({'sessionId': self.__enabled_session_id, 'transcriptPath': self.__valid_transcript})
-
-        exit_code, output, error = self.__invoke_hook_input(valid_block_json)
+        exit_code, output, error = self.__invoke_hook_input(self.__valid_block_json)
 
         if exit_code != 0:
             raise AssertionError(f'Expected exit 0 for valid run with missing footer. Got exit {exit_code}, Error: {error}')
@@ -352,7 +337,7 @@ class DebugResponseFooterTests(unittest.TestCase):
         for state in ([], [{'enabled': True}], None):
             with self.subTest(state=state):
                 _write_all_text(self.__enabled_state_path, _to_compressed_json(state))
-                exit_code, output, error = self.__invoke_hook_input(valid_block_json)
+                exit_code, output, error = self.__invoke_hook_input(self.__valid_block_json)
                 if exit_code != 2 or output or 'Debug-mode state is invalid: Expected a JSON object.' not in error:
                     raise AssertionError(f'Expected explicit error for non-object state: {state!r}, {exit_code}, {error}')
 
@@ -586,54 +571,6 @@ class DebugResponseFooterTests(unittest.TestCase):
                 if hook['_get_last_assistant_msg'](last_message_transcript) != '  Latest response  ':
                     raise AssertionError(f'Expected the last non-empty assistant response, preserving whitespace: {content!r}')
 
-        flush_transcript = os.path.join(self.__temp_dir, 'flush.jsonl')
-
-        start_event = {
-            'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': 123}},
-        }
-
-        _write_all_text(flush_transcript, '\n' + _to_compressed_json(start_event) + '\n{"type":')
-
-        waiter = runpy.run_path(os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py'))
-        is_event_recorded = waiter['_is_agent_stop_event_recorded']
-        wait_for_event = waiter['wait_for_agent_stop_event']
-
-        if not is_event_recorded(flush_transcript, 123):
-            raise AssertionError('Expected own hook.start to end polling.')
-
-        if is_event_recorded(flush_transcript, 456):
-            raise AssertionError('Expected other hook timestamps and partial lines not to end polling.')
-
-
-        for events in (
-            [{'type': 'hook.start', 'data': {'hookType': 'preToolUse', 'input': {'timestamp': 123}}}],
-            [{'type': 'tool.execution_start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': 123}}}],
-            [{'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': None}}],
-            [{'type': 'hook.start', 'data': {'hookType': 'agentStop'}}],
-            [{'type': 'hook.start'}],
-            [{'type': 'user.message', 'data': []}],
-            [{'data': None}],
-        ):
-            with self.subTest(events=events):
-                _write_all_text(flush_transcript, '\n'.join(map(_to_compressed_json, events)) + '\n')
-                if is_event_recorded(flush_transcript, 123):
-                    raise AssertionError(f'Expected non-matching events to be ignored: {events!r}')
-
-        for line, expected_error in (
-            ('[]', 'Transcript event must be a JSON object at line 2.'),
-            ('{"type":"hook.start","data":[]}', 'Event data must be a JSON object at line 2.'),
-            ('{"type":"hook.start","data":null}', 'Event data must be a JSON object at line 2.'),
-        ):
-            with self.subTest(line=line, expected_error=expected_error):
-                _write_all_text(flush_transcript, '{"type":"user.message"}\n' + line + '\n')
-                try:
-                    is_event_recorded(flush_transcript, 123)
-                except ValueError as ex:
-                    if str(ex) != expected_error:
-                        raise AssertionError(f'Unexpected error for {line!r}: {ex}')
-                else:
-                    raise AssertionError(f'Expected ValueError for {line!r}.')
-
         def _run_main(input_json, run_path_mock=None):
             with (
                 io.TextIOWrapper(io.BytesIO(input_json.encode('utf-8')), encoding='utf-8', newline='\n') as stdin,
@@ -657,23 +594,6 @@ class DebugResponseFooterTests(unittest.TestCase):
             return _to_compressed_json({
                 'sessionId': self.__enabled_session_id, 'transcriptPath': self.__valid_transcript, 'timestamp': timestamp,
             })
-
-        check_start = Mock(return_value=False)
-
-        with patch.dict(wait_for_event.__globals__, _is_agent_stop_event_recorded=check_start):
-            with patch.object(waiter['time'], 'monotonic', side_effect=[0, 0, 5]):
-                with patch.object(waiter['time'], 'sleep') as sleep:
-                    wait_for_event(flush_transcript, 123)
-                    if check_start.call_count != 2:
-                        raise AssertionError('Expected bounded polling until the deadline.')
-                    sleep.assert_called_once_with(0.05)
-
-        for timestamp in (None, True, '123'):
-            with self.subTest(timestamp=timestamp):
-                check_start = Mock()
-                with patch.dict(wait_for_event.__globals__, _is_agent_stop_event_recorded=check_start):
-                    wait_for_event(flush_transcript, timestamp)
-                    check_start.assert_not_called()
 
         real_run_path = runpy.run_path
         wait_mock = Mock()
