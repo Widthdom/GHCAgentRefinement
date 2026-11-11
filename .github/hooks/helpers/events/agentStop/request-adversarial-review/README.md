@@ -12,7 +12,7 @@ agentStop（エージェントの応答終了時）
 3. レビュー待ち状態でない場合は終了する。
 4. `git status --porcelain=v1 --untracked-files=all -z` を実行し変更差分を確認する。
 5. 変更差分が無ければ終了する。
-6. レビュー待ち状態を解除する。
+6. レビュー待ち状態を解除する。状態ファイルは [write-json-atomically](../../../utilities/write-json-atomically/README.md) で一時ファイルに書いてから置き換える。
 7. `{"decision":"block","reason":"..."}` を標準出力する。
 8. hook呼び出し元は標準出力を受け取り、decision:blockにより応答を終了せずに継続し、reasonに従って [敵対的レビューエージェント](../../../../../agents/adversarial-review.agent.md) へレビューを依頼する。
 

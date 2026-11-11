@@ -1,5 +1,4 @@
 import io
-import json
 import os
 import runpy
 import sys
@@ -14,6 +13,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
+_write_json_atomically = runpy.run_path(os.path.join(
+    _utilities_directory, 'write-json-atomically', 'write-json-atomically.py',
+))['write_json_atomically']
 
 
 def main():
@@ -38,7 +40,6 @@ def main():
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to parse userPromptSubmitted hook input: {ex}', file=sys.stderr)
         return 2
-    state_directory = os.path.dirname(state_path)
 
     # agentIdが存在する場合は、サブエージェントのコンテキストで動作していることを示すので、
     # 状態の上書きを避けるために終了する。
@@ -59,14 +60,8 @@ def main():
     }
 
     try:
-        # exist_ok=True を指定して、すでにディレクトリが存在していてもエラーにしない。
-        os.makedirs(state_directory, exist_ok=True)
-
-        # with：処理を抜けるときの後片付けを自動で行う構文（C#のusingに相当）。
-        # 'w'：書き込みモード。既存のファイルがあれば上書きされる。
-        # newline='' を指定して、改行コードの自動変換を抑制する。
-        with open(state_path, 'w', encoding='utf-8', newline='') as state_json:
-            json.dump(state, state_json, ensure_ascii=False, separators=(',', ':'))
+        # 一時ファイルに書いてから置き換え、読む側のhookに書き込み途中の状態ファイルを読ませない。
+        _write_json_atomically(state_path, state)
     except OSError as ex:
         print(f'Failed to save adversarial review mode: {ex}', file=sys.stderr)
         return 2
