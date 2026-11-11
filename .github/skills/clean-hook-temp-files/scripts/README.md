@@ -14,3 +14,5 @@ python3 clean-hook-temp-files.py [--dry-run]
 対象は `<一時フォルダー>/ghc-agent-refinement/` の `hook-states/` と `debug-logs/` の配下。対象の分類と保持期間は、件数を警告する [check-hook-temp-files hook](../../../hooks/helpers/events/sessionStart/check-hook-temp-files/README.md) と共有するため、[hook-temp-files.py](../../../hooks/helpers/events/sessionStart/check-hook-temp-files/hook-temp-files.py) から読み込む。
 
 終了コードは、成功が0、削除できなかったファイルがある場合が2。
+
+`--dry-run` の集計、削除、削除できなかった場合の終了コードは、判定基準を共有する [test-check-hook-temp-files.py](../../../hooks/helpers/events/sessionStart/check-hook-temp-files/test-check-hook-temp-files.py) で検証する。hookの一括テストに含まれる。

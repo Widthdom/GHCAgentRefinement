@@ -1,3 +1,4 @@
+import io
 import json
 import os
 import runpy
@@ -202,6 +203,34 @@ class CheckHookTempFilesTests(unittest.TestCase):
                 result = self.__run_clean(*arguments)
                 self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
                 self.assertFalse(os.path.exists(self.__root))
+
+    def test_clean_reports_delete_failure_with_exit_code_2(self):
+        # 削除できないファイルがあれば、パスと理由を標準エラーに出し、終了コード2を返す。
+        stale, _ = self.__create_layout()
+        original_remove = os.remove
+
+        def remove(path):
+            if path == stale[0]:
+                raise PermissionError(13, 'Permission denied')
+            original_remove(path)
+
+        stdout = io.TextIOWrapper(io.BytesIO(), encoding='utf-8', newline='\n')
+        stderr = io.TextIOWrapper(io.BytesIO(), encoding='utf-8', newline='\n')
+        main = runpy.run_path(_clean_script_path)['main']
+        with (
+            patch('tempfile.gettempdir', return_value=self.__temp), patch('os.remove', side_effect=remove),
+            patch('sys.stdout', stdout), patch('sys.stderr', stderr),
+        ):
+            exit_code = main([])
+            stdout.flush()
+            stderr.flush()
+        self.assertEqual(exit_code, 2)
+        self.assertIn('Deleted 2 files (20 B)', stdout.buffer.getvalue().decode('utf-8'))
+        self.assertEqual(
+            stderr.buffer.getvalue().decode('utf-8'),
+            f'Failed to delete 1 files:\n  {stale[0]}: Permission denied\n',
+        )
+        self.assertTrue(os.path.exists(stale[0]))
 
     def test_size_format(self):
         format_size = runpy.run_path(_clean_script_path)['format_size']
