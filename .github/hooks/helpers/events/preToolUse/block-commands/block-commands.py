@@ -15,6 +15,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 def _is_non_empty_string(value):
@@ -163,7 +164,9 @@ def main(definitions_path=None):
         print('{}')
         return 0
 
-    tool_args = hook_input.get('toolArgs')
+    # toolArgsはJSON文字列に包まれて渡される場合もあるため、包みを外してから取り出す。
+    # JSONとして解析できない文字列だけを、生のコマンドとして扱う。
+    tool_args = _unwrap_tool_args(hook_input.get('toolArgs'))
     if isinstance(tool_args, str):
         command = tool_args
     elif isinstance(tool_args, dict):
