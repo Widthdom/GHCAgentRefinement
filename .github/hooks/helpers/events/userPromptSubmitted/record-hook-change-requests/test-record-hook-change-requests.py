@@ -65,6 +65,8 @@ class RecordHookChangeRequestsTests(unittest.TestCase):
             'agentStop の判定を緩めて',
             'Block-Commands の定義を追加して',
             'block-native-path-separatorsのREADMEを直して',
+            'hooksフォルダーを整理して',
+            'このhook-reviewの指摘に対応して',
         )
         for prompt in prompts:
             with self.subTest(prompt=prompt):
@@ -77,7 +79,11 @@ class RecordHookChangeRequestsTests(unittest.TestCase):
                 self.assertNotIn(prompt, json.dumps(state, ensure_ascii=False))
 
     def test_other_prompts_are_not_recorded(self):
-        for prompt in ('READMEを直して', 'テストを全部実行して', '1,2,3の順に対応して', ''):
+        for prompt in (
+            'READMEを直して', 'テストを全部実行して', '1,2,3の順に対応して', '',
+            'Stripeのwebhookを実装して', 'ReactのカスタムフックuseFooを追加', 'fix the fishhook bug',
+            'useFooHookを直して', 'ウェブフックの受信を追加', 'Reactフックの使い方を教えて',
+        ):
             with self.subTest(prompt=prompt):
                 self.__assert_silent(self.__submit(prompt))
                 self.assertFalse(os.path.exists(self.__state_path))
