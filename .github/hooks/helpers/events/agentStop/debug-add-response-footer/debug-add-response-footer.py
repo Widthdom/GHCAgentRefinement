@@ -16,6 +16,20 @@ _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input
 _parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['parse_session_id']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 
+_REASON_PREFIX = 'The final response footer is missing or incorrect.'
+# 同じ依頼で差し戻す上限。フッターの時刻や機能したhookは差し戻しのたびに変わるため、合わせ損ねても止まれるようにする。
+# 1回では時刻の分の繰り上がりなどで合わせ損ねた場合に直せないため、2回とする。
+_MAX_CORRECTIONS = 2
+
+
+def _count_corrections(transcript_path):
+    # ユーザーの最新の依頼以降に、本hookが差し戻した回数を返す。
+    return sum(
+        1 for event_type, data in _turn_events['get_turns'](transcript_path)[-1]
+        if event_type == 'user.message' and data.get('delivery') == 'queued'
+        and isinstance(data.get('content'), str) and data['content'].startswith(_REASON_PREFIX)
+    )
+
 
 def _get_last_assistant_msg(transcript_path):
     # トランスクリプト全体から、空白以外を含む最後の応答の文を返す。なければNone。
@@ -86,6 +100,10 @@ def main():
         print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
         return 2
 
+    # サブエージェントの停止は対象外。フッターを付けるのは、ユーザーへ報告する親の最終応答のため。
+    if hook_input.get('agentId'):
+        return 0
+
     try:
         # C# のdelegateのように、外部スクリプトから関数を取得する。
         get_debug_mode = runpy.run_path(
@@ -132,6 +150,9 @@ def main():
             print('No assistant response was found in the transcript.', file=sys.stderr)
             return 2
 
+        if _count_corrections(transcript_path) >= _MAX_CORRECTIONS:
+            return 0
+
         footer_correction = _get_footer_correction(transcript_path, str(parsed_session_id), last_assistant_msg)
     except (OSError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to inspect response footer: {ex}', file=sys.stderr)
@@ -144,7 +165,7 @@ def main():
         print(json.dumps({
             'decision': 'block',
             'reason': (
-                'The final response footer is missing or incorrect. Preserve the response body. '
+                f'{_REASON_PREFIX} Preserve the response body. '
                 'Replace any existing footer blocks with the exact block below; if no footer exists, '
                 'append it to the end. The corrected response must contain exactly one footer block:\n'
                 '\n'
