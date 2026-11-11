@@ -1,14 +1,21 @@
 import os
-import re
+import runpy
 
 # 編集ツールの呼び出し1件を、ツールの実行前に再現し、書き込み先のファイルごとに編集前と編集後のファイル全体の内容を求める。
 # 編集後のファイル全体を検査するpreToolUse hookが共有する。
 
-_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
-_PATCH_MOVE_PATTERN = re.compile(r'^\*\*\* Move to: (.+?)\s*$')
-# 書き込みではないstr_replace_editorのコマンド。undo_editは編集後の内容を引数に持たない。
-_NON_WRITE_COMMANDS = ('view', 'undo_edit')
-_FULL_CONTENT_KEYS = ('file_text', 'content')
+# 引数名・書き込みではないコマンド・パッチの書式は、extract-edit-tool-changes utilityと共有する。
+_extract_edit_tool_changes = runpy.run_path(os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+))
+_PATCH_FILE_PATTERN = _extract_edit_tool_changes['PATCH_FILE_PATTERN']
+_PATCH_MOVE_PATTERN = _extract_edit_tool_changes['PATCH_MOVE_PATTERN']
+_NON_WRITE_COMMANDS = _extract_edit_tool_changes['NON_WRITE_COMMANDS']
+_REMOVED_TEXT_KEYS = _extract_edit_tool_changes['REMOVED_TEXT_KEYS']
+_NEW_TEXT_KEYS = _extract_edit_tool_changes['NEW_TEXT_KEYS']
+_FULL_CONTENT_KEYS = _extract_edit_tool_changes['FULL_CONTENT_KEYS']
+_get_first_string = _extract_edit_tool_changes['get_first_string']
 
 
 class _UndeterminedContent(Exception):
@@ -114,13 +121,14 @@ def _get_patch_contents(text, cwd):
 def _get_edited_content(tool_name, tool_args, current):
     command = tool_args.get('command')
     if tool_name == 'create' or command == 'create':
-        file_text = next((tool_args[key] for key in _FULL_CONTENT_KEYS if isinstance(tool_args.get(key), str)), None)
+        file_text = _get_first_string(tool_args, _FULL_CONTENT_KEYS)
         if file_text is None:
             raise _UndeterminedContent()
         return file_text
+    new = _get_first_string(tool_args, _NEW_TEXT_KEYS)
     if tool_name == 'insert' or command == 'insert':
-        return _insert_after_line(current, tool_args.get('insert_line'), tool_args.get('new_str'))
-    return _replace_once(current, tool_args.get('old_str'), tool_args.get('new_str'))
+        return _insert_after_line(current, tool_args.get('insert_line'), new)
+    return _replace_once(current, _get_first_string(tool_args, _REMOVED_TEXT_KEYS), new)
 
 
 def simulate_edit_tool_changes(tool_name, tool_args, cwd):
