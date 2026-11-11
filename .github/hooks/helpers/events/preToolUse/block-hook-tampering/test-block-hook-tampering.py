@@ -114,6 +114,13 @@ class BlockHookTamperingTests(unittest.TestCase):
             'bash -c "rm -rf .github/hooks"',
             'if true; then rm .github/hooks/x; fi',
             'Get-ChildItem .github/hooks | Remove-Item',
+            # スクリプトブロック・コマンド置換・ループの中の変更、`timeout` の後、守るパスの親へ戻った後の変更
+            'Get-Item .github/hooks/a.py | ForEach-Object { Remove-Item $_ }',
+            'foreach ($f in gci .github/hooks) { Remove-Item $f }',
+            'for f in .github/hooks/*; do rm $f; done',
+            'echo $(rm .github/hooks/a.py)',
+            'timeout 5 rm .github/hooks/a.py',
+            'cd .github/hooks && cd .. && rm -rf hooks',
         )
         for command in commands:
             for tool_name in ('bash', 'powershell'):
@@ -140,6 +147,8 @@ class BlockHookTamperingTests(unittest.TestCase):
             'cd .github/hooks && python3 tests/test-all-hooks.py > "$TMPDIR/log" 2>&1',
             'cd .github/hooks && cd /tmp && rm -rf x',
             'rm -rf .github/workflows/x',
+            'cd .github/hooks && cd ../workflows && rm x',
+            'for f in .github/hooks/*; do cat $f; done',
         )
         for command in commands:
             for tool_name in ('bash', 'powershell'):
@@ -151,6 +160,7 @@ class BlockHookTamperingTests(unittest.TestCase):
         self.__assert_allowed(self.__run_call('bash', {'command': command}))
         self.__assert_denied(self.__run_call('powershell', {'command': command}), f'command `{command}`')
         self.__assert_denied(self.__run_call('powershell', {'command': 'Get-ChildItem .github/hooks | ri'}))
+        self.__assert_denied(self.__run_call('powershell', {'command': 'gci .github/hooks | % { ri $_ }'}))
 
     def test_other_files_and_tools_are_allowed(self):
         cases = (

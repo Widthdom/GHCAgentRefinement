@@ -28,13 +28,19 @@ _PARENT_PATH_IN_COMMAND_PATTERN = re.compile(r'(?<![\w.-])(?:\.github|ghc-agent-
 # シェルのコマンドの区切り。`2>&1`・`&>` などのリダイレクトの `&` は区切りとみなさない。
 _LIST_SEPARATOR_PATTERN = re.compile(r'&&|\|\||(?<![<>])&(?!>)|[;\n]')
 _PIPE_SEPARATOR_PATTERN = re.compile(r'\|')
-# 単純コマンドの始まり。引用符や `(`・`{` の後、予約語、前置きのコマンドとそのオプション、変数の代入を読み飛ばす。
+# 単純コマンドの始まり。単純コマンドの先頭のほか、途中の `(`・`{`・`$(`・`` ` ``（サブシェル、PowerShellのスクリプトブロック、
+# コマンド置換）の後も含む。引用符、予約語、前置きのコマンドとそのオプション（`timeout` は時間指定も）、変数の代入を読み飛ばす。
 # `bash -c "…"`・`pwsh -Command "…"` の引用符の中もコマンドの始まりとみなす。
 _COMMAND_START = (
-    r'(?:^|\s-(?:c|Command)\s+)\s*(?:[({`!"\']|\$\()*\s*'
+    r'(?:^|\s-(?:c|Command)\s+|[({`]|\$\()\s*(?:[({`!"\']|\$\()*\s*'
     r'(?:(?:then|do|else|elif|if|while|until|time|sudo|env|command|builtin|exec|eval|nohup|nice|xargs)(?:\s+-\S+)*\s+'
+    r'|timeout(?:\s+-\S+)*\s+\S+\s+'
     r'|[A-Za-z_]\w*=\S*\s+)*'
 )
+# 守るパスを対象に繰り返すループ（`for f in .github/hooks/*; do rm $f; done`）。以降の単純コマンドも守るパスを扱うとみなす。
+_LOOP_PATTERN = re.compile(r'^\s*(?:for|foreach|select|while|until)\b', re.IGNORECASE)
+# 親のフォルダーへ戻るだけの移動先（`..`・`../..`）。守るパスの中から戻っても、守るパスを含むフォルダーにいる。
+_PARENT_ONLY_PATTERN = re.compile(r'^["\']?\.\.(?:[/\\]\.\.)*[/\\]?["\']?\s*$')
 _XARGS_PATTERN = re.compile(r'\bxargs\b', re.IGNORECASE)
 # 引数に書いた対象を変更するコマンド。守るパスが同じ単純コマンドにあれば変更とみなす。
 # `tee`・`Out-File`・`Tee-Object` はパイプの入力を書き込む内容として受け取るため、ここに含める。
@@ -101,15 +107,21 @@ def _is_modifying_command(tool_name, command):
     if any(pattern.search(command) for pattern in _COMMAND_MODIFYING_PATTERNS):
         return True
     in_protected_directory = False
+    in_protected_loop = False
     for pipeline in _LIST_SEPARATOR_PATTERN.split(command):
+        if _LOOP_PATTERN.match(pipeline) and _mentions_protected_path(pipeline):
+            in_protected_loop = True
         segments = _PIPE_SEPARATOR_PATTERN.split(pipeline)
-        pipeline_has_path = in_protected_directory or _mentions_protected_path(pipeline)
+        pipeline_has_path = in_protected_directory or in_protected_loop or _mentions_protected_path(pipeline)
         for segment in segments:
             change_directory = _CHANGE_DIRECTORY_PATTERN.search(segment)
             if change_directory:
-                in_protected_directory = _mentions_protected_path(change_directory.group(1))
+                target = change_directory.group(1)
+                in_protected_directory = _mentions_protected_path(target) or (
+                    in_protected_directory and bool(_PARENT_ONLY_PATTERN.match(target))
+                )
                 continue
-            segment_has_path = in_protected_directory or _mentions_protected_path(segment)
+            segment_has_path = in_protected_directory or in_protected_loop or _mentions_protected_path(segment)
             argument_target = _ARGUMENT_TARGET_PATTERN.search(segment)
             if argument_target and (
                     segment_has_path or (pipeline_has_path and _XARGS_PATTERN.search(argument_target.group(0)))):
