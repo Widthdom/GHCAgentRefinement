@@ -67,6 +67,24 @@ class WaitForAgentStopEventTests(unittest.TestCase):
             with self.subTest(timestamp=timestamp):
                 self.__wait(timestamp).assert_not_called()
 
+    def test_accepts_later_agent_stop_event_without_matching_input(self):
+        # inputのtimestampが一致しなくても、イベント自体の時刻が入力のtimestamp以降なら書き込み済みとみなす。
+        # 1_800_000_000_000ミリ秒は2027-01-15T08:00:00Z。時計の差として1秒前までを含める。
+        hook_timestamp = 1_800_000_000_000
+        for event_time, recorded in (
+            ('2027-01-15T08:00:00.000Z', True),
+            ('2027-01-15T07:59:59.500Z', True),
+            ('2027-01-15T07:59:58.000Z', False),
+            ('not a time', False),
+        ):
+            with self.subTest(event_time=event_time):
+                self.__write(json.dumps({
+                    'type': 'hook.start', 'timestamp': event_time,
+                    'data': {'hookType': 'agentStop', 'input': {'timestamp': 'different-format'}},
+                }))
+                sleep = self.__wait(hook_timestamp, monotonic=Mock(side_effect=[0, 0, 6]))
+                self.assertEqual(sleep.call_count, 0 if recorded else 1)
+
     def test_rejects_invalid_events(self):
         for line, expected in (
             ('[1]', 'Transcript event must be a JSON object at line 2.'),
