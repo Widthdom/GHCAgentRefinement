@@ -15,8 +15,11 @@ _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input
 
 
 # hookの変更に触れたとみなす語。hookの名前（フォルダー名）は別にリポジトリから集める。
+# `webhook`・`useFooHook` など英字の途中の `hook` と、`カスタムフック`・`ウェブフック`・`Reactフック` など
+# 直前がカタカナ・英字の `フック` は別のものを指すため除く。`\u30a0-\u30ff` はカタカナ（長音符 `ー` を含む）。
 _HOOK_REQUEST_PATTERN = re.compile(
-    r'hooks?|フック|\.github[/\\]hooks|pre-?tool-?use|post-?tool-?use|agent-?stop|session-?start'
+    r'(?<![A-Za-z])hooks?(?![A-Za-z])|(?<![A-Za-z\u30a0-\u30ff])フック|\.github[/\\]hooks'
+    r'|pre-?tool-?use|post-?tool-?use|agent-?stop|session-?start'
     r'|user-?prompt-?(?:submitted|transformed)',
     re.IGNORECASE,
 )

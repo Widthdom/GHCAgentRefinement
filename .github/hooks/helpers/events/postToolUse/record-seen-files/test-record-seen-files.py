@@ -83,6 +83,7 @@ class RecordSeenFilesTests(unittest.TestCase):
             ('functions.view', {'path': '対象.py'}),
             ('edit', {'path': './sub/../対象.py', 'old_str': 'a', 'new_str': 'b'}),
             ('create', {'path': '対象.py', 'file_text': 'a'}),
+            ('create', {'file_path': '対象.py', 'file_text': 'a'}),
             ('insert', json.dumps({'path': '対象.py', 'insert_line': 1})),
             ('str_replace_editor', {'command': 'view', 'path': '対象.py'}),
         )

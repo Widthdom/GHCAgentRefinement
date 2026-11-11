@@ -15,3 +15,4 @@ userPromptSubmitted（ユーザがプロンプトを投入する度）
 ## 備考
 - デバッグモードが無効な場合も対象イベントで `debug-` 接頭辞付きのhookは起動するが、デバッグ処理をせず終了する。
 - `agentStop`後の内部修正では `userPromptSubmitted` hookが発動しないため、直前のユーザプロンプトで設定されたデバッグモード有効/無効状態が維持される。
+- 状態ファイルは [write-json-atomically](../../../utilities/write-json-atomically/README.md) で一時ファイルに書いてから置き換え、読む側のhookに書き込み途中の内容を読ませない。

@@ -83,17 +83,24 @@ def _normalize_command(command):
     return ' '.join(command.split())
 
 
-def _get_unverified_reason(events, last_test_index):
+def _get_unverified_reason(events, last_test_index, check_test_runs):
     # テストを1回も実行していないか、最後のテストが成功していなければ、理由を返す。
+    # 後に `;`・`||` で別のコマンドが続くなど、終了コードがテストの結果を表さない場合も成功とみなさない。
     if last_test_index is None:
         return (
             f'{_UNVERIFIED_PREFIX} tests passed, but no test command was run '
             f"since the user's latest request. {_EVIDENCE_REQUEST}"
         )
     command, exit_code = events[last_test_index][1]
-    if exit_code == 0:
+    if exit_code == 0 and check_test_runs['is_test_result_reported'](command):
         return None
-    result = 'did not complete' if exit_code is None else f'exited with code {exit_code}'
+    if exit_code == 0:
+        result = (
+            'exited with code 0, but its exit status does not reflect the test result '
+            '(another command follows with ";", "||" or "&", or the test is piped without pipefail)'
+        )
+    else:
+        result = 'did not complete' if exit_code is None else f'exited with code {exit_code}'
     return (
         f"{_UNVERIFIED_PREFIX} tests passed, but the last test command since the user's "
         f'latest request {result}: {_shorten_command(command)}\n{_EVIDENCE_REQUEST}'
@@ -177,7 +184,7 @@ def _get_block_reasons(response, events, cwd, check_test_runs):
          if events[index][0] == 'shell' and check_test_runs['is_test_command'](events[index][1][0])),
         None,
     )
-    unverified = _get_unverified_reason(events, last_test_index)
+    unverified = _get_unverified_reason(events, last_test_index, check_test_runs)
     if unverified is not None:
         return [(_UNVERIFIED_PREFIX, unverified)]
     # 再実行だけで通ったテストを先に示す。未テストの変更を先に示してテストを再実行させると、

@@ -93,6 +93,10 @@ class BlockShellFileEditsTests(unittest.TestCase):
             'echo hi # comment\nsed -i s/a/b/ 対象.txt',
             'echo "multi\nline" \\\n  > 対象.txt',
             f"echo x > '{os.path.join(self.__workspace, '対象.txt')}'",
+            'echo "a << b"\necho x > 対象.txt',
+            'x=$((1 << 2))\necho x > 対象.txt',
+            'sed -i s#a#b# 対象.txt',
+            'echo a#b > 対象.txt',
         )
         for command in commands:
             with self.subTest(command=command):

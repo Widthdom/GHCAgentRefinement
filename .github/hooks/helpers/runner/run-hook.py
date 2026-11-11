@@ -45,6 +45,7 @@ def _resolve_hook_script(argument):
 
 def _get_session_id(hook_input_bytes):
     # 入力の検証は起動したhook自身が行うため、セッションIDを読めない入力では記録だけを行わない。
+    # UUIDでない値も、状態の保存先を決められないため読めない入力とみなす。
     try:
         hook_input = json.loads(hook_input_bytes.decode('utf-8'))
     except ValueError:
@@ -52,7 +53,14 @@ def _get_session_id(hook_input_bytes):
     if not isinstance(hook_input, dict):
         return None
     session_id = hook_input.get('sessionId')
-    return session_id if isinstance(session_id, str) and session_id.strip() else None
+    parse_session_id = runpy.run_path(
+        os.path.join(_helpers_directory, 'utilities', 'get-state-path', 'get-state-path.py')
+    )['parse_session_id']
+    try:
+        parse_session_id(session_id)
+    except ValueError:
+        return None
+    return session_id
 
 
 def _is_fired(exit_code, output_bytes):
@@ -148,15 +156,15 @@ def main():
     sys.stderr.buffer.write(error_bytes)
     sys.stderr.buffer.flush()
 
-    session_id = _get_session_id(hook_input_bytes)
-    if session_id is not None:
-        # 記録に失敗してもhookの判定は変えず、終了コードはhookのものを返す。原因は標準エラーに出力する。
-        try:
+    # 記録に失敗してもhookの判定は変えず、終了コードはhookのものを返す。原因は標準エラーに出力する。
+    try:
+        session_id = _get_session_id(hook_input_bytes)
+        if session_id is not None:
             runpy.run_path(os.path.join(_helpers_directory, 'utilities', 'hook-activity-state', 'hook-activity-state.py'))['record_hook_run'](
                 session_id, event_name, hook_name, started_at_ms, _is_fired(exit_code, output_bytes),
             )
-        except (OSError, ValueError, sqlite3.Error) as ex:
-            print(f'Failed to record hook run for {hook_name}: {ex}', file=sys.stderr)
+    except (OSError, ValueError, sqlite3.Error) as ex:
+        print(f'Failed to record hook run for {hook_name}: {ex}', file=sys.stderr)
     return exit_code
 
 

@@ -17,6 +17,7 @@ _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-event
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_check_test_runs = runpy.run_path(os.path.join(_utilities_directory, 'check-test-runs', 'check-test-runs.py'))
 
 
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
@@ -129,9 +130,24 @@ def _get_requirement(path, cwd):
     return None
 
 
-def _is_test_run(command, accepted):
+def _get_test_pattern(accepted):
     # `xtest-a.py` などの語中や、`test-a.py` に対する `test-b-a.py` などは除く。
-    return any(re.search(r'(?<![\w.-])' + re.escape(name) + r'(?![\w.-])', command) for name in accepted)
+    return re.compile('|'.join(r'(?<![\w.-])' + re.escape(name) + r'(?![\w.-])' for name in accepted))
+
+
+def _get_test_status(command, exit_code, accepted):
+    # テストファイルを実行していなければNone。`cat`・`git add` などの読むだけのコマンドは実行とみなさない。
+    # 後に `;`・`||` で別のコマンドが続くなど、終了コードがテストの結果を表さない場合は成功とみなさない。
+    pattern = _get_test_pattern(accepted)
+    if not _check_test_runs['is_test_command'](command, pattern):
+        return None
+    if exit_code is None:
+        return 'did not complete'
+    if exit_code != 0:
+        return f'failed with exit code {exit_code}'
+    if not _check_test_runs['is_test_result_reported'](command, pattern):
+        return 'exit status hidden by a following ";", "||" or "&", or a pipe without pipefail'
+    return 'passed'
 
 
 def _get_unverified(events, cwd):
@@ -155,10 +171,9 @@ def _get_unverified(events, cwd):
             continue
         command, exit_code = value
         for key, info in requirements.items():
-            if _is_test_run(command, info['accepted']):
-                status[key] = 'passed' if exit_code == 0 else (
-                    'did not complete' if exit_code is None else f'failed with exit code {exit_code}'
-                )
+            test_status = _get_test_status(command, exit_code, info['accepted'])
+            if test_status is not None:
+                status[key] = test_status
     unverified = [(info, status[key]) for key, info in requirements.items() if status[key] != 'passed']
     unchanged_readmes = sorted(
         readme for readme in readmes.values() if os.path.normcase(readme) not in edited_paths

@@ -69,6 +69,47 @@ class DebugResponseFooterTests(unittest.TestCase):
         )
         return completed.returncode, completed.stdout.decode('utf-8'), completed.stderr.decode('utf-8')
 
+    def test_skips_subagent_stop(self):
+        exit_code, output, error = self.__invoke_hook_input(_to_compressed_json({
+            'sessionId': self.__enabled_session_id, 'transcriptPath': self.__valid_transcript, 'agentId': 'child-agent',
+        }))
+        self.assertEqual((exit_code, output, error), (0, '', ''))
+
+    def test_limits_corrections_per_request(self):
+        def invoke(name, events):
+            transcript = os.path.join(self.__temp_dir, f'{name}.jsonl')
+            _write_all_text(transcript, ''.join(
+                _to_compressed_json({**event, 'timestamp': '2026-10-21T03:00:00.000Z'}) + '\n' for event in events
+            ))
+            exit_code, output, error = self.__invoke_hook_input(_to_compressed_json({
+                'sessionId': self.__enabled_session_id, 'transcriptPath': transcript,
+            }))
+            self.assertEqual((exit_code, error), (0, ''))
+            return output
+
+        correction = {
+            'type': 'user.message',
+            'data': {'content': 'The final response footer is missing or incorrect. ...', 'delivery': 'queued'},
+        }
+        response = {'type': 'assistant.message', 'data': {'content': 'Hello world'}}
+        for corrections, blocked in ((0, True), (1, True), (2, False), (3, False)):
+            with self.subTest(corrections=corrections):
+                events = [{'type': 'user.message', 'data': {'content': '??直して'}}]
+                for _ in range(corrections):
+                    events.extend([response, correction])
+                output = invoke(f'corrections-{corrections}', [*events, response])
+                if blocked:
+                    self.assertEqual(json.loads(output)['decision'], 'block')
+                else:
+                    self.assertEqual(output, '')
+
+        # 前の依頼での差し戻しは数えない。
+        output = invoke('previous-request', [
+            {'type': 'user.message', 'data': {'content': '??前の依頼'}}, correction, correction,
+            {'type': 'user.message', 'data': {'content': '??次の依頼'}}, response,
+        ])
+        self.assertEqual(json.loads(output)['decision'], 'block')
+
     def test_footer_workflow(self):
         invalid_inputs = [
             {'Name': 'Empty input', 'Json': '', 'Error': 'Failed to parse agentStop hook input: hook input is empty.'},

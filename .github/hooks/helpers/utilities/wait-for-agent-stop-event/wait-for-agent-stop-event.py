@@ -1,10 +1,27 @@
 import json
 import time
+from datetime import datetime
+
+# hook入力のtimestampとトランスクリプトのイベントの時刻は、記録する処理が異なるため前後しうる。その幅（ミリ秒）。
+_CLOCK_TOLERANCE_MS = 1000
+
+
+def _get_event_time_ms(event):
+    # イベントの時刻（ISO 8601の文字列）をUnixミリ秒にする。読めなければNone。
+    value = event.get('timestamp')
+    if not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value).timestamp() * 1000
+    except ValueError:
+        return None
 
 
 def _is_agent_stop_event_recorded(transcript_path, hook_timestamp):
     # トランスクリプトに、今回実行中のagentStop hookのhook.startイベントが書き込まれているかを返す。
-    #   過去のターンのagentStopと取り違えないよう、hook入力のtimestampが一致するものだけを対象とする。
+    #   過去のターンのagentStopと取り違えないよう、hook入力のtimestampが一致するものを対象とする。
+    #   hook.startのinputは標準入力と形式が異なる場合があるため、一致しなくても、
+    #   イベント自体の時刻がhook入力のtimestamp以降のagentStopのhook.startがあれば、書き込み済みとみなす。
 
     # `utf-8-sig` を指定することで、BOMが存在する場合は取り除いて読むことができる。
     # with：処理を抜けるときの後片付けを自動で行う構文（C#のusingに相当）。
@@ -31,6 +48,10 @@ def _is_agent_stop_event_recorded(transcript_path, hook_timestamp):
 
             if data.get('hookType') != 'agentStop':
                 continue
+
+            event_time_ms = _get_event_time_ms(event)
+            if event_time_ms is not None and event_time_ms >= hook_timestamp - _CLOCK_TOLERANCE_MS:
+                return True
 
             # hook入力の形はCopilot側の仕様に依存するため、想定外の形でも異常とはせず対象外とする。
             hook_input = data.get('input')

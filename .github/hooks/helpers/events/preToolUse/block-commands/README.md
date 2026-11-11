@@ -11,12 +11,20 @@ preToolUse（bashまたはpowershellツールの実行前）
 2. 1.以外の場合、標準入力を引き継いで[py](./block-commands.py)を実行する。
 3. [blocked-command-definitions.json](./blocked-command-definitions.json) が存在しない場合、フォーマット違反の場合、不正な正規表現がひとつでも含まれていた場合は異常終了し、標準エラーにその旨を出力したうえでツール実行拒否JSONを標準出力する。
 4. 呼び出すツール（`toolName`・`toolArgs`）がbash・powershellで、そのコマンドが `blocked-command-definitions.json` に定義された正規表現に一致した場合は、定義の `reason` を拒否理由とするツール実行拒否JSONを標準出力し、正常終了する。標準エラーには出力しない。
+   - `toolArgs` がJSON文字列に包まれている場合は、[unwrap-tool-args.py](../../../utilities/unwrap-tool-args/unwrap-tool-args.py) で包みを外してから `command` を取り出す。JSONとして解析できない文字列は、そのままコマンドとして扱う。
 
 ## 前提条件
 - Python 3.14以降が必要。見つからない場合や3.14未満の場合は、コマンドを拒否する。
 
 ## 例外
 - bashとpowershell以外のツール呼び出しは処理対象外。
+
+## 制約と限界
+- コマンドの始まりとみなす位置は、行頭（空白を含む）、`;`・`&`・`|`・`(`・`)`・`{`・`}`・`` ` `` の後、およびその位置に続く予約語（`then`・`do`・`else`・`elif`・`if`・`while`・`until`・`!`）、前置きのコマンド（`time`・`env`・`sudo`・`command`・`exec`・`nohup`・`nice`・`builtin`）とそのオプション、変数の代入（`FOO=1`）の後に限る。次の書き方は検出できない。
+  - 前置きのコマンドが引数を取るオプション（`env -u NAME git …`・`sudo -u user git …` など）や、ここに挙げていない前置きのコマンド（`xargs` など）
+  - 変数や文字列の連結で組み立てたコマンド、エイリアス、`bash -c 'git reset'` のように引用符の中で始まるコマンド
+  - `git push` の引数に `-f`・`+` を含めず、設定（`remote.<name>.push` の `+`・`push.default` など）で強制pushになる場合
+- 引用符の中を区別しないため、`git commit -m "fix; git reset is bad"` のように引用符の中に区切りと `git` のコマンドがあると拒否する。引用符の中を除くと `bash -c "cd x; git reset"` を検出できなくなるため、誤拒否として許容する。メッセージを書き換えるか、ファイルから渡す（`git commit -F`）。
 
 ## 備考
 - Python未インストール時であっても機能するように、Windowsでは[cmd](./block-commands.cmd)、macOS/Linuxでは[sh](./block-commands.sh)を呼び出す。

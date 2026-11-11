@@ -33,6 +33,7 @@ class SimulateEditToolChangesTests(unittest.TestCase):
         for tool_name, tool_args in (
             ('create', {'path': 'new.txt', 'file_text': 'x\n'}),
             ('create', {'path': 'new.txt', 'content': 'x\n'}),
+            ('create', {'file_path': 'new.txt', 'file_text': 'x\n'}),
             ('str_replace_editor', {'command': 'create', 'path': 'new.txt', 'file_text': 'x\n'}),
         ):
             with self.subTest(tool_name=tool_name, tool_args=tool_args):
@@ -46,6 +47,9 @@ class SimulateEditToolChangesTests(unittest.TestCase):
             ('insert', {'path': 'a.txt', 'insert_line': 0, 'new_str': 'zero'}, 'zero\none\ntwo\n'),
             ('str_replace_editor', {'command': 'insert', 'path': 'a.txt', 'insert_line': 2, 'new_str': 'three\n'},
              'one\ntwo\nthree\n'),
+            # extract-edit-tool-changesと同じく、`old_string`・`new_string` の引数名も読む。
+            ('edit', {'path': 'a.txt', 'old_string': 'two', 'new_string': '2'}, 'one\n2\n'),
+            ('insert', {'path': 'a.txt', 'insert_line': 0, 'new_string': 'zero'}, 'zero\none\ntwo\n'),
         ):
             with self.subTest(tool_name=tool_name, tool_args=tool_args):
                 self.assertEqual(self.__get(tool_name, tool_args), [('a.txt', 'one\ntwo\n', expected)])

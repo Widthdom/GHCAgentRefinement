@@ -90,6 +90,11 @@ class BlockNonportablePathsTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.__assert_allowed(self.__run_call('create', {'path': path}))
 
+    def test_create_with_file_path_argument(self):
+        # `create` はパスを `file_path` で渡す。異常終了せずに検査する。
+        self.__assert_allowed(self.__run_call('create', {'file_path': 'normal.txt', 'file_text': 'x'}))
+        self.__assert_denied(self.__run_call('create', {'file_path': 'CON.txt', 'file_text': 'x'}), 'reserved by Windows')
+
     def test_existing_file_case_collision(self):
         self.__write_file('Report.txt')
         self.__assert_denied(self.__run_call('create', {'path': 'report.txt'}), 'Report.txt', 'collides')
@@ -224,6 +229,8 @@ class BlockNonportablePathsTests(unittest.TestCase):
             {**valid, 'toolArgs': None},
             {**valid, 'toolArgs': {}},
             {**valid, 'toolArgs': {'path': 'bad\0name'}},
+            {**valid, 'toolArgs': {'file_path': ' '}},
+            {**valid, 'toolArgs': {'file_path': 'bad\0name'}},
             {**valid, 'toolName': 'apply_patch', 'toolArgs': []},
         ])
         for value in cases:

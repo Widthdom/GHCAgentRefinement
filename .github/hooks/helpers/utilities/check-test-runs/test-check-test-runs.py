@@ -1,4 +1,5 @@
 import os
+import re
 import runpy
 import unittest
 
@@ -20,10 +21,41 @@ class CheckTestRunsTests(unittest.TestCase):
         ):
             with self.subTest(command=command):
                 self.assertTrue(is_test_command(command))
-        # 語中に含まれる場合はテストとみなさない。
-        for command in ('npm install latest', 'git status', 'echo attest', 'contest', 'testing'):
+        # 語中に含まれる場合や、読むだけのコマンド・移動の引数にある場合はテストとみなさない。
+        for command in (
+            'npm install latest', 'git status', 'echo attest', 'contest', 'testing',
+            'ls tests', 'git log --oneline | grep test', 'cat .github/hooks/test-x.py', 'git add test-x.py',
+            'cd tests', 'Get-Content tests\\a.ps1',
+        ):
             with self.subTest(command=command):
                 self.assertFalse(is_test_command(command))
+        for command in ('cd tests && pytest', 'FOO=1 timeout 60 npm test', 'python .github\\hooks\\tests\\test-all-hooks.py'):
+            with self.subTest(command=command):
+                self.assertTrue(is_test_command(command))
+
+    def test_test_result_reported(self):
+        is_test_result_reported = _utility['is_test_result_reported']
+        for command in (
+            'pytest', 'cd x; pytest', 'pytest && echo ok', '(cd x && pytest)', 'pytest > /tmp/log 2>&1',
+            'set -o pipefail; pytest | tail', 'set -e; pytest; echo done', 'pytest && a | b',
+        ):
+            with self.subTest(command=command):
+                self.assertTrue(is_test_result_reported(command))
+        for command in (
+            'python3 test-x.py; echo done', 'python3 test-x.py || true', 'pytest | tail', 'pytest &',
+            'pytest\necho done', '(cd x && pytest) || true', 'pytest -k a; pytest -k b', 'ls tests',
+        ):
+            with self.subTest(command=command):
+                self.assertFalse(is_test_result_reported(command))
+
+    def test_custom_pattern_and_runs_command(self):
+        pattern = re.compile(r'test-a\.py')
+        self.assertTrue(_utility['is_test_command']('python3 test-a.py; echo', pattern))
+        self.assertFalse(_utility['is_test_command']('pytest', pattern))
+        self.assertFalse(_utility['is_test_result_reported']('python3 test-a.py; echo', pattern))
+        self.assertTrue(_utility['runs_command'](['sudo', 'FOO=1', 'python3', 'test-a.py'], pattern))
+        self.assertFalse(_utility['runs_command'](['grep', 'test-a.py'], pattern))
+        self.assertEqual(_utility['get_command_words'](['timeout', '60', 'env', '-i', 'pytest']), ['pytest'])
 
     def test_compile_command_pattern(self):
         pattern = _utility['compile_command_pattern']((*_utility['TEST_COMMAND_WORDS'], 'build', 'lint'))

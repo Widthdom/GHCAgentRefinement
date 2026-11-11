@@ -79,6 +79,8 @@ class BlockMaskedExitCodesTests(unittest.TestCase):
             ('set -o pipefail; set +o pipefail; pytest | tail', '"pytest"'),
             ('cat <<EOF\nset -o pipefail\nEOF\npytest | tail', '"pytest"'),
             ('npx eslint . \\\n  | head', '"npx eslint ."'),
+            ('echo "a << b"\nnpm test | tail', '"npm test"'),
+            ('echo $((1 << 2))\nnpm test | tail', '"npm test"'),
         ]:
             with self.subTest(command=command):
                 # 同じコマンドの拒否はセッションにつき1回だけなので、検証ごとにセッションを分ける。

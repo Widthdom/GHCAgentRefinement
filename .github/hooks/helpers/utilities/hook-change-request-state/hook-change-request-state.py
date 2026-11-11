@@ -4,10 +4,12 @@ import runpy
 from datetime import datetime, timezone
 
 
-# 状態の保存先は共通のutilityで決める。utilityのフォルダーの親がutilitiesである。
-_state_path_utility = runpy.run_path(os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'get-state-path', 'get-state-path.py',
-))
+# 状態の保存先と書き込みは共通のutilityで行う。utilityのフォルダーの親がutilitiesである。
+_utilities_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_state_path_utility = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))
+_write_json_atomically = runpy.run_path(os.path.join(
+    _utilities_directory, 'write-json-atomically', 'write-json-atomically.py',
+))['write_json_atomically']
 
 
 # ユーザーがこのセッションでhookの変更に触れたかの状態。
@@ -34,9 +36,5 @@ def is_permitted(state_path):
 
 
 def save_permitted(state_path):
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    with open(state_path, 'w', encoding='utf-8', newline='') as file:
-        json.dump(
-            {'updatedAt': datetime.now(timezone.utc).isoformat(), 'permitted': True},
-            file, ensure_ascii=False, separators=(',', ':'),
-        )
+    # 一時ファイルに書いてから置き換え、読む側のblock-hook-tamperingに書き込み途中の状態ファイルを読ませない。
+    _write_json_atomically(state_path, {'updatedAt': datetime.now(timezone.utc).isoformat(), 'permitted': True})

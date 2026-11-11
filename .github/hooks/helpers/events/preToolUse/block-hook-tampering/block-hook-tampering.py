@@ -23,29 +23,67 @@ _SHELL_TOOL_NAMES = {'bash', 'powershell'}
 # 守るパス。hookの定義・実装・テストと、hookが保持する状態（変更の許可の記録を含む）。
 _PROTECTED_PATH_PATTERN = re.compile(r'(?:^|[/\\])(?:\.github[/\\]hooks|ghc-agent-refinement[/\\]hook-states)(?:[/\\]|$)', re.IGNORECASE)
 _PROTECTED_PATH_IN_COMMAND_PATTERN = re.compile(r'\.github[/\\]+hooks\b|ghc-agent-refinement[/\\]+hook-states\b', re.IGNORECASE)
-# シェルで、ファイルを変更・削除・移動する操作。読み取りやテストの実行（`cat`・`python test-x.py`・`git diff`）は含めない。
-_SHELL_MODIFYING_PATTERNS = (
-    # 削除・移動・複製・作成・権限変更などのコマンドと、PowerShellのコマンドレット・別名
-    re.compile(
-        r'(?:^|[\s;|&(`])(?:rm|rmdir|unlink|mv|cp|ln|install|truncate|chmod|chown|touch|tee|dd|shred'
-        r'|del|erase|rd|ren|rename|move|copy|xcopy|robocopy'
-        r'|Remove-Item|Move-Item|Rename-Item|Copy-Item|New-Item|Set-Content|Add-Content|Clear-Content|Out-File'
-        r'|Set-ItemProperty|Tee-Object|ri|mi|rni|cpi|ni|sc|ac|clc)(?=\s|$)',
-        re.IGNORECASE,
-    ),
+# 守るパスを含むフォルダーそのもの（`.github`・`.github/*` など）。丸ごと削除・移動すると守るパスも変わる。
+_PARENT_PATH_IN_COMMAND_PATTERN = re.compile(r'(?<![\w.-])(?:\.github|ghc-agent-refinement)[/\\]*\*?(?![\w./\\-])', re.IGNORECASE)
+# シェルのコマンドの区切り。`2>&1`・`&>` などのリダイレクトの `&` は区切りとみなさない。
+_LIST_SEPARATOR_PATTERN = re.compile(r'&&|\|\||(?<![<>])&(?!>)|[;\n]')
+_PIPE_SEPARATOR_PATTERN = re.compile(r'\|')
+# 単純コマンドの始まり。単純コマンドの先頭のほか、途中の `(`・`{`・`$(`・`` ` ``（サブシェル、PowerShellのスクリプトブロック、
+# コマンド置換）の後も含む。引用符、予約語、前置きのコマンドとそのオプション（`timeout` は時間指定も）、変数の代入を読み飛ばす。
+# `bash -c "…"`・`pwsh -Command "…"` の引用符の中もコマンドの始まりとみなす。
+_COMMAND_START = (
+    r'(?:^|\s-(?:c|Command)\s+|[({`]|\$\()\s*(?:[({`!"\']|\$\()*\s*'
+    r'(?:(?:then|do|else|elif|if|while|until|time|sudo|env|command|builtin|exec|eval|nohup|nice|xargs)(?:\s+-\S+)*\s+'
+    r'|timeout(?:\s+-\S+)*\s+\S+\s+'
+    r'|[A-Za-z_]\w*=\S*\s+)*'
+)
+# 守るパスを対象に繰り返すループ（`for f in .github/hooks/*; do rm $f; done`）。以降の単純コマンドも守るパスを扱うとみなす。
+_LOOP_PATTERN = re.compile(r'^\s*(?:for|foreach|select|while|until)\b', re.IGNORECASE)
+# 親のフォルダーへ戻るだけの移動先（`..`・`../..`）。守るパスの中から戻っても、守るパスを含むフォルダーにいる。
+_PARENT_ONLY_PATTERN = re.compile(r'^["\']?\.\.(?:[/\\]\.\.)*[/\\]?["\']?\s*$')
+_XARGS_PATTERN = re.compile(r'\bxargs\b', re.IGNORECASE)
+# 引数に書いた対象を変更するコマンド。守るパスが同じ単純コマンドにあれば変更とみなす。
+# `tee`・`Out-File`・`Tee-Object` はパイプの入力を書き込む内容として受け取るため、ここに含める。
+_ARGUMENT_TARGET_COMMANDS = (
+    r'rm|rmdir|unlink|mv|cp|ln|install|truncate|chmod|chown|touch|tee|dd|shred'
+    r'|del|erase|rd|ren|rename|move|copy|xcopy|robocopy|Out-File|Tee-Object'
+)
+# パイプの入力から対象のパスを受け取れるPowerShellのコマンドレット。守るパスが同じパイプラインにあれば変更とみなす。
+_PIPELINE_TARGET_COMMANDS = (
+    r'Remove-Item|Move-Item|Rename-Item|Copy-Item|New-Item|Set-Content|Add-Content|Clear-Content|Set-ItemProperty'
+)
+# PowerShellの別名。bashでは別のコマンドや引数と重なるため、powershellのときだけ照合する。
+_POWERSHELL_ALIASES = r'ri|mi|rni|cpi|ni|sc|ac|clc'
+_ARGUMENT_TARGET_PATTERN = re.compile(_COMMAND_START + rf'(?:{_ARGUMENT_TARGET_COMMANDS})(?:\.exe)?(?=\s|$)', re.IGNORECASE)
+_PIPELINE_TARGET_PATTERN = re.compile(_COMMAND_START + rf'(?:{_PIPELINE_TARGET_COMMANDS})(?=\s|$)', re.IGNORECASE)
+_POWERSHELL_ALIAS_PATTERN = re.compile(_COMMAND_START + rf'(?:{_POWERSHELL_ALIASES})(?=\s|$)', re.IGNORECASE)
+_SEGMENT_MODIFYING_PATTERNS = (
     # その場で書き換えるエディター
-    re.compile(r'(?:^|[\s;|&(])(?:sed|perl)\s+(?:-\w*i|--in-place)', re.IGNORECASE),
+    re.compile(_COMMAND_START + r'(?:sed|perl)\s+(?:-\w*i|--in-place)', re.IGNORECASE),
+    # `find` の削除と、見つけたファイルへの変更系コマンドの実行
+    re.compile(rf'\s-delete\b|\s-exec(?:dir)?\s+(?:{_ARGUMENT_TARGET_COMMANDS}|sed|perl)(?=\s)', re.IGNORECASE),
     # 作業ツリーやインデックスを書き換えるgitのサブコマンド
     # `-C <path>`・`-c <name>=<value>` などのオプションとその値は読み飛ばす。
-    re.compile(r'\bgit\s+(?:-\S+(?:\s+[^-\s]\S*)?\s+)*(?:checkout|restore|rm|mv|reset|stash|apply|clean|update-index|am|cherry-pick|revert)\b'),
+    re.compile(
+        _COMMAND_START + r'git\s+(?:-\S+(?:\s+[^-\s]\S*)?\s+)*'
+        r'(?:checkout|restore|rm|mv|reset|stash|apply|clean|update-index|am|cherry-pick|revert)\b',
+    ),
+)
+_CHANGE_DIRECTORY_PATTERN = re.compile(_COMMAND_START + r'(?:cd|pushd|chdir|Set-Location|sl)\s+(.+)', re.IGNORECASE)
+# 移動先のフォルダーの中での、相対パスへのリダイレクト。`/dev/null`・絶対パス・変数（一時フォルダーなど）への書き込みは除く。
+_RELATIVE_REDIRECT_PATTERN = re.compile(
+    r'(?<![<&\d])\d?>{1,2}\|?\s*["\']?(?![&/~$\\]|[A-Za-z]:|nul\b)[^\s|;&<>"\']', re.IGNORECASE,
+)
+# コマンドのどこに書かれていても変更とみなす操作。
+_COMMAND_MODIFYING_PATTERNS = (
     # 守るパスへのリダイレクト。hookのテストの出力を一時ファイルへ書く場合などは除く。
     re.compile(
         r'>{1,2}\|?\s*["\']?[^\s|;&<>]*(?:\.github[/\\]+hooks|ghc-agent-refinement[/\\]+hook-states)', re.IGNORECASE,
     ),
     # スクリプト内部での書き込み（`python -c`・`node -e`・PowerShellの.NET API）
     re.compile(
-        r'\b(?:write_text|write_bytes|writeFile\w*|WriteAll\w*|AppendAll\w*|unlink|rmtree|os\.remove|os\.rename'
-        r'|os\.replace|shutil\.(?:move|copy\w*)|fs\.(?:rm|unlink|rename)\w*)\b|open\([^)]*[\'"][wax+]',
+        r'\b(?:write_text|write_bytes|writeFile\w*|WriteAll\w*|AppendAll\w*|rmtree|os\.remove|os\.rename'
+        r'|os\.replace|shutil\.(?:move|copy\w*)|fs\.(?:rm|unlink|rename)\w*)\b|\.unlink\(|open\([^)]*[\'"][wax+]',
     ),
 )
 _DENY_REASON = (
@@ -56,6 +94,47 @@ _DENY_REASON = (
     'change explicitly.'
 )
 _MAX_COMMAND_LENGTH = 200
+
+
+def _mentions_protected_path(text):
+    return bool(_PROTECTED_PATH_IN_COMMAND_PATTERN.search(text) or _PARENT_PATH_IN_COMMAND_PATTERN.search(text))
+
+
+def _is_modifying_command(tool_name, command):
+    # 守るパスへの変更を含むかを、`;`・`&&` などで区切った単純コマンドごとに判定する。
+    # 守るパスは、引数を対象にするコマンドでは同じ単純コマンドに、パイプの入力を対象にできるコマンドでは同じパイプラインにあることを求める。
+    # `cd .github` など守るパスへ移動した後は、パスを書かない変更も対象にする。
+    if any(pattern.search(command) for pattern in _COMMAND_MODIFYING_PATTERNS):
+        return True
+    in_protected_directory = False
+    in_protected_loop = False
+    for pipeline in _LIST_SEPARATOR_PATTERN.split(command):
+        if _LOOP_PATTERN.match(pipeline) and _mentions_protected_path(pipeline):
+            in_protected_loop = True
+        segments = _PIPE_SEPARATOR_PATTERN.split(pipeline)
+        pipeline_has_path = in_protected_directory or in_protected_loop or _mentions_protected_path(pipeline)
+        for segment in segments:
+            change_directory = _CHANGE_DIRECTORY_PATTERN.search(segment)
+            if change_directory:
+                target = change_directory.group(1)
+                in_protected_directory = _mentions_protected_path(target) or (
+                    in_protected_directory and bool(_PARENT_ONLY_PATTERN.match(target))
+                )
+                continue
+            segment_has_path = in_protected_directory or in_protected_loop or _mentions_protected_path(segment)
+            argument_target = _ARGUMENT_TARGET_PATTERN.search(segment)
+            if argument_target and (
+                    segment_has_path or (pipeline_has_path and _XARGS_PATTERN.search(argument_target.group(0)))):
+                return True
+            if pipeline_has_path and (
+                    _PIPELINE_TARGET_PATTERN.search(segment)
+                    or (tool_name == 'powershell' and _POWERSHELL_ALIAS_PATTERN.search(segment))):
+                return True
+            if segment_has_path and any(pattern.search(segment) for pattern in _SEGMENT_MODIFYING_PATTERNS):
+                return True
+            if in_protected_directory and _RELATIVE_REDIRECT_PATTERN.search(segment):
+                return True
+    return False
 
 
 def _get_targets(tool_name, tool_args, cwd):
@@ -71,8 +150,8 @@ def _get_targets(tool_name, tool_args, cwd):
         return targets
     if tool_name in _SHELL_TOOL_NAMES and isinstance(tool_args, dict):
         command = tool_args.get('command')
-        if (isinstance(command, str) and _PROTECTED_PATH_IN_COMMAND_PATTERN.search(command)
-                and any(pattern.search(command) for pattern in _SHELL_MODIFYING_PATTERNS)):
+        if (isinstance(command, str) and _mentions_protected_path(command)
+                and _is_modifying_command(tool_name, command)):
             if len(command) > _MAX_COMMAND_LENGTH:
                 command = command[:_MAX_COMMAND_LENGTH] + '...'
             return [f'command `{command}`']

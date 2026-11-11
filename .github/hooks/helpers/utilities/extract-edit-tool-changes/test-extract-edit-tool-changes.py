@@ -54,9 +54,11 @@ class ExtractEditToolChangesTests(unittest.TestCase):
         for tool_name, arguments in (
             ('create', {'path': 'b.py', 'file_text': 'z = 1'}),
             ('create', {'path': 'b.py', 'content': 'z = 1'}),
+            ('create', {'file_path': 'b.py', 'file_text': 'z = 1'}),
             ('str_replace_editor', {'command': 'create', 'path': 'b.py', 'file_text': 'z = 1'}),
         ):
             with self.subTest(tool_name=tool_name, arguments=arguments):
+                # `file_path` はパスなので、書き込む内容に含めない。
                 self.assertEqual(_extract(tool_name, arguments), [_change('b.py', 'z = 1', full_content='z = 1')])
 
     def test_replacement_requires_old_text(self):

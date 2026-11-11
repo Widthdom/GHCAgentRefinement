@@ -4,7 +4,6 @@ import os
 import runpy
 import subprocess
 import sys
-import tempfile
 from datetime import datetime, timezone
 from typing import cast
 
@@ -16,6 +15,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
+_write_json_atomically = runpy.run_path(os.path.join(
+    _utilities_directory, 'write-json-atomically', 'write-json-atomically.py',
+))['write_json_atomically']
 
 
 _REVIEW_REASON = (
@@ -49,7 +51,6 @@ def main():
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
         return 2
-    state_directory = os.path.dirname(state_path)
 
     # サブエージェントの停止では親セッションの状態を消費しない。
     if hook_input.get('agentId'):
@@ -155,41 +156,12 @@ def main():
         'pending': False,
     }
 
-    temporary_state_path = None
     try:
-        # exist_ok=True を指定して、すでにディレクトリが存在していてもエラーにしない。
-        os.makedirs(state_directory, exist_ok=True)
-
-        # 一時ファイルに書き込んでから置き換え、不完全な状態ファイルを読み込ませない。
-        # with：処理を抜けるときの後片付けを自動で行う構文（C#のusingに相当）。
-        # 'w'：書き込みモード。既存のファイルがあれば上書きされる。
-        # newline='' を指定して、改行コードの自動変換を抑制する。
-        # dir=state_directory：一時ファイルを状態ディレクトリに作成する。
-        # delete=False：withを抜けても自動削除されない。手動で削除する。
-        with tempfile.NamedTemporaryFile(
-            mode='w',
-            encoding='utf-8',
-            newline='',
-            dir=state_directory,
-            delete=False,
-        ) as temp_state_file:
-            # tempfile.NamedTemporaryFile()が返すファイルオブジェクトには、
-            # 作成した一時ファイルのパスが.nameとして入る。.path属性はない。
-            temporary_state_path = temp_state_file.name
-            json.dump(state, temp_state_file, ensure_ascii=False, separators=(',', ':'))
-
-        # temporary_state_path で示されるファイルで、state_path で示されるファイルを置き換える。
-        os.replace(temporary_state_path, state_path)
-        temporary_state_path = None
+        # 一時ファイルに書いてから置き換え、不完全な状態ファイルを読み込ませない。
+        _write_json_atomically(state_path, state)
     except OSError as ex:
         print(f'Failed to save adversarial review state: {ex}', file=sys.stderr)
         return 2
-    finally:
-        if temporary_state_path is not None and os.path.exists(temporary_state_path):
-            try:
-                os.unlink(temporary_state_path)
-            except OSError as ex:
-                print(f'Failed to remove temporary state file: {ex}', file=sys.stderr)
 
     # この標準出力を受け取ったhook呼び出し元は、decision:blockに従って停止したのち、
     # reasonに従って敵対的レビューエージェントを呼び出すことになる。

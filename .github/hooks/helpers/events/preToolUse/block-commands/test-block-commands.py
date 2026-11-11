@@ -68,6 +68,34 @@ _test_cases = [
     {'Command': 'git commit --amend; Write-Host done', 'Expected': 'deny'},
     {'Command': 'git commit --amend-invalid', 'Expected': None},
     {'Command': 'git commit -m "normal"; Write-Host --amend', 'Expected': None},
+    # 行頭の空白、サブシェル・グループ・コマンド置換、予約語、前置きのコマンド、変数の代入の後の `git` も拒否する。
+    {'Command': '  git reset --hard', 'Expected': 'deny'},
+    {'Command': '(git reset --hard)', 'Expected': 'deny'},
+    {'Command': '{ git reset; }', 'Expected': 'deny'},
+    {'Command': 'echo $(git reset)', 'Expected': 'deny'},
+    {'Command': 'echo `git commit --amend`', 'Expected': 'deny'},
+    {'Command': 'if true; then git reset --hard; fi', 'Expected': 'deny'},
+    {'Command': 'while true; do git rebase main; done', 'Expected': 'deny'},
+    {'Command': '! git reset', 'Expected': 'deny'},
+    {'Command': 'env git reset --hard', 'Expected': 'deny'},
+    {'Command': 'sudo -n git reset', 'Expected': 'deny'},
+    {'Command': 'command git reset', 'Expected': 'deny'},
+    {'Command': 'time git push -f', 'Expected': 'deny'},
+    {'Command': 'FOO="a b" git reset', 'Expected': 'deny'},
+    {'Command': '& git reset', 'Expected': 'deny'},
+    {'Command': 'git reset;ls', 'Expected': 'deny'},
+    {'Command': 'echo do git reset', 'Expected': None},
+    {'Command': 'legit reset', 'Expected': None},
+    {'Command': 'git reset-x', 'Expected': None},
+    # まとめた短いオプションとrefspecの `+` による強制pushも拒否する。
+    {'Command': 'git push -uf origin main', 'Expected': 'deny'},
+    {'Command': 'git push origin +main', 'Expected': 'deny'},
+    {'Command': 'git -C repo push origin +HEAD:main', 'Expected': 'deny'},
+    {'Command': 'git push -u origin my-feature', 'Expected': None},
+    {'Command': 'git push --follow-tags origin main', 'Expected': None},
+    {'Command': 'git push -o ci.skip origin main', 'Expected': None},
+    # 引用符の中は区別しないため、コミットメッセージ内の `; git reset` も拒否する（制約と限界）。
+    {'Command': 'git commit -m "fix; git reset is bad"', 'Expected': 'deny'},
 ]
 
 _payload_cases = [
@@ -77,6 +105,9 @@ _payload_cases = [
     {'Name': 'non-command without args', 'Json': '{"toolName":"view"}'},
     {'Name': 'anchored tool name', 'Json': '{"toolName":"not_bash","toolArgs":{"command":"git reset"}}'},
     {'Name': 'raw command', 'Json': '{"toolName":"bash","toolArgs":"git reset"}', 'Expected': 'deny'},
+    {'Name': 'JSON string args', 'Json': json.dumps({'toolName': 'bash', 'toolArgs': json.dumps({'command': 'git reset --hard'})}), 'Expected': 'deny'},
+    {'Name': 'JSON string args allowed', 'Json': json.dumps({'toolName': 'bash', 'toolArgs': json.dumps({'command': 'git status'})})},
+    {'Name': 'JSON string args without command', 'Json': json.dumps({'toolName': 'bash', 'toolArgs': json.dumps({'Command': 'git reset'})}), 'Error': 'requires a non-empty command string'},
     {'Name': 'prefixed bash', 'Json': '{"toolName":"functions.bash","toolArgs":{"command":"git reset"}}', 'Expected': 'deny'},
     {'Name': 'prefixed PowerShell', 'Json': '{"toolName":"functions.powershell","toolArgs":{"command":"git reset"}}', 'Expected': 'deny'},
     {'Name': 'Japanese command', 'Json': '{"toolName":"bash","toolArgs":{"command":"echo 日本語; git reset"}}', 'Expected': 'deny'},
@@ -347,8 +378,8 @@ class BlockCommandsTests(unittest.TestCase):
                                 os.path.join(_script_directory, filename),
                                 os.path.join(copied_script_directory, filename),
                             )
-                    # ラッパーが使うPythonのバージョン確認と、hookが読み込む入力の読み込み・正規表現のコンパイル処理も複製する。
-                    for utility in ('check-python-version', 'read-hook-input', 'build-regex-matchers'):
+                    # ラッパーが使うPythonのバージョン確認と、hookが読み込む入力の読み込み・正規表現のコンパイル・引数の包みを外す処理も複製する。
+                    for utility in ('check-python-version', 'read-hook-input', 'build-regex-matchers', 'unwrap-tool-args'):
                         copied_utilities_directory = os.path.join(helpers_directory, 'utilities', utility)
                         os.makedirs(copied_utilities_directory)
                         shutil.copyfile(

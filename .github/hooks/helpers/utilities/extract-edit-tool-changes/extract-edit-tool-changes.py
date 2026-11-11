@@ -12,17 +12,26 @@ _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))
+# 対象のファイルのパスを表す引数名とその取り出し方は、get-edited-paths utilityと共有する。
+get_path_argument = _edited_paths['get_path_argument']
 
 _EDIT_TOOL_NAMES = frozenset({'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'})
 # 書き込む内容ではない引数と、置換前の内容を表す引数。
-_IGNORED_KEYS = frozenset({'path', 'command'})
-_REMOVED_TEXT_KEYS = ('old_str', 'old_string')
-_NEW_TEXT_KEYS = ('new_str', 'new_string')
-_FULL_CONTENT_KEYS = ('file_text', 'content')
+# 引数名・コマンド・パッチの書式は、編集を再現するsimulate-edit-tool-changes utilityと共有する。
+_IGNORED_KEYS = frozenset({*_edited_paths['PATH_KEYS'], 'command'})
+REMOVED_TEXT_KEYS = ('old_str', 'old_string')
+NEW_TEXT_KEYS = ('new_str', 'new_string')
+FULL_CONTENT_KEYS = ('file_text', 'content')
 # 書き込みではないstr_replace_editorのコマンド。undo_editは書き込む内容を引数に持たない。
-_NON_WRITE_COMMANDS = frozenset({'view', 'undo_edit'})
-_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
-_PATCH_MOVE_PATTERN = re.compile(r'^\*\*\* Move to: (.+?)\s*$')
+NON_WRITE_COMMANDS = frozenset({'view', 'undo_edit'})
+PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+?)\s*$')
+PATCH_MOVE_PATTERN = re.compile(r'^\*\*\* Move to: (.+?)\s*$')
+
+
+def get_first_string(tool_args, keys):
+    # keysの順に、ツール引数のうち最初に見つかった文字列の値を返す。なければNone。
+    return next((tool_args[key] for key in keys if isinstance(tool_args.get(key), str)), None)
 
 
 def _get_patch_changes(text):
@@ -30,13 +39,13 @@ def _get_patch_changes(text):
     # 文脈行（` `）を含む本文の行は、行の並びを使うhookのために `patch_lines` に残す。
     changes = []
     for line in text.splitlines():
-        match = _PATCH_FILE_PATTERN.match(line)
+        match = PATCH_FILE_PATTERN.match(line)
         if match:
             changes.append({
                 'path': match.group(2), 'written': [], 'removed': [], 'deleted': match.group(1) == 'Delete',
                 'moved_to': None, 'full_content': None, 'replacement': None, 'patch_lines': [],
             })
-        elif changes and (move := _PATCH_MOVE_PATTERN.match(line)):
+        elif changes and (move := PATCH_MOVE_PATTERN.match(line)):
             changes[-1]['moved_to'] = move.group(1)
         elif changes and line[:1] in ('+', '-', ' '):
             change = changes[-1]
@@ -49,10 +58,6 @@ def _get_patch_changes(text):
         change['written'] = '\n'.join(change['written'])
         change['removed'] = '\n'.join(change['removed'])
     return changes
-
-
-def _get_first_string(tool_args, keys):
-    return next((tool_args[key] for key in keys if isinstance(tool_args.get(key), str)), None)
 
 
 def extract_edit_tool_changes(tool_name, raw_tool_args, include_deleted=False):
@@ -75,21 +80,21 @@ def extract_edit_tool_changes(tool_name, raw_tool_args, include_deleted=False):
     if not isinstance(tool_args, dict):
         return []
     command = tool_args.get('command')
-    if tool_name == 'str_replace_editor' and command in _NON_WRITE_COMMANDS:
+    if tool_name == 'str_replace_editor' and command in NON_WRITE_COMMANDS:
         return []
-    path = tool_args.get('path')
-    if not isinstance(path, str) or not path.strip():
+    path = get_path_argument(tool_args)
+    if path is None:
         return []
     is_create = tool_name == 'create' or (tool_name == 'str_replace_editor' and command == 'create')
-    old = _get_first_string(tool_args, _REMOVED_TEXT_KEYS)
-    new = _get_first_string(tool_args, _NEW_TEXT_KEYS)
+    old = get_first_string(tool_args, REMOVED_TEXT_KEYS)
+    new = get_first_string(tool_args, NEW_TEXT_KEYS)
     return [{
         'path': path,
-        'written': '\n'.join(_collect_json_string_values(tool_args, _IGNORED_KEYS | frozenset(_REMOVED_TEXT_KEYS))),
-        'removed': '\n'.join(text for key in _REMOVED_TEXT_KEYS for text in _collect_json_string_values(tool_args.get(key))),
+        'written': '\n'.join(_collect_json_string_values(tool_args, _IGNORED_KEYS | frozenset(REMOVED_TEXT_KEYS))),
+        'removed': '\n'.join(text for key in REMOVED_TEXT_KEYS for text in _collect_json_string_values(tool_args.get(key))),
         'deleted': False,
         'moved_to': None,
-        'full_content': _get_first_string(tool_args, _FULL_CONTENT_KEYS) if is_create else None,
+        'full_content': get_first_string(tool_args, FULL_CONTENT_KEYS) if is_create else None,
         'replacement': (old, new) if old and new is not None else None,
         'patch_lines': None,
     }]

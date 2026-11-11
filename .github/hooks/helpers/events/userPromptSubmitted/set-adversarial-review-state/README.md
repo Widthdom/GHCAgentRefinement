@@ -13,5 +13,7 @@ userPromptSubmitted（ユーザがプロンプトを投入する度）
 ## 状態
 [敵対的レビューエージェント](../../../../../agents/adversarial-review.agent.md)の呼び出しの条件として敵対的レビューモードが有効かつレビュー待ちであることが必要である。
 
+状態ファイルは [write-json-atomically](../../../utilities/write-json-atomically/README.md) で一時ファイルに書いてから置き換え、読む側のhookに書き込み途中の内容を読ませない。
+
 ## 例外
 - サブエージェント由来の `agentId` 付き入力では親の状態を更新しない。
