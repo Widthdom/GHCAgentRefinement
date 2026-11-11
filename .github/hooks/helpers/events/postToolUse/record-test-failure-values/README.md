@@ -10,7 +10,7 @@ postToolUse（ツール `bash`・`powershell` が成功した直後）
 
 ## 処理詳細
 
-1. ツール引数の `command` がテストの実行（`pytest`・`npm test`・`test-*.py` など）でなければ何もしない。テストの実行かどうかは、[check-test-runs.py](../../../utilities/check-test-runs/check-test-runs.py) の基準で判定する。
+1. ツール引数の `command` がテストの実行（`pytest`・`npm test`・`test-*.py` など）でなければ何もしない。テストの実行かどうかは、[check-test-runs](../../../utilities/check-test-runs/README.md) の規則で判定する（`grep test` などの読むだけのコマンドは除く）。
 2. ツールの結果（`toolResult.textResultForLlm`）から、失敗したアサーションの期待値と実際の値の組を読み取る。
 3. 値を正規化し（前後の空白・末尾のカンマ・1組の引用符を除く）、組と期待値をこのセッションの最新のテスト実行の結果として記録する。前回の記録は消す。
 

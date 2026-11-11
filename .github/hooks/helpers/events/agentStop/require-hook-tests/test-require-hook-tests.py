@@ -123,11 +123,19 @@ class RequireHookTestsTests(unittest.TestCase):
             (_shell('s1', f'python3 {test}', None), 'did not complete'),
             (_shell('s1', 'python3 test-other-alpha.py', 0), 'not run'),
             (_shell('s1', 'git status', 0), 'not run'),
+            # 読むだけのコマンドはテストの実行とみなさない。
+            (_shell('s1', f'cat {test}', 0), 'not run'),
+            (_shell('s1', f'git add {test}', 0), 'not run'),
+            # 後に別のコマンドが続くと、終了コードはテストの結果を表さない。
+            (_shell('s1', f'python3 {test}; echo done', 0), 'exit status hidden'),
+            (_shell('s1', f'python3 {test} || true', 0), 'exit status hidden'),
         )
         for runs, status in cases:
             with self.subTest(status=status, runs=runs):
                 events = [_user('直して'), *_edit('e1', alpha), *runs]
-                self.__assert_block(self.__invoke(events), f'- preToolUse/alpha ({status}): run `{_PYTHON_COMMAND} {test}`')
+                self.__assert_block(
+                    self.__invoke(events), f'- preToolUse/alpha ({status}', f'): run `{_PYTHON_COMMAND} {test}`',
+                )
 
     def test_repository_specific_hooks(self):
         directory = os.path.join(self.__hooks, 'helpers', '-repo-events', 'preToolUse', 'gamma')
@@ -165,6 +173,7 @@ class RequireHookTestsTests(unittest.TestCase):
             [*_edit('e1', alpha), *_shell('s1', r'python .github\hooks\helpers\events\preToolUse\alpha\test-alpha.py', 0, 'powershell')],
             [*_edit('e1', alpha), *_edit('e2', beta), *_shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
             [*_edit('e1', alpha), *_shell('s1', 'cd .github/hooks/helpers/events/preToolUse/alpha && python3 test-alpha.py -v', 0)],
+            [*_edit('e1', alpha), *_shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py > /tmp/all.log 2>&1 && tail -5 /tmp/all.log', 0)],
             [*_edit('e1', '.github/hooks/preToolUse.json'), *_shell('s1', 'python3 .github/hooks/tests/test-hook-configurations.py', 0)],
             [*_edit('e1', '.github/hooks/helpers/utilities/shared/shared.py'), *_shell('s1', 'python3 .github/hooks/tests/test-all-hooks.py', 0)],
             [*_edit('e1', '.github/hooks/helpers/runner/run-hook.py'),

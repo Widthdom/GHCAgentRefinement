@@ -26,17 +26,8 @@ _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-to
 # powershellはパイプラインの終了コードの扱いが異なるため、bashだけを対象にする。
 _SHELL_TOOL_PATTERN = re.compile(r'^(?:functions\.)?bash$', re.IGNORECASE)
 # 終了コードが成否を表すコマンドのうち、テスト以外（ビルド・静的検査）の語。
-# テストの語は、check-test-runs utilityがテストの実行とみなす語を使う。
+# テストの語と、読むだけのコマンド（`grep test`・`ls build` など）の除外は、check-test-runs utilityのものを使う。
 _BUILD_AND_LINT_COMMAND_WORDS = ('build', 'msbuild', 'make', 'tsc', 'lint', 'eslint', 'ruff', 'mypy', 'clippy')
-# 出力やファイルを読むだけのコマンド。`grep test` や `ls build` をテスト・ビルドとみなさない。
-_READER_COMMANDS = {
-    'ag', 'awk', 'cat', 'cut', 'diff', 'du', 'echo', 'egrep', 'fd', 'fgrep', 'file', 'find', 'git', 'grep',
-    'head', 'jq', 'less', 'ls', 'more', 'printf', 'rg', 'sed', 'sort', 'stat', 'tail', 'tr', 'tree', 'uniq',
-    'wc', 'which', 'yq',
-}
-# 後続の語が実際のコマンドになるもの。`timeout` は次の時間指定も読み飛ばす。
-_WRAPPER_COMMANDS = {'builtin', 'command', 'env', 'exec', 'nice', 'nohup', 'sudo', 'time', 'xargs'}
-_ASSIGNMENT_PATTERN = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=')
 _PIPE_OPERATORS = {'|', '|&'}
 _REDIRECT_OPERATORS = {'>', '>>', '>|', '&>', '&>>', '<', '<<', '<<-', '<<<', '<&', '>&', '<>'}
 # `set -o pipefail`・`set -euo pipefail` などの `o` を含むオプションの直後の語がpipefailなら設定とみなす。
@@ -93,28 +84,7 @@ def _get_pipefail(words, current):
     return current
 
 
-def _get_command_words(words):
-    # 環境変数の代入とラッパーを読み飛ばし、実際に実行するコマンド以降の語を返す。
-    index = 0
-    while index < len(words):
-        word = words[index]
-        if _ASSIGNMENT_PATTERN.match(word) or word.startswith('-') or word in _WRAPPER_COMMANDS:
-            index += 1
-        elif word == 'timeout':
-            index += 2
-        else:
-            break
-    return words[index:]
-
-
-def _is_checked_command(words, checked_command_pattern):
-    command_words = _get_command_words(words)
-    if not command_words or os.path.basename(command_words[0]) in _READER_COMMANDS:
-        return False
-    return bool(checked_command_pattern.search(' '.join(command_words)))
-
-
-def _get_masked_commands(command, checked_command_pattern):
+def _get_masked_commands(command, runs_checked_command):
     # 最後の段以外にテスト・ビルドがあり、pipefailが無効なパイプラインのテスト・ビルドを返す。
     # `PIPESTATUS` を参照している場合は、各段の終了コードを確かめているとみなす。
     if 'PIPESTATUS' in command:
@@ -123,7 +93,7 @@ def _get_masked_commands(command, checked_command_pattern):
     for segments, pipefail in _get_pipelines(command):
         if pipefail or len(segments) < 2:
             continue
-        masked.extend(' '.join(segment) for segment in segments[:-1] if _is_checked_command(segment, checked_command_pattern))
+        masked.extend(' '.join(segment) for segment in segments[:-1] if runs_checked_command(segment))
     return masked
 
 
@@ -146,6 +116,10 @@ def main():
         checked_command_pattern = check_test_runs['compile_command_pattern'](
             (*check_test_runs['TEST_COMMAND_WORDS'], *_BUILD_AND_LINT_COMMAND_WORDS)
         )
+
+        def runs_checked_command(words):
+            return check_test_runs['runs_command'](words, checked_command_pattern)
+
         hook_input = _hook_input['read_hook_input']()
         state_path = _get_state_path('block-masked-exit-codes', hook_input.get('sessionId'))
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
@@ -154,7 +128,7 @@ def main():
         command_keys = []
         tool_args = _unwrap_tool_args(tool_args) if _SHELL_TOOL_PATTERN.match(tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
-        commands = _get_masked_commands(command, checked_command_pattern) if isinstance(command, str) else []
+        commands = _get_masked_commands(command, runs_checked_command) if isinstance(command, str) else []
         if commands:
             masked.extend(commands)
             # 状態にはコマンドを保存せず、照合用のSHA-256だけを保存する。

@@ -114,6 +114,20 @@ class VerifyTestPassClaimsTests(unittest.TestCase):
             with self.subTest(claim=claim):
                 events = [_user('直して'), *_shell('c1', 'git status', 0), _assistant(claim)]
                 self.__assert_block(self.__invoke(events), _UNVERIFIED_PREFIX, 'no test command was run')
+        # 読むだけのコマンドは、引数にテストの語があってもテストの実行とみなさない。
+        for command in ('ls tests', 'git log --oneline | grep test', 'cat tests/test-a.py'):
+            with self.subTest(command=command):
+                events = [_user('直して'), *_shell('c1', command, 0), _assistant('テストが通った。')]
+                self.__assert_block(self.__invoke(events), _UNVERIFIED_PREFIX, 'no test command was run')
+
+    def test_blocks_when_exit_status_does_not_reflect_tests(self):
+        for command in ('python3 test-a.py; echo done', 'python3 test-a.py || true', 'npm test | tail -5'):
+            with self.subTest(command=command):
+                events = [_user('直して'), *_shell('c1', command, 0), _assistant('テストが通った。')]
+                self.__assert_block(
+                    self.__invoke(events), _UNVERIFIED_PREFIX,
+                    'exited with code 0, but its exit status does not reflect the test result', command,
+                )
 
     def test_blocks_when_last_test_run_failed(self):
         cases = (
