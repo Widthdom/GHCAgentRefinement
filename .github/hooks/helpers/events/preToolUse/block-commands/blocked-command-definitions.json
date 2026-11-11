@@ -1,22 +1,22 @@
 [
   {
     "name": "git rebase",
-    "pattern": "(?im)(?:^|[;&|]\\s*)git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+rebase(?:\\s|$)",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+rebase(?=[\\s;&|)`]|$)",
     "reason": "git rebase is blocked by the repository command policy."
   },
   {
     "name": "git force push",
-    "pattern": "(?im)(?:^|[;&|]\\s*)git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+push(?:[^\\r\\n;&|]*\\s)(?:-f|--force(?:-with-lease|-if-includes)?)(?:[=\\s]|$)",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+push(?:[^\\r\\n;&|]*\\s)(?:(?:-[A-Za-z]*f[A-Za-z]*|--force(?:-with-lease|-if-includes)?)(?=[=\\s;&|)`]|$)|\\+[^\\s;&|])",
     "reason": "Force-pushing with git push is blocked by the repository command policy."
   },
   {
     "name": "git reset",
-    "pattern": "(?im)(?:^|[;&|]\\s*)git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+reset(?:\\s|$)",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+reset(?=[\\s;&|)`]|$)",
     "reason": "git reset is blocked by the repository command policy."
   },
   {
     "name": "git commit amend",
-    "pattern": "(?im)(?:^|[;&|]\\s*)git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+commit(?:[^\\r\\n;&|]*\\s)--amend(?=[\\s;&|]|$)",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+commit(?:[^\\r\\n;&|]*\\s)--amend(?=[\\s;&|)`]|$)",
     "reason": "Amending commits with git commit --amend is blocked by the repository command policy."
   }
 ]

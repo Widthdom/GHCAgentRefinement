@@ -19,6 +19,13 @@ preToolUse（bashまたはpowershellツールの実行前）
 ## 例外
 - bashとpowershell以外のツール呼び出しは処理対象外。
 
+## 制約と限界
+- コマンドの始まりとみなす位置は、行頭（空白を含む）、`;`・`&`・`|`・`(`・`)`・`{`・`}`・`` ` `` の後、およびその位置に続く予約語（`then`・`do`・`else`・`elif`・`if`・`while`・`until`・`!`）、前置きのコマンド（`time`・`env`・`sudo`・`command`・`exec`・`nohup`・`nice`・`builtin`）とそのオプション、変数の代入（`FOO=1`）の後に限る。次の書き方は検出できない。
+  - 前置きのコマンドが引数を取るオプション（`env -u NAME git …`・`sudo -u user git …` など）や、ここに挙げていない前置きのコマンド（`xargs` など）
+  - 変数や文字列の連結で組み立てたコマンド、エイリアス、`bash -c 'git reset'` のように引用符の中で始まるコマンド
+  - `git push` の引数に `-f`・`+` を含めず、設定（`remote.<name>.push` の `+`・`push.default` など）で強制pushになる場合
+- 引用符の中を区別しないため、`git commit -m "fix; git reset is bad"` のように引用符の中に区切りと `git` のコマンドがあると拒否する。引用符の中を除くと `bash -c "cd x; git reset"` を検出できなくなるため、誤拒否として許容する。メッセージを書き換えるか、ファイルから渡す（`git commit -F`）。
+
 ## 備考
 - Python未インストール時であっても機能するように、Windowsでは[cmd](./block-commands.cmd)、macOS/Linuxでは[sh](./block-commands.sh)を呼び出す。
 - Windows用バッチはコメントも含めASCIIで記述する。UTF-8の日本語コメントは、cmd.exeのコードページによってコメントの一部がコマンドとして解釈されるため、使用しない。
