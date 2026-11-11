@@ -189,20 +189,28 @@ class RunHookTests(unittest.TestCase):
                 self.assertEqual(self.__recorded_runs()[-1], ('preToolUse', 'fake-hook', 1 if fired else 0))
 
     def test_skips_recording_without_session_id(self):
-        for stdin in (b'', b'{invalid', b'[]', json.dumps({'sessionId': ' '}).encode('utf-8'), b'{"sessionId":"\xff"}'):
+        for stdin in (
+            b'', b'{invalid', b'[]', json.dumps({'sessionId': ' '}).encode('utf-8'), b'{"sessionId":"\xff"}',
+            json.dumps({'sessionId': 'not-a-uuid'}).encode('utf-8'), json.dumps({'sessionId': 42}).encode('utf-8'),
+        ):
             with self.subTest(stdin=stdin):
                 result = self.__run_hook(stdin, FAKE_STDOUT='{"decision":"block"}')
                 self.assertEqual(result.returncode, 0)
                 self.assertEqual(result.stdout, b'{"decision":"block"}')
+                # UUIDでないsessionIdでも、記録の失敗を標準エラーに出さない。
+                self.assertEqual(result.stderr, b'')
                 self.assertEqual(self.__recorded_runs(), [])
 
     def test_recording_failure_keeps_hook_result(self):
-        result = self.__run_hook(
-            json.dumps({'sessionId': 'not-a-uuid'}).encode('utf-8'), FAKE_STDOUT='{"decision":"block"}',
-        )
+        # 記録の保存先のフォルダーと同じ名前のファイルを置き、記録を失敗させる。
+        states_directory = os.path.join(self.__temp_directory, 'ghc-agent-refinement', 'hook-states')
+        os.makedirs(states_directory)
+        with open(os.path.join(states_directory, 'hook-activity'), 'w', encoding='utf-8', newline='\n') as file:
+            file.write('not a directory')
+        result = self.__run_hook(self.__payload(), FAKE_STDOUT='{"decision":"block"}')
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout, b'{"decision":"block"}')
-        self.assertIn(b'Failed to record hook run for fake-hook: sessionId must be a valid UUID.', result.stderr)
+        self.assertIn(b'Failed to record hook run for fake-hook:', result.stderr)
 
     def test_rejects_invalid_arguments(self):
         self.__write_file('.github/hooks/helpers/events/preToolUse/fake-hook/other.py', _FAKE_HOOK)

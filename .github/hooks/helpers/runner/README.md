@@ -12,7 +12,7 @@ JSONの `bash` には `python3 .github/hooks/helpers/runner/run-hook.py <実行�
 1. 引数の実行スクリプトが `helpers/events/<イベント名>/<hook名>/<hook名>.py` または `helpers/-repo-events/<イベント名>/<hook名>/<hook名>.py` の形で存在するか確認する。違う場合は原因を標準エラーに出力し、終了コード2で終了する。
 2. 実行スクリプトを、子プロセスにせずランナーのプロセス内で `runpy.run_path(..., run_name='__main__')` により実行する（[実行方式](#実行方式)を参照）。標準入力はバイト列のまま渡し、標準出力・標準エラーは差し替えたバッファで受け取る。
 3. 受け取った標準出力・標準エラーをバイト列のまま中継し、hookの終了コードをそのまま返す。
-4. 入力の `sessionId` が読める場合、起動時刻・イベント名・hook名・機能したかどうかを `<一時フォルダー>/ghc-agent-refinement/hook-states/hook-activity/<セッションID>.sqlite3` に記録する。記録は [hook-activity-state.py](../utilities/hook-activity-state/hook-activity-state.py) で読み書きする。
+4. 入力の `sessionId` がUUIDとして読める場合、起動時刻・イベント名・hook名・機能したかどうかを `<一時フォルダー>/ghc-agent-refinement/hook-states/hook-activity/<セッションID>.sqlite3` に記録する。記録は [hook-activity-state.py](../utilities/hook-activity-state/hook-activity-state.py) で読み書きする。
 
 ## 実行方式
 ### プロセス内で実行する理由
@@ -39,7 +39,7 @@ Copilotは `timeoutSec` を超えたhookのプロセスを終了させる。hook
 - 標準出力が空・空白だけ・空のJSONオブジェクト（`{}`）のいずれでもない。
 
 ## 例外
-- `sessionId` を読めない入力のときは、記録だけを行わない。入力の検証は起動したhook自身が行う。
+- `sessionId` を読めない入力（UUIDとして解析できない値を含む）のときは、記録だけを行わない。入力の検証は起動したhook自身が行う。
 - [check-python](../events/sessionStart/check-python/README.md) と [block-commands](../events/preToolUse/block-commands/README.md) は本ランナーを通さない。Pythonが無い環境や古い環境でも、Pythonの不足を報告したりコマンドを拒否したりする必要があるため。この2つは起動も機能も記録されない。
 
 ## 制約と限界
