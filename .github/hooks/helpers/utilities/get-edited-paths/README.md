@@ -5,7 +5,8 @@
 
 ## 解析の規則
 - `apply_patch`：パッチ本文の `*** Add File:`・`*** Update File:`・`*** Delete File:`・`*** Move to:` の行のパスを、出現順に取り出す。対象にする行の種類は、呼び出し元が指定する（既定はすべて）。
-- それ以外の編集ツール：ツール引数の `path` を取り出す。`str_replace_editor` の `view` は閲覧なので対象外とする。
+- それ以外の編集ツール：ツール引数の `path`（なければ `file_path`）を取り出す。`edit`・`view` は `path`、`create` は `file_path` でパスを渡す。`str_replace_editor` の `view` は閲覧なので対象外とする。
+- パスの引数名（`PATH_KEYS`）と取り出し方（`get_path_argument`）は、[extract-edit-tool-changes](../extract-edit-tool-changes/README.md)・[simulate-edit-tool-changes](../simulate-edit-tool-changes/README.md)、[record-seen-files](../../events/postToolUse/record-seen-files/README.md)・[block-nonportable-paths](../../-repo-events/preToolUse/block-nonportable-paths/README.md) hookも使う。
 - パスはツールに渡された表記のまま返す。cwdを基準にした解決や正規化は、呼び出し元が行う。
 
 ## 利用するhook

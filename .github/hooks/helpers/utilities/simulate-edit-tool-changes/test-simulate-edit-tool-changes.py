@@ -33,6 +33,7 @@ class SimulateEditToolChangesTests(unittest.TestCase):
         for tool_name, tool_args in (
             ('create', {'path': 'new.txt', 'file_text': 'x\n'}),
             ('create', {'path': 'new.txt', 'content': 'x\n'}),
+            ('create', {'file_path': 'new.txt', 'file_text': 'x\n'}),
             ('str_replace_editor', {'command': 'create', 'path': 'new.txt', 'file_text': 'x\n'}),
         ):
             with self.subTest(tool_name=tool_name, tool_args=tool_args):

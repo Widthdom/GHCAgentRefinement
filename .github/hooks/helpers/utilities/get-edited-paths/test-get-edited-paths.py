@@ -29,6 +29,14 @@ class GetEditedPathsTests(unittest.TestCase):
             with self.subTest(tool_name=tool_name):
                 self.assertEqual(_get_edited_paths(tool_name, {'path': 'a.txt', 'command': 'str_replace'}), ['a.txt'])
 
+    def test_returns_file_path_argument(self):
+        # `create` はパスを `file_path` で渡す。`path` があればそちらを優先する。
+        self.assertEqual(_get_edited_paths('create', {'file_path': 'a.txt', 'file_text': 'x'}), ['a.txt'])
+        self.assertEqual(_get_edited_paths('create', {'path': 'a.txt', 'file_path': 'b.txt'}), ['a.txt'])
+        self.assertEqual(_get_edited_paths('create', {'path': ' ', 'file_path': 'b.txt'}), ['b.txt'])
+        self.assertIsNone(_module['get_path_argument']({'file_path': ' '}))
+        self.assertIsNone(_module['get_path_argument']('a.txt'))
+
     def test_skips_view_and_invalid_paths(self):
         for tool_name, tool_args in (
             ('str_replace_editor', {'path': 'a.txt', 'command': 'view'}),

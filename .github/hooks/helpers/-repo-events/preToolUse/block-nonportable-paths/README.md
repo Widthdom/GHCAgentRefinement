@@ -10,7 +10,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 処理詳細
 
-1. `toolName`・`toolArgs` から対象パスを取り出す。`apply_patch` では `Add File` と `Update File` に続く `Move to`、その他の編集ツールでは `path` を対象にする。
+1. `toolName`・`toolArgs` から対象パスを取り出す。`apply_patch` では `Add File` と `Update File` に続く `Move to`、その他の編集ツールでは `path`（`create` では `file_path`）を対象にする。引数名は [get-edited-paths](../../../utilities/get-edited-paths/README.md) と共有する。
 2. cwd基準の絶対パスにし、各階層の名前を調べる。既存ディレクトリの名前は実際の一覧から取得し、大文字小文字を区別しないファイルシステムでも表記の違いを検出する。
 3. 新しい名前について、Windowsの禁止文字（`<>:"\|?*` と制御文字）、末尾の空白・ドット、予約名を検出する。予約名は拡張子付きも対象で、`CON`・`PRN`・`AUX`・`NUL`・`CONIN$`・`CONOUT$`、`COM1`〜`COM9`・`LPT1`〜`LPT9` と上付き数字の1・2・3の形式を含む。
 4. NFC正規化と `casefold()` で、既存の名前と同一呼び出し内の追加・移動先との衝突を検出する。ファイル名だけでなく途中のディレクトリ名も調べる。

@@ -8,7 +8,7 @@
 
 |ツール|対象のファイル|書き込む内容|置換前の内容|
 |--|--|--|--|
-|`edit`・`create`・`insert`・`str_replace_editor`|`path`|`path`・`command`・`old_str`（`old_string`）を除く引数の文字列|`old_str`（`old_string`）|
+|`edit`・`create`・`insert`・`str_replace_editor`|`path`（`file_path`）|`path`・`file_path`・`command`・`old_str`（`old_string`）を除く引数の文字列|`old_str`（`old_string`）|
 |`apply_patch`|`*** Add File:`・`*** Update File:` ごと|パッチの追加行（`+`）|パッチの削除行（`-`）|
 
 - `str_replace_editor` の `view`・`undo_edit` は書き込みではないため対象外とする。

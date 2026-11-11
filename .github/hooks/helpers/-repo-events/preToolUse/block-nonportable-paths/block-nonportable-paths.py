@@ -18,6 +18,7 @@ _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))
 
 
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
@@ -68,9 +69,10 @@ def _get_operations(tool_name, tool_args):
             raise ValueError('editing toolArgs must be a JSON object.')
         if tool_name == 'str_replace_editor' and tool_args.get('command') in ('view', 'undo_edit'):
             return [], set()
-        path = tool_args.get('path')
-        if not isinstance(path, str) or not path:
-            raise ValueError('path must be a non-empty string.')
+        # 対象のファイルのパスは `path`、`create` では `file_path` で渡される。引数名はget-edited-paths utilityと共有する。
+        path = _edited_paths['get_path_argument'](tool_args)
+        if path is None:
+            raise ValueError(f"one of {', '.join(_edited_paths['PATH_KEYS'])} must be a non-empty string.")
         destinations.append(path)
     if any(not path or '\0' in path for path in [*destinations, *removed]):
         raise ValueError('file paths must be non-empty and must not contain NUL.')

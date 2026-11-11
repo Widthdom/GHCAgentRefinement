@@ -8,7 +8,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 処理詳細
 1. 呼び出すツール（`toolName`・`toolArgs`）から、守るパス（[守る対象](#守る対象)を参照）への変更を探す。
-   - 編集系ツール：`path`、または `apply_patch` の `*** Add File:`・`*** Update File:`・`*** Delete File:`・`*** Move to:` のパスを、cwdを基準に絶対パスにして照合する（`str_replace_editor` の `view` は除く）。
+   - 編集系ツール：`path`（`create` では `file_path`）、または `apply_patch` の `*** Add File:`・`*** Update File:`・`*** Delete File:`・`*** Move to:` のパスを、cwdを基準に絶対パスにして照合する（`str_replace_editor` の `view` は除く）。
    - bash・powershell：コマンドが守るパス（または守るパスを含むフォルダー）を含み、かつ[変更とみなす操作](#変更とみなす操作)を含む場合に変更とみなす。
 2. 変更がなければ何もしない。
 3. [record-hook-change-requests](../../userPromptSubmitted/record-hook-change-requests/README.md) hookの記録を読み、このセッションでユーザーがhookの変更に触れていれば許可する。

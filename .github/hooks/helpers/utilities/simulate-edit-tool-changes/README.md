@@ -4,7 +4,7 @@
 ファイル編集ツールの呼び出し1件をツールの実行前に再現し、書き込み先のファイルごとに編集前と編集後のファイル全体の内容を求める。編集後のファイル全体を検査するhookが共有する。書き込む内容と置換前の内容（差分の断片）だけが必要なhookは [extract-edit-tool-changes](../extract-edit-tool-changes/README.md) を使う。
 
 ## 解析の規則
-- 引数名（`old_str`・`old_string` など）、書き込みではないコマンド、パッチの見出しの書式は、[extract-edit-tool-changes](../extract-edit-tool-changes/README.md) と同じ定義を使う。
+- 引数名（`path`・`file_path`、`old_str`・`old_string` など）、書き込みではないコマンド、パッチの見出しの書式は、[extract-edit-tool-changes](../extract-edit-tool-changes/README.md) と同じ定義を使う。
 - `create`・`str_replace_editor` の `create`：`file_text`（`content`）を編集後の内容とする。
 - `edit`・`str_replace_editor` の `str_replace`：現在の内容の最初の `old_str`（`old_string`）を `new_str`（`new_string`）に置き換える。
 - `insert`・`str_replace_editor` の `insert`：現在の内容の `insert_line` 行目の後（`0` は先頭）に `new_str`（`new_string`）を挿入する。

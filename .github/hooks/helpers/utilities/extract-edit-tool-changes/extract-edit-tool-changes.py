@@ -12,11 +12,14 @@ _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))
+# 対象のファイルのパスを表す引数名とその取り出し方は、get-edited-paths utilityと共有する。
+get_path_argument = _edited_paths['get_path_argument']
 
 _EDIT_TOOL_NAMES = frozenset({'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'})
 # 書き込む内容ではない引数と、置換前の内容を表す引数。
 # 引数名・コマンド・パッチの書式は、編集を再現するsimulate-edit-tool-changes utilityと共有する。
-_IGNORED_KEYS = frozenset({'path', 'command'})
+_IGNORED_KEYS = frozenset({*_edited_paths['PATH_KEYS'], 'command'})
 REMOVED_TEXT_KEYS = ('old_str', 'old_string')
 NEW_TEXT_KEYS = ('new_str', 'new_string')
 FULL_CONTENT_KEYS = ('file_text', 'content')
@@ -79,8 +82,8 @@ def extract_edit_tool_changes(tool_name, raw_tool_args, include_deleted=False):
     command = tool_args.get('command')
     if tool_name == 'str_replace_editor' and command in NON_WRITE_COMMANDS:
         return []
-    path = tool_args.get('path')
-    if not isinstance(path, str) or not path.strip():
+    path = get_path_argument(tool_args)
+    if path is None:
         return []
     is_create = tool_name == 'create' or (tool_name == 'str_replace_editor' and command == 'create')
     old = get_first_string(tool_args, REMOVED_TEXT_KEYS)

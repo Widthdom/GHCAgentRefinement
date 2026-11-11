@@ -76,6 +76,9 @@ class BlockHookTamperingTests(unittest.TestCase):
             ('edit', {'path': '.github/hooks/preToolUse.json', 'old_str': 'a', 'new_str': 'b'}, '.github/hooks/preToolUse.json'),
             ('create', {'path': os.path.join(self.__directory, '.github', 'hooks', 'helpers', 'events', 'x', 'y', 'y.py'), 'file_text': ''},
              '.github/hooks/helpers/events/x/y/y.py'),
+            # `create` はパスを `file_path` で渡す。
+            ('create', {'file_path': os.path.join(self.__directory, '.github', 'hooks', 'preToolUse.json'), 'file_text': '{}'},
+             '.github/hooks/preToolUse.json'),
             ('functions.edit', json.dumps({'path': '.github/Hooks/agentStop.json'}), '.github/Hooks/agentStop.json'),
             ('str_replace_editor', {'command': 'str_replace', 'path': 'sub/../.github/hooks/a.json'}, '.github/hooks/a.json'),
             ('insert', {'path': '.github/hooks/helpers/-repo-events/p/q/q.py', 'insert_line': 1, 'new_str': 'x'},

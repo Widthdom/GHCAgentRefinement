@@ -16,6 +16,7 @@ _REMOVED_TEXT_KEYS = _extract_edit_tool_changes['REMOVED_TEXT_KEYS']
 _NEW_TEXT_KEYS = _extract_edit_tool_changes['NEW_TEXT_KEYS']
 _FULL_CONTENT_KEYS = _extract_edit_tool_changes['FULL_CONTENT_KEYS']
 _get_first_string = _extract_edit_tool_changes['get_first_string']
+_get_path_argument = _extract_edit_tool_changes['get_path_argument']
 
 
 class _UndeterminedContent(Exception):
@@ -142,8 +143,8 @@ def simulate_edit_tool_changes(tool_name, tool_args, cwd):
         return [content for text in texts for content in _get_patch_contents(text, cwd)]
     if not isinstance(tool_args, dict) or tool_args.get('command') in _NON_WRITE_COMMANDS:
         return []
-    path = tool_args.get('path')
-    if not isinstance(path, str) or not path.strip():
+    path = _get_path_argument(tool_args)
+    if path is None:
         return []
     path = os.path.abspath(os.path.join(cwd, path))
     try:

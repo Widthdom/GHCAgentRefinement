@@ -17,6 +17,10 @@ _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+# 対象のファイルのパスは `path`、`create` では `file_path` で渡される。引数名はget-edited-paths utilityと共有する。
+_get_path_argument = runpy.run_path(
+    os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py')
+)['get_path_argument']
 
 
 # 成功すればファイルの内容を把握したとみなせる組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
@@ -32,8 +36,8 @@ def _get_read_paths(tool_name, tool_args):
         return [
             match for text in _collect_json_string_values(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)
         ]
-    path = tool_args.get('path') if isinstance(tool_args, dict) else None
-    return [path] if isinstance(path, str) and path.strip() else []
+    path = _get_path_argument(tool_args)
+    return [path] if path is not None else []
 
 
 def main():
