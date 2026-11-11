@@ -104,6 +104,16 @@ class BlockHookTamperingTests(unittest.TestCase):
             "python3 -c \"import pathlib; pathlib.Path('.github/hooks/x.json').write_text('')\"",
             "[IO.File]::WriteAllText('.github/hooks/x.json', '')",
             'cd .github/hooks && rm preToolUse.json',
+            # 守るパスを含むフォルダーそのものへの操作と、移動した後の操作
+            'cd .github && rm -rf hooks',
+            'rm -rf .github',
+            'mv .github .github2',
+            'find .github -name "*.json" -delete',
+            'find .github/hooks -name x | xargs rm',
+            'cd .github/hooks; echo x > preToolUse.json',
+            'bash -c "rm -rf .github/hooks"',
+            'if true; then rm .github/hooks/x; fi',
+            'Get-ChildItem .github/hooks | Remove-Item',
         )
         for command in commands:
             for tool_name in ('bash', 'powershell'):
@@ -122,10 +132,25 @@ class BlockHookTamperingTests(unittest.TestCase):
             'Get-Content .github\\hooks\\agentStop.json',
             'rm -rf build/',
             'echo x > notes.txt',
+            # 変更系のコマンド名が検索語・別のコマンドにある場合や、守るパスを含まない単純コマンドの場合
+            'grep -rn sc .github/hooks',
+            'grep -rn "git stash" .github/hooks',
+            'python3 .github/hooks/tests/test-all-hooks.py 2>&1 | tee /tmp/log',
+            'python3 .github/hooks/tests/test-all-hooks.py && touch /tmp/ok',
+            'cd .github/hooks && python3 tests/test-all-hooks.py > "$TMPDIR/log" 2>&1',
+            'cd .github/hooks && cd /tmp && rm -rf x',
+            'rm -rf .github/workflows/x',
         )
         for command in commands:
-            with self.subTest(command=command):
-                self.__assert_allowed(self.__run_call('bash', {'command': command}), command)
+            for tool_name in ('bash', 'powershell'):
+                with self.subTest(command=command, tool_name=tool_name):
+                    self.__assert_allowed(self.__run_call(tool_name, {'command': command}), command)
+
+    def test_powershell_aliases_are_checked_only_in_powershell(self):
+        command = 'sc .github/hooks/x.json "{}"'
+        self.__assert_allowed(self.__run_call('bash', {'command': command}))
+        self.__assert_denied(self.__run_call('powershell', {'command': command}), f'command `{command}`')
+        self.__assert_denied(self.__run_call('powershell', {'command': 'Get-ChildItem .github/hooks | ri'}))
 
     def test_other_files_and_tools_are_allowed(self):
         cases = (
