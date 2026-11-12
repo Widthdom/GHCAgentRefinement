@@ -21,27 +21,27 @@
 ```mermaid
 flowchart LR
 
-    sessionStart["<b><i><u>sessionStart</u></i></b><br/><div style='text-align: left'>・copilot-instructions.md読込<br/>・ターゲットセッション確認<br/>・各種ツール導入状況確認<br/>・一時ファイル蓄積状況確認<br/>・gitの途中操作確認</div>"]
+    sessionStart["<b><i><u>sessionStart</u></i></b><br/><div style='text-align: left; width: 256px; font-size: 16px'>・copilot-instructions.md読込<br/>・ターゲットセッション確認<br/>・各種ツール導入状況確認<br/>・一時ファイル蓄積状況確認<br/>・gitの途中操作確認</div>"]
 
-    userPromptSubmitted["<b><i><u>userPromptSubmitted</u></i></b><br/><div style='text-align: left'>■メインエージェントへの依頼時<br/>・デバッグモード設定<br/>・敵対的レビューモード設定<br/>・hook変更依頼の記録<br/>■サブエージェントへの依頼時<br/>・copilot-instructions.md連携</div>"]
+    userPromptSubmitted["<b><i><u>userPromptSubmitted</u></i></b><br/><div style='text-align: left; width: 256px; font-size: 16px'>■メインエージェントへの依頼時<br/>・デバッグモード設定<br/>・敵対的レビューモード設定<br/>・hook変更依頼の記録<br/>■サブエージェントへの依頼時<br/>・copilot-instructions.md連携</div>"]
 
-    userPromptTransformed["<b><i><u>userPromptTransformed</u></i></b><br/><div style='text-align: left'>■デバッグモード有効時<br/>・プロンプト変換ログ保存</div>"]
+    userPromptTransformed["<b><i><u>userPromptTransformed</u></i></b><br/><div style='text-align: left; width: 256px; font-size: 16px'>■デバッグモード有効時<br/>・プロンプト変換ログ保存</div>"]
 
     LoopStart[/作業開始\]
 
-    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left'>□危険な操作の抑止<br/>・危険コマンド実行抑止<br/>・shellによるファイル編集抑止<br/>・未読ファイル編集抑止<br/>・生成ファイル直接編集抑止<br/>・省略記号による内容消失抑止<br/>・依頼のないhook改変抑止<br/>・過去のバグ修正の巻き戻し抑止<br/>□不正な内容の書き込み抑止<br/>・秘密情報書き込み抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・未確認の依存追加抑止<br/>・内容と食い違うコミット抑止<br/>□失敗の隠蔽抑止<br/>・エラーの握りつぶし抑止<br/>・除外設定による隠蔽抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・待ち時間の水増し抑止<br/>□テストの不正抑止<br/>・テストの骨抜き抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・スナップショット一括承認抑止<br/>・テスト通過用ハードコード抑止<br/>・日付の時限爆弾テスト抑止</div>"]
+    preToolUse["<b><i><u>preToolUse</u></i></b><br/><div style='text-align: left; width: 256px; font-size: 16px'>□危険な操作の抑止<br/>・危険コマンド実行抑止<br/>・shellによるファイル編集抑止<br/>・未読ファイル編集抑止<br/>・生成ファイル直接編集抑止<br/>・省略記号による内容消失抑止<br/>・依頼のないhook改変抑止<br/>・過去のバグ修正の巻き戻し抑止<br/>□不正な内容の書き込み抑止<br/>・秘密情報書き込み抑止<br/>・不可視文字の書き込み抑止<br/>・文字化けの書き込み抑止<br/>・未確認の依存追加抑止<br/>・内容と食い違うコミット抑止<br/>□失敗の隠蔽抑止<br/>・エラーの握りつぶし抑止<br/>・除外設定による隠蔽抑止<br/>・パイプでの終了コード隠蔽抑止<br/>・待ち時間の水増し抑止<br/>□テストの不正抑止<br/>・テストの骨抜き抑止<br/>・自己比較テスト抑止<br/>・テスト期待値の後付け抑止<br/>・スナップショット一括承認抑止<br/>・テスト通過用ハードコード抑止<br/>・日付の時限爆弾テスト抑止</div>"]
 
     runTool["ツール実行"]
 
     runToolResult{"判定"}
 
-    postToolUse["<b><i><u>postToolUse</u></i></b><br/><div style='text-align: left'>□他hook向けの記録<br/>・既読ファイルの記録<br/>・テスト失敗値の記録<br/>・確認済み依存の記録<br/>・確認済みコミットの記録<br/>□作業の空回り検知<br/>・テスト件数の空振り・減少検知<br/>・振り子編集検知<br/>□変更の不整合検知<br/>・改行コード不変確認<br/>・名前変更の取り残し検知<br/>・引数の説明の更新漏れ検知<br/>・skillのcross agent対応確認</div>"]
+    postToolUse["<b><i><u>postToolUse</u></i></b><br/><div style='text-align: left; width: 256px; font-size: 16px'>□他hook向けの記録<br/>・既読ファイルの記録<br/>・テスト失敗値の記録<br/>・確認済み依存の記録<br/>・確認済みコミットの記録<br/>□作業の空回り検知<br/>・テスト件数の空振り・減少検知<br/>・振り子編集検知<br/>□変更の不整合検知<br/>・改行コード不変確認<br/>・名前変更の取り残し検知<br/>・引数の説明の更新漏れ検知<br/>・skillのcross agent対応確認</div>"]
 
-    postToolUseFailure["<b><i><u>postToolUseFailure</u></i></b><br/><div style='text-align: left'>・失敗の繰り返し検知</div>"]
+    postToolUseFailure["<b><i><u>postToolUseFailure</u></i></b><br/><div style='text-align: left; width: 256px; font-size: 16px'>・失敗の繰り返し検知</div>"]
 
     LoopEnd[\作業終了/]
 
-    agentStop["<b><i><u>agentStop</u></i></b><br/><div style='text-align: left'>□根拠のない主張の検知<br/>・存在しないファイル参照検知<br/>・未読ファイルに対する推測検知<br/>・テスト通過の主張の真偽判定<br/>・未計測の性能改善主張検知<br/>・ユーザへの迎合検知<br/>□依頼との食い違いの検知<br/>・依頼項目の取りこぼし検知<br/>・果たせない後回しの約束検知<br/>・依頼外の変更検知<br/>□仕上げ漏れの検知<br/>・hookのテスト実行催促<br/>・作業途中のコードの残置検知<br/>・ロックファイル更新漏れ検知<br/>・未使用の追加定義検知<br/>■デバッグモード有効時<br/>・プロンプト変換ログ保存先表示<br/>・回答にデバッグ情報を付与<br/>■敵対的レビューモード有効時<br/>・敵対的レビュー要請<br/></div>"]
+    agentStop["<b><i><u>agentStop</u></i></b><br/><div style='text-align: left; width: 256px; font-size: 16px'>□根拠のない主張の検知<br/>・存在しないファイル参照検知<br/>・未読ファイルに対する推測検知<br/>・テスト通過の主張の真偽判定<br/>・未計測の性能改善主張検知<br/>・ユーザへの迎合検知<br/>□依頼との食い違いの検知<br/>・依頼項目の取りこぼし検知<br/>・果たせない後回しの約束検知<br/>・依頼外の変更検知<br/>□仕上げ漏れの検知<br/>・hookのテスト実行催促<br/>・作業途中のコードの残置検知<br/>・ロックファイル更新漏れ検知<br/>・未使用の追加定義検知<br/>■デバッグモード有効時<br/>・プロンプト変換ログ保存先表示<br/>・回答にデバッグ情報を付与<br/>■敵対的レビューモード有効時<br/>・敵対的レビュー要請<br/></div>"]
 
     agentStopResult{"判定"}
 
