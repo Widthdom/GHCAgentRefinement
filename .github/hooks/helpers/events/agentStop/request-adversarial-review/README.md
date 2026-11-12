@@ -18,3 +18,6 @@ agentStop（エージェントの応答終了時）
 
 ## 前提条件
 - プロンプト末尾に `;;` を付けて、[set-adversarial-review-state](../../userPromptSubmitted/set-adversarial-review-state/README.md) hookで敵対的レビューモードを有効にしたときだけ動く。
+
+## 例外
+- サブエージェントの停止（入力に `agentId` がある場合）は対象外とし、親セッションのレビュー待ち状態を消費しない。
