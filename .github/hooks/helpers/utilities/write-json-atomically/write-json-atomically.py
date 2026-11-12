@@ -12,7 +12,7 @@ def write_json_atomically(path, value):
     os.makedirs(directory, exist_ok=True)
     # 置き換えを同じファイルシステム内で行うため、一時ファイルは保存先と同じフォルダーに作る。
     with tempfile.NamedTemporaryFile(
-        mode='w', encoding='utf-8', newline='', dir=directory, prefix='.tmp-', delete=False,
+        mode='w', encoding='utf-8', newline='\n', dir=directory, prefix='.tmp-', delete=False,
     ) as file:
         temporary_path = file.name
         try:

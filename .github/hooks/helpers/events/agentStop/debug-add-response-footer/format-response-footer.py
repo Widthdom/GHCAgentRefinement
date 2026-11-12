@@ -6,6 +6,7 @@ _SKILLS_HEADER = 'Skills used (inferred from event history)'
 _FIRED_HOOKS_HEADER = 'Hooks fired (recorded by hook runner, excluding agentStop hooks)'
 # Current time
 _TIME_HEADER = 'Current time'
+# ゼロ幅スペース（U+200B）。フッターの始まりの目印にする。
 _FOOTER_BOUNDARY = '\u200B'
 
 

@@ -69,7 +69,7 @@ def main(arguments=None):
     parser.add_argument(
         '--definitions-path',
         dest='defs_path',
-        default=os.path.join(os.path.dirname(__file__), 'blocked-command-definitions.json'),
+        default=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'blocked-command-definitions.json'),
     )
 
     # コマンドライン引数の解析と取得

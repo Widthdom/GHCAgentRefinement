@@ -65,7 +65,7 @@ def _save_log(content, session_id, timestamp):
         # 同じtimestampのイベントも上書きしないよう一意なファイル名にする。
         # Windowsでも置換できるよう、一度閉じてから完成した.mdとして公開する。
         with tempfile.NamedTemporaryFile(
-            mode='w', encoding='utf-8', newline='', dir=log_directory,
+            mode='w', encoding='utf-8', newline='\n', dir=log_directory,
             prefix=f'{timestamp}-', suffix='.tmp', delete=False,
         ) as file:
             temporary_path = file.name
