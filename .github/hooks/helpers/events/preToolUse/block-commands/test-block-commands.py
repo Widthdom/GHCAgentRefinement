@@ -301,6 +301,8 @@ class BlockCommandsTests(unittest.TestCase):
             result = self.__invoke_hook_input('{}', definitions_file=directory)
             _assert_error_denial(result, 'path is not a file or could not be verified as a file')
 
+    # ラッパーは、このテストを実行しているPythonが3.14未満ならすべてのコマンドを拒否するため、判定を確かめられない。
+    @unittest.skipIf(sys.version_info < (3, 14), 'The wrappers deny every command when Python is older than 3.14.')
     def test_wrappers_and_paths(self):
         entry_points = []
 
