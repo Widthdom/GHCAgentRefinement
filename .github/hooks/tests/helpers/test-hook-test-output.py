@@ -178,7 +178,15 @@ class AllHooksOutputTests(unittest.TestCase):
         self.assertEqual(len(result[3]), 2)
         # テストはリポジトリルートで実行し、パスはリポジトリルート相対の `/` 区切りで表示する。
         self.assertEqual(result[3][0].kwargs['cwd'], os.path.dirname(os.path.dirname(os.path.dirname(_tests_directory))))
-        self.assertIn('Running .github/hooks/helpers/test-first.py...', result[1])
+        self.assertIn('[1/2] Running .github/hooks/helpers/test-first.py...', result[1])
+        self.assertIn('[2/2] Running .github/hooks/helpers/test-second.py...', result[1])
+
+    def test_index_padded_to_total_width(self):
+        filenames = [f'test-{index:02}.py' for index in range(1, 11)]
+        result = self.__invoke([subprocess.CompletedProcess([], 0)] * len(filenames), filenames=filenames)
+        self.assertEqual(result[0], 0)
+        self.assertIn('[ 1/10] Running .github/hooks/helpers/test-01.py...', result[1])
+        self.assertIn('[10/10] Running .github/hooks/helpers/test-10.py...', result[1])
 
     def test_failure_continues_other_files(self):
         result = self.__invoke([
