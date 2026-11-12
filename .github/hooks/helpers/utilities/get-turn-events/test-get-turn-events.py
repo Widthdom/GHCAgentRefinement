@@ -99,6 +99,27 @@ class GetTurnEventsTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.assertEqual(_utility['get_request'](events), expected)
 
+    def test_get_request_texts_excludes_hook_feedback(self):
+        def hook_end(reason, hook_type='agentStop', decision='block'):
+            return ('hook.end', {'hookType': hook_type, 'output': {'decision': decision, 'reason': reason}})
+
+        events = [
+            ('user.message', {'content': 'request'}),
+            ('user.message', {'content': None, 'delivery': 'queued'}),
+            hook_end('Hook feedback'),
+            ('user.message', {'content': 'Hook feedback', 'delivery': 'queued'}),
+            ('user.message', {'content': 'interrupt', 'delivery': 'queued'}),
+            hook_end('Other feedback', hook_type='postToolUse'),
+            ('user.message', {'content': 'Other feedback', 'delivery': 'queued'}),
+            hook_end('Allowed feedback', decision='allow'),
+            ('user.message', {'content': 'Allowed feedback', 'delivery': 'queued'}),
+            ('hook.end', {'hookType': 'agentStop', 'output': 'Hook feedback'}),
+        ]
+        self.assertEqual(
+            _utility['get_request_texts'](events),
+            ['request', 'interrupt', 'Other feedback', 'Allowed feedback'],
+        )
+
     def test_get_last_assistant_message_skips_blank_and_non_string_content(self):
         events = [
             ('assistant.message', {'content': 'first'}),

@@ -73,23 +73,19 @@ def _is_whitespace_only_change(change):
 
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、依頼の文・応答の文・変更・本hookによる差し戻し済みかを集める。
-    # 割り込みで追加された指示も依頼に含める。
+    # 割り込みで追加された指示も依頼に含め、hookの差し戻しは含めない。
     # 変更は {path, deleted, moved_to（移動先またはNone）, whitespace_only} のリスト。
     # 編集ツールの引数の解析は、共通utilityで行う。
     extract_edit_tool_changes = runpy.run_path(
         os.path.join(_utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py')
     )['extract_edit_tool_changes']
     events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
-    request_texts = []
+    request_texts = _turn_events['get_request_texts'](events)
     response_texts = []
     for event_type, data in events:
         content = data.get('content')
-        if event_type == 'user.message':
-            if isinstance(content, str) and not content.startswith(_REASON_PREFIX):
-                request_texts.append(content)
-        elif event_type == 'assistant.message':
-            if isinstance(content, str) and content.strip():
-                response_texts.append(content)
+        if event_type == 'assistant.message' and isinstance(content, str) and content.strip():
+            response_texts.append(content)
     changes = [
         {
             'path': change['path'],

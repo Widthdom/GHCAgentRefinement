@@ -47,6 +47,27 @@ def get_request(events):
     return None
 
 
+def get_request_texts(events):
+    # 依頼と、ユーザーの割り込みのuser.messageの文を、記録された順に返す。文字列でないものは除く。
+    # hookの差し戻しは、agentStopのhook.endが出力した `reason` で始まる `queued` のuser.messageとして記録されるため除く。
+    block_reasons = []
+    texts = []
+    for event_type, data in events:
+        if event_type == 'hook.end' and data.get('hookType') == 'agentStop':
+            output = data.get('output')
+            reason = output.get('reason') if isinstance(output, dict) and output.get('decision') == 'block' else None
+            if isinstance(reason, str) and reason:
+                block_reasons.append(reason)
+        elif event_type == 'user.message':
+            content = data.get('content')
+            if not isinstance(content, str):
+                continue
+            if data.get('delivery') == 'queued' and any(content.startswith(reason) for reason in block_reasons):
+                continue
+            texts.append(content)
+    return texts
+
+
 def get_last_assistant_message(events):
     # 空白以外を含む最後のassistant.messageの文を返す。なければNone。
     last_assistant_msg = None
