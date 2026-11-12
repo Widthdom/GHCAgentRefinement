@@ -114,18 +114,18 @@ def main():
         if tool_name not in _EDIT_TOOL_NAMES:
             return 0
         # パッチの削除・移動元も、削除扱いで含める。
-        # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。
-        paths = sorted({
-            os.path.normcase(os.path.realpath(os.path.join(cwd, path)))
-            for path in _get_edited_paths(tool_name, _unwrap_tool_args(tool_args))
-        })
+        # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。normcaseは照合だけに使い、表示には正規化前のパスを使う。
+        paths = {}
+        for path in _get_edited_paths(tool_name, _unwrap_tool_args(tool_args)):
+            real_path = os.path.realpath(os.path.join(cwd, path))
+            paths.setdefault(os.path.normcase(real_path), real_path)
         if not paths:
             return 0
 
         # 編集後のファイル内容を読む。パスと内容は保存せず、比較用のSHA-256だけを保存する。
         edits = [
-            (path, hashlib.sha256(path.encode('utf-8')).hexdigest(), _get_content_hash(path))
-            for path in paths
+            (path, hashlib.sha256(normalized_path.encode('utf-8')).hexdigest(), _get_content_hash(path))
+            for normalized_path, path in sorted(paths.items())
         ]
 
         # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
@@ -137,7 +137,7 @@ def main():
         return 2
 
     if oscillated_paths:
-        cwd = os.path.normcase(os.path.realpath(cwd))
+        cwd = os.path.realpath(cwd)
         files = ', '.join(_get_display_path(path, cwd) for path in oscillated_paths)
         # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference

@@ -30,12 +30,12 @@ _DENY_REASON = (
 
 
 def _deny_unread_files(state, state_path, paths):
-    # 戻り値は、今回拒否するファイルパスのリスト。
+    # paths：(正規化したパス, 表示用のパス) のリスト。戻り値は、今回拒否するファイルの表示用のパスのリスト。
     # 同じファイルの拒否は1回だけにし、読めない事情があっても編集を続けられるようにする。
     denied_paths = []
     with state['open_state'](state_path) as connection:
-        for path in paths:
-            key = state['get_file_key'](path)
+        for normalized_path, path in paths:
+            key = state['get_file_key'](normalized_path)
             if connection.execute('SELECT 1 FROM files WHERE file = ?', (key,)).fetchone():
                 continue
             connection.execute('INSERT INTO files (file, state) VALUES (?, ?)', (key, state['DENIED']))
@@ -60,15 +60,15 @@ def main():
         cwd = _hook_input['get_cwd'](hook_input)
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        paths = set()
+        # 照合には正規化したパス、表示には正規化前のパスを使う。
+        paths = {}
         tool_name = tool_name.removeprefix('functions.')
         if tool_name in _EDIT_TOOL_NAMES:
             tool_args = _unwrap_tool_args(tool_args)
-            paths.update(
-                state['normalize_path'](cwd, path) for path in _get_edited_paths(tool_name, tool_args, _PATCH_OPERATIONS)
-            )
+            for path in _get_edited_paths(tool_name, tool_args, _PATCH_OPERATIONS):
+                paths.setdefault(state['normalize_path'](cwd, path), os.path.realpath(os.path.join(cwd, path)))
         # 新規作成と、存在しないファイルへの編集（ツール側で失敗する）は対象外とする。
-        existing_paths = sorted(path for path in paths if os.path.isfile(path))
+        existing_paths = sorted(item for item in paths.items() if os.path.isfile(item[1]))
         if not existing_paths:
             return 0
         denied_paths = _deny_unread_files(state, state_path, existing_paths)
@@ -77,8 +77,8 @@ def main():
         return 2
 
     if denied_paths:
-        normalized_cwd = os.path.normcase(os.path.realpath(cwd))
-        files = ', '.join(_get_display_path(path, normalized_cwd) for path in denied_paths)
+        real_cwd = os.path.realpath(cwd)
+        files = ', '.join(_get_display_path(path, real_cwd) for path in denied_paths)
         # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
         # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
         print(json.dumps({

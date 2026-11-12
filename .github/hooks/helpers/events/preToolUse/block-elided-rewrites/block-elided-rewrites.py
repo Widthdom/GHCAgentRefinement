@@ -98,7 +98,7 @@ def main(arguments=None):
         cwd = _hook_input['get_cwd'](hook_input)
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        normalized_cwd = os.path.normcase(os.path.realpath(cwd))
+        real_cwd = os.path.realpath(cwd)
         # (拒否のキー, 理由) のリスト。同じファイルでも種類の異なる拒否は、それぞれ1回ずつ行う。
         candidates = []
         # 編集ツールの引数の解析は、共通utilityで行う。
@@ -106,10 +106,10 @@ def main(arguments=None):
             _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
         ))['extract_edit_tool_changes']
         for change in extract_edit_tool_changes(tool_name, tool_args):
-            path = os.path.normcase(os.path.realpath(os.path.join(cwd, change['path'])))
-            display_path = _get_display_path(path, normalized_cwd)
-            # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-            file_key = hashlib.sha256(path.encode('utf-8')).hexdigest()
+            path = os.path.realpath(os.path.join(cwd, change['path']))
+            display_path = _get_display_path(path, real_cwd)
+            # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。normcaseで、同じファイルの別表記を同一と判定する。
+            file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
             current = _read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None
             # 新規ファイルには消える内容がないため、骨組みとしてのプレースホルダーを許可する。
             if current is None:
