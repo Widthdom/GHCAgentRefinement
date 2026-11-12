@@ -25,6 +25,8 @@ _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
 
 _FIX_COMMIT_PATTERNS_KEY = 'fixCommitPatterns'
 _GIT_TIMEOUT_SECONDS = 4
+# gitの実行全体の期限。ファイルが多くても、hookの `timeoutSec`（10秒）より前に打ち切り、検査できない分は通す。
+_GIT_DEADLINE = _git['create_deadline'](7)
 # `git blame --porcelain` の各行の見出し（コミットID、元の行番号、現在の行番号、[まとまりの行数]）。
 # SHA-1とSHA-256のリポジトリの両方を扱う。
 _BLAME_HEADER_PATTERN = re.compile(r'^([0-9a-f]{40}|[0-9a-f]{64}) \d+ (\d+)(?: \d+)?$')
@@ -97,7 +99,9 @@ def _blame(path, line_numbers):
     for start, end in _to_ranges(line_numbers):
         arguments += ['-L', f'{start},{end}']
     # gitがない、git管理下でない、失敗した場合は検査しない。
-    output = _git['get_git_output'](os.path.dirname(path), [*arguments, '--', os.path.basename(path)], _GIT_TIMEOUT_SECONDS)
+    output = _git['get_git_output'](
+        os.path.dirname(path), [*arguments, '--', os.path.basename(path)], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE,
+    )
     if output is None:
         return {}
     commits = {}
@@ -111,7 +115,7 @@ def _blame(path, line_numbers):
 def _get_messages(directory, commit_ids):
     # 戻り値は {コミットID: メッセージ全体}。区切りには本文に現れない制御文字（US・RS）を使う。
     output = _git['get_git_output'](
-        directory, ['show', '-s', '--no-color', '--format=%H%x1f%B%x1e', *commit_ids], _GIT_TIMEOUT_SECONDS,
+        directory, ['show', '-s', '--no-color', '--format=%H%x1f%B%x1e', *commit_ids], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE,
     )
     if output is None:
         return {}

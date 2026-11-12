@@ -28,6 +28,8 @@ _filter_new_notifications = runpy.run_path(os.path.join(
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 _UTF8_BOM = b'\xef\xbb\xbf'
 _GIT_TIMEOUT_SECONDS = 5
+# gitの実行全体の期限。ファイルが多くても、hookの `timeoutSec`（10秒）より前に打ち切り、比べられない分は対象外とする。
+_GIT_DEADLINE = _git['create_deadline'](7)
 _FORMAT_CONTEXT = (
     'The following edited files no longer match the file format of their committed version: {changes}. '
     'Editing tools can silently rewrite line endings, the byte order mark, or the final newline when '
@@ -42,7 +44,8 @@ def _get_committed_content(path):
     # 変換前の内容と比べると、WindowsのautocrlfでCRLFになった作業ツリーを誤って変更扱いしてしまう。
     # gitがない、リポジトリ外、HEADにないファイル（新規・管理外）は比較できないためNoneを返す。
     result = _git['run_git'](
-        os.path.dirname(path), ['cat-file', '--filters', f'HEAD:./{os.path.basename(path)}'], _GIT_TIMEOUT_SECONDS,
+        os.path.dirname(path), ['cat-file', '--filters', f'HEAD:./{os.path.basename(path)}'],
+        _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE,
     )
     if result is None or result.returncode != 0:
         return None

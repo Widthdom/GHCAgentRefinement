@@ -16,6 +16,8 @@ _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'
 
 
 _GIT_TIMEOUT_SECONDS = 5
+# gitの実行全体の期限。hookの `timeoutSec`（10秒）より前に打ち切り、確かめられない状態は知らせない。
+_GIT_DEADLINE = _git['create_deadline'](7)
 # gitディレクトリ内の目印と、それが示す途中の操作。worktreeごとのgitディレクトリに置かれる。
 # rebase-applyは `git am` でも使われるため、`applying` の有無で区別する。
 _OPERATION_MARKERS = [
@@ -45,7 +47,9 @@ def _get_in_progress_operations(git_directory):
 
 
 def _get_git_state_messages(cwd):
-    git_directory = (_git['get_git_output'](cwd, ['rev-parse', '--absolute-git-dir'], _GIT_TIMEOUT_SECONDS) or '').strip()
+    git_directory = (_git['get_git_output'](
+        cwd, ['rev-parse', '--absolute-git-dir'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE,
+    ) or '').strip()
     # gitがない、またはリポジトリ外の場合は何も知らせない。
     if not git_directory:
         return []
@@ -56,7 +60,9 @@ def _get_git_state_messages(cwd):
         messages.append(f'{" and ".join(operations).capitalize()} is in progress.')
 
     # 未解決の衝突は `git ls-files -u` にステージ番号付きで現れる。1ファイルにつき最大3行あるため、パスで数える。
-    unmerged = _git['get_git_output'](cwd, ['-c', 'core.quotePath=false', 'ls-files', '--unmerged'], _GIT_TIMEOUT_SECONDS)
+    unmerged = _git['get_git_output'](
+        cwd, ['-c', 'core.quotePath=false', 'ls-files', '--unmerged'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE,
+    )
     if unmerged is not None:
         paths = sorted({line.split('\t', 1)[1] for line in unmerged.splitlines() if '\t' in line})
         if paths:
@@ -65,9 +71,9 @@ def _get_git_state_messages(cwd):
 
     # rebaseやbisectの途中はHEADが切り離されるのが通常のため、途中の操作がないときだけ知らせる。
     if not operations:
-        symbolic = _git['run_git'](cwd, ['symbolic-ref', '--quiet', 'HEAD'], _GIT_TIMEOUT_SECONDS)
+        symbolic = _git['run_git'](cwd, ['symbolic-ref', '--quiet', 'HEAD'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE)
         if symbolic is not None and symbolic.returncode == 1:
-            head = _git['get_git_output'](cwd, ['rev-parse', '--short', 'HEAD'], _GIT_TIMEOUT_SECONDS)
+            head = _git['get_git_output'](cwd, ['rev-parse', '--short', 'HEAD'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE)
             commit = head.strip() if head is not None else 'unknown'
             messages.append(
                 f'HEAD is detached at {commit}. New commits will not belong to any branch.'

@@ -41,6 +41,8 @@ _OPENING_BRACKETS = {'[': ']', '(': ')', '{': '}'}
 _ESCAPED_CHARACTER_PATTERN = re.compile(r'\\([./\-_])')
 _MAX_FINDINGS = 3
 _GIT_TIMEOUT_SECONDS = 5
+# gitの実行全体の期限。ディレクトリが多くても、hookの `timeoutSec`（10秒）より前に打ち切り、検査できない分は通す。
+_GIT_DEADLINE = _git['create_deadline'](7)
 _FINDING = '{file} adds the exclusion "{entry}", which matches the tracked file {matched}'
 _DENY_REASON = (
     'Edit denied: {findings}. Adding existing code or tests to an ignore or exclusion list hides it from the '
@@ -180,7 +182,7 @@ def _get_config(definitions, path):
 def _get_tracked_files(directory):
     # 戻り値は、directory配下のgit管理下のファイルの、directoryからの `/` 区切りの相対パス。
     # gitがない、またはgit管理下でなければNoneを返して検査しない。
-    output = _git['get_git_output'](directory, ['ls-files', '-z'], _GIT_TIMEOUT_SECONDS)
+    output = _git['get_git_output'](directory, ['ls-files', '-z'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE)
     if output is None:
         return None
     return [path for path in output.split('\0') if path]

@@ -42,6 +42,8 @@ _DEFINITION_PATTERNS = [
 _MIN_NAME_LENGTH = 3
 _MAX_LOCATIONS = 10
 _GIT_TIMEOUT_SECONDS = 3
+# gitの実行全体の期限。名前が多くても、hookの `timeoutSec`（10秒）より前に打ち切る。
+_GIT_DEADLINE = _git['create_deadline'](7)
 _LEFTOVER_CONTEXT = (
     'You renamed {renames}, but the old names still appear in: {locations}. '
     'Update the remaining references, including strings, configuration, and documentation, '
@@ -93,7 +95,7 @@ def _find_locations(root, name):
     # git管理下と、無視されていない未追跡のファイルから、単語として一致する行を探す。
     # git grepは一致がなければ終了コード1、エラーなら2以上を返すため、どちらも一致なしとして扱う。
     output = _git['get_git_output'](
-        root, ['grep', '-n', '-I', '-w', '-F', '--untracked', '-e', name, '--'], _GIT_TIMEOUT_SECONDS,
+        root, ['grep', '-n', '-I', '-w', '-F', '--untracked', '-e', name, '--'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE,
     )
     if output is None:
         return []
@@ -130,7 +132,7 @@ def main():
     if not renames:
         return 0
     # gitがない、またはリポジトリ外では探せないため何もしない。
-    root = _git['get_repository_root'](cwd, _GIT_TIMEOUT_SECONDS)
+    root = _git['get_repository_root'](cwd, _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE)
     if root is None:
         return 0
 
