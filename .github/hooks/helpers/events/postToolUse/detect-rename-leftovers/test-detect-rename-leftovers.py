@@ -61,6 +61,9 @@ class DetectRenameLeftoversTests(unittest.TestCase):
              'calc.AddNumbers(1, 2);\n'),
             ('src/Calc.cs', '    public string DisplayName { get; set; }', '    public string Title { get; set; }',
              'DisplayName', 'Title', '<TextBlock Text="{Binding DisplayName}" />\n'),
+            # 修飾子の `new`（メンバーの隠蔽）だけの定義。
+            ('src/Calc.cs', '    new void Calculate()', '    new void Compute()', 'Calculate', 'Compute',
+             'calc.Calculate();\n'),
             ('app/parser.py', 'def parse_line(text):', 'def parse_row(text):', 'parse_line', 'parse_row',
              'from app.parser import parse_line\n'),
             ('app/config.py', 'MAX_RETRIES = 3', 'RETRY_LIMIT = 3', 'MAX_RETRIES', 'RETRY_LIMIT', 'Set `MAX_RETRIES`.\n'),
@@ -117,7 +120,11 @@ class DetectRenameLeftoversTests(unittest.TestCase):
             ('def run():', 'def run():\n    pass\n\ndef run_all():'),
             # 短すぎる名前。
             ('def go():', 'def do():'),
+            # 行頭のインスタンスの生成は定義ではない。
+            ('    new Calculator();', '    new Adder();'),
+            ('new Calculator<int> { Value = 1 };', 'new Adder<int> { Value = 1 };'),
         ]
+        self.__write_file('app/Other.cs', 'var c = new Calculator();\n')
         for old, new in cases:
             with self.subTest(old=old, new=new):
                 self.__assert_silent(self.__edit('app/x.py', old, new), old)

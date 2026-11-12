@@ -30,8 +30,10 @@ _DEFINITION_PATTERNS = [
     re.compile(r'^func\s+(?:\([^)]*\)\s*)?(?P<name>[A-Za-z_]\w*)'),
     re.compile(r'^\s*(?:pub(?:\([^)]*\))?\s+)?fn\s+(?P<name>[A-Za-z_]\w*)'),
     # C#・Javaなどの修飾子付きのメソッド・プロパティ・フィールド。
+    # 修飾子の `new`（メンバーの隠蔽）と、行頭のインスタンスの生成（`new Foo(`・`new Foo<T> {`）を区別する。
     re.compile(
         r'^\s*(?:\[[^\]]*\]\s*)*'
+        r'(?!new\s+[A-Za-z_][\w.]*\s*(?:<[^=;(]*>\s*)?[({\[])'
         r'(?:(?:public|private|protected|internal|static|virtual|override|abstract|async|sealed|readonly|extern|new|'
         r'partial|final|synchronized|const|required)\s+)+'
         r'(?:[\w<>\[\],.?]+(?:\s*<[^=;(]*>)?\s+)?(?P<name>[A-Za-z_]\w*)\s*(?:<[^=;(]*>\s*)?(?:\(|\{|=>|=|;)'
