@@ -10,7 +10,7 @@ skillの正本（`.github/skills`）かラッパー（`.agents/skills`・`.claud
 
 ## 処理詳細
 
-1. [get-edited-paths](../../../utilities/get-edited-paths/README.md) で、ツール引数の `path`、または `apply_patch` のパッチ本文の `*** Update File:` などの行から、編集されたファイルを特定する。
+1. [get-edited-paths](../../../utilities/get-edited-paths/README.md) で、ツール引数の `path`（`create` では `file_path`）、または `apply_patch` のパッチ本文の `*** Update File:` などの行から、編集されたファイルを特定する。
 2. 編集されたファイルが、skillの正本 `.github/skills/<name>/SKILL.md` か、ラッパー `.agents/skills/<name>/SKILL.md`・`.claude/skills/<name>/SKILL.md` であれば、そのskillの3ファイルを読み、次の問題を検出する。
    - ラッパーがない
    - ラッパーの `name`・`description` が正本と異なる（引用符も含めて比べる）

@@ -11,7 +11,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 処理詳細
 
 1. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から既存の内容を書き換えるファイルを特定する。
-   - `edit`・`insert`・`str_replace_editor`・`create`：ツール引数の `path`（`str_replace_editor` の `view` は除く）
+   - `edit`・`insert`・`str_replace_editor`・`create`：ツール引数の `path`（`create` では `file_path`。`str_replace_editor` の `view` は除く）
    - `apply_patch`：パッチ本文の `*** Update File:` の行
 2. 存在するファイルのうち、[record-seen-files](../../postToolUse/record-seen-files/README.md) hookがこのセッションで閲覧・編集を記録していないものを探す。
 3. 該当するファイルがあれば、先に該当箇所を読んで現在の内容に基づいて編集し直すよう求める英語の理由とともに、`{"permissionDecision":"deny",...}` を標準出力して拒否する。
