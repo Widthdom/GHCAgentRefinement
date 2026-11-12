@@ -134,10 +134,11 @@ def _resolve_reference(path, cwd, repository_root, get_index):
         return None, True
     if os.path.isabs(expanded) or path.startswith(('./', '../', '.\\', '..\\')):
         # 明示的なパスはリポジトリ内に限り、削除・リネーム前の旧パスかを確かめる。
-        relative_path = os.path.relpath(os.path.join(cwd, expanded), repository_root)
-        if relative_path.startswith('..'):
+        relative_path = os.path.relpath(os.path.join(cwd, expanded), repository_root).replace(os.sep, '/')
+        # `..foo/x` のような `..` で始まる名前はリポジトリ内のため、親ディレクトリの要素だけを外とみなす。
+        if relative_path == '..' or relative_path.startswith('../'):
             return None, True
-        key = relative_path.replace(os.sep, '/')
+        key = relative_path
         _, historical = get_index()
         return None, key not in historical
     # 応答では `create-hook/SKILL.md` のように途中を省いたパスも使うため、末尾一致で照合する。

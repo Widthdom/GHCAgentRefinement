@@ -155,6 +155,16 @@ class DetectPhantomReferencesTests(unittest.TestCase):
             with self.subTest(response=response):
                 self.__assert_silent(self.__respond(response))
 
+    def test_names_starting_with_dots_are_inside_repository(self):
+        # `..legacy/` は親ディレクトリではなく、リポジトリ内のフォルダー。
+        self.__require_git()
+        self.__write_file('..legacy/x.py', 'x\n')
+        self.__git('add', '.')
+        self.__git('commit', '-q', '-m', 'add legacy')
+        self.__git('rm', '-q', '..legacy/x.py')
+        self.__git('commit', '-q', '-m', 'remove legacy')
+        self.__assert_silent(self.__respond('`./..legacy/x.py` を削除した。'))
+
     def test_ignores_non_path_notations(self):
         responses = (
             '```\nsrc/missing.py\n```\n',
