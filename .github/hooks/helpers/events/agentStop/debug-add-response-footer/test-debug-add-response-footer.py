@@ -570,7 +570,7 @@ class DebugResponseFooterTests(unittest.TestCase):
     def test_footer_validation(self):
         format_footer = runpy.run_path(os.path.join(_script_directory, 'format-response-footer.py'))['format_response_footer']
 
-        validate_footer = runpy.run_path(os.path.join(_script_directory, 'check-response-footer.py'))['test_response_footer']
+        validate_footer = runpy.run_path(os.path.join(_script_directory, 'check-response-footer.py'))['is_valid_response_footer']
 
         current_jst = '2026-10-21 12:00:00 JST'
 
