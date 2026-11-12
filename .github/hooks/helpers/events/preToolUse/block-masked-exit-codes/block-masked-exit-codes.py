@@ -30,8 +30,6 @@ _SHELL_TOOL_PATTERN = re.compile(r'^(?:functions\.)?bash$', re.IGNORECASE)
 _BUILD_AND_LINT_COMMAND_WORDS = ('build', 'msbuild', 'make', 'tsc', 'lint', 'eslint', 'ruff', 'mypy', 'clippy')
 _PIPE_OPERATORS = {'|', '|&'}
 _REDIRECT_OPERATORS = {'>', '>>', '>|', '&>', '&>>', '<', '<<', '<<-', '<<<', '<&', '>&', '<>'}
-# `set -o pipefail`・`set -euo pipefail` などの `o` を含むオプションの直後の語がpipefailなら設定とみなす。
-_SET_OPTION_PATTERN = re.compile(r'^([-+])[A-Za-z]*o$')
 _MAX_COMMAND_LENGTH = 120
 _DENY_REASON = (
     'Shell command denied: a pipe hides the exit status of {commands}. '
@@ -43,8 +41,9 @@ _DENY_REASON = (
 )
 
 
-def _get_pipelines(command):
+def _get_pipelines(command, update_pipefail):
     # 戻り値は (パイプラインの各段の語のリストのリスト, 直前までにpipefailが有効か) の列。
+    # pipefailの有効・無効は、check-test-runs utilityの `update_pipefail` で判定する。
     pipefail = False
     for tokens in _split_bash_lines(command):
         segments = [[]]
@@ -67,30 +66,19 @@ def _get_pipelines(command):
                 if segments:
                     yield segments, pipefail
                     if len(segments) == 1:
-                        pipefail = _get_pipefail(segments[0], pipefail)
+                        pipefail = update_pipefail(segments[0], pipefail)
                 segments = [[]]
                 continue
             segments[-1].append(token)
 
 
-def _get_pipefail(words, current):
-    # `set -o pipefail` で有効、`set +o pipefail` で無効にする。
-    if words[0] != 'set':
-        return current
-    for option, following in zip(words[1:], words[2:]):
-        match = _SET_OPTION_PATTERN.match(option)
-        if match and following == 'pipefail':
-            current = match.group(1) == '-'
-    return current
-
-
-def _get_masked_commands(command, runs_checked_command):
+def _get_masked_commands(command, runs_checked_command, update_pipefail):
     # 最後の段以外にテスト・ビルドがあり、pipefailが無効なパイプラインのテスト・ビルドを返す。
     # `PIPESTATUS` を参照している場合は、各段の終了コードを確かめているとみなす。
     if 'PIPESTATUS' in command:
         return []
     masked = []
-    for segments, pipefail in _get_pipelines(command):
+    for segments, pipefail in _get_pipelines(command, update_pipefail):
         if pipefail or len(segments) < 2:
             continue
         masked.extend(' '.join(segment) for segment in segments[:-1] if runs_checked_command(segment))
@@ -128,7 +116,9 @@ def main():
         command_keys = []
         tool_args = _unwrap_tool_args(tool_args) if _SHELL_TOOL_PATTERN.match(tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
-        commands = _get_masked_commands(command, runs_checked_command) if isinstance(command, str) else []
+        commands = _get_masked_commands(
+            command, runs_checked_command, check_test_runs['update_pipefail'],
+        ) if isinstance(command, str) else []
         if commands:
             masked.extend(commands)
             # 状態にはコマンドを保存せず、照合用のSHA-256だけを保存する。

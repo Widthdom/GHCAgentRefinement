@@ -38,12 +38,16 @@ class CheckTestRunsTests(unittest.TestCase):
         for command in (
             'pytest', 'cd x; pytest', 'pytest && echo ok', '(cd x && pytest)', 'pytest > /tmp/log 2>&1',
             'set -o pipefail; pytest | tail', 'set -e; pytest; echo done', 'pytest && a | b',
+            'set -euo pipefail\npytest | tail',
         ):
             with self.subTest(command=command):
                 self.assertTrue(is_test_result_reported(command))
         for command in (
             'python3 test-x.py; echo done', 'python3 test-x.py || true', 'pytest | tail', 'pytest &',
             'pytest\necho done', '(cd x && pytest) || true', 'pytest -k a; pytest -k b', 'ls tests',
+            'set +o pipefail; pytest | tail', 'echo pipefail; pytest | tail',
+            'set -o pipefail; set +o pipefail; pytest | tail', 'pytest | tail; set -o pipefail',
+            'echo x | set -o pipefail; pytest | tail',
         ):
             with self.subTest(command=command):
                 self.assertFalse(is_test_result_reported(command))
