@@ -46,7 +46,7 @@ def main():
 
     # ensure_ascii=False：日本語などを \uXXXX にせず、そのまま出力する。出力先はUTF-8に設定するため問題なし。
     # separators=(',', ':')：項目間やキーと値の間に余分な空白を入れない。（出力をコンパクトにするための指定で、省略してもJSONとしては正しく伝わる。）
-    # 引用符・バックスラッシュ・改行など、JSONとして必要なエスケープは ensure_ascii=False で行われる
+    # 引用符・バックスラッシュ・改行など、JSONとして必要なエスケープは、ensure_asciiの指定によらずjson.dumpsが常に行う。
     print(json.dumps({'additionalContext': instructions}, ensure_ascii=False, separators=(',', ':')))
 
     return 0

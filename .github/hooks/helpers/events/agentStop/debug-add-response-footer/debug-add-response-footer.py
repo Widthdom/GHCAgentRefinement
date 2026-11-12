@@ -90,7 +90,7 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     # agentStopのタイミングで本スクリプトの呼び出し元であるCopilotがPythonプロセスを起動し
-    # 標準入力パイプにツール名や引数を含むイベント情報をJSON形式で書き込むので、それを読み込む。
+    # 標準入力パイプにセッションIDやトランスクリプトのパスを含むイベント情報をJSON形式で書き込むので、それを読み込む。
     # このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
     try:
         hook_input = _hook_input['read_hook_input']()
@@ -161,7 +161,7 @@ def main():
     if footer_correction is not None:
         # ensure_ascii=False：日本語などを \uXXXX にせず、そのまま出力する。出力先はUTF-8に設定するため問題なし。
         # separators=(',', ':')：項目間やキーと値の間に余分な空白を入れない。（出力をコンパクトにするための指定で、省略してもJSONとしては正しく伝わる。）
-        # 引用符・バックスラッシュ・改行など、JSONとして必要なエスケープは ensure_ascii=False で行われる
+        # 引用符・バックスラッシュ・改行など、JSONとして必要なエスケープは、ensure_asciiの指定によらずjson.dumpsが常に行う。
         print(json.dumps({
             'decision': 'block',
             'reason': (

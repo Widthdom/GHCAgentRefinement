@@ -23,7 +23,7 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     # sessionStartのタイミングで本スクリプトの呼び出し元であるCopilotがPythonプロセスを起動し
-    # 標準入力パイプにツール名や引数を含むイベント情報をJSON形式で書き込むので、それを読み込む。
+    # 標準入力パイプにセッションIDや起動の種類を含むイベント情報をJSON形式で書き込むので、それを読み込む。
     # このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
     #   空、JSONとして解析できない、JSONオブジェクト（最外側が{}）でない入力は異常終了。
     try:
@@ -45,7 +45,7 @@ def main():
 
     # JSONを構築して標準出力する。
     # separators=(',', ':')：項目間やキーと値の間に余分な空白を入れない。（出力をコンパクトにするための指定で、省略してもJSONとしては正しく伝わる。）
-    # 引用符・バックスラッシュ・改行など、JSONとして必要なエスケープは ensure_ascii=False で行われる
+    # 引用符・バックスラッシュ・改行など、JSONとして必要なエスケープは、ensure_asciiの指定によらずjson.dumpsが常に行う。
     print(json.dumps({
         'systemMessage': (
             "This session is using the VS Code Local harness. Open the Agents window, create a new session, "

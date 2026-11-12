@@ -36,7 +36,7 @@ def _is_non_empty_string(value):
 def _write_stdout_deny(reason):
     # ensure_ascii=False：日本語などを \uXXXX にせず、そのまま出力する。出力先はUTF-8に設定するため問題なし。
     # separators=(',', ':')：項目間やキーと値の間に余分な空白を入れない。（出力をコンパクトにするための指定で、省略してもJSONとしては正しく伝わる。）
-    # 引用符・バックスラッシュ・改行など、JSONとして必要なエスケープは ensure_ascii=False で行われる
+    # 引用符・バックスラッシュ・改行など、JSONとして必要なエスケープは、ensure_asciiの指定によらずjson.dumpsが常に行う。
     print(json.dumps({
         'permissionDecision': 'deny',
         'permissionDecisionReason': reason,
@@ -49,9 +49,8 @@ def _write_stderr_msg_and_deny(msg):
     _write_stdout_deny(msg)
 
 
-def main(definitions_path=None):
-    # 通常実行では指定不要。テスト用に解析対象の引数リストを差し替えられるようにする（現行テストでは未使用）。
-    # definitions_pathはパス単体ではなく、['--definitions-path', 'rules.json']のようなリストを受け取る。
+def main(arguments=None):
+    # 通常実行では指定不要。テスト用に解析対象の引数リスト（['--definitions-path', 'rules.json'] など）を差し替えられるようにする。
 
     # replace：変換できない文字があったら、例外を出さずに ? に置き換える。
     #   strict(既定)：UnicodeEncodeError を発生させる。
@@ -75,7 +74,7 @@ def main(definitions_path=None):
 
     # コマンドライン引数の解析と取得
     # parse_args：引数がNoneのときはsys.argv[1:]（実際のコマンドライン引数からスクリプト名を除いたもの）を解析する。
-    parsed_args = parser.parse_args(definitions_path)
+    parsed_args = parser.parse_args(arguments)
 
     # ブロック対象定義ファイルが見つからない、または存在を確認できない場合は異常終了。
     # f'...' は formatted string literalのことで、文字列の中に {式} の値を埋め込める書き方。C#の $"..." に相当する。
