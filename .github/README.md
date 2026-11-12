@@ -368,9 +368,7 @@ flowchart LR
 
 #### Pylanceの設定
 
-- hookのテストは、[.github/hooks/tests/helpers](./hooks/tests/helpers) の共通処理を `runpy.run_path` で読み込む。
-- リポジトリ直下の [pyrightconfig.json](../pyrightconfig.json) は同じパスを `extraPaths` に指定しているが、上記の共通処理のファイルは `sys.path` ではなく指定したパスから読み込まれる。
-- hookはWindows・macOS・Linuxのすべてを対象にし、`os.name == 'nt'` などでOSごとに分岐するため、`pythonPlatform` を `All` にして、実行中のOS以外向けの分岐も解析させる。
+- hookはWindows・macOS・Linuxのすべてを対象にし、`os.name == 'nt'` などでOSごとに分岐するため、リポジトリ直下の [pyrightconfig.json](../pyrightconfig.json) で `pythonPlatform` を `All` にして、実行中のOS以外向けの分岐も解析させる。
 - このファイルがあると、Pylanceは `python.analysis.*` の設定（`typeCheckingMode` など）よりこのファイルを優先するため、ユーザー設定で変えている項目はこのファイルにも記載する。
 
 ### トラブルシューティング
