@@ -52,7 +52,7 @@ def main():
     # 状態ファイルに保存する内容をdictとして作成する。
     # 内部的な記録なのでUTCを使用する。
     # isoformat() で日時オブジェクトをISO 8601形式の文字列に変換する。
-    # pending；レビュー待ちならTrueを設定する。
+    # pending：レビュー待ちならTrueを設定する。
     state = {
         'updatedAt': datetime.now(timezone.utc).isoformat(),
         'enabled': enabled,

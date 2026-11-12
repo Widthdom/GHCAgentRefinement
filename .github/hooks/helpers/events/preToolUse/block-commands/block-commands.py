@@ -130,7 +130,7 @@ def main(arguments=None):
             _write_stderr_msg_and_deny(str(ex))
             return 2
 
-        # コンパイル済みの正規表現と理由をturpleとしてListに追加する。
+        # コンパイル済みの正規表現と理由をtupleとしてListに追加する。
         compiled_definitions.append((compiled_pattern, definition['reason']))
 
     # preToolUseのタイミングで本スクリプトの呼び出し元であるCopilotがPythonプロセスを起動し
