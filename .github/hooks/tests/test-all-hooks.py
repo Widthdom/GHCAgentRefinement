@@ -23,9 +23,11 @@ if not _test_paths:
     sys.exit(2)
 
 _failed_tests = []
-for test_path in _test_paths:
+# 進捗が分かるよう、通し番号と総数を桁を揃えて表示する。
+_total_width = len(str(len(_test_paths)))
+for test_index, test_path in enumerate(_test_paths, start=1):
     relative_test_path = os.path.relpath(test_path, _repository_root).replace(os.sep, '/')
-    print(f'Running {relative_test_path}...', flush=True)
+    print(f'[{test_index:>{_total_width}}/{len(_test_paths)}] Running {relative_test_path}...', flush=True)
     try:
         result = subprocess.run([sys.executable, test_path], cwd=_repository_root, check=False, timeout=_TIMEOUT_SECONDS)
     except OSError as ex:
