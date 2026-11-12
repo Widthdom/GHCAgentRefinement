@@ -129,7 +129,8 @@ class DebugResponseFooterTests(unittest.TestCase):
                 if exit_code != 2 or output or case['Error'] not in error:
                     raise AssertionError(f"Expected exit 2 for '{case['Name']}', got {exit_code}. Output: {output}, Error: {error}")
 
-        valid_guid = _new_session_id()
+        # トランスクリプトのパスは、デバッグモードが有効なときだけ検証する。
+        valid_guid = self.__enabled_session_id
 
         missing_path_cases = [
             {'Name': 'Missing transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid}),
@@ -166,6 +167,11 @@ class DebugResponseFooterTests(unittest.TestCase):
                 exit_code, output, error = self.__invoke_hook_input(case['Json'])
                 if exit_code != 2 or output or case['Error'] not in error:
                     raise AssertionError(f"Expected exit 2 for '{case['Name']}', got {exit_code}. Error: {error}")
+
+        # デバッグモードが無効なら、トランスクリプトのパスが不正でも正常終了する。
+        exit_code, output, error = self.__invoke_hook_input(_to_compressed_json({'sessionId': _new_session_id()}))
+        if (exit_code, output.strip(), error) != (0, '', ''):
+            raise AssertionError(f'Expected exit 0 without debug mode. Got exit {exit_code}, Error: {error}')
 
         non_existent_session_id = _new_session_id()
 

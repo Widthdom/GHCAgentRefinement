@@ -9,7 +9,7 @@ agentStop（エージェントの応答終了時）
 ## 処理詳細
 1. 入力に `agentId` があれば何もしない（サブエージェントの停止）。
 2. セッションIDに対応するデバッグモード状態を読み取る。
-3. デバッグモードが有効な場合、トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[wait-for-agent-stop-event](../../../utilities/wait-for-agent-stop-event/README.md)）。
+3. デバッグモードが有効な場合だけ、入力の `transcriptPath` を検証し、トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[wait-for-agent-stop-event](../../../utilities/wait-for-agent-stop-event/README.md)）。無効な場合は、`transcriptPath` が不正でも正常終了する。
 4. ユーザーの最新の依頼以降に本hookが2回差し戻していれば、何もしない。
 5. トランスクリプトから直近の応答で使用したhookとskillを特定する。さらに、[hookランナー](../../../runner/README.md)の記録から今回のターンで実際に機能したhookを特定し、現在時刻（JST）とともにフッタを作成する。
 6. 応答末尾に正しいフッターがない場合、本文を維持して正しいフッタを追加または置換するよう応答を差し止める。

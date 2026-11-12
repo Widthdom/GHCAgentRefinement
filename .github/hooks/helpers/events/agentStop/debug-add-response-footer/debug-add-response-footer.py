@@ -94,7 +94,6 @@ def main():
     # このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
     try:
         hook_input = _hook_input['read_hook_input']()
-        transcript_path = _hook_input['get_transcript_path'](hook_input)
         parsed_session_id = _parse_session_id(hook_input.get('sessionId'))
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
@@ -137,6 +136,13 @@ def main():
 
     if not is_debug_mode:
         return 0
+
+    # トランスクリプトのパスは、デバッグモードが有効なときだけ検証する（共通規約の項目9）。
+    try:
+        transcript_path = _hook_input['get_transcript_path'](hook_input)
+    except (OSError, ValueError) as ex:
+        print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
+        return 2
 
     try:
         # GitHub Copilot はトランスクリプトに非同期で追記するため、agentStop hookが起動した直後は、最終応答がまだ書き込まれていない可能性がある。
