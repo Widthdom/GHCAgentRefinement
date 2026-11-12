@@ -1,3 +1,4 @@
+import itertools
 import json
 import os
 import runpy
@@ -180,6 +181,9 @@ for key in ('name', 'pattern', 'reason'):
             'Text': json.dumps([definition]),
             'Error': 'requires non-empty strings',
         })
+
+# cmdラッパーを検証するコードページ。932はShift_JIS、65001はUTF-8。
+_CODE_PAGES = (932, 65001)
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
 _run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
@@ -398,11 +402,8 @@ class BlockCommandsTests(unittest.TestCase):
                     with open(cmd_shim_path, 'w', encoding='utf-8', newline='\n') as file:
                         file.write('@echo off\n"%BLOCK_COMMANDS_TEST_PYTHON%" %*\nexit /b %errorlevel%\n')
 
-                    for code_page, search_path in (
-                        (932, self.__python_shim_path),
-                        (932, cmd_shim_directory),
-                        (65001, self.__python_shim_path),
-                        (65001, cmd_shim_directory),
+                    for code_page, search_path in itertools.product(
+                        _CODE_PAGES, (self.__python_shim_path, cmd_shim_directory),
                     ):
                         with self.subTest(code_page=code_page, search_path=search_path):
                             for command, expected_output in (
@@ -424,7 +425,7 @@ class BlockCommandsTests(unittest.TestCase):
 
                     with open(cmd_shim_path, 'w', encoding='utf-8', newline='\n') as file:
                         file.write('@echo off\nexit /b 1\n')
-                    for code_page in (932, 65001):
+                    for code_page in _CODE_PAGES:
                         with self.subTest(code_page=code_page):
                             result = self.__invoke_hook_input(
                                 '{}', entry_point='cmd', search_path=cmd_shim_directory,
