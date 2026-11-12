@@ -23,7 +23,6 @@ postToolUse（ファイル編集ツール `edit`・`str_replace_editor`・`apply
 |メンバー|C#・Javaなどの修飾子（`public`・`private`・`static`・`override` など）付きのメソッド・プロパティ・フィールド|
 |公開する変数|JavaScript・TypeScriptの `export const`・`export let`・`export var`|
 |定数|Pythonのモジュール直下の大文字の定数（`MAX_RETRIES = 3`）|
-|残る参照の例|文字列・XAMLのバインディング・設定ファイル・ドキュメント・`nameof` 以外の名前の参照|
 
 ## 前提条件
 - gitを使う。gitがない、またはリポジトリ外の場合は何もしない。
@@ -42,5 +41,5 @@ postToolUse（ファイル編集ツール `edit`・`str_replace_editor`・`apply
 - `git grep` が3秒以内に終わらない名前は探さない。gitの実行全体で7秒を過ぎた後の名前も、hookの `timeoutSec`（10秒）を超えないよう探さない。
 
 ## 備考
-- エージェントが定義の名前を変えたとき、コンパイラが検出しない文字列・設定・ドキュメントやリフレクションの参照に古い名前を残す事故を、編集の直後に知らせるためのhook。
+- エージェントが定義の名前を変えたとき、コンパイラが検出しない文字列・XAMLのバインディング・設定ファイル・ドキュメントや、リフレクションなど `nameof` 以外の名前の参照に古い名前を残す事故を、編集の直後に知らせるためのhook。
 - 状態は保存しない。
