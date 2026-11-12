@@ -34,7 +34,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 |`find` の削除と実行|`find … -delete`・`find … -exec rm {} \;`|同じ単純コマンド|
 |作業ツリーやインデックスを書き換えるgit|`git checkout`・`restore`・`rm`・`mv`・`reset`・`stash`・`apply`・`clean` など（`git -C <path>` などのオプションを挟んでもよい）|同じ単純コマンド|
 |守るパスへのリダイレクト|`echo {} > .github/hooks/preToolUse.json`|コマンドのどこでもよい|
-|スクリプト内部での書き込み|`python -c "open(..., 'w')"`・`write_text`・`os.remove`・`shutil.move`・`[IO.File]::WriteAllText`・`fs.writeFileSync` など|コマンドのどこでもよい|
+|スクリプト内部での書き込み|`python -c "open(..., 'w')"`（2番目の引数か `mode=` が書き込みを含むモードの `open`、モードが最初の引数の `Path.open('w')`）・`write_text`・`os.remove`・`shutil.move`・`[IO.File]::WriteAllText`・`fs.writeFileSync` など|コマンドのどこでもよい|
 
 - `cd`・`pushd`・`Set-Location` で守るパス（または守るパスを含むフォルダー）へ移動した後は、パスを書かない上記の操作と、相対パスへのリダイレクト（`> preToolUse.json`）も変更とみなす。`cd ..` など親へ戻るだけの移動の後も、守るパスを含むフォルダーにいるため対象のままにする。別の場所へ移動し直した後は対象外に戻る。
 - 守るパスを対象に繰り返すループ（`for f in .github/hooks/*; do rm $f; done`）の後の単純コマンドも、守るパスを扱うとみなす。
@@ -44,7 +44,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - [record-hook-change-requests](../../userPromptSubmitted/record-hook-change-requests/README.md) hookの記録で許可を判定する。
 
 ## 例外
-- 読み取りやテストの実行（`cat`・`grep`・`git diff`・`git log`・`python .github/hooks/tests/test-all-hooks.py > /tmp/all.log`・`… 2>&1 | tee /tmp/all.log`・`… && touch /tmp/ok`）は許可する。変更系のコマンド名が検索語などの引数にある場合（`grep -rn sc .github/hooks`）や、守るパスを含まない別の単純コマンドにある場合は変更とみなさない。
+- 読み取りやテストの実行（`cat`・`grep`・`git diff`・`git log`・`python .github/hooks/tests/test-all-hooks.py > /tmp/all.log`・`… 2>&1 | tee /tmp/all.log`・`… && touch /tmp/ok`）は許可する。変更系のコマンド名が検索語などの引数にある場合（`grep -rn sc .github/hooks`）や、守るパスを含まない別の単純コマンドにある場合は変更とみなさない。読むだけの `open(path)`・`open(path, encoding='ascii')` も変更とみなさない。
 - 許可はセッション単位で、一度hookに触れた依頼があればセッションの間は続く。依頼ごとに判定すると、hookの作業中の「続けて」などで止まってしまうため。
 
 ## 制約と限界

@@ -41,6 +41,8 @@ _COMMAND_START = (
 _LOOP_PATTERN = re.compile(r'^\s*(?:for|foreach|select|while|until)\b', re.IGNORECASE)
 # 親のフォルダーへ戻るだけの移動先（`..`・`../..`）。守るパスの中から戻っても、守るパスを含むフォルダーにいる。
 _PARENT_ONLY_PATTERN = re.compile(r'^["\']?\.\.(?:[/\\]\.\.)*[/\\]?["\']?\s*$')
+# 書き込みを含む `open` のモードの文字列。シェルの引用符の中で `\"w\"` とエスケープした場合も含む。
+_WRITE_MODE = r'\\?[\'"][rbtU]*[wax+][rwaxbtU+]*\\?[\'"]'
 _XARGS_PATTERN = re.compile(r'\bxargs\b', re.IGNORECASE)
 # 引数に書いた対象を変更するコマンド。守るパスが同じ単純コマンドにあれば変更とみなす。
 # `tee`・`Out-File`・`Tee-Object` はパイプの入力を書き込む内容として受け取るため、ここに含める。
@@ -81,9 +83,14 @@ _COMMAND_MODIFYING_PATTERNS = (
         r'>{1,2}\|?\s*["\']?[^\s|;&<>]*(?:\.github[/\\]+hooks|ghc-agent-refinement[/\\]+hook-states)', re.IGNORECASE,
     ),
     # スクリプト内部での書き込み（`python -c`・`node -e`・PowerShellの.NET API）
+    # `open` は、2番目の引数か `mode=` が書き込みを含むモードの場合だけ書き込みとみなす（`Path.open` はモードが最初の引数）。
+    # `encoding='ascii'` などの文字列や、読むだけの `open(path)` は書き込みとみなさない。
     re.compile(
         r'\b(?:write_text|write_bytes|writeFile\w*|WriteAll\w*|AppendAll\w*|rmtree|os\.remove|os\.rename'
-        r'|os\.replace|shutil\.(?:move|copy\w*)|fs\.(?:rm|unlink|rename)\w*)\b|\.unlink\(|open\([^)]*[\'"][wax+]',
+        r'|os\.replace|shutil\.(?:move|copy\w*)|fs\.(?:rm|unlink|rename)\w*)\b|\.unlink\('
+        r'|\bopen\([^,()]*(?:\([^()]*\)[^,()]*)*,\s*' + _WRITE_MODE
+        + r'|\bopen\([^)]*\bmode\s*=\s*' + _WRITE_MODE
+        + r'|\.open\(\s*' + _WRITE_MODE,
     ),
 )
 _DENY_REASON = (
