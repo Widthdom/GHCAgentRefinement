@@ -30,6 +30,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 例外
 - `2>/dev/null` は対象外とする。標準エラーを隠すだけで終了コードは伝わり、`command -v` などの正当な用途が多いため。
+- `const enabled = options.flag || true;`・`return a || true;`・`if (a || true)`・`f(a || true)` のように、行頭の代入（宣言の語や型に続く左辺と、前後に空白がある `=`）・`return`・`if`・`while` の条件・関数の引数の中にある `|| true` は、シェル以外の言語の式とみなして対象外とする。シェルの `X=$(cmd || true)` と、`[ "$x" = y ] && cmd || true`・`test $x = y && cmd || true` の比較は対象とする。
 - ドキュメントのコード例で誤検知しないよう、文書のファイルは対象外とする。
 - シェルによる書き込みは対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../block-shell-file-edits/README.md) hookが拒否する。
 
