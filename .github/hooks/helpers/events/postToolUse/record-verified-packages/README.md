@@ -17,7 +17,7 @@ postToolUse（ツール `bash`・`powershell`・`web_fetch` が成功した直�
 |--|--|--|
 |NuGet|`dotnet package search <id>`・`dotnet add [<project>] package <id>`・`nuget list <id>`・`nuget search <id>`|`https://www.nuget.org/packages/<id>`・`https://api.nuget.org/v3-flatcontainer/<id>/`・`https://api.nuget.org/v3/registration*/<id>/`|
 |PyPI|`pip index versions <name>`・`pip download <name>`・`uv add <name>`（`python -m pip`・`pip3` も含む）|`https://pypi.org/project/<name>`・`https://pypi.org/pypi/<name>`・`https://pypi.org/simple/<name>`|
-|npm|`npm view <name>`・`npm info <name>`・`npm show <name>`・`yarn info <name>`・`pnpm view <name>`・`pnpm add <name>`|`https://www.npmjs.com/package/<name>`・`https://registry.npmjs.org/<name>`|
+|npm|`npm view <name>`・`npm info <name>`・`npm show <name>`・`npm v <name>`（`yarn`・`pnpm` の `view`・`info`・`show`・`v` も含む）・`pnpm add <name>`|`https://www.npmjs.com/package/<name>`・`https://registry.npmjs.org/<name>`|
 |Pythonのモジュール|`python -c "import <name>"`（`python3`・`python3.14`・`python.exe` も含む）|—|
 
 ## 例外

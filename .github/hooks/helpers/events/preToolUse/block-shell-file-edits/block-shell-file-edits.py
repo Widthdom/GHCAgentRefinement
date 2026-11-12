@@ -113,7 +113,7 @@ def _read_powershell_quoted(command, index):
 
 
 def _tokenize_powershell(command):
-    # 戻り値はtokenize_bashと同じ形式。
+    # 戻り値は_tokenize_bashと同じ形式。
     items = []
     index = 0
     pending_write = False

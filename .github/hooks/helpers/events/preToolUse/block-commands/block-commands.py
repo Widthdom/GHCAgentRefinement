@@ -43,7 +43,7 @@ def _write_stdout_deny(reason):
     }, ensure_ascii=False, separators=(',', ':')))
 
 
-# 引数を標準エラー出力するとともに、write_stdout_denyを呼び出す。
+# 引数を標準エラー出力するとともに、_write_stdout_denyを呼び出す。
 def _write_stderr_msg_and_deny(msg):
     print(msg, file=sys.stderr)
     _write_stdout_deny(msg)
@@ -115,7 +115,7 @@ def main(arguments=None):
         # 必須項目に欠落があれば異常終了。
         # 各キーの値を取得して、非空文字列か否かの結果を確認し、ひとつでもFalseであれば異常終了。
         # allは、前から評価してFalseが見つかった時点で即座にFalseを返す。
-        #   ここではis_non_empty_string(definition.get('pattern'))がfalseならis_non_empty_string(definition.get('reason'))は実行されない。
+        #   ここでは_is_non_empty_string(definition.get('pattern'))がfalseなら_is_non_empty_string(definition.get('reason'))は実行されない。
         if not all(
             # getはキーが無くてもNoneを返す。ここでdefinitions[key]のようにするとKeyErrorが発生する可能性がある。
             _is_non_empty_string(definition.get(key)) for key in ('name', 'pattern', 'reason')

@@ -21,8 +21,8 @@ _PYTHON_EXTENSIONS = ('.py', '.pyi')
 _CSHARP_EXTENSIONS = ('.cs',)
 # 引数の記述として読む、Pythonのdocstringの形式。
 #   Sphinx：`:param name:`・`:param int name:`
-#   Google：`Args:`・`Arguments:`・`Parameters:`・`引数:` の見出しの下に、1段深い字下げで `name (int): ...`
-#   NumPy：`Parameters` の見出しと `----------` の下に、同じ字下げで `name : int`
+#   Google：`Args:`・`Arguments:`・`Parameters:`・`Params:`・`Keyword Args:`・`Keyword Arguments:`・`引数:` の見出しの下に、1段深い字下げで `name (int): ...`
+#   NumPy：`Parameters`・`Other Parameters` の見出しと `----------` の下に、同じ字下げで `name : int`
 _SPHINX_PARAM_PATTERN = re.compile(r'^\s*:param\s+(?:[^:\n]*\s)?\*{0,2}(\w+)\s*:', re.MULTILINE)
 _GOOGLE_HEADER_PATTERN = re.compile(r'^(\s*)(?:Args|Arguments|Parameters|Params|Keyword Args|Keyword Arguments|引数)\s*[:：]\s*$')
 _GOOGLE_ENTRY_PATTERN = re.compile(r'^\s*\*{0,2}(\w+)\s*(?:\([^)]*\))?\s*[:：]')

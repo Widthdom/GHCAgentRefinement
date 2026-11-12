@@ -10,7 +10,7 @@ _state_path_utility = runpy.run_path(os.path.join(
 ))
 
 
-# エージェントがメッセージと差分を読んだコミットの状態。
+# エージェントがメッセージを読んだコミットの状態。
 # 記録するpostToolUse hook（record-viewed-commits）と、修正コミット由来の行を読まずに消す編集を拒否する
 # preToolUse hook（block-regression-of-past-fixes）が共有する。コミットIDは小文字の完全な形で保存する。
 

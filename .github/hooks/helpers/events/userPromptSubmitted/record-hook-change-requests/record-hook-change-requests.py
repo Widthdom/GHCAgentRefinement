@@ -89,7 +89,7 @@ def main():
             return 0
 
         # 一度触れたら、このセッションの間は変更を認めたままにする。
-        # 「続けて」「1の順に対応して」など、hookに触れない後続の依頼で作業を止めないため。
+        # 「続けて」「1,2の順に対応して」など、hookに触れない後続の依頼で作業を止めないため。
         if _mentions_hooks(prompt, _get_hook_names(cwd)):
             state['save_permitted'](state_path)
     except (OSError, UnicodeError, ValueError) as ex:
