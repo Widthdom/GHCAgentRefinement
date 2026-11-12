@@ -163,7 +163,7 @@ class RequireReadBeforeEditTests(unittest.TestCase):
             '*** Update File: 対象.py\n@@\n-a\n+b\n*** End Patch\n'
         )))
         # cwd配下のファイルは相対パス、それ以外は絶対パスで、どちらもOSによらず `/` 区切りで示される。
-        files = sorted([os.path.normcase(outside).replace(os.sep, '/'), 'sub/other.py', '対象.py'], key=lambda path: (
+        files = sorted([outside.replace(os.sep, '/'), 'sub/other.py', '対象.py'], key=lambda path: (
             os.path.normcase(os.path.realpath(os.path.join(self.__workspace, path)))
         ))
         self.__assert_denied(result, ', '.join(files))

@@ -10,7 +10,7 @@ postToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_re
 
 ## 処理詳細
 
-1. [get-edited-paths](../../../utilities/get-edited-paths/README.md) で、ツール引数の `path`、または `apply_patch` のパッチ本文の `*** Update File:` などの行から、編集されたファイルを特定する。
+1. [get-edited-paths](../../../utilities/get-edited-paths/README.md) で、ツール引数の `path`（`create` では `file_path`）、または `apply_patch` のパッチ本文の `*** Update File:` などの行から、編集されたファイルを特定する。
 2. 各ファイルについて、HEADの内容を `git cat-file --filters` で取得する。チェックアウト時と同じ変換（`core.autocrlf` や `.gitattributes` の `eol`）を通した内容と比べるため、WindowsでCRLFに変換された作業ツリーを変更扱いしない。
 3. 編集後のファイルとHEADの内容を比べ、次の変化を検出する。
    - 改行コード：CRLFとLFの入れ替わり、または片方に統一されていたファイルへの混在
@@ -32,6 +32,7 @@ postToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_re
 ## 制約と限界
 
 - 同じセッションで同じファイルの同じ変化は1回だけ通知する。ユーザーの依頼による意図的な変換でも、編集のたびに助言を繰り返さない。元の形式に戻った後で再び崩れた場合は、改めて通知する。
+- `git cat-file` は1回5秒、全体で7秒までとし、hookの `timeoutSec`（10秒）より前に打ち切る。時間内に取得できなかったファイルは比べない。
 
 ## 備考
 

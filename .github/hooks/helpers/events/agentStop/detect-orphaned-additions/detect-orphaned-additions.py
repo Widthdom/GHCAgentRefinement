@@ -146,7 +146,8 @@ def _find_candidates(changes, cwd, repository_root, excluded_name_patterns, lang
         path, written, removed = change['path'], change['written'], change['removed']
         full_path = os.path.realpath(os.path.join(cwd, path))
         try:
-            if os.path.commonpath([repository_root, full_path]) != repository_root:
+            # 大文字小文字を区別しないWindowsでも配下と判定できるよう、normcaseで比べる。
+            if os.path.normcase(os.path.commonpath([repository_root, full_path])) != os.path.normcase(repository_root):
                 continue
         except ValueError:
             # Windowsでドライブが異なる場合、commonpathはValueErrorになる。

@@ -53,6 +53,19 @@ class RunGitTests(unittest.TestCase):
                 self.assertIsNone(_utility['get_git_output'](self.__repository, ['status'], 1))
                 self.assertIsNone(_utility['get_repository_root'](self.__repository, 1))
 
+    def test_deadline_limits_timeout_and_skips_after_expiry(self):
+        deadline = _utility['create_deadline'](2)
+        with patch('subprocess.run', return_value=subprocess.CompletedProcess(['git'], 0, b'x', b'')) as run:
+            self.assertEqual(_utility['get_git_output'](self.__repository, ['status'], 10, deadline), 'x')
+            self.assertLessEqual(run.call_args.kwargs['timeout'], 2)
+            self.assertEqual(_utility['run_git'](self.__repository, ['status'], 1, deadline).returncode, 0)
+            self.assertEqual(run.call_args.kwargs['timeout'], 1)
+            run.reset_mock()
+            expired = _utility['create_deadline'](-1)
+            self.assertIsNone(_utility['run_git'](self.__repository, ['status'], 10, expired))
+            self.assertIsNone(_utility['get_repository_root'](self.__repository, 10, expired))
+            run.assert_not_called()
+
 
 if __name__ == '__main__':
     _run_tests()

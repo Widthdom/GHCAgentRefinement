@@ -129,7 +129,8 @@ def _find_drifts(manifests, paths, cwd, repository_root):
             continue
         seen.add(path)
         try:
-            if os.path.commonpath([repository_root, path]) != repository_root:
+            # 大文字小文字を区別しないWindowsでも配下と判定できるよう、normcaseで比べる。
+            if os.path.normcase(os.path.commonpath([repository_root, path])) != os.path.normcase(repository_root):
                 continue
         except ValueError:
             continue

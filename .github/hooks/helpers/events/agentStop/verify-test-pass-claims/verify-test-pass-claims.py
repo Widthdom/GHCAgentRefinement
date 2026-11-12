@@ -15,6 +15,7 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 _SHELL_TOOL_NAMES = {'bash', 'powershell'}
@@ -66,11 +67,7 @@ def _get_turn_summary(transcript_path, extract_edit_tool_changes):
 def _get_shell_command(tool_name, arguments):
     if tool_name not in _SHELL_TOOL_NAMES:
         return None
-    if isinstance(arguments, str):
-        try:
-            arguments = json.loads(arguments)
-        except ValueError:
-            return None
+    arguments = _unwrap_tool_args(arguments)
     command = arguments.get('command') if isinstance(arguments, dict) else None
     return command if isinstance(command, str) else None
 

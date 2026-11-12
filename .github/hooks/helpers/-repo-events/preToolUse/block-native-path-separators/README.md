@@ -23,11 +23,10 @@ OS依存の区切り（Windowsでは `\`）で相対パスを返すAPIの呼び�
 |Go relative path|`filepath.Rel(root, file)`|`filepath.ToSlash(...)`|
 |Java relative path|`root.relativize(file)`|`.replace(File.separatorChar, '/')`・`separatorsToUnix(...)`|
 |PowerShell relative path|`Resolve-Path $file -Relative`|`-replace '\\', '/'`|
-|対象外のファイル|`*.md`・`*.markdown`・`*.rst`・`*.txt`・`*.adoc`||
 
 ## 例外
 - 既存の行と同じ行は対象外とし、インデントの変更や周囲の編集で既存のコードを新たなものとみなさない。
-- ドキュメントのコード例で誤検知しないよう、文書のファイルは対象外とする。
+- ドキュメントのコード例で誤検知しないよう、文書のファイル（`*.md`・`*.markdown`・`*.rst`・`*.txt`・`*.adoc`）は対象外とする。
 - シェルによる書き込みは対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../../../events/preToolUse/block-shell-file-edits/README.md) hookが拒否する。
 
 ## 制約と限界

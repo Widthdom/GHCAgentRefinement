@@ -38,12 +38,16 @@ class CheckTestRunsTests(unittest.TestCase):
         for command in (
             'pytest', 'cd x; pytest', 'pytest && echo ok', '(cd x && pytest)', 'pytest > /tmp/log 2>&1',
             'set -o pipefail; pytest | tail', 'set -e; pytest; echo done', 'pytest && a | b',
+            'set -euo pipefail\npytest | tail',
         ):
             with self.subTest(command=command):
                 self.assertTrue(is_test_result_reported(command))
         for command in (
             'python3 test-x.py; echo done', 'python3 test-x.py || true', 'pytest | tail', 'pytest &',
             'pytest\necho done', '(cd x && pytest) || true', 'pytest -k a; pytest -k b', 'ls tests',
+            'set +o pipefail; pytest | tail', 'echo pipefail; pytest | tail',
+            'set -o pipefail; set +o pipefail; pytest | tail', 'pytest | tail; set -o pipefail',
+            'echo x | set -o pipefail; pytest | tail',
         ):
             with self.subTest(command=command):
                 self.assertFalse(is_test_result_reported(command))
@@ -73,11 +77,14 @@ class CheckTestRunsTests(unittest.TestCase):
             '`All tests passed` is an example. Tests passed.',
             '> Tests passed.\nTests passed.',
             'テストは「unit」を含めて通過した。',
+            # 「まず」「必ず」の `ず` は否定ではない。
+            'テストが通ったので、まず報告する。', 'テストは成功し、必ず再現する。',
         ):
             with self.subTest(response=response):
                 self.assertTrue(claims_tests_passed(response))
         for response in (
             'テストが通っていない。', 'テストは成功しなかった。', 'テストはパスしません。', 'テストを追加した。',
+            'テストは成功せず、失敗した。',
             'Tests failed.', 'I will run the tests.',
             # コードブロック内の出力例は主張とみなさない。
             '結果は次のとおり。\n```\nAll tests passed.\n```\n', '~~~\nテストが通りました\n~~~\n',

@@ -2,7 +2,7 @@ import json
 import os
 import sys
 
-# hookの標準入力を読み、共通の項目を検証する。すべてのhookが共有する。
+# hookの標準入力を読み、共通の項目を検証する。標準入力を読むhookが共有する。
 # 不正な入力はValueError（復号の失敗はその派生のUnicodeError）で知らせ、呼び出し元のhookが異常終了する。
 
 

@@ -7,7 +7,6 @@ import runpy
 import shlex
 import sqlite3
 import sys
-import time
 from typing import cast
 
 
@@ -50,7 +49,8 @@ _BARE_FILE_PATTERN = re.compile(
     r'go|rs|java|kt|rb|php|c|cc|cpp|h|hpp|css|scss|html|sql|txt|ini|cfg)(?![\w-])',
     re.IGNORECASE,
 )
-_JAPANESE_NEGATION = r'(?![^。\n]{0,6}?(?:ない|ません|なかった|ず))'
+# 直後の否定の判定は、テストが通ったという主張と同じ基準（check-test-runs utility）を使う。
+_JAPANESE_NEGATION = runpy.run_path(os.path.join(_utilities_directory, 'check-test-runs', 'check-test-runs.py'))['JAPANESE_NEGATION']
 _TEST_ADDITION_PATTERNS = (
     re.compile(r'テスト[^。\n]{0,10}?(?:追加|作成|新設|書い|書き)' + _JAPANESE_NEGATION),
     re.compile(r'\b(?:add|added|adds|adding|write|wrote|writes|create|created|creates)\s+(?:\w+\s+){0,3}?(?:unit\s+)?(?:tests?|specs?)\b', re.IGNORECASE),
@@ -59,7 +59,7 @@ _TEST_PATH_PATTERN = re.compile(r'test|spec', re.IGNORECASE)
 _MAX_LISTED_TOKENS = 10
 _MAX_UNTRACKED_FILE_BYTES = 1024 * 1024
 # gitの実行全体の期限。hookの `timeoutSec`（10秒）より前に打ち切り、判定できなければコミットを通す。
-_GIT_DEADLINE = time.monotonic() + 7
+_GIT_DEADLINE = _git['create_deadline'](7)
 _DENY_REASON_PREFIX = 'Commit denied: the commit message describes changes that are not in the commit'
 
 
@@ -221,11 +221,10 @@ def _find_commits(command, cwd):
 
 
 def _run_git(cwd, *arguments):
-    # gitの標準出力を返す。失敗した場合と、期限を過ぎた場合はNone。
-    remaining = _GIT_DEADLINE - time.monotonic()
-    if remaining <= 0:
-        return None
-    return _git['get_git_output'](cwd, ['-c', 'core.quotePath=false', *arguments], remaining)
+    # gitの標準出力を返す。失敗した場合と、期限を過ぎた場合はNone。1回の上限は設けず、期限までの残り時間で打ち切る。
+    return _git['get_git_output'](
+        cwd, ['-c', 'core.quotePath=false', *arguments], float('inf'), _GIT_DEADLINE,
+    )
 
 
 def _get_commit_changes(commit, cwd, staged_before):

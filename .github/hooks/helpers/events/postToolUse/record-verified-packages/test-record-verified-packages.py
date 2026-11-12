@@ -64,6 +64,8 @@ class RecordVerifiedPackagesTests(unittest.TestCase):
             ('pnpm add lodash', 'dependencies:\n+ lodash 4.17.21', ('npm', 'lodash')),
             ('python3 -c "import yaml"', '', ('python-module', 'yaml')),
             ('cd web && npm view react version', 'react 18.3.1', ('npm', 'react')),
+            # バージョン番号の一部の `404` は、見つからない旨とみなさない。
+            ('npm view left-pad versions', 'left-pad: 1.404.0, 2.0.404', ('npm', 'left-pad')),
         ]
         for command, output, expected in cases:
             with self.subTest(command=command):
@@ -109,6 +111,7 @@ class RecordVerifiedPackagesTests(unittest.TestCase):
     def test_missing_registry_pages_are_not_recorded(self):
         cases = [
             ('https://www.nuget.org/packages/Contoso.Missing', '404 - Page not found'),
+            ('https://pypi.org/project/zz-missing/', 'Error 404.'),
             ('https://pypi.org/project/zz-missing/', 'Not Found'),
             ('https://registry.npmjs.org/zz-missing', ''),
             ('https://example.com/packages/left-pad', 'left-pad'),

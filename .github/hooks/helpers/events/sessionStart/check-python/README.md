@@ -9,7 +9,7 @@ Python 3.14以降が使えるかを確認し、使えなければ導入方法を
 ## 処理詳細
 1. macOS/Linuxでは `python3`、Windowsでは `python` が利用できるか、Pythonのバージョンが3.14以降かを確認する。
 2. 条件を満たさない場合は、OSに応じた導入方法を標準エラーに出力する。同じ案内と、最初の応答の冒頭でユーザーに伝えるよう求める英語の指示を `additionalContext` としてエージェントに渡し、終了コード0で終わる。
-3. PATHの更新をhookに反映するため、hookを起動するアプリケーションまたはターミナルを再起動を推奨する。
+3. PATHの更新をhookに反映するため、hookを起動するアプリケーションまたはターミナルの再起動を推奨する。
 
 ## 前提条件
 - Python未インストール前提のため、Windowsでは [cmd](./check-python.cmd)、macOS/Linuxでは [sh](./check-python.sh) を呼び出す。

@@ -18,12 +18,13 @@
 |テストの後に `;`・改行で別のコマンドが続く（`set -e`・`set -o errexit` がある場合を除く）|`python3 test-x.py; echo done`|
 |テストの後に `\|\|` が続く|`python3 test-x.py \|\| true`|
 |バックグラウンドで実行する|`pytest &`|
-|pipefailなしでパイプの途中にある（`pipefail`・`PIPESTATUS` がコマンドにある場合を除く）|`npm test \| tail -5`|
+|pipefailなしでパイプの途中にある（それより前の `set -o pipefail` で有効にした場合と、`PIPESTATUS` を参照する場合を除く）|`npm test \| tail -5`・`set +o pipefail; npm test \| tail -5`|
 
 - `pytest && echo ok`・`cd x; pytest`・`pytest > /tmp/log 2>&1` のように、テストの後が `&&` だけで続くか、テストで終わる場合は結果を表すとみなす。
+- pipefailは、単純コマンドを順に見て `set -o pipefail`・`set -euo pipefail` で有効、`set +o pipefail` で無効とする（`update_pipefail`）。パイプの中の `set` はサブシェルで実行されるため数えない。`echo pipefail` のように、語として書いただけでは有効にならない。
 
 ## テストが通ったという主張の判定
-- `claims_tests_passed` は、応答が「テストが通った」「All tests passed」などと書いているかを判定する。コードブロック・引用行・引用符やインラインコードの中は除き、直後に否定（「通っていない」など）が続く場合も主張とみなさない。
+- `claims_tests_passed` は、応答が「テストが通った」「All tests passed」などと書いているかを判定する。コードブロック・引用行・引用符やインラインコードの中は除き、直後に否定（「通っていない」「成功せず」など）が続く場合も主張とみなさない。「まず」「必ず」の `ず` は否定とみなさない。否定の判定（`JAPANESE_NEGATION`）は、テストの追加の主張を判定するhookも使う。
 
 ## 利用するhook
 - [verify-test-pass-claims](../../events/agentStop/verify-test-pass-claims/README.md)
@@ -31,3 +32,4 @@
 - [record-test-failure-values](../../events/postToolUse/record-test-failure-values/README.md)
 - [detect-vacuous-test-success](../../events/postToolUse/detect-vacuous-test-success/README.md)
 - [block-masked-exit-codes](../../events/preToolUse/block-masked-exit-codes/README.md)
+- [block-commit-message-mismatch](../../events/preToolUse/block-commit-message-mismatch/README.md)（否定の判定だけ）

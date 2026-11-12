@@ -26,7 +26,7 @@ def _get_items(footer_match, group_name):
     ]
 
 
-def test_response_footer(response, expected_hooks, expected_fired_hooks, expected_skills, current_jst):
+def is_valid_response_footer(response, expected_hooks, expected_fired_hooks, expected_skills, current_jst):
     footer_match = re.search(_FOOTER_PATTERN, response)
     if not footer_match:
         return False

@@ -37,9 +37,9 @@ agentStop（エージェントの応答終了時）
 |未実装のマクロ・関数|`todo!()`・`unimplemented!()`・`TODO()`（Kotlin）|
 |TODOコメント|`// TODO`・`# TODO`・`/* TBD */`・`-- TODO`|
 |実装の先送りを示すコメント|`// 後で実装`・`# 未実装`・`/* implement later */`・`// stub implementation`|
-|対象外のファイル|`*.md`・`*.markdown`・`*.rst`・`*.txt`・`*.adoc`・`*.json`|
 
 ## 例外
+- 文書と設定のファイル（`*.md`・`*.markdown`・`*.rst`・`*.txt`・`*.adoc`・`*.json`）は対象外とする。
 - 書き込む時点では拒否せず、応答終了時に最終的なファイルに残っているものだけを検出する。調査の途中でデバッグ用のコードを入れることや、編集の途中で仮実装を置くことは正当な手順のため、後で消したものは差し戻さない。
 - 誤検知を避けるため、`print(...)` などの出力は、文字列が `DEBUG`・`debug:`・`XXX`・`HERE`・`>>>`・`***` で始まるものだけを対象とする。コマンドラインツールの出力やエラーメッセージなどの通常の出力と、`logger.debug(...)` などのロガーは対象外。
 - `FIXME` は対象外とする。[add-fixme-comment](../../../../../skills/add-fixme-comment/SKILL.md) skillが依頼範囲外の不具合の目印として意図的に書き込むため。

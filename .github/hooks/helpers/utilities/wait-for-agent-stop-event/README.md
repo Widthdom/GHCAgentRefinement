@@ -4,9 +4,11 @@
 agentStop hookが最終応答やツール実行の結果を読む前に、それらがトランスクリプトに書き込まれるのを待つ。トランスクリプトを読むagentStop hookが共有する。
 
 ## 待ち方
-Copilotはトランスクリプトへ非同期に追記するため、agentStop hookの発動直後は、最終応答や最後のツール実行の結果がまだ書き込まれていないことがある。イベントは発生順に追記されるため、本hook自身の `hook.start`（hook入力と同じ `timestamp` を持つagentStopのもの）が書き込まれれば、それより前の内容も書き込み済みとみなす。
+Copilotはトランスクリプトへ非同期に追記するため、agentStop hookの発動直後は、最終応答や最後のツール実行の結果がまだ書き込まれていないことがある。イベントは発生順に追記されるため、本hook自身のagentStopの `hook.start` が書き込まれれば、それより前の内容も書き込み済みとみなす。
 
-`hook.start` の `input` はhookの標準入力と形式が異なる場合がある（[共通規約](../../../../skills/create-hook/references/hook-conventions.md)の項目1）。`timestamp` が一致しなくても、イベント自体の時刻（`timestamp`、ISO 8601）がhook入力の `timestamp`（Unixミリ秒）の1秒前以降であるagentStopの `hook.start` があれば、書き込み済みとみなす。形式が変わっても、agentStop hookが毎回期限まで待つことを防ぐ。1秒の幅は、2つの時刻を記録する処理の差を見込んだもの。
+本hook自身の `hook.start` は、イベント自体の時刻（`timestamp`、ISO 8601）がhook入力の `timestamp`（Unixミリ秒）の1秒前以降であるagentStopの `hook.start` とする。過去のターンのagentStopと取り違えないためで、1秒の幅は、2つの時刻を記録する処理の差を見込んだもの。
+
+イベントの時刻を読めない `hook.start` に限り、`input` の `timestamp` がhook入力と一致するものを本hook自身のものとみなす。`hook.start` の `input` はhookの標準入力と形式が異なる場合がある（[共通規約](../../../../skills/create-hook/references/hook-conventions.md)の項目1）ため、イベントの時刻を主に使い、`input` での照合は補助にとどめる。形式が変わっても、agentStop hookが毎回期限まで待つことを防ぐ。
 
 `hook.start` が現れるまで最大5秒待つ。期限を過ぎた場合は待つのをやめ、その時点の内容で呼び出し元の処理を続ける。
 

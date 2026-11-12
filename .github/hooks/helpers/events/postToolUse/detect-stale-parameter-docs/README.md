@@ -16,7 +16,7 @@ postToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_re
      |形式|書き方|
      |--|--|
      |Sphinx|`:param name:`・`:param int name:`|
-     |Google|`Args:`・`Arguments:`・`Parameters:`・`Params:`・`Keyword Args:`・`引数:` の見出しの下に、1段深い字下げで `name (int): ...`|
+     |Google|`Args:`・`Arguments:`・`Parameters:`・`Params:`・`Keyword Args:`・`Keyword Arguments:`・`引数:` の見出しの下に、1段深い字下げで `name (int): ...`|
      |NumPy|`Parameters`・`Other Parameters` の見出しと `---` の下線の下に、見出しと同じ字下げで `name : int`・`x, y : int`|
 
    - C#：`///` の行が続くまとまりから `<param name="...">` を取り出し、その後の属性（`[...]`）と空行を飛ばした宣言の括弧の中から引数名を取り出す。属性・既定値・修飾子（`this`・`ref`・`out`・`in`・`params`・`scoped`・`readonly`）・型を除き、`@` 付きの名前は `@` を除く。

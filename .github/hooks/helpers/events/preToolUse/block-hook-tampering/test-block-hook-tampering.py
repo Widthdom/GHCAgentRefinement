@@ -92,6 +92,16 @@ class BlockHookTamperingTests(unittest.TestCase):
             with self.subTest(tool_name=tool_name, target=target):
                 self.__assert_denied(self.__run_call(tool_name, tool_args), target)
 
+    def test_edits_through_symbolic_links_are_denied(self):
+        hooks = os.path.join(self.__directory, '.github', 'hooks')
+        os.makedirs(hooks)
+        try:
+            os.symlink(hooks, os.path.join(self.__directory, 'linked'), target_is_directory=True)
+        except (OSError, NotImplementedError) as ex:
+            # Windowsでは、権限がないとシンボリックリンクを作れない。
+            self.skipTest(f'symbolic links are not available: {ex}')
+        self.__assert_denied(self.__run_call('edit', {'path': 'linked/preToolUse.json'}), 'linked/preToolUse.json')
+
     def test_shell_modifications_of_hook_files_are_denied(self):
         commands = (
             'rm -rf .github/hooks/helpers/events/preToolUse/block-commands',
@@ -104,6 +114,9 @@ class BlockHookTamperingTests(unittest.TestCase):
             'Remove-Item -Recurse .github\\hooks\\helpers',
             'Set-Content -Path .github/hooks/x.json -Value "{}"',
             "python -c \"open('.github/hooks/x.json', 'w').write('{}')\"",
+            "python -c \"open('.github/hooks/x.json', encoding='utf-8', mode='a')\"",
+            'python -c "open(\\".github/hooks/x.json\\", \\"r+\\")"',
+            "python -c \"pathlib.Path('.github/hooks/x.json').open('wb')\"",
             "python3 -c \"import pathlib; pathlib.Path('.github/hooks/x.json').write_text('')\"",
             "[IO.File]::WriteAllText('.github/hooks/x.json', '')",
             'cd .github/hooks && rm preToolUse.json',
@@ -152,6 +165,10 @@ class BlockHookTamperingTests(unittest.TestCase):
             'rm -rf .github/workflows/x',
             'cd .github/hooks && cd ../workflows && rm x',
             'for f in .github/hooks/*; do cat $f; done',
+            # 読むだけの `open`。モードではない `a` で始まる文字列の引数は書き込みとみなさない。
+            "python3 -c \"import json; json.load(open('.github/hooks/agentStop.json', encoding='ascii'))\"",
+            "python3 -c \"print(open('.github/hooks/agentStop.json').read())\"",
+            "python3 -c \"open('.github/hooks/agentStop.json', 'r', errors='replace')\"",
         )
         for command in commands:
             for tool_name in ('bash', 'powershell'):

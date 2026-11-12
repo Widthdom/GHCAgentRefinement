@@ -28,12 +28,12 @@ agentStop（エージェントの応答終了時）
 |言及のないファイルの変更|依頼にも応答にも名前が出てこないファイルを変えた|
 |整形の依頼とみなす語|`整形`・`フォーマット`・`インデント`・`空白`・`改行`・`lint`・`format`・`indent`・`whitespace`・`prettier` など|
 |削除・移動の依頼とみなす語|`削除`・`消して`・`リネーム`・`移動`・`整理`・`分割`・`統合`・`delete`・`remove`・`rename`・`move`・`clean up` など|
-|対象外のファイル|`package-lock.json`・`yarn.lock`・`pnpm-lock.yaml`・`poetry.lock`・`uv.lock`・`Cargo.lock`・`go.sum` などのロックファイル|
 
 ## 例外
+- ロックファイル（`package-lock.json`・`yarn.lock`・`pnpm-lock.yaml`・`poetry.lock`・`uv.lock`・`Cargo.lock`・`go.sum` など）は対象外とする。
 - 書き込む時点では判定せず、応答終了時に依頼の文と応答の文をそろえて判定する。途中の応答で言及したファイルも対象外とする。
 - サブエージェントの停止は対象外。
-- 依頼の区切りは [get-turn-events](../../../utilities/get-turn-events/README.md) の規則に従う。割り込みで追加された指示は依頼の文に含める。
+- 依頼の区切りと依頼の文は [get-turn-events](../../../utilities/get-turn-events/README.md) の規則に従う。割り込みで追加された指示は依頼の文に含め、他のhookの差し戻しは含めない。
 - 最新の依頼の編集だけを対象とする。
 - 拒否・失敗した編集、未完了の編集、対応する開始イベントがない完了は変更とみなさない。ファイルの現在の有無では判定しないため、成功した削除・移動は引き続き検査する。
 - シェルによる書き込み・削除（`rm`・`git mv` など）は対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../../preToolUse/block-shell-file-edits/README.md) hookが拒否する。

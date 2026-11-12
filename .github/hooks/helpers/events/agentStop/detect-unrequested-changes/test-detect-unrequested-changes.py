@@ -229,6 +229,17 @@ class DetectUnrequestedChangesTests(unittest.TestCase):
         # 割り込みのメッセージは依頼の区切りにならない。
         self.__assert_block(self.__invoke([*events, _user('急いで', delivery='queued'), _assistant('直した。')]))
 
+    def test_other_hook_feedback_is_not_a_request(self):
+        # 他のhookの差し戻しに含まれる語やパスで、削除の依頼・言及とみなさない。
+        patch = '*** Begin Patch\n*** Delete File: legacy/old_module.py\n*** End Patch'
+        feedback = 'The final response references paths that do not exist: legacy/old_module.py. Correct or remove them.'
+        events = [
+            _user('app.py を直して'), *_edit('app.py'), *_tool('apply_patch', patch, 'c2'), _assistant('app.py を直した。'),
+            {'type': 'hook.end', 'data': {'hookType': 'agentStop', 'output': {'decision': 'block', 'reason': feedback}}},
+            _user(feedback, delivery='queued'), _assistant('確認した。'),
+        ]
+        self.__assert_block(self.__invoke(events), f'- legacy/old_module.py: {_DELETED}', _UNMENTIONED)
+
     def test_skips_subagents_and_turns_without_response(self):
         events = [_user('直して'), *_edit('hidden.py'), _assistant('直した。')]
         self.__assert_silent(self.__invoke(events, payload={**self.__payload, 'agentId': 'sub'}))

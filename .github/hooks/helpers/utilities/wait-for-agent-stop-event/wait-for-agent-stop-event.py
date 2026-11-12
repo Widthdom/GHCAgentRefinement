@@ -19,9 +19,9 @@ def _get_event_time_ms(event):
 
 def _is_agent_stop_event_recorded(transcript_path, hook_timestamp):
     # トランスクリプトに、今回実行中のagentStop hookのhook.startイベントが書き込まれているかを返す。
-    #   過去のターンのagentStopと取り違えないよう、hook入力のtimestampが一致するものを対象とする。
-    #   hook.startのinputは標準入力と形式が異なる場合があるため、一致しなくても、
-    #   イベント自体の時刻がhook入力のtimestamp以降のagentStopのhook.startがあれば、書き込み済みとみなす。
+    #   過去のターンのagentStopと取り違えないよう、イベント自体の時刻がhook入力のtimestamp以降（幅を見込む）のものを対象とする。
+    #   イベントの時刻を読めない場合だけ、hook.startのinputのtimestampがhook入力と一致するものを対象とする。
+    #   hook.startのinputは標準入力と形式が異なる場合があるため、inputでの照合は補助にとどめる。
 
     # `utf-8-sig` を指定することで、BOMが存在する場合は取り除いて読むことができる。
     # with：処理を抜けるときの後片付けを自動で行う構文（C#のusingに相当）。

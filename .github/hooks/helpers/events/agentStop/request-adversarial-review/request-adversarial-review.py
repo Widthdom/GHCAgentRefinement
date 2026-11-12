@@ -2,7 +2,6 @@ import io
 import json
 import os
 import runpy
-import subprocess
 import sys
 from datetime import datetime, timezone
 from typing import cast
@@ -15,6 +14,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
+_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _write_json_atomically = runpy.run_path(os.path.join(
     _utilities_directory, 'write-json-atomically', 'write-json-atomically.py',
 ))['write_json_atomically']
@@ -114,32 +114,17 @@ def main():
         print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
         return 2
 
-    # シェルを介さずにgit statusを実行する。
+    # git statusはrun-git utilityで、シェルを介さずに実行する。
     #   cwdやファイル名に空白・記号が含まれてもシェル用の引用処理が不要で、入力がシェルコマンドとして解釈される危険も避けられる。
     # -z：ファイル名に空白や改行が含まれていても正しく判定できるようにする。
     # --untracked-files=all：未追跡の新規ディレクトリをディレクトリ単位でまとめず、配下の新規ファイルを個別に列挙する。
-    try:
-        status = subprocess.run(
-            ['git', 'status', '--porcelain=v1', '--untracked-files=all', '-z'],
-            cwd=cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=10,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as ex:
-        print(f'git status timed out: {ex}', file=sys.stderr)
-        return 2
-    except OSError as ex:
-        print(f'Failed to run git status: {ex}', file=sys.stderr)
+    status = _git['run_git'](cwd, ['status', '--porcelain=v1', '--untracked-files=all', '-z'], 10)
+    if status is None:
+        print('Failed to run git status: git is not available or timed out.', file=sys.stderr)
         return 2
 
     if status.returncode != 0:
-        error_message = status.stderr.decode('utf-8', errors='replace').strip()
-        print(
-            f'git status failed with exit code {status.returncode}: {error_message}',
-            file=sys.stderr,
-        )
+        print(f'git status failed with exit code {status.returncode}.', file=sys.stderr)
         return 2
 
     # stdoutはgit statusの結果。空であれば終了する。

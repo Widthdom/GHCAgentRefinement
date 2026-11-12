@@ -199,10 +199,7 @@ class RequestReviewTests(unittest.TestCase):
                     stderr.flush()
                     self.assertEqual(code, 2)
                     self.assertEqual(stdout.buffer.getvalue(), b'')
-                    if isinstance(failure, subprocess.TimeoutExpired):
-                        self.assertIn(b'git status timed out:', stderr.buffer.getvalue())
-                    else:
-                        self.assertIn(b'Failed to run git status:', stderr.buffer.getvalue())
+                    self.assertIn(b'Failed to run git status:', stderr.buffer.getvalue())
                     self.assertEqual(run.call_args.kwargs['timeout'], 10)
                     self.assertEqual(run.call_args.args[0], [
                         'git', 'status', '--porcelain=v1', '--untracked-files=all', '-z',

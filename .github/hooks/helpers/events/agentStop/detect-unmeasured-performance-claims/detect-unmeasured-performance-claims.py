@@ -16,6 +16,7 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
+_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 _SHELL_TOOL_NAMES = {'bash', 'powershell'}
@@ -56,12 +57,14 @@ def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・シェル実行・本hookによる差し戻し済みかを集める。
     events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
     # 拒否などで実行されなかった場合は終了コードが記録されないため、計測とみなさない。
-    succeeded_commands = [
-        arguments['command']
-        for tool_name, arguments, completion in _turn_events['get_tool_calls'](events)
-        if tool_name in _SHELL_TOOL_NAMES and isinstance(arguments, dict) and isinstance(arguments.get('command'), str)
-        and _turn_events['get_shell_exit_code'](completion) == 0
-    ]
+    # 引数はJSON文字列で記録される場合もあるため、包みを外してから読む。
+    succeeded_commands = []
+    for tool_name, arguments, completion in _turn_events['get_tool_calls'](events):
+        arguments = _unwrap_tool_args(arguments)
+        command = arguments.get('command') if isinstance(arguments, dict) else None
+        if (tool_name in _SHELL_TOOL_NAMES and isinstance(command, str)
+                and _turn_events['get_shell_exit_code'](completion) == 0):
+            succeeded_commands.append(command)
     return _turn_events['get_last_assistant_message'](events), succeeded_commands, already_requested
 
 

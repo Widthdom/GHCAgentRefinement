@@ -205,7 +205,14 @@ class PreserveLineEndingsTests(unittest.TestCase):
         os.makedirs(nested)
         self.__commit(b'a\r\nb\r\n')
         payload = {**self.__payload, 'cwd': nested, 'toolArgs': {'path': os.path.join('..', '対象.py')}}
-        self.__assert_notification(self.__edit(b'a\nb\n', payload), f'{os.path.normcase(self.__target).replace(os.sep, "/")} (line endings changed from CRLF to LF)')
+        self.__assert_notification(self.__edit(b'a\nb\n', payload), f'{self.__target.replace(os.sep, "/")} (line endings changed from CRLF to LF)')
+
+    def test_file_names_with_uppercase_letters(self):
+        # gitは大文字小文字を区別するため、Windowsでも正規化前の名前でHEADの内容を問い合わせ、表示する。
+        path = os.path.join(self.__workspace, 'Program.cs')
+        self.__commit(b'a\r\nb\r\n', path)
+        payload = {**self.__payload, 'toolArgs': {'path': 'Program.cs', 'old_str': 'a', 'new_str': 'b'}}
+        self.__assert_notification(self.__edit(b'a\nb\n', payload, path), 'Program.cs (line endings changed from CRLF to LF)')
 
     def test_skips_files_without_committed_version(self):
         self.__commit(b'a\r\nb\r\n')

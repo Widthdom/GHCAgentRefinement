@@ -38,9 +38,9 @@ _COMMAND_PATTERNS = [
     (_NPM, re.compile(rf'\bpnpm\s+add{_OPTIONS}\s+{_NAME}')),
     (_PYTHON_MODULE, re.compile(r'\bpython(?:3(?:\.\d+)?)?(?:\.exe)?\s+-c\s+["\']\s*import\s+(?P<name>[A-Za-z_]\w*)\s*["\']')),
 ]
-# レジストリが見つからないと答えた出力。
+# レジストリが見つからないと答えた出力。`404` は、`1.404.0` のようなバージョン番号の一部を除く。
 _NOT_FOUND_PATTERN = re.compile(
-    r'(?i)no results|not found|\bE404\b|\b404\b|no matching distribution|could not find|unable to find package|'
+    r'(?i)no results|not found|\bE404\b|(?<![\w.])404(?!\w|\.\d)|no matching distribution|could not find|unable to find package|'
     r'\bNU1101\b|no solution found|\bERR!|No module named|ModuleNotFoundError|ImportError|does not exist'
 )
 _URL_PATTERNS = [
@@ -50,7 +50,7 @@ _URL_PATTERNS = [
     (_NPM, re.compile(r'^https?://(?:www\.)?npmjs\.com/package/(?P<name>(?:@[^/?#]+/)?[^/?#]+)', re.IGNORECASE)),
     (_NPM, re.compile(r'^https?://registry\.npmjs\.org/(?P<name>(?:@[^/?#]+(?:/|%2[fF]))?[^/?#@]+)', re.IGNORECASE)),
 ]
-_WEB_NOT_FOUND_PATTERN = re.compile(r'(?i)\b404\b|not found|does not exist')
+_WEB_NOT_FOUND_PATTERN = re.compile(r'(?i)(?<![\w.])404(?!\w|\.\d)|not found|does not exist')
 
 
 def _strip_version(ecosystem, name):

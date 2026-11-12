@@ -28,6 +28,8 @@ _filter_new_notifications = runpy.run_path(os.path.join(
 _EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 _UTF8_BOM = b'\xef\xbb\xbf'
 _GIT_TIMEOUT_SECONDS = 5
+# gitの実行全体の期限。ファイルが多くても、hookの `timeoutSec`（10秒）より前に打ち切り、比べられない分は対象外とする。
+_GIT_DEADLINE = _git['create_deadline'](7)
 _FORMAT_CONTEXT = (
     'The following edited files no longer match the file format of their committed version: {changes}. '
     'Editing tools can silently rewrite line endings, the byte order mark, or the final newline when '
@@ -42,7 +44,8 @@ def _get_committed_content(path):
     # 変換前の内容と比べると、WindowsのautocrlfでCRLFになった作業ツリーを誤って変更扱いしてしまう。
     # gitがない、リポジトリ外、HEADにないファイル（新規・管理外）は比較できないためNoneを返す。
     result = _git['run_git'](
-        os.path.dirname(path), ['cat-file', '--filters', f'HEAD:./{os.path.basename(path)}'], _GIT_TIMEOUT_SECONDS,
+        os.path.dirname(path), ['cat-file', '--filters', f'HEAD:./{os.path.basename(path)}'],
+        _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE,
     )
     if result is None or result.returncode != 0:
         return None
@@ -101,13 +104,14 @@ def main():
         if tool_name not in _EDIT_TOOL_NAMES:
             return 0
         # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。
-        paths = sorted({
-            os.path.normcase(os.path.realpath(os.path.join(cwd, path)))
-            for path in _get_edited_paths(tool_name, _unwrap_tool_args(tool_args))
-        })
+        # gitは大文字小文字を区別するため、問い合わせ・読み込み・表示には正規化前のパスを使い、normcaseは照合だけに使う。
+        paths = {}
+        for path in _get_edited_paths(tool_name, _unwrap_tool_args(tool_args)):
+            real_path = os.path.realpath(os.path.join(cwd, path))
+            paths.setdefault(os.path.normcase(real_path), real_path)
 
         results = []
-        for path in paths:
+        for normalized_path, path in sorted(paths.items()):
             # 削除されたファイルと、パッチの移動元は比較対象がない。
             if not os.path.isfile(path):
                 continue
@@ -117,7 +121,7 @@ def main():
             with open(path, 'rb') as file:
                 current = file.read()
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-            file_key = hashlib.sha256(path.encode('utf-8')).hexdigest()
+            file_key = hashlib.sha256(normalized_path.encode('utf-8')).hexdigest()
             changes = _get_format_changes(committed, current)
             results.append((file_key, (path, changes), changes))
         # hookは呼び出しごとに別プロセスなので、通知済みの変更をセッションUUID別に保存する。
@@ -132,7 +136,7 @@ def main():
         return 2
 
     if notifications:
-        cwd = os.path.normcase(os.path.realpath(cwd))
+        cwd = os.path.realpath(cwd)
         changes = '; '.join(
             f'{_get_display_path(path, cwd)} ({", ".join(file_changes)})' for path, file_changes in notifications
         )

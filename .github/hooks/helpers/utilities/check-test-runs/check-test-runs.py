@@ -26,14 +26,17 @@ _REDIRECT_OPERATORS = {'>', '>>', '>|', '&>', '&>>', '<', '<<', '<<-', '<<<', '<
 _OPERATOR_CHARACTERS = frozenset('();&|<>')
 # `set -e`・`set -euo pipefail`・`set -o errexit` があれば、後続のコマンドの失敗で終了する。
 _ERREXIT_PATTERN = re.compile(r'(?:^|[\s;&|(])set\s+(?:-[A-Za-z]*e[A-Za-z]*(?=\s|$|;)|-o\s+errexit\b)', re.MULTILINE)
-_PIPEFAIL_PATTERN = re.compile(r'\bpipefail\b|\bPIPESTATUS\b')
+# `set -o pipefail`・`set -euo pipefail` などの `o` を含むオプションの直後の語がpipefailなら設定とみなす。
+_SET_OPTION_PATTERN = re.compile(r'^([-+])[A-Za-z]*o$')
 # PowerShellのパスの区切りの `\` は、shlexではエスケープとして消える。英数字などの前の `\` は `/` に置き換えてから分ける。
 # bashで意味を持つエスケープ（`\;`・`\|`・`\ `・`\"`・行末の `\` など）はそのまま残る。
 _PATH_BACKSLASH_PATTERN = re.compile(r'\\(?=[\w.-])')
-# 直後に否定が続く場合は主張とみなさない（例：「通っていない」「成功しなかった」）。
-_JAPANESE_NEGATION = r'(?![^。\n]{0,6}?(?:ない|ません|なかった|ず))'
+# 直後に否定が続く場合は主張とみなさない（例：「通っていない」「成功しなかった」「通らず」）。
+# 「まず」「必ず」の `ず` は否定ではないため除く。
+# テストの追加の主張を判定するhook（block-commit-message-mismatch）も同じ基準を使う。
+JAPANESE_NEGATION = r'(?![^。\n]{0,6}?(?:ない|ません|なかった|(?<![ま必])ず))'
 _TEST_CLAIM_PATTERNS = (
-    re.compile(r'テスト[^。\n]{0,20}?(?:通過|通っ|通り|成功|パス|合格)' + _JAPANESE_NEGATION),
+    re.compile(r'テスト[^。\n]{0,20}?(?:通過|通っ|通り|成功|パス|合格)' + JAPANESE_NEGATION),
     re.compile(r'\b(?:all\s+)?tests?\s+(?:(?:are|were|now|all)\s+)*(?:pass(?:ed|es|ing)?|succeed(?:ed|s)?)\b', re.IGNORECASE),
 )
 _FENCED_CODE_PATTERN = re.compile(r'^(```|~~~).*?^\1', re.MULTILINE | re.DOTALL)
@@ -108,23 +111,38 @@ def _get_simple_commands(command):
     return commands
 
 
+def update_pipefail(words, current):
+    # 単純コマンドの語が `set -o pipefail` なら有効、`set +o pipefail` なら無効にした状態を返す。それ以外は変えない。
+    if not words or words[0] != 'set':
+        return current
+    for option, following in zip(words[1:], words[2:]):
+        match = _SET_OPTION_PATTERN.match(option)
+        if match and following == 'pipefail':
+            current = match.group(1) == '-'
+    return current
+
+
 def _get_test_runs(command, pattern):
     # patternに一致するコマンドの実行ごとに、コマンド全体の終了コードがその結果を表すかを返す。
     # 後に `;`・`||` で別のコマンドが続く場合、バックグラウンドで実行する場合、pipefailなしでパイプの途中にある場合は、
-    # 終了コードが結果を表さない。
+    # 終了コードが結果を表さない。pipefailは、それより前の `set -o pipefail`・`set +o pipefail` を順に追って判定する。
+    # `PIPESTATUS` を参照している場合は、各段の終了コードを確かめているとみなす。
     commands = _get_simple_commands(command)
     errexit = bool(_ERREXIT_PATTERN.search(command))
-    pipefail = bool(_PIPEFAIL_PATTERN.search(command))
+    uses_pipestatus = 'PIPESTATUS' in command
+    pipefail = False
     results = []
     for index, (words, operator) in enumerate(commands):
-        if not runs_command(words, pattern):
-            continue
-        reported = not (operator == '|' and not pipefail)
-        for _, following in commands[index:]:
-            if following in ('||', '&') or (following == ';' and not errexit):
-                reported = False
-                break
-        results.append(reported)
+        if runs_command(words, pattern):
+            reported = not (operator == '|' and not pipefail and not uses_pipestatus)
+            for _, following in commands[index:]:
+                if following in ('||', '&') or (following == ';' and not errexit):
+                    reported = False
+                    break
+            results.append(reported)
+        # パイプの中の `set` はサブシェルで実行されるため、後続のコマンドに効かない。
+        if operator != '|' and (index == 0 or commands[index - 1][1] != '|'):
+            pipefail = update_pipefail(words, pipefail)
     return results
 
 

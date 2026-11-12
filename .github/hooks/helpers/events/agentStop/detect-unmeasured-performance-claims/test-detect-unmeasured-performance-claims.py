@@ -126,6 +126,12 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
                     _assistant('3倍高速になった。'),
                 ]), command)
 
+    def test_measurements_with_json_string_arguments_count(self):
+        # トランスクリプトの引数はJSON文字列で記録される場合もある。
+        start, complete = _shell('c1', 'hyperfine "python3 main.py"', 0)
+        start = {**start, 'data': {**start['data'], 'arguments': json.dumps(start['data']['arguments'])}}
+        self.__assert_silent(self.__invoke([_user('速くして'), start, complete, _assistant('3倍高速になった。')]))
+
     def test_failed_or_missing_measurements_do_not_count(self):
         cases = [
             ('failed benchmark', _shell('c1', 'cargo bench', 101)),

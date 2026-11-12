@@ -89,6 +89,11 @@ class BlockErrorSwallowingTests(unittest.TestCase):
             ('a.sh', 'make build || true\n', 'ignored command failure'),
             ('a.sh', 'rm -rf out || :\n', 'ignored command failure'),
             ('a.sh', 'set +e\n', 'ignored command failure'),
+            ('a.sh', 'VERSION=$(git describe || true)\n', 'ignored command failure'),
+            # シェルの `[ ... = ... ]` の比較は代入ではない。
+            ('a.sh', '[ "$CI" = "true" ] && npm test || true\n', 'ignored command failure'),
+            ('a.sh', 'if [ "$a" = b ]; then make || true; fi\n', 'ignored command failure'),
+            ('a.sh', 'test $a = b && make || true\n', 'ignored command failure'),
             ('a.yml', '  run: npm test || true\n', 'ignored command failure'),
             ('a.ps1', 'Remove-Item x -ErrorAction SilentlyContinue\n', 'ignored PowerShell error'),
             ('a.ps1', "$ErrorActionPreference = 'SilentlyContinue'\n", 'ignored PowerShell error'),
@@ -121,6 +126,11 @@ class BlockErrorSwallowingTests(unittest.TestCase):
             ('a.sh', 'command -v jq 2>/dev/null\n'),
             ('a.sh', 'set -e\n'),
             ('a.js', 'const ok = a || truthy;\n'),
+            # 代入・return・条件式・関数の引数の中の `|| true` は、コマンドの失敗の無視ではない。
+            ('a.js', 'const enabled = options.flag || true;\n'),
+            ('A.cs', 'return cached || true;\n'),
+            ('a.ts', 'if (a || true) {\n'),
+            ('a.js', 'configure(options.flag || true);\n'),
             ('a.ps1', 'Get-Item x -ErrorAction Stop\n'),
             ('a.py', 'kind = "type"  # ignored later\n'),
         ]

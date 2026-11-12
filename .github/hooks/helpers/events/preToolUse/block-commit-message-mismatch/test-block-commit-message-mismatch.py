@@ -103,7 +103,7 @@ class BlockCommitMessageMismatchTests(unittest.TestCase):
 
     def test_denies_test_claim_without_test_files(self):
         self.__stage('src/app.py', 'def parse(text):\n    return len(text)\n')
-        for message in ('parseを直し、テストを追加した', 'Fix parse and add tests'):
+        for message in ('parseを直し、テストを追加した', 'Fix parse and add tests', 'parseを直し、テストを追加し、まず確認した'):
             with self.subTest(message=message):
                 self.__assert_denied(self.__invoke(f"git commit -m '{message}'"), 'no changed path looks like a test file')
         self.__assert_allowed(self.__invoke("git commit -m 'parseを直した。テストは追加していない'"))

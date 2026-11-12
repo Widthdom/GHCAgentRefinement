@@ -25,7 +25,7 @@
     },
     {
       "name": "ignored command failure",
-      "pattern": "\\|\\|\\s*(?:true|:)\\s*(?:[;)]|$)|^\\s*set\\s+\\+e\\b"
+      "pattern": "^(?!\\s*(?!test\\s)(?:(?:[\\w<>,.?$]|\\[\\])+\\s+)*?[\\w.$]+(?:\\[[^\\]\\n]*\\])?\\s*=\\s|[^\\n]*?(?:\\breturn\\b|\\b(?:if|while)\\s*\\(|[\\w.]\\([^)\\n]*\\|\\|))[^\\n]*?\\|\\|\\s*(?:true|:)\\s*(?:[;)]|$)|^\\s*set\\s+\\+e\\b"
     },
     {
       "name": "ignored PowerShell error",

@@ -9,7 +9,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 処理詳細
 1. [generated-file-definitions.json](./generated-file-definitions.json) から、生成ファイルのパス（`generatedPathPatterns`）と、ファイル先頭にある生成の目印（`generatedMarkerPatterns`）の正規表現を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルを特定する。
-   - `edit`・`create`・`insert`・`str_replace_editor`：ツール引数の `path`（`str_replace_editor` の `view` は除く）
+   - `edit`・`create`・`insert`・`str_replace_editor`：ツール引数の `path`（`create` では `file_path`。`str_replace_editor` の `view` は除く）
    - `apply_patch`：パッチ本文の `*** Add File:`・`*** Update File:` の行
 3. 次のいずれかに該当するファイルを生成ファイルとみなす。
    - cwdからの相対パス（`/` 区切り）が `generatedPathPatterns` のいずれかに一致する。

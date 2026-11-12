@@ -96,7 +96,7 @@ def main(arguments=None):
         cwd = _hook_input['get_cwd'](hook_input)
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        normalized_cwd = os.path.normcase(os.path.realpath(cwd))
+        real_cwd = os.path.realpath(cwd)
         findings = []
         # 置換前の内容は書き込む内容ではないため検査せず、既存の値の照合に使う。
         changes = _extract_edit_tool_changes(tool_name, tool_args)
@@ -104,12 +104,17 @@ def main(arguments=None):
             written = '\n'.join(change['written'] for change in changes)
             removed = '\n'.join(change['removed'] for change in changes)
             paths = [path for change in changes for path in (change['path'], change['moved_to']) if path]
-            resolved_paths = sorted({os.path.normcase(os.path.realpath(os.path.join(cwd, path))) for path in paths})
-            display_paths = ', '.join(_get_display_path(path, normalized_cwd) for path in resolved_paths) or tool_name.removeprefix('functions.')
+            # 同じファイルの別表記はnormcaseで1つにまとめ、表示には正規化前のパスを使う。
+            resolved = {}
+            for path in paths:
+                real_path = os.path.realpath(os.path.join(cwd, path))
+                resolved.setdefault(os.path.normcase(real_path), real_path)
+            resolved_paths = [resolved[key] for key in sorted(resolved)]
+            display_paths = ', '.join(_get_display_path(path, real_cwd) for path in resolved_paths) or tool_name.removeprefix('functions.')
 
             env_paths = [path for path in resolved_paths if _is_env_file(path)]
             if env_paths:
-                files = ', '.join(_get_display_path(path, normalized_cwd) for path in env_paths)
+                files = ', '.join(_get_display_path(path, real_cwd) for path in env_paths)
                 findings.append(f'{files} is an environment file that usually holds secrets')
 
             # 既に書かれている値を再び書くのは新たな漏えいではないため、照合用に現在の内容を読む。

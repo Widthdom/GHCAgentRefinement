@@ -129,7 +129,8 @@ class DebugResponseFooterTests(unittest.TestCase):
                 if exit_code != 2 or output or case['Error'] not in error:
                     raise AssertionError(f"Expected exit 2 for '{case['Name']}', got {exit_code}. Output: {output}, Error: {error}")
 
-        valid_guid = _new_session_id()
+        # トランスクリプトのパスは、デバッグモードが有効なときだけ検証する。
+        valid_guid = self.__enabled_session_id
 
         missing_path_cases = [
             {'Name': 'Missing transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid}),
@@ -166,6 +167,11 @@ class DebugResponseFooterTests(unittest.TestCase):
                 exit_code, output, error = self.__invoke_hook_input(case['Json'])
                 if exit_code != 2 or output or case['Error'] not in error:
                     raise AssertionError(f"Expected exit 2 for '{case['Name']}', got {exit_code}. Error: {error}")
+
+        # デバッグモードが無効なら、トランスクリプトのパスが不正でも正常終了する。
+        exit_code, output, error = self.__invoke_hook_input(_to_compressed_json({'sessionId': _new_session_id()}))
+        if (exit_code, output.strip(), error) != (0, '', ''):
+            raise AssertionError(f'Expected exit 0 without debug mode. Got exit {exit_code}, Error: {error}')
 
         non_existent_session_id = _new_session_id()
 
@@ -475,8 +481,13 @@ class DebugResponseFooterTests(unittest.TestCase):
             {'type': 'tool.execution_start', 'data': {'toolName': 'skill', 'arguments': {'skill': 'first'}}},
             {'type': 'tool.execution_start', 'data': {'toolName': 'other', 'arguments': {'skill': 'ignored'}}},
             {'type': 'tool.execution_start', 'data': {'toolName': 'skill', 'arguments': {'skill': ['not-a-string']}}},
+            {'type': 'tool.execution_start', 'data': {'toolName': 'skill', 'arguments': '{"skill": "string-args"}'}},
+            {'type': 'tool.execution_start', 'data': {'toolName': 'skill', 'arguments': 'not-json'}},
+            # 他のhookの差し戻しも、フッター修正の依頼と同じく依頼の区切りとしない。
+            {'type': 'user.message', 'timestamp': '2026-10-21T03:00:08.000Z',
+             'data': {'content': 'Some changes in this request are not clearly part of what the user asked for', 'delivery': 'queued'}},
             {'type': 'hook.start', 'timestamp': '2026-10-21T03:00:09.000Z', 'data': {'hookType': 'userPromptSubmitted'}},
-            {'type': 'user.message', 'timestamp': '2026-10-21T03:00:10.000Z', 'data': {'content': correction}},
+            {'type': 'user.message', 'timestamp': '2026-10-21T03:00:10.000Z', 'data': {'content': correction, 'delivery': 'queued'}},
             {'type': 'hook.start', 'data': {'hookType': 'preToolUse'}},
         ]
 
@@ -489,7 +500,7 @@ class DebugResponseFooterTests(unittest.TestCase):
         if get_hooks(collection_transcript, hooks_directory) != ['a-first', 'm-repo', 'z-last']:
             raise AssertionError('Expected current-turn hooks in name order, retaining correction history.')
 
-        if get_skills(collection_transcript) != ['first', 'second']:
+        if get_skills(collection_transcript) != ['first', 'second', 'string-args']:
             raise AssertionError('Expected distinct skill names in invocation order, retaining correction history.')
 
         get_fired_hooks = runpy.run_path(os.path.join(_script_directory, 'get-fired-hooks.py'))['get_fired_hooks']
@@ -519,12 +530,13 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         corrected_footer = decision['reason'].split('\n\n', 1)[1]
 
-        if ('- block-commands\n' not in corrected_footer or '- first\n- second\n' not in corrected_footer
+        if ('- block-commands\n' not in corrected_footer or '- first\n- second\n- string-args\n' not in corrected_footer
                 or 'excluding agentStop hooks):\n- deny-hook\n- prompt-hook\n' not in corrected_footer):
             raise AssertionError(f'Expected hooks, fired hooks, and skills in correction request: {corrected_footer}')
 
         events.extend([
-            {'type': 'user.message', 'timestamp': '2026-10-21T03:00:20.000Z', 'data': {'content': decision['reason']}},
+            {'type': 'user.message', 'timestamp': '2026-10-21T03:00:20.000Z',
+             'data': {'content': decision['reason'], 'delivery': 'queued'}},
             {'type': 'assistant.message', 'data': {'content': 'Response body\n\n' + corrected_footer}},
         ])
 
@@ -558,7 +570,7 @@ class DebugResponseFooterTests(unittest.TestCase):
     def test_footer_validation(self):
         format_footer = runpy.run_path(os.path.join(_script_directory, 'format-response-footer.py'))['format_response_footer']
 
-        validate_footer = runpy.run_path(os.path.join(_script_directory, 'check-response-footer.py'))['test_response_footer']
+        validate_footer = runpy.run_path(os.path.join(_script_directory, 'check-response-footer.py'))['is_valid_response_footer']
 
         current_jst = '2026-10-21 12:00:00 JST'
 
