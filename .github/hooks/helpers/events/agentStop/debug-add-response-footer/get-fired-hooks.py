@@ -10,7 +10,6 @@ _utilities_directory = os.path.join(
 )
 
 
-_FOOTER_CORRECTION_PREFIX = 'The final response footer is missing or incorrect.'
 # agentStop hookは本hookと同時に動き、同じ応答終了時の結果をフッター作成時点では確定できないため、常に除外する。
 _EXCLUDED_EVENTS = ('agentStop',)
 
@@ -26,7 +25,9 @@ def _to_epoch_ms(timestamp):
 
 
 def _get_turn_started_at_ms(transcript_path):
-    # 直近の（フッター修正依頼でない）user.messageのターンが始まった時刻を返す。user.messageがなければ0を返す。
+    # ユーザーの最新の依頼のターンが始まった時刻を返す。依頼のuser.messageがなければ0を返す。
+    # 依頼の区切りはget-turn-events utilityと同じく、`delivery` が `queued` でないuser.messageとする。
+    # hookの差し戻し（フッター修正の依頼を含む）は `queued` として記録されるため、区切りとしない。
     # userPromptSubmitted・userPromptTransformedのhookはuser.messageより前に記録されるため、その最初のhook.startをターンの開始とする。
     if not os.path.isfile(transcript_path):
         raise FileNotFoundError(f'Transcript file not found: {transcript_path}')
@@ -46,8 +47,7 @@ def _get_turn_started_at_ms(transcript_path):
             continue
         if event_type != 'user.message':
             continue
-        content = data.get('content')
-        if not (isinstance(content, str) and content.startswith(_FOOTER_CORRECTION_PREFIX)):
+        if data.get('delivery') != 'queued':
             turn_started_at_ms = _to_epoch_ms(
                 event.get('timestamp') if prompt_hook_started_at is None else prompt_hook_started_at
             )

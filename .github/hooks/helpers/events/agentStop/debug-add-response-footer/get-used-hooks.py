@@ -8,6 +8,7 @@ import runpy
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
+_get_turns = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))['get_turns']
 
 
 def get_used_hooks(transcript_path, hooks_path):
@@ -17,23 +18,11 @@ def get_used_hooks(transcript_path, hooks_path):
     if not os.path.isdir(hooks_path):
         raise FileNotFoundError(f'Hooks directory not found: {hooks_path}')
 
+    # ユーザーの最新の依頼以降のイベントを対象とする。hookの差し戻し（フッター修正の依頼を含む）は依頼の区切りとしない。
     hook_types = set()
-
-    for event in runpy.run_path(
-        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py')
-    )['read_jsonl_objects'](transcript_path):
-        data = event.get('data', {})
-        if not isinstance(data, dict):
-            raise ValueError('Event data must be a JSON object.')
-        content = data.get('content')
-        if (event.get('type') == 'user.message' and
-                not (isinstance(content, str) and
-                     content.startswith('The final response footer is missing or incorrect.'))):
-            hook_types.clear()
-            continue
-
+    for event_type, data in _get_turns(transcript_path)[-1]:
         hook_type = data.get('hookType')
-        if event.get('type') == 'hook.start' and isinstance(hook_type, str) and hook_type.strip():
+        if event_type == 'hook.start' and isinstance(hook_type, str) and hook_type.strip():
             hook_types.add(hook_type)
 
     used_hooks = set()

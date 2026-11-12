@@ -475,8 +475,13 @@ class DebugResponseFooterTests(unittest.TestCase):
             {'type': 'tool.execution_start', 'data': {'toolName': 'skill', 'arguments': {'skill': 'first'}}},
             {'type': 'tool.execution_start', 'data': {'toolName': 'other', 'arguments': {'skill': 'ignored'}}},
             {'type': 'tool.execution_start', 'data': {'toolName': 'skill', 'arguments': {'skill': ['not-a-string']}}},
+            {'type': 'tool.execution_start', 'data': {'toolName': 'skill', 'arguments': '{"skill": "string-args"}'}},
+            {'type': 'tool.execution_start', 'data': {'toolName': 'skill', 'arguments': 'not-json'}},
+            # 他のhookの差し戻しも、フッター修正の依頼と同じく依頼の区切りとしない。
+            {'type': 'user.message', 'timestamp': '2026-10-21T03:00:08.000Z',
+             'data': {'content': 'Some changes in this request are not clearly part of what the user asked for', 'delivery': 'queued'}},
             {'type': 'hook.start', 'timestamp': '2026-10-21T03:00:09.000Z', 'data': {'hookType': 'userPromptSubmitted'}},
-            {'type': 'user.message', 'timestamp': '2026-10-21T03:00:10.000Z', 'data': {'content': correction}},
+            {'type': 'user.message', 'timestamp': '2026-10-21T03:00:10.000Z', 'data': {'content': correction, 'delivery': 'queued'}},
             {'type': 'hook.start', 'data': {'hookType': 'preToolUse'}},
         ]
 
@@ -489,7 +494,7 @@ class DebugResponseFooterTests(unittest.TestCase):
         if get_hooks(collection_transcript, hooks_directory) != ['a-first', 'm-repo', 'z-last']:
             raise AssertionError('Expected current-turn hooks in name order, retaining correction history.')
 
-        if get_skills(collection_transcript) != ['first', 'second']:
+        if get_skills(collection_transcript) != ['first', 'second', 'string-args']:
             raise AssertionError('Expected distinct skill names in invocation order, retaining correction history.')
 
         get_fired_hooks = runpy.run_path(os.path.join(_script_directory, 'get-fired-hooks.py'))['get_fired_hooks']
@@ -519,12 +524,13 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         corrected_footer = decision['reason'].split('\n\n', 1)[1]
 
-        if ('- block-commands\n' not in corrected_footer or '- first\n- second\n' not in corrected_footer
+        if ('- block-commands\n' not in corrected_footer or '- first\n- second\n- string-args\n' not in corrected_footer
                 or 'excluding agentStop hooks):\n- deny-hook\n- prompt-hook\n' not in corrected_footer):
             raise AssertionError(f'Expected hooks, fired hooks, and skills in correction request: {corrected_footer}')
 
         events.extend([
-            {'type': 'user.message', 'timestamp': '2026-10-21T03:00:20.000Z', 'data': {'content': decision['reason']}},
+            {'type': 'user.message', 'timestamp': '2026-10-21T03:00:20.000Z',
+             'data': {'content': decision['reason'], 'delivery': 'queued'}},
             {'type': 'assistant.message', 'data': {'content': 'Response body\n\n' + corrected_footer}},
         ])
 
