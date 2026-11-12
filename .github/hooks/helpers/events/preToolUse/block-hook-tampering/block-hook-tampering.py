@@ -150,7 +150,8 @@ def _get_targets(tool_name, tool_args, cwd):
         targets = []
         for path in _get_edited_paths(tool_name, tool_args):
             absolute = os.path.normpath(os.path.join(cwd, path))
-            if _PROTECTED_PATH_PATTERN.search(absolute):
+            # シンボリックリンク経由のパスも、リンク先が守るパスなら対象にする。
+            if _PROTECTED_PATH_PATTERN.search(absolute) or _PROTECTED_PATH_PATTERN.search(os.path.realpath(absolute)):
                 display_path = _get_display_path(absolute, cwd)
                 if display_path not in targets:
                     targets.append(display_path)
