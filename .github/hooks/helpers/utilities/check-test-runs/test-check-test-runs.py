@@ -77,11 +77,14 @@ class CheckTestRunsTests(unittest.TestCase):
             '`All tests passed` is an example. Tests passed.',
             '> Tests passed.\nTests passed.',
             'テストは「unit」を含めて通過した。',
+            # 「まず」「必ず」の `ず` は否定ではない。
+            'テストが通ったので、まず報告する。', 'テストは成功し、必ず再現する。',
         ):
             with self.subTest(response=response):
                 self.assertTrue(claims_tests_passed(response))
         for response in (
             'テストが通っていない。', 'テストは成功しなかった。', 'テストはパスしません。', 'テストを追加した。',
+            'テストは成功せず、失敗した。',
             'Tests failed.', 'I will run the tests.',
             # コードブロック内の出力例は主張とみなさない。
             '結果は次のとおり。\n```\nAll tests passed.\n```\n', '~~~\nテストが通りました\n~~~\n',

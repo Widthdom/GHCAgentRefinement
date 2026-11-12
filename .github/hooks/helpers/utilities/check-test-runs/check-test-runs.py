@@ -31,10 +31,12 @@ _SET_OPTION_PATTERN = re.compile(r'^([-+])[A-Za-z]*o$')
 # PowerShellのパスの区切りの `\` は、shlexではエスケープとして消える。英数字などの前の `\` は `/` に置き換えてから分ける。
 # bashで意味を持つエスケープ（`\;`・`\|`・`\ `・`\"`・行末の `\` など）はそのまま残る。
 _PATH_BACKSLASH_PATTERN = re.compile(r'\\(?=[\w.-])')
-# 直後に否定が続く場合は主張とみなさない（例：「通っていない」「成功しなかった」）。
-_JAPANESE_NEGATION = r'(?![^。\n]{0,6}?(?:ない|ません|なかった|ず))'
+# 直後に否定が続く場合は主張とみなさない（例：「通っていない」「成功しなかった」「通らず」）。
+# 「まず」「必ず」の `ず` は否定ではないため除く。
+# テストの追加の主張を判定するhook（block-commit-message-mismatch）も同じ基準を使う。
+JAPANESE_NEGATION = r'(?![^。\n]{0,6}?(?:ない|ません|なかった|(?<![ま必])ず))'
 _TEST_CLAIM_PATTERNS = (
-    re.compile(r'テスト[^。\n]{0,20}?(?:通過|通っ|通り|成功|パス|合格)' + _JAPANESE_NEGATION),
+    re.compile(r'テスト[^。\n]{0,20}?(?:通過|通っ|通り|成功|パス|合格)' + JAPANESE_NEGATION),
     re.compile(r'\b(?:all\s+)?tests?\s+(?:(?:are|were|now|all)\s+)*(?:pass(?:ed|es|ing)?|succeed(?:ed|s)?)\b', re.IGNORECASE),
 )
 _FENCED_CODE_PATTERN = re.compile(r'^(```|~~~).*?^\1', re.MULTILINE | re.DOTALL)

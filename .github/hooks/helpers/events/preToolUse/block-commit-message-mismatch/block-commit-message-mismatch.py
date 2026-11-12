@@ -49,7 +49,8 @@ _BARE_FILE_PATTERN = re.compile(
     r'go|rs|java|kt|rb|php|c|cc|cpp|h|hpp|css|scss|html|sql|txt|ini|cfg)(?![\w-])',
     re.IGNORECASE,
 )
-_JAPANESE_NEGATION = r'(?![^。\n]{0,6}?(?:ない|ません|なかった|ず))'
+# 直後の否定の判定は、テストが通ったという主張と同じ基準（check-test-runs utility）を使う。
+_JAPANESE_NEGATION = runpy.run_path(os.path.join(_utilities_directory, 'check-test-runs', 'check-test-runs.py'))['JAPANESE_NEGATION']
 _TEST_ADDITION_PATTERNS = (
     re.compile(r'テスト[^。\n]{0,10}?(?:追加|作成|新設|書い|書き)' + _JAPANESE_NEGATION),
     re.compile(r'\b(?:add|added|adds|adding|write|wrote|writes|create|created|creates)\s+(?:\w+\s+){0,3}?(?:unit\s+)?(?:tests?|specs?)\b', re.IGNORECASE),
