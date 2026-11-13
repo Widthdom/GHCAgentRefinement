@@ -13,6 +13,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
@@ -159,9 +160,7 @@ def _get_targets(tool_name, tool_args, cwd):
         command = tool_args.get('command')
         if (isinstance(command, str) and _mentions_protected_path(command)
                 and _is_modifying_command(tool_name, command)):
-            if len(command) > _MAX_COMMAND_LENGTH:
-                command = command[:_MAX_COMMAND_LENGTH] + '...'
-            return [f'command `{command}`']
+            return [f'command `{_truncate_text(command, _MAX_COMMAND_LENGTH)}`']
     return []
 
 

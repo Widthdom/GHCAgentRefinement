@@ -14,6 +14,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _get_text_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_text_sha256_digest']
@@ -88,9 +89,7 @@ def _get_masked_commands(command, runs_checked_command, update_pipefail):
 
 
 def _format_command(command):
-    if len(command) > _MAX_COMMAND_LENGTH:
-        command = command[:_MAX_COMMAND_LENGTH] + '...'
-    return f'"{command}"'
+    return f'"{_truncate_text(command, _MAX_COMMAND_LENGTH)}"'
 
 
 def main():

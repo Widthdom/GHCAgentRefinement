@@ -16,6 +16,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
@@ -128,10 +129,6 @@ def _get_messages(directory, commit_ids):
     return messages
 
 
-def _shorten(value):
-    return value if len(value) <= _MAX_DISPLAY_LENGTH else value[:_MAX_DISPLAY_LENGTH] + '...'
-
-
 def _find_past_fixes(patterns, viewed, path, display_path, line_numbers):
     # 戻り値は、まだ読んでいない修正コミットごとの指摘文のリスト。該当する行がなければ空。
     lines_by_commit = {}
@@ -147,7 +144,7 @@ def _find_past_fixes(patterns, viewed, path, display_path, line_numbers):
         if any(pattern.search(message) for pattern in patterns):
             findings.append(_FINDING.format(
                 file=display_path, lines=', '.join(map(str, numbers)), commit=commit_id[:7],
-                summary=_shorten(message.splitlines()[0]),
+                summary=_truncate_text(message.splitlines()[0], _MAX_DISPLAY_LENGTH),
             ))
     return findings[:_MAX_COMMITS_PER_FILE]
 

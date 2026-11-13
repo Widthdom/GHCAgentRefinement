@@ -15,6 +15,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
@@ -124,9 +125,7 @@ def main(arguments=None):
         return 0
     if any(pattern.search(command) for command in succeeded_commands for pattern in definitions['measurementCommandPatterns']):
         return 0
-    if len(claim) > _MAX_CLAIM_LENGTH:
-        claim = claim[:_MAX_CLAIM_LENGTH] + '...'
-    _hook_output['write_block_decision'](_BLOCK_REASON.format(claim=claim))
+    _hook_output['write_block_decision'](_BLOCK_REASON.format(claim=_truncate_text(claim, _MAX_CLAIM_LENGTH)))
     return 0
 
 

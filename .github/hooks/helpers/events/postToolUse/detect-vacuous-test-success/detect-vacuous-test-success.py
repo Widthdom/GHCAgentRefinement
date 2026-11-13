@@ -15,6 +15,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_text_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
@@ -181,7 +182,7 @@ def _record_counts(state_path, command, executed, skipped):
 
 
 def _get_context(command, executed, skipped, previous, no_tests_detail):
-    display_command = command if len(command) <= _MAX_COMMAND_LENGTH else command[:_MAX_COMMAND_LENGTH] + '...'
+    display_command = _truncate_text(command, _MAX_COMMAND_LENGTH)
     previous_executed, previous_skipped = previous if previous is not None else (None, None)
     # 0件は、同じコマンドで前回も0件だった場合は通知済みとして繰り返さない。
     if executed == 0 and previous_executed != 0:

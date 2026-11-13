@@ -15,6 +15,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 
 
@@ -99,10 +100,6 @@ def _find_dropped_items(request, response, stop_words):
     return dropped, len(items)
 
 
-def _shorten(value):
-    return value if len(value) <= _MAX_DISPLAY_LENGTH else value[:_MAX_DISPLAY_LENGTH] + '...'
-
-
 def main():
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
@@ -149,7 +146,9 @@ def main():
 
     dropped, total = _find_dropped_items(latest_request, last_assistant_msg, stop_words)
     if dropped:
-        items = '; '.join(f'"{_shorten(item)}"' for item in dropped[:_MAX_LISTED_ITEMS])
+        items = '; '.join(
+            f'"{_truncate_text(item, _MAX_DISPLAY_LENGTH)}"' for item in dropped[:_MAX_LISTED_ITEMS]
+        )
         if len(dropped) > _MAX_LISTED_ITEMS:
             items += f'; and {len(dropped) - _MAX_LISTED_ITEMS} more'
         reason = _REASON.format(count=len(dropped), total=total, items=items)

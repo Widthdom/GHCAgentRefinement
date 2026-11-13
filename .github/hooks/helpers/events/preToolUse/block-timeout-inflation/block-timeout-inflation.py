@@ -17,6 +17,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
@@ -110,10 +111,6 @@ def _find_inflation(timing_patterns, removed, written):
     return pairs
 
 
-def _shorten(line):
-    return line if len(line) <= _MAX_SNIPPET_LENGTH else line[:_MAX_SNIPPET_LENGTH] + '...'
-
-
 def main(arguments=None):
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
@@ -158,7 +155,8 @@ def main(arguments=None):
                 # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
                 file_key = _get_path_sha256_digest(path)
                 candidates.append((file_key, _FINDING.format(file=display_path, snippets=', '.join(
-                    f'"{_shorten(old)}" -> "{_shorten(new)}"' for old, new in pairs[:_MAX_SNIPPETS]
+                    f'"{_truncate_text(old, _MAX_SNIPPET_LENGTH)}" -> "{_truncate_text(new, _MAX_SNIPPET_LENGTH)}"'
+                    for old, new in pairs[:_MAX_SNIPPETS]
                 ))))
 
         reasons = []

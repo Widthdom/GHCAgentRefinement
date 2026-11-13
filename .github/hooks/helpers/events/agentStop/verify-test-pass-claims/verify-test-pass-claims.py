@@ -13,6 +13,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
@@ -73,7 +74,7 @@ def _get_shell_command(tool_name, arguments):
 
 
 def _shorten_command(command):
-    return command if len(command) <= _MAX_COMMAND_LENGTH else command[:_MAX_COMMAND_LENGTH] + '...'
+    return _truncate_text(command, _MAX_COMMAND_LENGTH)
 
 
 def _normalize_command(command):

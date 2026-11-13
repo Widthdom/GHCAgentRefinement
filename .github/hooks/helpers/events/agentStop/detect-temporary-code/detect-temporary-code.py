@@ -15,6 +15,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 
@@ -105,9 +106,7 @@ def _get_turn_summary(transcript_path):
 
 def _format_finding(finding):
     display_path, name, line = finding
-    if len(line) > _MAX_SNIPPET_LENGTH:
-        line = line[:_MAX_SNIPPET_LENGTH] + '...'
-    return f'- {display_path}: {name} ("{line}")'
+    return f'- {display_path}: {name} ("{_truncate_text(line, _MAX_SNIPPET_LENGTH)}")'
 
 
 def main(arguments=None):

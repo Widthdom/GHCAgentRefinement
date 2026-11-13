@@ -15,6 +15,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
@@ -115,9 +116,7 @@ def _find_native_paths(native_patterns, normalization_patterns, written, existin
 
 
 def _format_snippet(snippet):
-    if len(snippet) > _MAX_SNIPPET_LENGTH:
-        snippet = snippet[:_MAX_SNIPPET_LENGTH] + '...'
-    return f'"{snippet}"'
+    return f'"{_truncate_text(snippet, _MAX_SNIPPET_LENGTH)}"'
 
 
 def main(arguments=None):
