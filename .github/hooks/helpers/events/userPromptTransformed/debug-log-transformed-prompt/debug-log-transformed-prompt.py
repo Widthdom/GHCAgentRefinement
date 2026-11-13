@@ -16,6 +16,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['parse_session_id']
+_get_debug_log_directory = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-debug-log-directory', 'get-debug-log-directory.py',
+))['get_debug_log_directory']
 
 
 def _code_block(content, language):
@@ -56,9 +59,7 @@ def _format_log(hook_input, session_id):
 
 
 def _save_log(content, session_id, timestamp):
-    log_directory = os.path.join(
-        tempfile.gettempdir(), 'ghc-agent-refinement', 'debug-logs', 'prompt-transformations', str(session_id),
-    )
+    log_directory = _get_debug_log_directory('prompt-transformations', str(session_id))
     os.makedirs(log_directory, exist_ok=True)
     temporary_path = None
     try:

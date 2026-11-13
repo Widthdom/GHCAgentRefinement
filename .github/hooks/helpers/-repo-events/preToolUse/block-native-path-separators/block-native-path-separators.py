@@ -1,5 +1,4 @@
 import argparse
-import hashlib
 import io
 import json
 import os
@@ -15,6 +14,14 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
+_get_path_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_path_sha256_digest']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _extract_edit_tool_changes = runpy.run_path(os.path.join(
@@ -45,23 +52,17 @@ _DENY_REASON = (
 )
 
 
-def _is_string_list(value, allow_empty):
-    return isinstance(value, list) and (allow_empty or bool(value)) and all(
-        isinstance(item, str) and item.strip() for item in value
-    )
-
-
 def _load_definitions(path):
     # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
     if not isinstance(definitions, dict):
         raise ValueError('path separator definitions must be a JSON object.')
-    if not _is_string_list(definitions.get(_EXCLUDED_FILE_PATTERNS_KEY), allow_empty=True):
+    if not _is_non_blank_string_list(definitions.get(_EXCLUDED_FILE_PATTERNS_KEY), allow_empty_list=True):
         raise ValueError(
             f'path separator definitions require an array of non-empty strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
         )
-    if not _is_string_list(definitions.get(_NORMALIZATION_PATTERNS_KEY), allow_empty=False):
+    if not _is_non_blank_string_list(definitions.get(_NORMALIZATION_PATTERNS_KEY)):
         raise ValueError(
             f'path separator definitions require a non-empty array of non-empty strings for '
             f'{_NORMALIZATION_PATTERNS_KEY}.'
@@ -112,9 +113,7 @@ def _find_native_paths(native_patterns, normalization_patterns, written, existin
 
 
 def _format_snippet(snippet):
-    if len(snippet) > _MAX_SNIPPET_LENGTH:
-        snippet = snippet[:_MAX_SNIPPET_LENGTH] + '...'
-    return f'"{snippet}"'
+    return f'"{_truncate_text(snippet, _MAX_SNIPPET_LENGTH)}"'
 
 
 def main(arguments=None):
@@ -153,7 +152,7 @@ def main(arguments=None):
             )
             if snippets:
                 # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-                file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
+                file_key = _get_path_sha256_digest(path)
                 candidates.append((file_key, _FINDING.format(
                     file=display_path, kinds=', '.join(kinds),
                     snippets=', '.join(_format_snippet(snippet) for snippet in snippets[:_MAX_SNIPPETS]),
@@ -169,12 +168,8 @@ def main(arguments=None):
     if reasons:
         reason = _DENY_REASON.format(findings='; '.join(reasons))
         print(reason, file=sys.stderr)
-        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': reason,
-        }, ensure_ascii=False))
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](reason)
     return 0
 
 

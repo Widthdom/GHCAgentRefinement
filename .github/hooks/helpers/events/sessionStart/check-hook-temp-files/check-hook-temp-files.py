@@ -1,11 +1,17 @@
 import io
-import json
 import os
 import runpy
 import sys
 import time
 from typing import cast
 
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 
 _WARNING_THRESHOLD = 500
 _WARNING_MESSAGE = (
@@ -28,10 +34,7 @@ def main():
         return 0
 
     # Copilot SDKはhookの出力のうちsystemMessageを解釈しないため、エージェントに渡してユーザーへ伝えさせる。
-    print(json.dumps(
-        {'additionalContext': _WARNING_MESSAGE.format(count=count, root=root)},
-        ensure_ascii=False, separators=(',', ':'),
-    ))
+    _hook_output['write_additional_context'](_WARNING_MESSAGE.format(count=count, root=root))
     return 0
 
 

@@ -384,8 +384,11 @@ class BlockCommandsTests(unittest.TestCase):
                                 os.path.join(_script_directory, filename),
                                 os.path.join(copied_script_directory, filename),
                             )
-                    # ラッパーが使うPythonのバージョン確認と、hookが読み込む入力の読み込み・正規表現のコンパイル・引数の包みを外す処理も複製する。
-                    for utility in ('check-python-version', 'read-hook-input', 'build-regex-matchers', 'unwrap-tool-args'):
+                    # ラッパーが使うPythonのバージョン確認と、hookが読み込む入力の読み込み・判定の出力・正規表現のコンパイル・引数の包みを外す処理も複製する。
+                    for utility in (
+                        'check-python-version', 'read-hook-input', 'write-hook-output', 'build-regex-matchers',
+                        'unwrap-tool-args',
+                    ):
                         copied_utilities_directory = os.path.join(helpers_directory, 'utilities', utility)
                         os.makedirs(copied_utilities_directory)
                         shutil.copyfile(

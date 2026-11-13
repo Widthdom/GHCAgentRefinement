@@ -1,6 +1,4 @@
-import hashlib
 import io
-import json
 import os
 import re
 import runpy
@@ -16,11 +14,16 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_get_text_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_text_sha256_digest']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-_SHELL_TOOL_NAMES = {'bash', 'powershell'}
 _ANSI_ESCAPE_PATTERN = re.compile(r'\x1b\[[0-9;?]*[A-Za-z]')
 
 # 件数の集計行。各関数は (実行した件数, スキップした件数) を返す。
@@ -159,7 +162,7 @@ def _get_no_tests_detail(text):
 def _record_counts(state_path, command, executed, skipped):
     # 同じコマンドの前回の件数を返し、今回の件数で置き換える。コマンドは保存せず、照合用のSHA-256だけを保存する。
     # SQLiteのトランザクションで、並列のツール呼び出しでも状態の更新を取りこぼさない。
-    command_key = hashlib.sha256(command.encode('utf-8')).hexdigest()
+    command_key = _get_text_sha256_digest(command)
     os.makedirs(os.path.dirname(state_path), exist_ok=True)
     with closing(sqlite3.connect(state_path, timeout=3)) as connection:
         connection.execute(
@@ -179,7 +182,7 @@ def _record_counts(state_path, command, executed, skipped):
 
 
 def _get_context(command, executed, skipped, previous, no_tests_detail):
-    display_command = command if len(command) <= _MAX_COMMAND_LENGTH else command[:_MAX_COMMAND_LENGTH] + '...'
+    display_command = _truncate_text(command, _MAX_COMMAND_LENGTH)
     previous_executed, previous_skipped = previous if previous is not None else (None, None)
     # 0件は、同じコマンドで前回も0件だった場合は通知済みとして繰り返さない。
     if executed == 0 and previous_executed != 0:
@@ -212,7 +215,7 @@ def main():
         state_path = _get_state_path('test-counts', hook_input.get('sessionId'))
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        if tool_name.removeprefix('functions.') not in _SHELL_TOOL_NAMES:
+        if not _tool_kinds['is_shell_tool'](tool_name):
             return 0
         tool_args = _unwrap_tool_args(tool_args)
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
@@ -239,8 +242,7 @@ def main():
 
     if context is not None:
         # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({'additionalContext': context}, ensure_ascii=False))
+        _hook_output['write_additional_context'](context)
     return 0
 
 

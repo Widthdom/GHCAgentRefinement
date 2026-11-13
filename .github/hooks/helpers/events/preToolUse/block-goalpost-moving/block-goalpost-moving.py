@@ -1,5 +1,4 @@
 import io
-import json
 import os
 import re
 import runpy
@@ -14,6 +13,8 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
@@ -67,10 +68,6 @@ def _find_swap(state, pair_keys, removed, written):
     return None
 
 
-def _shorten(value):
-    return value if len(value) <= _MAX_DISPLAY_LENGTH else value[:_MAX_DISPLAY_LENGTH] + '...'
-
-
 def main():
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
@@ -121,7 +118,10 @@ def main():
                 if swap and connection.execute(
                     'INSERT OR IGNORE INTO denials (file) VALUES (?)', (state['get_file_key'](path),),
                 ).rowcount:
-                    findings.append(_FINDING.format(file=display_path, old=_shorten(swap[0]), new=_shorten(swap[1])))
+                    findings.append(_FINDING.format(
+                        file=display_path,
+                        old=_truncate_text(swap[0], _MAX_DISPLAY_LENGTH), new=_truncate_text(swap[1], _MAX_DISPLAY_LENGTH),
+                    ))
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check goalpost moving: {ex}', file=sys.stderr)
         return 2
@@ -129,12 +129,8 @@ def main():
     if findings:
         reason = _DENY_REASON.format(findings='; '.join(findings))
         print(reason, file=sys.stderr)
-        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': reason,
-        }, ensure_ascii=False))
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](reason)
     return 0
 
 

@@ -1,6 +1,4 @@
-import hashlib
 import io
-import json
 import os
 import re
 import runpy
@@ -16,6 +14,11 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_get_text_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_text_sha256_digest']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _filter_first_time_denials = runpy.run_path(os.path.join(
@@ -24,7 +27,6 @@ _filter_first_time_denials = runpy.run_path(os.path.join(
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-_SHELL_TOOL_NAMES = {'bash', 'powershell'}
 # コマンドの区切り。`2>&1` の `&` は区切りになるが、前後がgitのコマンドにならないため影響しない。
 _SEPARATORS = {';', '&', '&&', '|', '||', '\n'}
 # 値を取るgitのグローバルオプション。
@@ -286,8 +288,7 @@ def _get_mismatches(message, paths, text):
 def _record_denial(state_path, message):
     # 戻り値は、このメッセージを今回初めて拒否するか。同じメッセージの拒否はセッションで1回だけにし、意図したメッセージなら再実行で通す。
     # 状態にはメッセージを保存せず、照合用のSHA-256だけを保存する。
-    digest = hashlib.sha256(message.encode('utf-8')).hexdigest()
-    return bool(_filter_first_time_denials(state_path, [(digest, message)]))
+    return bool(_filter_first_time_denials(state_path, [(_get_text_sha256_digest(message), message)]))
 
 
 def _get_deny_reason(missing, missing_tests):
@@ -319,7 +320,7 @@ def main():
         cwd = _hook_input['get_cwd'](hook_input)
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        tool_args = _unwrap_tool_args(tool_args) if tool_name.removeprefix('functions.') in _SHELL_TOOL_NAMES else None
+        tool_args = _unwrap_tool_args(tool_args) if _tool_kinds['is_shell_tool'](tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
 
         reason = None
@@ -340,12 +341,8 @@ def main():
 
     if reason is not None:
         print(reason, file=sys.stderr)
-        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': reason,
-        }, ensure_ascii=False))
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](reason)
     return 0
 
 

@@ -1,5 +1,4 @@
 import argparse
-import hashlib
 import io
 import json
 import os
@@ -15,6 +14,14 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_get_path_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_path_sha256_digest']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
@@ -25,8 +32,6 @@ _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-displ
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 # 削除は再生成で失われる手編集ではないため、追加と更新だけを対象とする。
 _PATCH_OPERATIONS = frozenset({'Add File', 'Update File'})
 _GENERATED_PATH_PATTERNS_KEY = 'generatedPathPatterns'
@@ -53,9 +58,7 @@ def _load_definitions(path):
     compiled = []
     for key in (_GENERATED_PATH_PATTERNS_KEY, _GENERATED_MARKER_PATTERNS_KEY):
         patterns = definitions.get(key)
-        if not isinstance(patterns, list) or not patterns or not all(
-            isinstance(pattern, str) and pattern.strip() for pattern in patterns
-        ):
+        if not _is_non_blank_string_list(patterns):
             raise ValueError(f'generated file definitions require a non-empty array of non-empty strings for {key}.')
         compiled.append(_build_regex_matchers(patterns, key))
     return compiled[0], compiled[1]
@@ -105,14 +108,14 @@ def main(arguments=None):
         real_cwd = os.path.realpath(cwd)
         candidates = {}
         tool_name = tool_name.removeprefix('functions.')
-        if tool_name in _EDIT_TOOL_NAMES:
+        if _tool_kinds['is_edit_tool'](tool_name):
             for relative_path in _get_edited_paths(tool_name, _unwrap_tool_args(tool_args), _PATCH_OPERATIONS):
                 path = os.path.realpath(os.path.join(cwd, relative_path))
                 # パスの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
                 evidence = _get_evidence(path_patterns, marker_patterns, path, _get_display_path(path, real_cwd))
                 if evidence:
                     # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-                    candidates.setdefault(hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest(), evidence)
+                    candidates.setdefault(_get_path_sha256_digest(path), evidence)
 
         evidence = []
         if candidates:
@@ -124,12 +127,8 @@ def main(arguments=None):
     if evidence:
         reason = _DENY_REASON.format(evidence=', '.join(evidence))
         print(reason, file=sys.stderr)
-        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': reason,
-        }, ensure_ascii=False))
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](reason)
     return 0
 
 

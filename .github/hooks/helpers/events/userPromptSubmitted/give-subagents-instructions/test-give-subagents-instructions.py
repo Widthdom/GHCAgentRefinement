@@ -39,9 +39,10 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
         directory = os.path.join(helpers_directory, 'events', 'userPromptSubmitted', _hook_name)
         os.makedirs(directory)
         shutil.copy(_hook_path, directory)
-        utility_directory = os.path.join(helpers_directory, 'utilities', 'read-hook-input')
-        os.makedirs(utility_directory)
-        shutil.copy(os.path.join(_hooks_directory, 'helpers', 'utilities', 'read-hook-input', 'read-hook-input.py'), utility_directory)
+        for utility in ('read-hook-input', 'write-hook-output'):
+            utility_directory = os.path.join(helpers_directory, 'utilities', utility)
+            os.makedirs(utility_directory)
+            shutil.copy(os.path.join(_hooks_directory, 'helpers', 'utilities', utility, f'{utility}.py'), utility_directory)
         return os.path.join(directory, f'{_hook_name}.py'), os.path.join(root, '.github', 'copilot-instructions.md')
 
     @staticmethod

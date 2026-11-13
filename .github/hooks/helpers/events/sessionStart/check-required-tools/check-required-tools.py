@@ -15,6 +15,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 
 
 _ADDITIONAL_CONTEXT = (
@@ -121,10 +122,7 @@ def main(arguments=None):
     print(message, file=sys.stderr)
     # 標準エラーはユーザーに表示されないことがある。sessionStartで解釈される出力はadditionalContextだけで、
     # 標準出力は終了コード0のときだけ読まれるため、エージェントに渡してユーザーへ伝えさせ、正常終了する。
-    print(json.dumps(
-        {'additionalContext': _ADDITIONAL_CONTEXT.format(message=message)},
-        ensure_ascii=False, separators=(',', ':'),
-    ))
+    _hook_output['write_additional_context'](_ADDITIONAL_CONTEXT.format(message=message))
     return 0
 
 

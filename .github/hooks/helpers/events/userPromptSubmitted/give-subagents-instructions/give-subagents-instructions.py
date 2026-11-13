@@ -1,5 +1,4 @@
 import io
-import json
 import os
 import runpy
 import sys
@@ -12,6 +11,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 
 
 def main():
@@ -54,7 +54,7 @@ def main():
         return 2
 
     # SDK形式のトップレベルadditionalContext。依頼文に添えてサブエージェントへ渡される。
-    print(json.dumps({'additionalContext': instructions}, ensure_ascii=False, separators=(',', ':')))
+    _hook_output['write_additional_context'](instructions)
     return 0
 
 

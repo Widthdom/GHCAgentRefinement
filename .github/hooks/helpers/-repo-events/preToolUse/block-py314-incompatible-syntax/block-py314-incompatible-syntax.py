@@ -1,6 +1,5 @@
 import ast
 import io
-import json
 import os
 import runpy
 import sys
@@ -14,6 +13,8 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _simulate_edit_tool_changes = runpy.run_path(os.path.join(
     _utilities_directory, 'simulate-edit-tool-changes', 'simulate-edit-tool-changes.py',
@@ -25,8 +26,6 @@ _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-to
 _TARGET_VERSION = (3, 14)
 # Pythonのソースとして扱う拡張子。
 _PYTHON_EXTENSIONS = {'.py', '.pyi', '.pyw'}
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 _MAX_FINDINGS = 3
 _FINDING = '{file} line {line}: {message}'
 _DENY_REASON = (
@@ -63,7 +62,7 @@ def main():
 
         findings = []
         tool_name = tool_name.removeprefix('functions.')
-        if tool_name in _EDIT_TOOL_NAMES:
+        if _tool_kinds['is_edit_tool'](tool_name):
             cwd = os.path.abspath(cwd)
             for path, before, after in _simulate_edit_tool_changes(tool_name, _unwrap_tool_args(tool_args), cwd):
                 if not _is_python_path(path):
@@ -87,12 +86,8 @@ def main():
     if findings:
         reason = _DENY_REASON.format(findings='; '.join(findings[:_MAX_FINDINGS]))
         print(reason, file=sys.stderr)
-        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': reason,
-        }, ensure_ascii=False))
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](reason)
     return 0
 
 

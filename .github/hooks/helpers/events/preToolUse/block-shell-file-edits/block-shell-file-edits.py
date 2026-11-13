@@ -1,6 +1,5 @@
 import glob
 import io
-import json
 import os
 import re
 import runpy
@@ -14,6 +13,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 _split_bash_lines = runpy.run_path(os.path.join(_utilities_directory, 'split-bash-lines', 'split-bash-lines.py'))['split_bash_lines']
@@ -333,12 +333,8 @@ def main():
         # 大文字小文字だけが異なる表記は、同じファイルとして1つにまとめる。
         display_paths = {os.path.normcase(path): _get_display_path(path, cwd) for path in sorted(tracked)}
         files = ', '.join(sorted(display_paths.values()))
-        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': _DENY_REASON.format(files=files),
-        }, ensure_ascii=False))
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](_DENY_REASON.format(files=files))
     return 0
 
 

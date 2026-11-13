@@ -1,7 +1,5 @@
 import builtins
-import hashlib
 import io
-import json
 import os
 import re
 import runpy
@@ -16,6 +14,10 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_get_path_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_path_sha256_digest']
 _check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
@@ -317,7 +319,7 @@ def main():
             if not _check_test_files['is_test_file'](test_file_patterns, display_path):
                 continue
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-            file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
+            file_key = _get_path_sha256_digest(path)
             current = (_read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None) or ''
             context = '\n'.join([change['removed'], current])
 
@@ -342,12 +344,8 @@ def main():
     if reasons:
         reason = _DENY_REASON.format(findings=' '.join(reasons))
         print(reason, file=sys.stderr)
-        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': reason,
-        }, ensure_ascii=False))
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](reason)
     return 0
 
 

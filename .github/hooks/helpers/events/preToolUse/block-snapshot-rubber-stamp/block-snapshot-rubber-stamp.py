@@ -15,6 +15,8 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
@@ -23,7 +25,6 @@ _filter_first_time_denials = runpy.run_path(os.path.join(
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-_SHELL_TOOL_NAMES = {'bash', 'powershell'}
 _UPDATE_COMMANDS_KEY = 'updateCommands'
 # コマンドを `;`・`&&`・`||`・`|`・改行で区切った単位ごとに照合し、`git push -u; npm test` などを結び付けない。
 # `2>&1` の `&` では区切らない。
@@ -83,7 +84,7 @@ def main(arguments=None):
         state_path = _get_state_path('block-snapshot-rubber-stamp', hook_input.get('sessionId'))
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        tool_args = _unwrap_tool_args(tool_args) if tool_name.removeprefix('functions.') in _SHELL_TOOL_NAMES else None
+        tool_args = _unwrap_tool_args(tool_args) if _tool_kinds['is_shell_tool'](tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         kinds = _get_update_kinds(update_commands, command) if isinstance(command, str) else []
 
@@ -99,12 +100,8 @@ def main(arguments=None):
     if denied_kinds:
         reason = _DENY_REASON.format(kinds='; '.join(denied_kinds))
         print(reason, file=sys.stderr)
-        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': reason,
-        }, ensure_ascii=False))
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](reason)
     return 0
 
 

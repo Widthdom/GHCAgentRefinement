@@ -1,4 +1,3 @@
-import hashlib
 import io
 import json
 import os
@@ -16,6 +15,10 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_get_text_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_text_sha256_digest']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 
 
@@ -96,7 +99,7 @@ def main():
              tool_name, tool_args, error],
             ensure_ascii=False, sort_keys=True, separators=(',', ':'), allow_nan=False,
         )
-        fingerprint = hashlib.sha256(identity.encode('utf-8')).hexdigest()
+        fingerprint = _get_text_sha256_digest(identity)
 
         # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
         # 期限切れレコードは次回失敗時に削除する。DBファイル自体は自動削除しない。
@@ -108,10 +111,9 @@ def main():
 
     if should_notify:
         # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
         # 終了コード2による助言も公式には記載があるが、ここでは
         # VS Code 1.143.1同梱SDKのhook processorで反映を確認した形式を使う。
-        print(json.dumps({'additionalContext': _RECOVERY_CONTEXT}, ensure_ascii=False))
+        _hook_output['write_additional_context'](_RECOVERY_CONTEXT)
     return 0
 
 

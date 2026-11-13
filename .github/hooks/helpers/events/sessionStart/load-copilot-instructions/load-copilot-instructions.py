@@ -1,9 +1,16 @@
 import io
-import json
 import os
+import runpy
 import sys
 from typing import cast
 
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 
 def main():
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
@@ -44,10 +51,8 @@ def main():
         print(f'Copilot instructions file is empty: {instructions_path}', file=sys.stderr)
         return 2
 
-    # ensure_ascii=False：日本語などを \uXXXX にせず、そのまま出力する。出力先はUTF-8に設定するため問題なし。
-    # separators=(',', ':')：項目間やキーと値の間に余分な空白を入れない。（出力をコンパクトにするための指定で、省略してもJSONとしては正しく伝わる。）
-    # 引用符・バックスラッシュ・改行など、JSONとして必要なエスケープは、ensure_asciiの指定によらずjson.dumpsが常に行う。
-    print(json.dumps({'additionalContext': instructions}, ensure_ascii=False, separators=(',', ':')))
+    # 共通指示を、エージェントへのadditionalContextとして標準出力する。
+    _hook_output['write_additional_context'](instructions)
 
     return 0
 

@@ -13,6 +13,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
@@ -26,7 +27,7 @@ _get_path_argument = runpy.run_path(
 # 成功すればファイルの内容を把握したとみなせる組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
 #   view・str_replace_editorのview：内容を読んだ。
 #   編集系：置換やパッチの適用には現在の内容との一致が必要で、作成したファイルは内容を自分で書いた。
-_READ_TOOL_NAMES = {'view', 'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
+_READ_TOOL_NAMES = {'view', *_tool_kinds['EDIT_TOOL_NAMES']}
 # パッチの適用後に存在するファイル。削除したファイルと移動元は記録しない。
 _PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update) File|Move to): (.+?)\s*$', re.MULTILINE)
 

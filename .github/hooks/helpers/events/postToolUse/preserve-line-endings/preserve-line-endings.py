@@ -1,6 +1,4 @@
-import hashlib
 import io
-import json
 import os
 import runpy
 import sqlite3
@@ -14,6 +12,11 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_get_path_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_path_sha256_digest']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
@@ -24,8 +27,6 @@ _filter_new_notifications = runpy.run_path(os.path.join(
 ))['filter_new_notifications']
 
 
-# SDKがファイル書き込みとして扱う組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 _UTF8_BOM = b'\xef\xbb\xbf'
 _GIT_TIMEOUT_SECONDS = 5
 # gitの実行全体の期限。ファイルが多くても、hookの `timeoutSec`（10秒）より前に打ち切り、比べられない分は対象外とする。
@@ -101,7 +102,7 @@ def main():
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         tool_name = tool_name.removeprefix('functions.')
-        if tool_name not in _EDIT_TOOL_NAMES:
+        if not _tool_kinds['is_edit_tool'](tool_name):
             return 0
         # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。
         # gitは大文字小文字を区別するため、問い合わせ・読み込み・表示には正規化前のパスを使い、normcaseは照合だけに使う。
@@ -121,7 +122,7 @@ def main():
             with open(path, 'rb') as file:
                 current = file.read()
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-            file_key = hashlib.sha256(normalized_path.encode('utf-8')).hexdigest()
+            file_key = _get_path_sha256_digest(normalized_path)
             changes = _get_format_changes(committed, current)
             results.append((file_key, (path, changes), changes))
         # hookは呼び出しごとに別プロセスなので、通知済みの変更をセッションUUID別に保存する。
@@ -141,8 +142,7 @@ def main():
             f'{_get_display_path(path, cwd)} ({", ".join(file_changes)})' for path, file_changes in notifications
         )
         # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({'additionalContext': _FORMAT_CONTEXT.format(changes=changes)}, ensure_ascii=False))
+        _hook_output['write_additional_context'](_FORMAT_CONTEXT.format(changes=changes))
     return 0
 
 

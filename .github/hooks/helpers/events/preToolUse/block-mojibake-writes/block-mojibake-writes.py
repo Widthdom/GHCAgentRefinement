@@ -1,5 +1,4 @@
 import argparse
-import hashlib
 import io
 import json
 import os
@@ -16,6 +15,14 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
+_get_path_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_path_sha256_digest']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
@@ -50,7 +57,7 @@ def _load_definitions(path):
     if not isinstance(definitions, dict):
         raise ValueError('mojibake definitions must be a JSON object.')
     excluded = definitions.get(_EXCLUDED_FILE_PATTERNS_KEY)
-    if not isinstance(excluded, list) or not all(isinstance(item, str) and item.strip() for item in excluded):
+    if not _is_non_blank_string_list(excluded, allow_empty_list=True):
         raise ValueError(f'mojibake definitions require an array of non-empty strings for {_EXCLUDED_FILE_PATTERNS_KEY}.')
     mojibake_definitions = definitions.get(_MOJIBAKE_PATTERNS_KEY)
     if not isinstance(mojibake_definitions, list) or not mojibake_definitions or not all(
@@ -95,9 +102,7 @@ def _format_snippet(line):
         else character
         for character in line
     )
-    if len(snippet) > _MAX_SNIPPET_LENGTH:
-        snippet = snippet[:_MAX_SNIPPET_LENGTH] + '...'
-    return f'"{snippet}"'
+    return f'"{_truncate_text(snippet, _MAX_SNIPPET_LENGTH)}"'
 
 
 def main(arguments=None):
@@ -137,7 +142,7 @@ def main(arguments=None):
             kinds, lines = _find_mojibake(mojibake_patterns, change['written'], '\n'.join([change['removed'], current]))
             if lines:
                 # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-                file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
+                file_key = _get_path_sha256_digest(path)
                 candidates.append((file_key, _FINDING.format(
                     file=display_path, kinds=', '.join(kinds),
                     snippets=', '.join(_format_snippet(line) for line in lines[:_MAX_SNIPPETS]),
@@ -153,12 +158,8 @@ def main(arguments=None):
     if reasons:
         reason = _DENY_REASON.format(findings='; '.join(reasons))
         print(reason, file=sys.stderr)
-        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': reason,
-        }, ensure_ascii=False))
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](reason)
     return 0
 
 

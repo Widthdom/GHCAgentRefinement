@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import hashlib
 import io
 import json
 import os
@@ -17,6 +16,13 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
+_get_path_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_path_sha256_digest']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
@@ -75,9 +81,7 @@ def _load_definitions(path):
         loaded[key] = value
     for key in ('clockPatterns', 'frozenClockPatterns'):
         patterns = definitions.get(key)
-        if not isinstance(patterns, list) or not patterns or not all(
-            isinstance(pattern, str) and pattern.strip() for pattern in patterns
-        ):
+        if not _is_non_blank_string_list(patterns):
             raise ValueError(f'time bomb definitions require a non-empty array of non-empty strings for {key}.')
         loaded[key] = _build_regex_matchers(patterns, key)
     return loaded
@@ -133,8 +137,7 @@ def _find_time_bomb(definitions, today, added, content):
 def _record_denial(state_path, path):
     # 戻り値は、このファイルを今回初めて拒否するか。同じファイルの拒否はセッションで1回だけにする。
     # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-    file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
-    return bool(_filter_first_time_denials(state_path, [(file_key, path)]))
+    return bool(_filter_first_time_denials(state_path, [(_get_path_sha256_digest(path), path)]))
 
 
 def _parse_today(value):
@@ -205,12 +208,8 @@ def main(arguments=None):
     if findings:
         reason = _DENY_REASON.format(findings='; '.join(findings), today=today.isoformat())
         print(reason, file=sys.stderr)
-        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': reason,
-        }, ensure_ascii=False))
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](reason)
     return 0
 
 

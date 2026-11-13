@@ -1,6 +1,5 @@
 import argparse
 import fnmatch
-import hashlib
 import io
 import json
 import os
@@ -17,6 +16,14 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_get_path_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_path_sha256_digest']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
@@ -30,8 +37,6 @@ _simulate_edit_tool_changes = runpy.run_path(os.path.join(
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 # キーワードの直後が値の代入（`exclude = [...]`・`"exclude": [...]`・`omit:`）である場合だけ値を読む。
 # 値が次の行から始まる場合（INIの継続行・YAMLのリスト）は、その行がインデントされていることを求める。
 _ASSIGNMENT_PATTERN = re.compile(r'["\']?[ \t]*[:=][ \t]*(?:\r?\n[ \t]+)?')
@@ -55,7 +60,7 @@ _DENY_REASON = (
 
 
 def _compile_patterns(values, key):
-    if not isinstance(values, list) or not all(isinstance(value, str) and value.strip() for value in values):
+    if not _is_non_blank_string_list(values, allow_empty_list=True):
         raise ValueError(f'exclusion definitions require an array of non-empty strings for {key}.')
     return _build_regex_matchers(values, key)
 
@@ -206,8 +211,7 @@ def _find_matched_file(entry, files):
 def _record_denial(state_path, path):
     # 戻り値は、このファイルを今回初めて拒否するか。同じファイルの拒否はセッションで1回だけにする。
     # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-    file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
-    return bool(_filter_first_time_denials(state_path, [(file_key, path)]))
+    return bool(_filter_first_time_denials(state_path, [(_get_path_sha256_digest(path), path)]))
 
 
 def main(arguments=None):
@@ -233,7 +237,7 @@ def main(arguments=None):
 
         tool_name = tool_name.removeprefix('functions.')
         edits = []
-        if tool_name in _EDIT_TOOL_NAMES:
+        if _tool_kinds['is_edit_tool'](tool_name):
             edits = _simulate_edit_tool_changes(tool_name, _unwrap_tool_args(tool_args), cwd)
 
         candidates = []
@@ -277,12 +281,8 @@ def main(arguments=None):
             shown.append(f'and {len(findings) - _MAX_FINDINGS} more')
         reason = _DENY_REASON.format(findings='; '.join(shown))
         print(reason, file=sys.stderr)
-        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': reason,
-        }, ensure_ascii=False))
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](reason)
     return 0
 
 

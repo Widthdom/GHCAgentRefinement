@@ -14,6 +14,10 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 
@@ -37,11 +41,6 @@ def _strip_code(text):
     return _FENCED_CODE_PATTERN.sub('', text)
 
 
-def _is_non_empty_string_list(value):
-    return (isinstance(value, list) and bool(value)
-            and all(isinstance(item, str) and bool(item.strip()) for item in value))
-
-
 def _load_definitions(definitions_path):
     # 定義ファイルはUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     if not os.path.isfile(definitions_path):
@@ -55,7 +54,7 @@ def _load_definitions(definitions_path):
         raise ValueError('Definitions must be a JSON object.')
 
     for key in (_EVIDENCE_TOOL_NAMES_KEY, *_PATTERN_KEYS):
-        if not _is_non_empty_string_list(definitions.get(key)):
+        if not _is_non_blank_string_list(definitions.get(key)):
             raise ValueError(f'Definitions require a non-empty array of non-empty strings for {key}.')
     patterns = {key: tuple(_build_regex_matchers(definitions[key], key)) for key in _PATTERN_KEYS}
     return set(definitions[_EVIDENCE_TOOL_NAMES_KEY]), patterns['pushbackPatterns'], patterns['reversalPatterns']
@@ -133,7 +132,7 @@ def main():
         return 0
 
     if _is_unverified_reversal(summary, pushback_patterns, reversal_patterns):
-        print(json.dumps({'decision': 'block', 'reason': _REASON}, ensure_ascii=False, separators=(',', ':')))
+        _hook_output['write_block_decision'](_REASON)
     return 0
 
 

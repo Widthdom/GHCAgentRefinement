@@ -14,12 +14,17 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-_SHELL_TOOL_NAMES = {'bash', 'powershell'}
 _DEFINITION_KEYS = ('claimPatterns', 'hedgePatterns', 'measurementCommandPatterns')
 _FENCED_CODE_PATTERN = re.compile(r'^(```|~~~).*?^\1', re.MULTILINE | re.DOTALL)
 _QUOTE_LINE_PATTERN = re.compile(r'^\s*>.*$', re.MULTILINE)
@@ -45,9 +50,7 @@ def _load_definitions(path):
     loaded = {}
     for key in _DEFINITION_KEYS:
         patterns = definitions.get(key)
-        if not isinstance(patterns, list) or not patterns or not all(
-            isinstance(pattern, str) and pattern.strip() for pattern in patterns
-        ):
+        if not _is_non_blank_string_list(patterns):
             raise ValueError(f'performance claim definitions require a non-empty array of non-empty strings for {key}.')
         loaded[key] = _build_regex_matchers(patterns, key)
     return loaded
@@ -62,7 +65,7 @@ def _get_turn_summary(transcript_path):
     for tool_name, arguments, completion in _turn_events['get_tool_calls'](events):
         arguments = _unwrap_tool_args(arguments)
         command = arguments.get('command') if isinstance(arguments, dict) else None
-        if (tool_name in _SHELL_TOOL_NAMES and isinstance(command, str)
+        if (_tool_kinds['is_shell_tool'](tool_name) and isinstance(command, str)
                 and _turn_events['get_shell_exit_code'](completion) == 0):
             succeeded_commands.append(command)
     return _turn_events['get_last_assistant_message'](events), succeeded_commands, already_requested
@@ -123,11 +126,7 @@ def main(arguments=None):
         return 0
     if any(pattern.search(command) for command in succeeded_commands for pattern in definitions['measurementCommandPatterns']):
         return 0
-    if len(claim) > _MAX_CLAIM_LENGTH:
-        claim = claim[:_MAX_CLAIM_LENGTH] + '...'
-    print(json.dumps(
-        {'decision': 'block', 'reason': _BLOCK_REASON.format(claim=claim)}, ensure_ascii=False, separators=(',', ':'),
-    ))
+    _hook_output['write_block_decision'](_BLOCK_REASON.format(claim=_truncate_text(claim, _MAX_CLAIM_LENGTH)))
     return 0
 
 

@@ -23,14 +23,19 @@ def _invoke_hook(script_path, cwd=None, env=None):
 
 class LoadCopilotInstructionsTests(unittest.TestCase):
     def __new_sandbox(self, suffix=''):
-        # hookは自身の位置から指示ファイルを探すため、同じ構成を一時領域に作る。
+        # hookは自身の位置から指示ファイルを探すため、同じ構成を一時領域に作り、読み込むutilityも複製する。
         temporary = tempfile.TemporaryDirectory(prefix='ghc-load-copilot-instructions-test-', suffix=suffix)
         self.addCleanup(temporary.cleanup)
-        hook_directory = os.path.join(
-            temporary.name, '.github', 'hooks', 'helpers', 'events', 'sessionStart', 'load-copilot-instructions',
-        )
+        helpers_directory = os.path.join(temporary.name, '.github', 'hooks', 'helpers')
+        hook_directory = os.path.join(helpers_directory, 'events', 'sessionStart', 'load-copilot-instructions')
         os.makedirs(hook_directory)
         script_path = shutil.copy(_hook_path, hook_directory)
+        utility_directory = os.path.join(helpers_directory, 'utilities', 'write-hook-output')
+        os.makedirs(utility_directory)
+        shutil.copy(
+            os.path.join(_hooks_directory, 'helpers', 'utilities', 'write-hook-output', 'write-hook-output.py'),
+            utility_directory,
+        )
         return temporary.name, script_path, os.path.join(temporary.name, '.github', 'copilot-instructions.md')
 
     def __invoke_with_instructions(self, data):

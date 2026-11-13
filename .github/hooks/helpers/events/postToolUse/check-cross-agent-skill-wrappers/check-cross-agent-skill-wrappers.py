@@ -1,5 +1,4 @@
 import io
-import json
 import os
 import runpy
 import sqlite3
@@ -13,6 +12,8 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
@@ -21,8 +22,6 @@ _filter_new_notifications = runpy.run_path(os.path.join(
 ))['filter_new_notifications']
 
 
-# SDKがファイル書き込みとして扱う組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 # 正本と、それを参照するラッパーの配置。リポジトリルートからの相対ディレクトリ。
 _CANONICAL_DIRECTORY = ('.github', 'skills')
 _WRAPPER_DIRECTORIES = (('.agents', 'skills'), ('.claude', 'skills'))
@@ -134,7 +133,7 @@ def main():
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         tool_name = tool_name.removeprefix('functions.')
-        if tool_name not in _EDIT_TOOL_NAMES:
+        if not _tool_kinds['is_edit_tool'](tool_name):
             return 0
         # パッチの削除・移動元も含める。正本を消したときに、残ったラッパーを検出するため。
         paths = {os.path.realpath(os.path.join(cwd, path)) for path in _get_edited_paths(tool_name, _unwrap_tool_args(tool_args))}
@@ -160,10 +159,9 @@ def main():
 
     if problems:
         # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
-        print(json.dumps(
-            {'additionalContext': _SYNC_CONTEXT.format(problems='; '.join(problems), body=_WRAPPER_BODY.format(name='<name>'))},
-            ensure_ascii=False,
-        ))
+        _hook_output['write_additional_context'](
+            _SYNC_CONTEXT.format(problems='; '.join(problems), body=_WRAPPER_BODY.format(name='<name>'))
+        )
     return 0
 
 

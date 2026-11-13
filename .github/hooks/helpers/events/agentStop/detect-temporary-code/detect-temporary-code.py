@@ -14,6 +14,11 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 
@@ -41,11 +46,6 @@ _MAX_FINDINGS = 10
 _MAX_SNIPPET_LENGTH = 80
 
 
-def _is_string_list(value, allow_empty=False):
-    return (isinstance(value, list) and (allow_empty or bool(value))
-            and all(isinstance(item, str) and item.strip() for item in value))
-
-
 def _load_named_patterns(definitions, key):
     named_definitions = definitions.get(key)
     if not isinstance(named_definitions, list) or not named_definitions or not all(
@@ -69,11 +69,11 @@ def _load_definitions(path):
         definitions = json.load(definitions_file)
     if not isinstance(definitions, dict):
         raise ValueError('temporary code definitions must be a JSON object.')
-    if not _is_string_list(definitions.get(_EXCLUDED_FILE_PATTERNS_KEY), allow_empty=True):
+    if not _is_non_blank_string_list(definitions.get(_EXCLUDED_FILE_PATTERNS_KEY), allow_empty_list=True):
         raise ValueError(
             f'temporary code definitions require an array of non-empty strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
         )
-    if not _is_string_list(definitions.get(_PLACEHOLDER_DISCLOSURE_PATTERNS_KEY)):
+    if not _is_non_blank_string_list(definitions.get(_PLACEHOLDER_DISCLOSURE_PATTERNS_KEY)):
         raise ValueError(
             'temporary code definitions require a non-empty array of non-empty strings for '
             f'{_PLACEHOLDER_DISCLOSURE_PATTERNS_KEY}.'
@@ -104,9 +104,7 @@ def _get_turn_summary(transcript_path):
 
 def _format_finding(finding):
     display_path, name, line = finding
-    if len(line) > _MAX_SNIPPET_LENGTH:
-        line = line[:_MAX_SNIPPET_LENGTH] + '...'
-    return f'- {display_path}: {name} ("{line}")'
+    return f'- {display_path}: {name} ("{_truncate_text(line, _MAX_SNIPPET_LENGTH)}")'
 
 
 def main(arguments=None):
@@ -169,7 +167,7 @@ def main(arguments=None):
         return 2
 
     if reason is not None:
-        print(json.dumps({'decision': 'block', 'reason': reason}, ensure_ascii=False, separators=(',', ':')))
+        _hook_output['write_block_decision'](reason)
     return 0
 
 

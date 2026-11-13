@@ -1,5 +1,4 @@
 import io
-import json
 import os
 import re
 import runpy
@@ -14,6 +13,8 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
@@ -21,7 +22,6 @@ _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-to
 _edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))
 
 
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 _PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+)$')
 _INVALID_CHARACTERS = frozenset('<>:"\\|?*')
 # Windows also reserves superscript 1, 2 and 3 in COM/LPT device names.
@@ -136,7 +136,7 @@ def main():
         cwd = _hook_input['get_cwd'](hook_input)
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
         tool_name = tool_name.removeprefix('functions.')
-        if tool_name not in _EDIT_TOOL_NAMES:
+        if not _tool_kinds['is_edit_tool'](tool_name):
             return 0
         tool_args = _unwrap_tool_args(tool_args)
         if tool_name == 'apply_patch' and not isinstance(tool_args, (str, dict)):
@@ -147,14 +147,11 @@ def main():
         print(f'Failed to check portable paths: {ex}', file=sys.stderr)
         return 2
     if findings:
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': (
-                'Edit denied: nonportable destination paths: ' + '; '.join(findings[:10]) + '. '
-                'Choose names usable on Windows, macOS and Linux, without case or Unicode-normalization '
-                'collisions. A case-only file rename is allowed when its source is removed in the same patch.'
-            ),
-        }, ensure_ascii=False))
+        _hook_output['write_deny_decision'](
+            'Edit denied: nonportable destination paths: ' + '; '.join(findings[:10]) + '. '
+            'Choose names usable on Windows, macOS and Linux, without case or Unicode-normalization '
+            'collisions. A case-only file rename is allowed when its source is removed in the same patch.'
+        )
     return 0
 
 

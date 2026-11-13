@@ -13,10 +13,10 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-_SHELL_TOOL_NAMES = {'bash', 'powershell'}
 # 行頭の装飾（pytestの `E`、差分の `-`・`+`）を許容する。
 _LINE_PREFIX = r'^\s*(?:E\s+)?[-+]?\s*'
 # 期待値の行と、その直後3行以内の実際の値の行（Jest・xUnit・NUnit・AssertJ・testifyなど）。
@@ -100,7 +100,7 @@ def main():
         state_path = state['get_state_path'](hook_input.get('sessionId'))
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        if tool_name.removeprefix('functions.') not in _SHELL_TOOL_NAMES:
+        if not _tool_kinds['is_shell_tool'](tool_name):
             return 0
         tool_args = _unwrap_tool_args(tool_args)
         command = tool_args.get('command') if isinstance(tool_args, dict) else None

@@ -1,5 +1,4 @@
 import io
-import json
 import os
 import re
 import runpy
@@ -13,6 +12,8 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 
 
@@ -79,9 +80,7 @@ def _get_block_reason(promises):
         'These sentences defer work without doing it:'
     ]
     for promise in promises[:_MAX_LISTED_PROMISES]:
-        if len(promise) > _MAX_PROMISE_LENGTH:
-            promise = promise[:_MAX_PROMISE_LENGTH] + '...'
-        lines.append(f'- {promise}')
+        lines.append(f'- {_truncate_text(promise, _MAX_PROMISE_LENGTH)}')
     if len(promises) > _MAX_LISTED_PROMISES:
         lines.append(f'- ... and {len(promises) - _MAX_LISTED_PROMISES} more')
     lines.append(
@@ -125,10 +124,7 @@ def main():
 
     promises = _find_promises(last_assistant_msg)
     if promises:
-        print(json.dumps(
-            {'decision': 'block', 'reason': _get_block_reason(promises)},
-            ensure_ascii=False, separators=(',', ':'),
-        ))
+        _hook_output['write_block_decision'](_get_block_reason(promises))
     return 0
 
 

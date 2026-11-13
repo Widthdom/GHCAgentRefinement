@@ -15,6 +15,11 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
@@ -26,7 +31,7 @@ _collect_json_string_values = runpy.run_path(os.path.join(
 # 定義ファイルのキー。speculationPatternsは推測とみなす表現の正規表現。
 _SPECULATION_PATTERNS_KEY = 'speculationPatterns'
 # 引数にパスが含まれていれば、そのファイルを読んだとみなすツール。`cat`・`sed -n`・`rg <pattern> <file>` などでの閲覧はrecord-seen-filesが記録しないため。
-_COMMAND_READ_TOOL_NAMES = {'bash', 'powershell', 'rg', 'grep'}
+_COMMAND_READ_TOOL_NAMES = {*_tool_kinds['SHELL_TOOL_NAMES'], 'rg', 'grep'}
 _FENCED_CODE_PATTERN = re.compile(r'^(```|~~~).*?^\1', re.MULTILINE | re.DOTALL)
 _INLINE_CODE_PATTERN = re.compile(r'`([^`\n]+)`')
 _MARKDOWN_LINK_PATTERN = re.compile(r'\]\(([^()\s]+)\)')
@@ -44,11 +49,6 @@ _GIT_TIMEOUT_SECONDS = 5
 _REASON_PREFIX = 'The final response speculates about files'
 
 
-def _is_non_empty_string_list(value):
-    return (isinstance(value, list) and bool(value)
-            and all(isinstance(item, str) and bool(item.strip()) for item in value))
-
-
 def _load_definitions(definitions_path):
     # 定義ファイルはUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     if not os.path.isfile(definitions_path):
@@ -60,7 +60,7 @@ def _load_definitions(definitions_path):
         raise ValueError(f'Definitions are not valid JSON: {ex}') from ex
     if not isinstance(definitions, dict):
         raise ValueError('Definitions must be a JSON object.')
-    if not _is_non_empty_string_list(definitions.get(_SPECULATION_PATTERNS_KEY)):
+    if not _is_non_blank_string_list(definitions.get(_SPECULATION_PATTERNS_KEY)):
         raise ValueError(f'Definitions require a non-empty array of non-empty strings for {_SPECULATION_PATTERNS_KEY}.')
     return tuple(_build_regex_matchers(definitions[_SPECULATION_PATTERNS_KEY], _SPECULATION_PATTERNS_KEY))
 
@@ -221,7 +221,7 @@ def main():
             'Do not describe file contents from memory or assumptions. View each file and correct the statements '
             'based on its actual content, or state explicitly that the file was not checked.'
         )
-        print(json.dumps({'decision': 'block', 'reason': reason}, ensure_ascii=False, separators=(',', ':')))
+        _hook_output['write_block_decision'](reason)
     return 0
 
 

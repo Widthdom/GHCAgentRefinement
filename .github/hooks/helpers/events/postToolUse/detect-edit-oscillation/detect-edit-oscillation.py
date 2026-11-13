@@ -1,6 +1,5 @@
 import hashlib
 import io
-import json
 import os
 import runpy
 import sqlite3
@@ -16,14 +15,17 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_get_path_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_path_sha256_digest']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-# SDKがファイル書き込みとして扱う組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 _WINDOW_SECONDS = 600
 # 削除済み・ファイル以外を表す内容ハッシュ。SHA-256の16進表記とは衝突しない。
 _MISSING_CONTENT = 'missing'
@@ -111,7 +113,7 @@ def main():
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         tool_name = tool_name.removeprefix('functions.')
-        if tool_name not in _EDIT_TOOL_NAMES:
+        if not _tool_kinds['is_edit_tool'](tool_name):
             return 0
         # パッチの削除・移動元も、削除扱いで含める。
         # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。normcaseは照合だけに使い、表示には正規化前のパスを使う。
@@ -124,7 +126,7 @@ def main():
 
         # 編集後のファイル内容を読む。パスと内容は保存せず、比較用のSHA-256だけを保存する。
         edits = [
-            (path, hashlib.sha256(normalized_path.encode('utf-8')).hexdigest(), _get_content_hash(path))
+            (path, _get_path_sha256_digest(normalized_path), _get_content_hash(path))
             for normalized_path, path in sorted(paths.items())
         ]
 
@@ -140,8 +142,7 @@ def main():
         cwd = os.path.realpath(cwd)
         files = ', '.join(_get_display_path(path, cwd) for path in oscillated_paths)
         # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({'additionalContext': _OSCILLATION_CONTEXT.format(files=files)}, ensure_ascii=False))
+        _hook_output['write_additional_context'](_OSCILLATION_CONTEXT.format(files=files))
     return 0
 
 

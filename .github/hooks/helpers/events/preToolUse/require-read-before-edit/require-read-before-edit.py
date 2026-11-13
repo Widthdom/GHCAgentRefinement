@@ -1,5 +1,4 @@
 import io
-import json
 import os
 import runpy
 import sqlite3
@@ -13,13 +12,13 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-# 既存ファイルを書き換える組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 # パッチで既存の内容を書き換えるファイル。追加・削除・移動先は内容を把握する必要がないため対象外とする。
 _PATCH_OPERATIONS = frozenset({'Update File'})
 _DENY_REASON = (
@@ -63,7 +62,7 @@ def main():
         # 照合には正規化したパス、表示には正規化前のパスを使う。
         paths = {}
         tool_name = tool_name.removeprefix('functions.')
-        if tool_name in _EDIT_TOOL_NAMES:
+        if _tool_kinds['is_edit_tool'](tool_name):
             tool_args = _unwrap_tool_args(tool_args)
             for path in _get_edited_paths(tool_name, tool_args, _PATCH_OPERATIONS):
                 paths.setdefault(state['normalize_path'](cwd, path), os.path.realpath(os.path.join(cwd, path)))
@@ -79,12 +78,8 @@ def main():
     if denied_paths:
         real_cwd = os.path.realpath(cwd)
         files = ', '.join(_get_display_path(path, real_cwd) for path in denied_paths)
-        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': _DENY_REASON.format(files=files),
-        }, ensure_ascii=False))
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](_DENY_REASON.format(files=files))
     return 0
 
 

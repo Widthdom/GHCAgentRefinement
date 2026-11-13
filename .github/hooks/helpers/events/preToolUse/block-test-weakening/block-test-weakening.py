@@ -1,5 +1,4 @@
 import argparse
-import hashlib
 import io
 import json
 import os
@@ -15,6 +14,13 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
+_get_path_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_path_sha256_digest']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
@@ -41,17 +47,13 @@ _DENY_REASON = (
 )
 
 
-def _is_non_empty_string_list(value):
-    return isinstance(value, list) and bool(value) and all(isinstance(item, str) and item.strip() for item in value)
-
-
 def _load_definitions(path):
     # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
     if not isinstance(definitions, dict):
         raise ValueError('test weakening definitions must be a JSON object.')
-    if not _is_non_empty_string_list(definitions.get(_ASSERTION_PATTERNS_KEY)):
+    if not _is_non_blank_string_list(definitions.get(_ASSERTION_PATTERNS_KEY)):
         raise ValueError(
             f'test weakening definitions require a non-empty array of non-empty strings for {_ASSERTION_PATTERNS_KEY}.'
         )
@@ -129,7 +131,7 @@ def main(arguments=None):
             if not _check_test_files['is_test_file'](test_file_patterns, display_path):
                 continue
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-            file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
+            file_key = _get_path_sha256_digest(path)
             current = (_read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None) or ''
 
             lines = _find_weakening_lines(weakening_patterns, change['written'], '\n'.join([change['removed'], current]))
@@ -162,12 +164,8 @@ def main(arguments=None):
     if reasons:
         reason = _DENY_REASON.format(findings=' '.join(reasons))
         print(reason, file=sys.stderr)
-        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': reason,
-        }, ensure_ascii=False))
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](reason)
     return 0
 
 

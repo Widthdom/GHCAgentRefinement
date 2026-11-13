@@ -1,5 +1,4 @@
 import argparse
-import hashlib
 import io
 import json
 import os
@@ -17,6 +16,14 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
+_get_path_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_path_sha256_digest']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
@@ -57,9 +64,7 @@ def _load_definitions(path):
     loaded = []
     for key, allow_empty in ((_EXCLUDED_FILE_PATTERNS_KEY, True), (_TIMING_PATTERNS_KEY, False)):
         patterns = definitions.get(key)
-        if not isinstance(patterns, list) or (not allow_empty and not patterns) or not all(
-            isinstance(pattern, str) and pattern.strip() for pattern in patterns
-        ):
+        if not _is_non_blank_string_list(patterns, allow_empty):
             raise ValueError(f'timeout inflation definitions require an array of non-empty strings for {key}.')
         loaded.append(_build_regex_matchers(patterns, key))
     return loaded[0], loaded[1]
@@ -107,10 +112,6 @@ def _find_inflation(timing_patterns, removed, written):
     return pairs
 
 
-def _shorten(line):
-    return line if len(line) <= _MAX_SNIPPET_LENGTH else line[:_MAX_SNIPPET_LENGTH] + '...'
-
-
 def main(arguments=None):
     # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
@@ -153,9 +154,10 @@ def main(arguments=None):
             pairs = _find_inflation(timing_patterns, removed, written)
             if pairs:
                 # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-                file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
+                file_key = _get_path_sha256_digest(path)
                 candidates.append((file_key, _FINDING.format(file=display_path, snippets=', '.join(
-                    f'"{_shorten(old)}" -> "{_shorten(new)}"' for old, new in pairs[:_MAX_SNIPPETS]
+                    f'"{_truncate_text(old, _MAX_SNIPPET_LENGTH)}" -> "{_truncate_text(new, _MAX_SNIPPET_LENGTH)}"'
+                    for old, new in pairs[:_MAX_SNIPPETS]
                 ))))
 
         reasons = []
@@ -168,12 +170,8 @@ def main(arguments=None):
     if reasons:
         reason = _DENY_REASON.format(findings='; '.join(reasons))
         print(reason, file=sys.stderr)
-        # SDK形式のトップレベルpermissionDecision。正常な拒否なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': reason,
-        }, ensure_ascii=False))
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](reason)
     return 0
 
 

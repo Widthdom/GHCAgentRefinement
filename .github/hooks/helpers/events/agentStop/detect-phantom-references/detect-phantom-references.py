@@ -1,5 +1,4 @@
 import io
-import json
 import os
 import re
 import runpy
@@ -13,6 +12,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 
@@ -230,7 +230,7 @@ def main():
             'If a path intentionally refers to a file that does not exist yet, such as a proposal or plan, '
             'append the marker (planned) right after the path. Keep the rest of the response unchanged.'
         )
-        print(json.dumps({'decision': 'block', 'reason': reason}, ensure_ascii=False, separators=(',', ':')))
+        _hook_output['write_block_decision'](reason)
     return 0
 
 

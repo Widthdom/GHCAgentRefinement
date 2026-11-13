@@ -14,6 +14,11 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
+_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 
 
@@ -44,11 +49,6 @@ _REASON = (
 )
 
 
-def _is_non_empty_string_list(value):
-    return (isinstance(value, list) and bool(value)
-            and all(isinstance(item, str) and bool(item.strip()) for item in value))
-
-
 def _load_stop_words(definitions_path):
     # 定義ファイルはUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     if not os.path.isfile(definitions_path):
@@ -60,7 +60,7 @@ def _load_stop_words(definitions_path):
         raise ValueError(f'Definitions are not valid JSON: {ex}') from ex
     if not isinstance(definitions, dict):
         raise ValueError('Definitions must be a JSON object.')
-    if not _is_non_empty_string_list(definitions.get(_STOP_WORDS_KEY)):
+    if not _is_non_blank_string_list(definitions.get(_STOP_WORDS_KEY)):
         raise ValueError(f'Definitions require a non-empty array of non-empty strings for {_STOP_WORDS_KEY}.')
     return {word.strip().casefold() for word in definitions[_STOP_WORDS_KEY]}
 
@@ -96,10 +96,6 @@ def _find_dropped_items(request, response, stop_words):
         if (keywords := _get_keywords(item, stop_words)) and not any(keyword in folded_response for keyword in keywords)
     ]
     return dropped, len(items)
-
-
-def _shorten(value):
-    return value if len(value) <= _MAX_DISPLAY_LENGTH else value[:_MAX_DISPLAY_LENGTH] + '...'
 
 
 def main():
@@ -148,11 +144,13 @@ def main():
 
     dropped, total = _find_dropped_items(latest_request, last_assistant_msg, stop_words)
     if dropped:
-        items = '; '.join(f'"{_shorten(item)}"' for item in dropped[:_MAX_LISTED_ITEMS])
+        items = '; '.join(
+            f'"{_truncate_text(item, _MAX_DISPLAY_LENGTH)}"' for item in dropped[:_MAX_LISTED_ITEMS]
+        )
         if len(dropped) > _MAX_LISTED_ITEMS:
             items += f'; and {len(dropped) - _MAX_LISTED_ITEMS} more'
         reason = _REASON.format(count=len(dropped), total=total, items=items)
-        print(json.dumps({'decision': 'block', 'reason': reason}, ensure_ascii=False, separators=(',', ':')))
+        _hook_output['write_block_decision'](reason)
     return 0
 
 
