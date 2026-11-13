@@ -60,11 +60,11 @@ def _load_definitions(path):
         raise ValueError('path separator definitions must be a JSON object.')
     if not _is_non_blank_string_list(definitions.get(_EXCLUDED_FILE_PATTERNS_KEY), allow_empty_list=True):
         raise ValueError(
-            f'path separator definitions require an array of non-empty strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
+            f'path separator definitions require an array of non-blank strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
         )
     if not _is_non_blank_string_list(definitions.get(_NORMALIZATION_PATTERNS_KEY)):
         raise ValueError(
-            f'path separator definitions require a non-empty array of non-empty strings for '
+            f'path separator definitions require a non-empty array of non-blank strings for '
             f'{_NORMALIZATION_PATTERNS_KEY}.'
         )
     native_definitions = definitions.get(_NATIVE_PATH_PATTERNS_KEY)
@@ -75,7 +75,7 @@ def _load_definitions(path):
         for definition in native_definitions
     ):
         raise ValueError(
-            f'path separator definitions require a non-empty array of objects with non-empty strings for name and '
+            f'path separator definitions require a non-empty array of objects with non-blank strings for name and '
             f'pattern in {_NATIVE_PATH_PATTERNS_KEY}.'
         )
     native_patterns = _build_regex_matchers(

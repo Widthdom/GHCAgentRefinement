@@ -72,7 +72,7 @@ def _get_operations(tool_name, tool_args):
         # 対象のファイルのパスは `path`、`create` では `file_path` で渡される。引数名はget-edited-paths utilityと共有する。
         path = _edited_paths['get_path_argument'](tool_args)
         if path is None:
-            raise ValueError(f"one of {', '.join(_edited_paths['PATH_KEYS'])} must be a non-empty string.")
+            raise ValueError(f"one of {', '.join(_edited_paths['PATH_KEYS'])} must be a non-blank string.")
         destinations.append(path)
     if any(not path or '\0' in path for path in [*destinations, *removed]):
         raise ValueError('file paths must be non-empty and must not contain NUL.')

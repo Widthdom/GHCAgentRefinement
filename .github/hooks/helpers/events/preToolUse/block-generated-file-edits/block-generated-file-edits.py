@@ -59,7 +59,7 @@ def _load_definitions(path):
     for key in (_GENERATED_PATH_PATTERNS_KEY, _GENERATED_MARKER_PATTERNS_KEY):
         patterns = definitions.get(key)
         if not _is_non_blank_string_list(patterns):
-            raise ValueError(f'generated file definitions require a non-empty array of non-empty strings for {key}.')
+            raise ValueError(f'generated file definitions require a non-empty array of non-blank strings for {key}.')
         compiled.append(_build_regex_matchers(patterns, key))
     return compiled[0], compiled[1]
 

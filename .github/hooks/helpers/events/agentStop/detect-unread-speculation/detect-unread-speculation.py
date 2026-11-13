@@ -61,7 +61,7 @@ def _load_definitions(definitions_path):
     if not isinstance(definitions, dict):
         raise ValueError('Definitions must be a JSON object.')
     if not _is_non_blank_string_list(definitions.get(_SPECULATION_PATTERNS_KEY)):
-        raise ValueError(f'Definitions require a non-empty array of non-empty strings for {_SPECULATION_PATTERNS_KEY}.')
+        raise ValueError(f'Definitions require a non-empty array of non-blank strings for {_SPECULATION_PATTERNS_KEY}.')
     return tuple(_build_regex_matchers(definitions[_SPECULATION_PATTERNS_KEY], _SPECULATION_PATTERNS_KEY))
 
 

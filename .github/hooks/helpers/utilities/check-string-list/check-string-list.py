@@ -1,6 +1,5 @@
 # 値が、空白以外を含む文字列（non-blank）だけのリストかを判定する。
 # 定義ファイルの配列を検証するhookとutilityが共有する。
-# 呼び出し元のエラーメッセージでは、このリポジトリの慣例に合わせて「non-empty strings」と書く。
 
 
 def is_non_blank_string_list(value, allow_empty_list=False):

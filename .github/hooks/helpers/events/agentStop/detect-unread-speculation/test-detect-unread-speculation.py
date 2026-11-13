@@ -236,7 +236,7 @@ class DetectUnreadSpeculationTests(unittest.TestCase):
     def test_invalid_definitions_report_error(self):
         cases = [('{', 'not valid JSON'), ('[]', 'must be a JSON object'), ('\xff', None)]
         for value in (None, [], [''], [' '], [1], 'a'):
-            cases.append((json.dumps({'speculationPatterns': value}), 'non-empty array of non-empty strings'))
+            cases.append((json.dumps({'speculationPatterns': value}), 'non-empty array of non-blank strings'))
         cases.append((json.dumps({'speculationPatterns': ['(']}), 'invalid regular expression'))
         self.__write_transcript([_user('調べて'), _assistant('`src/a.py` はおそらく古い。'), _agent_stop_start()])
         for index, (content, fragment) in enumerate(cases):

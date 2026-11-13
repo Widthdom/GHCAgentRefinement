@@ -90,7 +90,7 @@ def main():
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
         error = hook_input.get('error')
         if not isinstance(error, str) or not error.strip():
-            raise ValueError('error must be a non-empty string.')
+            raise ValueError('error must be a non-blank string.')
 
         # 引数中のJSONオブジェクトは、キーの記述順が違っても同一と判定する。
         # コマンド・引数・エラー本文は保存せず、比較用のSHA-256だけを保存する。

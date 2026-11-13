@@ -27,7 +27,7 @@ def main():
         if agent_id is None:
             return 0
         if not isinstance(agent_id, str) or not agent_id.strip():
-            raise ValueError('agentId must be a non-empty string.')
+            raise ValueError('agentId must be a non-blank string.')
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to parse userPromptSubmitted hook input: {ex}', file=sys.stderr)
         return 2

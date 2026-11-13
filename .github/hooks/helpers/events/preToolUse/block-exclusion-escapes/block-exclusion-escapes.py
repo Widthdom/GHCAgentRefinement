@@ -61,7 +61,7 @@ _DENY_REASON = (
 
 def _compile_patterns(values, key):
     if not _is_non_blank_string_list(values, allow_empty_list=True):
-        raise ValueError(f'exclusion definitions require an array of non-empty strings for {key}.')
+        raise ValueError(f'exclusion definitions require an array of non-blank strings for {key}.')
     return _build_regex_matchers(values, key)
 
 

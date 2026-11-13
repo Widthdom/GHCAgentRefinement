@@ -51,7 +51,7 @@ def _load_definitions(path):
     for key in _DEFINITION_KEYS:
         patterns = definitions.get(key)
         if not _is_non_blank_string_list(patterns):
-            raise ValueError(f'performance claim definitions require a non-empty array of non-empty strings for {key}.')
+            raise ValueError(f'performance claim definitions require a non-empty array of non-blank strings for {key}.')
         loaded[key] = _build_regex_matchers(patterns, key)
     return loaded
 

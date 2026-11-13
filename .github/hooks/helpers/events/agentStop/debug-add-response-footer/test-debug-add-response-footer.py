@@ -134,9 +134,9 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         missing_path_cases = [
             {'Name': 'Missing transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid}),
-             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-blank string.'},
             {'Name': 'Whitespace transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid, 'transcriptPath': '   '}),
-             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-blank string.'},
             {'Name': 'Nonexistent transcriptPath', 'Json': _to_compressed_json(
                 {'sessionId': valid_guid, 'transcriptPath': os.path.join(self.__temp_dir, 'not-found.jsonl')}),
              'Error': 'Failed to parse agentStop hook input: transcript path is not a file'},
@@ -144,12 +144,12 @@ class DebugResponseFooterTests(unittest.TestCase):
              'Error': 'Failed to parse agentStop hook input: transcript path is not a file'},
             {'Name': 'Non-string snake_case transcript_path', 'Json': _to_compressed_json(
                 {'sessionId': valid_guid, 'transcript_path': []}),
-             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-blank string.'},
             {'Name': 'Non-string transcriptPath', 'Json': _to_compressed_json({'sessionId': valid_guid, 'transcriptPath': []}),
-             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-blank string.'},
             {'Name': 'Invalid transcriptPath with valid snake_case path', 'Json': _to_compressed_json(
                 {'sessionId': valid_guid, 'transcriptPath': None, 'transcript_path': self.__valid_transcript}),
-             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-empty string.'},
+             'Error': 'Failed to parse agentStop hook input: transcriptPath must be a non-blank string.'},
             {'Name': 'Missing sessionId', 'Json': _to_compressed_json({'transcriptPath': self.__valid_transcript}),
              'Error': 'Failed to parse agentStop hook input: sessionId must be a non-empty UUID string.'},
             {'Name': 'Non-string sessionId', 'Json': _to_compressed_json({'sessionId': [valid_guid], 'transcriptPath': self.__valid_transcript}),

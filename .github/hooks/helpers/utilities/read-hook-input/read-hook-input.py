@@ -20,7 +20,7 @@ def read_hook_input():
 def get_cwd(hook_input):
     cwd = hook_input.get('cwd')
     if not isinstance(cwd, str) or not cwd.strip():
-        raise ValueError('cwd must be a non-empty string.')
+        raise ValueError('cwd must be a non-blank string.')
     if not os.path.isabs(cwd):
         raise ValueError('cwd must be an absolute path.')
     return cwd
@@ -30,7 +30,7 @@ def get_tool_call(hook_input):
     # preToolUse・postToolUseには、呼び出すツール1件の名前（toolName）と引数（toolArgs）が渡される。
     tool_name = hook_input.get('toolName')
     if not isinstance(tool_name, str) or not tool_name.strip():
-        raise ValueError('toolName must be a non-empty string.')
+        raise ValueError('toolName must be a non-blank string.')
     if 'toolArgs' not in hook_input:
         raise ValueError('toolArgs is required.')
     return tool_name, hook_input['toolArgs']
@@ -39,7 +39,7 @@ def get_tool_call(hook_input):
 def get_transcript_path(hook_input):
     transcript_path = hook_input.get('transcriptPath')
     if not isinstance(transcript_path, str) or not transcript_path.strip():
-        raise ValueError('transcriptPath must be a non-empty string.')
+        raise ValueError('transcriptPath must be a non-blank string.')
     if not os.path.isfile(transcript_path):
         raise ValueError(f'transcript path is not a file or could not be verified as a file: {transcript_path}')
     return transcript_path
