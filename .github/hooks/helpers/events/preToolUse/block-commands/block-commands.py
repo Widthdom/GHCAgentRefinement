@@ -19,7 +19,7 @@ _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-def _is_non_empty_string(value):
+def _is_non_blank_string(value):
     # `isinstance` は Pythonの組み込み関数であり、C#の `is` に相当する。
     # `strip` は文字列型strのメソッドであり、文字列の両端から空白文字を削除する。空白のみの文字列は空文字列に変換される。C#の `Trim` に相当する。
     # bool は Pythonの組み込み関数である。
@@ -103,12 +103,12 @@ def main(arguments=None):
             return 2
 
         # 必須項目に欠落があれば異常終了。
-        # 各キーの値を取得して、非空文字列か否かの結果を確認し、ひとつでもFalseであれば異常終了。
+        # 各キーの値を取得して、空白以外を含む文字列か否かの結果を確認し、ひとつでもFalseであれば異常終了。
         # allは、前から評価してFalseが見つかった時点で即座にFalseを返す。
-        #   ここでは_is_non_empty_string(definition.get('pattern'))がfalseなら_is_non_empty_string(definition.get('reason'))は実行されない。
+        #   ここでは_is_non_blank_string(definition.get('pattern'))がfalseなら_is_non_blank_string(definition.get('reason'))は実行されない。
         if not all(
             # getはキーが無くてもNoneを返す。ここでdefinitions[key]のようにするとKeyErrorが発生する可能性がある。
-            _is_non_empty_string(definition.get(key)) for key in ('name', 'pattern', 'reason')
+            _is_non_blank_string(definition.get(key)) for key in ('name', 'pattern', 'reason')
         ):
             _write_stderr_msg_and_deny('Each blocked command definition requires non-blank strings for name, pattern, and reason.')
             return 2
@@ -140,7 +140,7 @@ def main(arguments=None):
     #   }
     # toolNameが文字列でなければ異常終了。空白のみの文字列も許容しない。
     tool_name = hook_input.get('toolName')
-    if not _is_non_empty_string(tool_name):
+    if not _is_non_blank_string(tool_name):
         _write_stderr_msg_and_deny('preToolUse hook requires a tool name.')
         return 2
 
@@ -163,7 +163,7 @@ def main(arguments=None):
     else:
         command = None
 
-    if not _is_non_empty_string(command):
+    if not _is_non_blank_string(command):
         _write_stderr_msg_and_deny(f"preToolUse hook input for tool '{tool_name}' requires a non-empty command string.")
         return 2
 
