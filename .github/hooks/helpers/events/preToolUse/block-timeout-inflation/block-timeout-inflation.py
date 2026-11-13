@@ -17,6 +17,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
@@ -61,9 +64,7 @@ def _load_definitions(path):
     loaded = []
     for key, allow_empty in ((_EXCLUDED_FILE_PATTERNS_KEY, True), (_TIMING_PATTERNS_KEY, False)):
         patterns = definitions.get(key)
-        if not isinstance(patterns, list) or (not allow_empty and not patterns) or not all(
-            isinstance(pattern, str) and pattern.strip() for pattern in patterns
-        ):
+        if not _is_non_blank_string_list(patterns, allow_empty):
             raise ValueError(f'timeout inflation definitions require an array of non-empty strings for {key}.')
         loaded.append(_build_regex_matchers(patterns, key))
     return loaded[0], loaded[1]

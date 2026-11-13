@@ -15,6 +15,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 
@@ -46,11 +49,6 @@ _REASON = (
 )
 
 
-def _is_non_empty_string_list(value):
-    return (isinstance(value, list) and bool(value)
-            and all(isinstance(item, str) and bool(item.strip()) for item in value))
-
-
 def _load_stop_words(definitions_path):
     # 定義ファイルはUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     if not os.path.isfile(definitions_path):
@@ -62,7 +60,7 @@ def _load_stop_words(definitions_path):
         raise ValueError(f'Definitions are not valid JSON: {ex}') from ex
     if not isinstance(definitions, dict):
         raise ValueError('Definitions must be a JSON object.')
-    if not _is_non_empty_string_list(definitions.get(_STOP_WORDS_KEY)):
+    if not _is_non_blank_string_list(definitions.get(_STOP_WORDS_KEY)):
         raise ValueError(f'Definitions require a non-empty array of non-empty strings for {_STOP_WORDS_KEY}.')
     return {word.strip().casefold() for word in definitions[_STOP_WORDS_KEY]}
 

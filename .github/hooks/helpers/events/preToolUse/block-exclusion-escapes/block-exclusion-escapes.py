@@ -17,6 +17,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
 _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
@@ -57,7 +60,7 @@ _DENY_REASON = (
 
 
 def _compile_patterns(values, key):
-    if not isinstance(values, list) or not all(isinstance(value, str) and value.strip() for value in values):
+    if not _is_non_blank_string_list(values, allow_empty_list=True):
         raise ValueError(f'exclusion definitions require an array of non-empty strings for {key}.')
     return _build_regex_matchers(values, key)
 

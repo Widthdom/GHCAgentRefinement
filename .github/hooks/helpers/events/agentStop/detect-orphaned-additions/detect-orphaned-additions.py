@@ -15,6 +15,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
@@ -38,13 +41,6 @@ _BLOCK_REASON = (
 )
 
 
-def _is_string_list(value, allow_empty=True):
-    return (
-        isinstance(value, list) and (allow_empty or bool(value))
-        and all(isinstance(item, str) and item.strip() for item in value)
-    )
-
-
 def _load_language(definition):
     # 戻り値は (ファイルのパスの正規表現, 注釈の正規表現またはNone, 定義の正規表現のリスト)。
     if not isinstance(definition, dict) or not all(
@@ -56,7 +52,7 @@ def _load_language(definition):
     if annotation is not None and not (isinstance(annotation, str) and annotation.strip()):
         raise ValueError(f'annotationPattern in {key} must be a non-empty string when present.')
     definition_patterns = definition.get('definitionPatterns')
-    if not _is_string_list(definition_patterns, allow_empty=False):
+    if not _is_non_blank_string_list(definition_patterns):
         raise ValueError(f'definitionPatterns in {key} must be a non-empty array of non-empty strings.')
     # 定義は行頭から照合するため、行頭は各行に一致させる。
     compiled = _build_regex_matchers(definition_patterns, key, re.MULTILINE)
@@ -76,7 +72,7 @@ def _load_definitions(path):
     if not isinstance(definitions, dict):
         raise ValueError('orphaned addition definitions must be a JSON object.')
     for key in (_IGNORED_REFERENCE_FILE_PATTERNS_KEY, _EXCLUDED_NAME_PATTERNS_KEY):
-        if not _is_string_list(definitions.get(key)):
+        if not _is_non_blank_string_list(definitions.get(key), allow_empty_list=True):
             raise ValueError(f'orphaned addition definitions require an array of non-empty strings for {key}.')
     languages = definitions.get(_LANGUAGES_KEY)
     if not isinstance(languages, list) or not languages:

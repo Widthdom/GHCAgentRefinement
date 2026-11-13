@@ -15,6 +15,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
@@ -59,7 +62,7 @@ def _load_definitions(path):
             raise ValueError(f'manifest {name} requires a non-empty array of {{file, command}} for lockFiles.')
         key = 'linePatterns' if manifest['format'] == 'lines' else 'dependencyKeys'
         values = manifest.get(key)
-        if not isinstance(values, list) or not values or not all(isinstance(value, str) and value.strip() for value in values):
+        if not _is_non_blank_string_list(values):
             raise ValueError(f'manifest {name} requires a non-empty array of non-empty strings for {key}.')
         file_pattern, *line_patterns = _build_regex_matchers(
             [manifest.get('filePattern') if isinstance(manifest.get('filePattern'), str) else '',

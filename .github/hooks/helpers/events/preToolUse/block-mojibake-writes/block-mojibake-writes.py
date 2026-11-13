@@ -16,6 +16,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
@@ -54,7 +57,7 @@ def _load_definitions(path):
     if not isinstance(definitions, dict):
         raise ValueError('mojibake definitions must be a JSON object.')
     excluded = definitions.get(_EXCLUDED_FILE_PATTERNS_KEY)
-    if not isinstance(excluded, list) or not all(isinstance(item, str) and item.strip() for item in excluded):
+    if not _is_non_blank_string_list(excluded, allow_empty_list=True):
         raise ValueError(f'mojibake definitions require an array of non-empty strings for {_EXCLUDED_FILE_PATTERNS_KEY}.')
     mojibake_definitions = definitions.get(_MOJIBAKE_PATTERNS_KEY)
     if not isinstance(mojibake_definitions, list) or not mojibake_definitions or not all(

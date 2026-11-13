@@ -16,6 +16,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
@@ -50,9 +53,7 @@ def _load_definitions(path):
     with open(path, encoding='utf-8-sig') as definitions_file:
         definitions = json.load(definitions_file)
     patterns = definitions.get(_FIX_COMMIT_PATTERNS_KEY) if isinstance(definitions, dict) else None
-    if not isinstance(patterns, list) or not patterns or not all(
-        isinstance(pattern, str) and pattern.strip() for pattern in patterns
-    ):
+    if not _is_non_blank_string_list(patterns):
         raise ValueError(f'past fix definitions require a non-empty array of non-empty strings for {_FIX_COMMIT_PATTERNS_KEY}.')
     return _build_regex_matchers(patterns, _FIX_COMMIT_PATTERNS_KEY)
 

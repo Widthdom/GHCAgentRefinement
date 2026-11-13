@@ -17,6 +17,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
@@ -78,9 +81,7 @@ def _load_definitions(path):
         loaded[key] = value
     for key in ('clockPatterns', 'frozenClockPatterns'):
         patterns = definitions.get(key)
-        if not isinstance(patterns, list) or not patterns or not all(
-            isinstance(pattern, str) and pattern.strip() for pattern in patterns
-        ):
+        if not _is_non_blank_string_list(patterns):
             raise ValueError(f'time bomb definitions require a non-empty array of non-empty strings for {key}.')
         loaded[key] = _build_regex_matchers(patterns, key)
     return loaded

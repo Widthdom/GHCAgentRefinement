@@ -16,6 +16,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
 _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
@@ -46,11 +49,6 @@ _GIT_TIMEOUT_SECONDS = 5
 _REASON_PREFIX = 'The final response speculates about files'
 
 
-def _is_non_empty_string_list(value):
-    return (isinstance(value, list) and bool(value)
-            and all(isinstance(item, str) and bool(item.strip()) for item in value))
-
-
 def _load_definitions(definitions_path):
     # 定義ファイルはUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
     if not os.path.isfile(definitions_path):
@@ -62,7 +60,7 @@ def _load_definitions(definitions_path):
         raise ValueError(f'Definitions are not valid JSON: {ex}') from ex
     if not isinstance(definitions, dict):
         raise ValueError('Definitions must be a JSON object.')
-    if not _is_non_empty_string_list(definitions.get(_SPECULATION_PATTERNS_KEY)):
+    if not _is_non_blank_string_list(definitions.get(_SPECULATION_PATTERNS_KEY)):
         raise ValueError(f'Definitions require a non-empty array of non-empty strings for {_SPECULATION_PATTERNS_KEY}.')
     return tuple(_build_regex_matchers(definitions[_SPECULATION_PATTERNS_KEY], _SPECULATION_PATTERNS_KEY))
 

@@ -16,6 +16,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_is_non_blank_string_list = runpy.run_path(os.path.join(
+    _utilities_directory, 'check-string-list', 'check-string-list.py',
+))['is_non_blank_string_list']
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
@@ -63,7 +66,7 @@ def _load_definitions(path):
     if not isinstance(definitions, dict):
         raise ValueError('newline definitions must be a JSON object.')
     included = definitions.get(_INCLUDED_FILE_PATTERNS_KEY)
-    if not isinstance(included, list) or not included or not all(isinstance(item, str) and item.strip() for item in included):
+    if not _is_non_blank_string_list(included):
         raise ValueError(f'newline definitions require a non-empty array of non-empty strings for {_INCLUDED_FILE_PATTERNS_KEY}.')
     calls = definitions.get(_TRANSLATING_CALLS_KEY)
     if not isinstance(calls, list) or not calls or not all(
