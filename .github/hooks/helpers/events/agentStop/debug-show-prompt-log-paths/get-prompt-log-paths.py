@@ -1,7 +1,6 @@
 import glob
 import os
 import runpy
-import tempfile
 
 
 # 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
@@ -10,6 +9,9 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['parse_session_id']
+_get_debug_log_directory = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-debug-log-directory', 'get-debug-log-directory.py',
+))['get_debug_log_directory']
 
 
 def get_prompt_log_paths(transcript_path, session_id):
@@ -48,9 +50,7 @@ def get_prompt_log_paths(transcript_path, session_id):
             if type(timestamp) is int and timestamp >= 0:
                 timestamps.add(timestamp)
 
-    log_directory = os.path.join(
-        tempfile.gettempdir(), 'ghc-agent-refinement', 'debug-logs', 'prompt-transformations', str(session_id),
-    )
+    log_directory = _get_debug_log_directory('prompt-transformations', str(session_id))
     paths = []
     for timestamp in sorted(timestamps):
         # 現在の依頼で実際に発動したイベントと照合し、過去のログを表示しない。

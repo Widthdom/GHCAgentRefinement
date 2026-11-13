@@ -179,7 +179,10 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
             os.makedirs(directory)
         for name in ('debug-show-prompt-log-paths.py', 'get-prompt-log-paths.py'):
             shutil.copyfile(os.path.join(_script_directory, name), os.path.join(reporter_directory, name))
-        for name in ('get-debug-mode', 'get-state-path', 'read-hook-input', 'read-jsonl-objects', 'wait-for-agent-stop-event'):
+        for name in (
+            'get-debug-log-directory', 'get-debug-mode', 'get-state-path', 'read-hook-input', 'read-jsonl-objects',
+            'wait-for-agent-stop-event',
+        ):
             os.makedirs(os.path.join(utilities, name))
             shutil.copyfile(os.path.join(_hooks_directory, 'helpers', 'utilities', name, f'{name}.py'),
                             os.path.join(utilities, name, f'{name}.py'))
