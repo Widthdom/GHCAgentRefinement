@@ -59,7 +59,7 @@ def _load_definitions(path):
         if not isinstance(definition, dict) or not all(
             isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'pattern')
         ):
-            raise ValueError('each elision definition requires non-empty strings for name and pattern.')
+            raise ValueError('each elision definition requires non-blank strings for name and pattern.')
         compiled.extend(_build_regex_matchers([definition['pattern']], f"elision definition '{definition['name']}'"))
     return compiled
 

@@ -55,7 +55,7 @@ def _load_named_patterns(definitions, key):
         for definition in named_definitions
     ):
         raise ValueError(
-            'temporary code definitions require a non-empty array of objects with non-empty strings for name and '
+            'temporary code definitions require a non-empty array of objects with non-blank strings for name and '
             f'pattern in {key}.'
         )
     # 行全体に一致させる定義（`debugger` 文など）のため、行頭・行末は各行に一致させる。
@@ -71,11 +71,11 @@ def _load_definitions(path):
         raise ValueError('temporary code definitions must be a JSON object.')
     if not _is_non_blank_string_list(definitions.get(_EXCLUDED_FILE_PATTERNS_KEY), allow_empty_list=True):
         raise ValueError(
-            f'temporary code definitions require an array of non-empty strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
+            f'temporary code definitions require an array of non-blank strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
         )
     if not _is_non_blank_string_list(definitions.get(_PLACEHOLDER_DISCLOSURE_PATTERNS_KEY)):
         raise ValueError(
-            'temporary code definitions require a non-empty array of non-empty strings for '
+            'temporary code definitions require a non-empty array of non-blank strings for '
             f'{_PLACEHOLDER_DISCLOSURE_PATTERNS_KEY}.'
         )
     return (

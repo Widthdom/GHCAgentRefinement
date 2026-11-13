@@ -63,7 +63,7 @@ def _load_definitions(path):
         key = 'linePatterns' if manifest['format'] == 'lines' else 'dependencyKeys'
         values = manifest.get(key)
         if not _is_non_blank_string_list(values):
-            raise ValueError(f'manifest {name} requires a non-empty array of non-empty strings for {key}.')
+            raise ValueError(f'manifest {name} requires a non-empty array of non-blank strings for {key}.')
         file_pattern, *line_patterns = _build_regex_matchers(
             [manifest.get('filePattern') if isinstance(manifest.get('filePattern'), str) else '',
              *(values if manifest['format'] == 'lines' else [])],

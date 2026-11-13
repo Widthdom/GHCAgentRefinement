@@ -62,7 +62,7 @@ def _load_definitions(path):
     excluded = definitions.get(_EXCLUDED_FILE_PATTERNS_KEY)
     if not _is_non_blank_string_list(excluded, allow_empty_list=True):
         raise ValueError(
-            f'invisible character definitions require an array of non-empty strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
+            f'invisible character definitions require an array of non-blank strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
         )
     character_definitions = definitions.get(_CHARACTER_PATTERNS_KEY)
     if not isinstance(character_definitions, list) or not character_definitions or not all(
@@ -72,7 +72,7 @@ def _load_definitions(path):
         for definition in character_definitions
     ):
         raise ValueError(
-            'invisible character definitions require a non-empty array of objects with non-empty strings for name '
+            'invisible character definitions require a non-empty array of objects with non-blank strings for name '
             f'and pattern in {_CHARACTER_PATTERNS_KEY}.'
         )
     character_patterns = _build_regex_matchers(

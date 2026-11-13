@@ -46,14 +46,14 @@ def _load_language(definition):
     if not isinstance(definition, dict) or not all(
         isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'filePattern')
     ):
-        raise ValueError(f'each item of {_LANGUAGES_KEY} requires non-empty strings for name and filePattern.')
+        raise ValueError(f'each item of {_LANGUAGES_KEY} requires non-blank strings for name and filePattern.')
     key = f'{_LANGUAGES_KEY}[{definition["name"]}]'
     annotation = definition.get('annotationPattern')
     if annotation is not None and not (isinstance(annotation, str) and annotation.strip()):
-        raise ValueError(f'annotationPattern in {key} must be a non-empty string when present.')
+        raise ValueError(f'annotationPattern in {key} must be a non-blank string when present.')
     definition_patterns = definition.get('definitionPatterns')
     if not _is_non_blank_string_list(definition_patterns):
-        raise ValueError(f'definitionPatterns in {key} must be a non-empty array of non-empty strings.')
+        raise ValueError(f'definitionPatterns in {key} must be a non-empty array of non-blank strings.')
     # 定義は行頭から照合するため、行頭は各行に一致させる。
     compiled = _build_regex_matchers(definition_patterns, key, re.MULTILINE)
     if any('name' not in pattern.groupindex for pattern in compiled):
@@ -73,7 +73,7 @@ def _load_definitions(path):
         raise ValueError('orphaned addition definitions must be a JSON object.')
     for key in (_IGNORED_REFERENCE_FILE_PATTERNS_KEY, _EXCLUDED_NAME_PATTERNS_KEY):
         if not _is_non_blank_string_list(definitions.get(key), allow_empty_list=True):
-            raise ValueError(f'orphaned addition definitions require an array of non-empty strings for {key}.')
+            raise ValueError(f'orphaned addition definitions require an array of non-blank strings for {key}.')
     languages = definitions.get(_LANGUAGES_KEY)
     if not isinstance(languages, list) or not languages:
         raise ValueError(f'orphaned addition definitions require a non-empty array for {_LANGUAGES_KEY}.')

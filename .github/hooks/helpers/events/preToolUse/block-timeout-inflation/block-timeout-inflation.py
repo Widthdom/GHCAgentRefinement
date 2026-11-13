@@ -65,7 +65,7 @@ def _load_definitions(path):
     for key, allow_empty in ((_EXCLUDED_FILE_PATTERNS_KEY, True), (_TIMING_PATTERNS_KEY, False)):
         patterns = definitions.get(key)
         if not _is_non_blank_string_list(patterns, allow_empty):
-            raise ValueError(f'timeout inflation definitions require an array of non-empty strings for {key}.')
+            raise ValueError(f'timeout inflation definitions require an array of non-blank strings for {key}.')
         loaded.append(_build_regex_matchers(patterns, key))
     return loaded[0], loaded[1]
 

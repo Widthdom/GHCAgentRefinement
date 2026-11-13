@@ -54,7 +54,7 @@ def _load_definitions(path):
         definitions = json.load(definitions_file)
     patterns = definitions.get(_FIX_COMMIT_PATTERNS_KEY) if isinstance(definitions, dict) else None
     if not _is_non_blank_string_list(patterns):
-        raise ValueError(f'past fix definitions require a non-empty array of non-empty strings for {_FIX_COMMIT_PATTERNS_KEY}.')
+        raise ValueError(f'past fix definitions require a non-empty array of non-blank strings for {_FIX_COMMIT_PATTERNS_KEY}.')
     return _build_regex_matchers(patterns, _FIX_COMMIT_PATTERNS_KEY)
 
 

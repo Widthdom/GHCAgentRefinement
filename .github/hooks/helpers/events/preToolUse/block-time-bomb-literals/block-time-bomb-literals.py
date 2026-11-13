@@ -82,7 +82,7 @@ def _load_definitions(path):
     for key in ('clockPatterns', 'frozenClockPatterns'):
         patterns = definitions.get(key)
         if not _is_non_blank_string_list(patterns):
-            raise ValueError(f'time bomb definitions require a non-empty array of non-empty strings for {key}.')
+            raise ValueError(f'time bomb definitions require a non-empty array of non-blank strings for {key}.')
         loaded[key] = _build_regex_matchers(patterns, key)
     return loaded
 

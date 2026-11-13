@@ -40,9 +40,9 @@ class ReadHookInputTests(unittest.TestCase):
         cwd = os.path.abspath(tempfile.gettempdir())
         self.assertEqual(_utility['get_cwd']({'cwd': cwd}), cwd)
         for hook_input, message in (
-            ({}, 'cwd must be a non-empty string.'),
-            ({'cwd': ' '}, 'cwd must be a non-empty string.'),
-            ({'cwd': ['/a']}, 'cwd must be a non-empty string.'),
+            ({}, 'cwd must be a non-blank string.'),
+            ({'cwd': ' '}, 'cwd must be a non-blank string.'),
+            ({'cwd': ['/a']}, 'cwd must be a non-blank string.'),
             ({'cwd': 'relative/path'}, 'cwd must be an absolute path.'),
         ):
             with self.subTest(hook_input=hook_input):
@@ -58,9 +58,9 @@ class ReadHookInputTests(unittest.TestCase):
                     _utility['get_tool_call']({'toolName': 'bash', 'toolArgs': tool_args}), ('bash', tool_args),
                 )
         for hook_input, message in (
-            ({'toolArgs': {}}, 'toolName must be a non-empty string.'),
-            ({'toolName': ' ', 'toolArgs': {}}, 'toolName must be a non-empty string.'),
-            ({'toolName': 42, 'toolArgs': {}}, 'toolName must be a non-empty string.'),
+            ({'toolArgs': {}}, 'toolName must be a non-blank string.'),
+            ({'toolName': ' ', 'toolArgs': {}}, 'toolName must be a non-blank string.'),
+            ({'toolName': 42, 'toolArgs': {}}, 'toolName must be a non-blank string.'),
             ({'toolName': 'bash'}, 'toolArgs is required.'),
         ):
             with self.subTest(hook_input=hook_input):
@@ -76,8 +76,8 @@ class ReadHookInputTests(unittest.TestCase):
             pass
         self.assertEqual(_utility['get_transcript_path']({'transcriptPath': transcript_path}), transcript_path)
         for hook_input, message in (
-            ({}, 'transcriptPath must be a non-empty string.'),
-            ({'transcriptPath': ' '}, 'transcriptPath must be a non-empty string.'),
+            ({}, 'transcriptPath must be a non-blank string.'),
+            ({'transcriptPath': ' '}, 'transcriptPath must be a non-blank string.'),
             ({'transcriptPath': temporary.name}, 'transcript path is not a file'),
             ({'transcriptPath': os.path.join(temporary.name, 'missing.jsonl')}, 'transcript path is not a file'),
         ):

@@ -161,7 +161,7 @@ class DetectDroppedRequirementsTests(unittest.TestCase):
             ('invalid utf-8', b'\xff', b"Failed to inspect dropped requirements: 'utf-8' codec can't decode"),
             ('not object', b'[]', b'Failed to inspect dropped requirements: hook input must be a JSON object.'),
             ('no transcript', json.dumps({'timestamp': _HOOK_TIMESTAMP}).encode('utf-8'),
-             b'transcriptPath must be a non-empty string.'),
+             b'transcriptPath must be a non-blank string.'),
             ('missing transcript', json.dumps({'transcriptPath': os.path.join(self.__root, 'none.jsonl')}).encode('utf-8'),
              b'transcript path is not a file'),
         )

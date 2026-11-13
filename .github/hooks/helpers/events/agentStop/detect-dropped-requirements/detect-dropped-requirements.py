@@ -61,7 +61,7 @@ def _load_stop_words(definitions_path):
     if not isinstance(definitions, dict):
         raise ValueError('Definitions must be a JSON object.')
     if not _is_non_blank_string_list(definitions.get(_STOP_WORDS_KEY)):
-        raise ValueError(f'Definitions require a non-empty array of non-empty strings for {_STOP_WORDS_KEY}.')
+        raise ValueError(f'Definitions require a non-empty array of non-blank strings for {_STOP_WORDS_KEY}.')
     return {word.strip().casefold() for word in definitions[_STOP_WORDS_KEY]}
 
 

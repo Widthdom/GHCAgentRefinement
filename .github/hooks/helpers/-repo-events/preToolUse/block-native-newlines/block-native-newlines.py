@@ -67,7 +67,7 @@ def _load_definitions(path):
         raise ValueError('newline definitions must be a JSON object.')
     included = definitions.get(_INCLUDED_FILE_PATTERNS_KEY)
     if not _is_non_blank_string_list(included):
-        raise ValueError(f'newline definitions require a non-empty array of non-empty strings for {_INCLUDED_FILE_PATTERNS_KEY}.')
+        raise ValueError(f'newline definitions require a non-empty array of non-blank strings for {_INCLUDED_FILE_PATTERNS_KEY}.')
     calls = definitions.get(_TRANSLATING_CALLS_KEY)
     if not isinstance(calls, list) or not calls or not all(
         isinstance(call, dict) and all(isinstance(call.get(key), str) and call[key].strip() for key in ('name', 'pattern'))
@@ -75,12 +75,12 @@ def _load_definitions(path):
         for call in calls
     ):
         raise ValueError(
-            f'newline definitions require a non-empty array of objects with non-empty strings for name and pattern '
+            f'newline definitions require a non-empty array of objects with non-blank strings for name and pattern '
             f'and a boolean requiresTextWriteMode in {_TRANSLATING_CALLS_KEY}.'
         )
     for key in (_TEXT_WRITE_MODE_PATTERN_KEY, _PINNED_NEWLINE_PATTERN_KEY):
         if not isinstance(definitions.get(key), str) or not definitions[key].strip():
-            raise ValueError(f'newline definitions require a non-empty string for {key}.')
+            raise ValueError(f'newline definitions require a non-blank string for {key}.')
     return (
         _build_regex_matchers(included, _INCLUDED_FILE_PATTERNS_KEY),
         [

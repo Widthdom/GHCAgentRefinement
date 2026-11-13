@@ -47,7 +47,7 @@ def _load_definitions(path):
         if not isinstance(tool, dict) or not all(
             isinstance(tool.get(key), str) and tool[key].strip() for key in ('name', 'command', 'versionPattern')
         ):
-            raise ValueError('each required tool requires non-empty strings for name, command, and versionPattern.')
+            raise ValueError('each required tool requires non-blank strings for name, command, and versionPattern.')
         install = tool.get('install')
         if not isinstance(install, dict) or not all(
             isinstance(install.get(platform), str) and install[platform].strip() for platform in _PLATFORMS

@@ -27,7 +27,7 @@ def load_test_file_patterns(definitions_path=_DEFINITIONS_PATH):
     patterns = definitions.get(_TEST_FILE_PATTERNS_KEY) if isinstance(definitions, dict) else None
     if not _is_non_blank_string_list(patterns):
         raise ValueError(
-            f'test file definitions require a non-empty array of non-empty strings for {_TEST_FILE_PATTERNS_KEY}.'
+            f'test file definitions require a non-empty array of non-blank strings for {_TEST_FILE_PATTERNS_KEY}.'
         )
     return _build_regex_matchers(patterns, _TEST_FILE_PATTERNS_KEY)
 

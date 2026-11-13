@@ -56,7 +56,7 @@ def _load_definitions(path):
     excluded = definitions.get(_EXCLUDED_FILE_PATTERNS_KEY)
     if not _is_non_blank_string_list(excluded, allow_empty_list=True):
         raise ValueError(
-            f'error swallowing definitions require an array of non-empty strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
+            f'error swallowing definitions require an array of non-blank strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
         )
     swallowing_definitions = definitions.get(_SWALLOWING_PATTERNS_KEY)
     if not isinstance(swallowing_definitions, list) or not swallowing_definitions or not all(
@@ -66,7 +66,7 @@ def _load_definitions(path):
         for definition in swallowing_definitions
     ):
         raise ValueError(
-            f'error swallowing definitions require a non-empty array of objects with non-empty strings for name and '
+            f'error swallowing definitions require a non-empty array of objects with non-blank strings for name and '
             f'pattern in {_SWALLOWING_PATTERNS_KEY}.'
         )
     # 行全体に一致させる定義のため、行頭・行末は各行に一致させる。

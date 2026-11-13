@@ -169,7 +169,7 @@ for key in ('name', 'pattern', 'reason'):
         _definition_cases.append({
             'Name': f'invalid {key}: {value!r}',
             'Text': json.dumps([{**_valid_definition, key: value}]),
-            'Error': 'requires non-empty strings',
+            'Error': 'requires non-blank strings',
         })
     for replacement in (None, key.upper()):
         definition = _valid_definition.copy()
@@ -179,7 +179,7 @@ for key in ('name', 'pattern', 'reason'):
         _definition_cases.append({
             'Name': f'missing or wrong-case {key}: {replacement}',
             'Text': json.dumps([definition]),
-            'Error': 'requires non-empty strings',
+            'Error': 'requires non-blank strings',
         })
 
 # cmdラッパーを検証するコードページ。932はShift_JIS、65001はUTF-8。

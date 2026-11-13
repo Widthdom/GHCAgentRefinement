@@ -55,7 +55,7 @@ def _load_definitions(definitions_path):
 
     for key in (_EVIDENCE_TOOL_NAMES_KEY, *_PATTERN_KEYS):
         if not _is_non_blank_string_list(definitions.get(key)):
-            raise ValueError(f'Definitions require a non-empty array of non-empty strings for {key}.')
+            raise ValueError(f'Definitions require a non-empty array of non-blank strings for {key}.')
     patterns = {key: tuple(_build_regex_matchers(definitions[key], key)) for key in _PATTERN_KEYS}
     return set(definitions[_EVIDENCE_TOOL_NAMES_KEY]), patterns['pushbackPatterns'], patterns['reversalPatterns']
 

@@ -110,7 +110,7 @@ def main(arguments=None):
             # getはキーが無くてもNoneを返す。ここでdefinitions[key]のようにするとKeyErrorが発生する可能性がある。
             _is_non_empty_string(definition.get(key)) for key in ('name', 'pattern', 'reason')
         ):
-            _write_stderr_msg_and_deny('Each blocked command definition requires non-empty strings for name, pattern, and reason.')
+            _write_stderr_msg_and_deny('Each blocked command definition requires non-blank strings for name, pattern, and reason.')
             return 2
             
         # 正規表現が正しく書けているか検証する。不正な場合、utilityはValueErrorを送出する。
