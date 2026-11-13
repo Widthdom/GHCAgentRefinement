@@ -15,6 +15,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
@@ -28,8 +29,6 @@ _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-displ
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 # 削除は再生成で失われる手編集ではないため、追加と更新だけを対象とする。
 _PATCH_OPERATIONS = frozenset({'Add File', 'Update File'})
 _GENERATED_PATH_PATTERNS_KEY = 'generatedPathPatterns'
@@ -108,7 +107,7 @@ def main(arguments=None):
         real_cwd = os.path.realpath(cwd)
         candidates = {}
         tool_name = tool_name.removeprefix('functions.')
-        if tool_name in _EDIT_TOOL_NAMES:
+        if _tool_kinds['is_edit_tool'](tool_name):
             for relative_path in _get_edited_paths(tool_name, _unwrap_tool_args(tool_args), _PATCH_OPERATIONS):
                 path = os.path.realpath(os.path.join(cwd, relative_path))
                 # パスの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。

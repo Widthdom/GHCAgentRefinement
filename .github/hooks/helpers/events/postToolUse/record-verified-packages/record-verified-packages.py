@@ -13,10 +13,10 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-_SHELL_TOOL_NAMES = {'bash', 'powershell'}
 _WEB_FETCH_TOOL_NAMES = {'web_fetch'}
 _NUGET = 'nuget'
 _PYPI = 'pypi'
@@ -114,7 +114,7 @@ def main():
         output = output if isinstance(output, str) else ''
 
         packages = []
-        if tool_name in _SHELL_TOOL_NAMES and isinstance(tool_args.get('command'), str):
+        if _tool_kinds['is_shell_tool'](tool_name) and isinstance(tool_args.get('command'), str):
             packages = _get_command_packages(tool_args['command'], output)
         elif tool_name in _WEB_FETCH_TOOL_NAMES and isinstance(tool_args.get('url'), str):
             packages = _get_url_packages(tool_args['url'], output)

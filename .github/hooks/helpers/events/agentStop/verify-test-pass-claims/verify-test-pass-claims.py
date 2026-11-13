@@ -13,12 +13,12 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-_SHELL_TOOL_NAMES = {'bash', 'powershell'}
 _VERIFICATION_CLAIM_PATTERNS = (
     re.compile(r'動作確認(?:済|しました|した|が取れ|できた)'),
     re.compile(r'(?:動く|動作する|機能する)ことを確認(?:済|しました|した|できた)'),
@@ -65,7 +65,7 @@ def _get_turn_summary(transcript_path, extract_edit_tool_changes):
 
 
 def _get_shell_command(tool_name, arguments):
-    if tool_name not in _SHELL_TOOL_NAMES:
+    if not _tool_kinds['is_shell_tool'](tool_name):
         return None
     arguments = _unwrap_tool_args(arguments)
     command = arguments.get('command') if isinstance(arguments, dict) else None

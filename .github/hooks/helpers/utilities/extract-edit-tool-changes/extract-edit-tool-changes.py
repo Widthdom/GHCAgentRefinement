@@ -15,8 +15,8 @@ _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-to
 _edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))
 # 対象のファイルのパスを表す引数名とその取り出し方は、get-edited-paths utilityと共有する。
 get_path_argument = _edited_paths['get_path_argument']
+_is_edit_tool = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))['is_edit_tool']
 
-_EDIT_TOOL_NAMES = frozenset({'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'})
 # 書き込む内容ではない引数と、置換前の内容を表す引数。
 # 引数名・コマンド・パッチの書式は、編集を再現するsimulate-edit-tool-changes utilityと共有する。
 _IGNORED_KEYS = frozenset({*_edited_paths['PATH_KEYS'], 'command'})
@@ -71,7 +71,7 @@ def extract_edit_tool_changes(tool_name, raw_tool_args, include_deleted=False):
     #   replacement：置換前後の内容の組（古い内容, 新しい内容）。置換以外はNone。
     #   patch_lines：パッチの本文の行（記号, 内容）のリスト。記号は `+`・`-`・` `。パッチ以外はNone。
     tool_name = tool_name.removeprefix('functions.')
-    if tool_name not in _EDIT_TOOL_NAMES:
+    if not _is_edit_tool(tool_name):
         return []
     tool_args = _unwrap_tool_args(raw_tool_args)
     if tool_name == 'apply_patch':

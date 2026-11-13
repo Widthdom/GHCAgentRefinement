@@ -16,6 +16,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
@@ -27,7 +28,7 @@ _collect_json_string_values = runpy.run_path(os.path.join(
 # 定義ファイルのキー。speculationPatternsは推測とみなす表現の正規表現。
 _SPECULATION_PATTERNS_KEY = 'speculationPatterns'
 # 引数にパスが含まれていれば、そのファイルを読んだとみなすツール。`cat`・`sed -n`・`rg <pattern> <file>` などでの閲覧はrecord-seen-filesが記録しないため。
-_COMMAND_READ_TOOL_NAMES = {'bash', 'powershell', 'rg', 'grep'}
+_COMMAND_READ_TOOL_NAMES = {*_tool_kinds['SHELL_TOOL_NAMES'], 'rg', 'grep'}
 _FENCED_CODE_PATTERN = re.compile(r'^(```|~~~).*?^\1', re.MULTILINE | re.DOTALL)
 _INLINE_CODE_PATTERN = re.compile(r'`([^`\n]+)`')
 _MARKDOWN_LINK_PATTERN = re.compile(r'\]\(([^()\s]+)\)')

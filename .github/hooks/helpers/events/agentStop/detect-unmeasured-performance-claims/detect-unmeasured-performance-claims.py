@@ -15,12 +15,12 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-_SHELL_TOOL_NAMES = {'bash', 'powershell'}
 _DEFINITION_KEYS = ('claimPatterns', 'hedgePatterns', 'measurementCommandPatterns')
 _FENCED_CODE_PATTERN = re.compile(r'^(```|~~~).*?^\1', re.MULTILINE | re.DOTALL)
 _QUOTE_LINE_PATTERN = re.compile(r'^\s*>.*$', re.MULTILINE)
@@ -63,7 +63,7 @@ def _get_turn_summary(transcript_path):
     for tool_name, arguments, completion in _turn_events['get_tool_calls'](events):
         arguments = _unwrap_tool_args(arguments)
         command = arguments.get('command') if isinstance(arguments, dict) else None
-        if (tool_name in _SHELL_TOOL_NAMES and isinstance(command, str)
+        if (_tool_kinds['is_shell_tool'](tool_name) and isinstance(command, str)
                 and _turn_events['get_shell_exit_code'](completion) == 0):
             succeeded_commands.append(command)
     return _turn_events['get_last_assistant_message'](events), succeeded_commands, already_requested

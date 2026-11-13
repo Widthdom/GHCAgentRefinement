@@ -15,6 +15,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_text_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_text_sha256_digest']
@@ -22,7 +23,6 @@ _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-p
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-_SHELL_TOOL_NAMES = {'bash', 'powershell'}
 _ANSI_ESCAPE_PATTERN = re.compile(r'\x1b\[[0-9;?]*[A-Za-z]')
 
 # 件数の集計行。各関数は (実行した件数, スキップした件数) を返す。
@@ -214,7 +214,7 @@ def main():
         state_path = _get_state_path('test-counts', hook_input.get('sessionId'))
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        if tool_name.removeprefix('functions.') not in _SHELL_TOOL_NAMES:
+        if not _tool_kinds['is_shell_tool'](tool_name):
             return 0
         tool_args = _unwrap_tool_args(tool_args)
         command = tool_args.get('command') if isinstance(tool_args, dict) else None

@@ -16,6 +16,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
@@ -25,8 +26,6 @@ _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-displ
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-# SDKがファイル書き込みとして扱う組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 _WINDOW_SECONDS = 600
 # 削除済み・ファイル以外を表す内容ハッシュ。SHA-256の16進表記とは衝突しない。
 _MISSING_CONTENT = 'missing'
@@ -114,7 +113,7 @@ def main():
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         tool_name = tool_name.removeprefix('functions.')
-        if tool_name not in _EDIT_TOOL_NAMES:
+        if not _tool_kinds['is_edit_tool'](tool_name):
             return 0
         # パッチの削除・移動元も、削除扱いで含める。
         # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。normcaseは照合だけに使い、表示には正規化前のパスを使う。

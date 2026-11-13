@@ -17,6 +17,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
@@ -33,8 +34,6 @@ _simulate_edit_tool_changes = runpy.run_path(os.path.join(
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 # キーワードの直後が値の代入（`exclude = [...]`・`"exclude": [...]`・`omit:`）である場合だけ値を読む。
 # 値が次の行から始まる場合（INIの継続行・YAMLのリスト）は、その行がインデントされていることを求める。
 _ASSIGNMENT_PATTERN = re.compile(r'["\']?[ \t]*[:=][ \t]*(?:\r?\n[ \t]+)?')
@@ -235,7 +234,7 @@ def main(arguments=None):
 
         tool_name = tool_name.removeprefix('functions.')
         edits = []
-        if tool_name in _EDIT_TOOL_NAMES:
+        if _tool_kinds['is_edit_tool'](tool_name):
             edits = _simulate_edit_tool_changes(tool_name, _unwrap_tool_args(tool_args), cwd)
 
         candidates = []

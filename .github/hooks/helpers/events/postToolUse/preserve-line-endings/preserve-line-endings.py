@@ -13,6 +13,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
@@ -26,8 +27,6 @@ _filter_new_notifications = runpy.run_path(os.path.join(
 ))['filter_new_notifications']
 
 
-# SDKがファイル書き込みとして扱う組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
 _UTF8_BOM = b'\xef\xbb\xbf'
 _GIT_TIMEOUT_SECONDS = 5
 # gitの実行全体の期限。ファイルが多くても、hookの `timeoutSec`（10秒）より前に打ち切り、比べられない分は対象外とする。
@@ -103,7 +102,7 @@ def main():
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
         tool_name = tool_name.removeprefix('functions.')
-        if tool_name not in _EDIT_TOOL_NAMES:
+        if not _tool_kinds['is_edit_tool'](tool_name):
             return 0
         # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。
         # gitは大文字小文字を区別するため、問い合わせ・読み込み・表示には正規化前のパスを使い、normcaseは照合だけに使う。

@@ -13,6 +13,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
@@ -20,8 +21,6 @@ _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-to
 _check_test_runs = runpy.run_path(os.path.join(_utilities_directory, 'check-test-runs', 'check-test-runs.py'))
 
 
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-_SHELL_TOOL_NAMES = {'bash', 'powershell'}
 # リポジトリ内のhook関連ファイル。グループ1はリポジトリルート、グループ2は `.github/hooks/` からの相対パス。
 _HOOKS_PATH_PATTERN = re.compile(r'^(.*?)/\.github/hooks/(.+)$', re.IGNORECASE)
 _ALL_HOOKS_TEST = 'test-all-hooks.py'
@@ -42,9 +41,9 @@ def _get_turn_events(transcript_path):
         if completion is None:
             continue
         arguments = _unwrap_tool_args(arguments)
-        if tool_name in _EDIT_TOOL_NAMES and completion.get('success') is True:
+        if _tool_kinds['is_edit_tool'](tool_name) and completion.get('success') is True:
             events.extend(('edit', path) for path in _get_edited_paths(tool_name, arguments))
-        elif (tool_name in _SHELL_TOOL_NAMES and isinstance(arguments, dict)
+        elif (_tool_kinds['is_shell_tool'](tool_name) and isinstance(arguments, dict)
                 and isinstance(arguments.get('command'), str)):
             # 拒否などで実行されなかった場合は終了コードが記録されないため、成功とみなさない。
             events.append(('shell', (arguments['command'], _turn_events['get_shell_exit_code'](completion))))

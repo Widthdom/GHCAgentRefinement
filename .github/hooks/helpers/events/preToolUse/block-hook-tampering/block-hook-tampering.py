@@ -13,13 +13,12 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
-_EDIT_TOOL_NAMES = {'edit', 'create', 'insert', 'str_replace_editor', 'apply_patch'}
-_SHELL_TOOL_NAMES = {'bash', 'powershell'}
 # 守るパス。hookの定義・実装・テストと、hookが保持する状態（変更の許可の記録を含む）。
 _PROTECTED_PATH_PATTERN = re.compile(r'(?:^|[/\\])(?:\.github[/\\]hooks|ghc-agent-refinement[/\\]hook-states)(?:[/\\]|$)', re.IGNORECASE)
 _PROTECTED_PATH_IN_COMMAND_PATTERN = re.compile(r'\.github[/\\]+hooks\b|ghc-agent-refinement[/\\]+hook-states\b', re.IGNORECASE)
@@ -146,7 +145,7 @@ def _is_modifying_command(tool_name, command):
 
 def _get_targets(tool_name, tool_args, cwd):
     # 戻り値は、拒否の理由で示す変更の対象（ファイルのパスまたはコマンド）のリスト。
-    if tool_name in _EDIT_TOOL_NAMES:
+    if _tool_kinds['is_edit_tool'](tool_name):
         targets = []
         for path in _get_edited_paths(tool_name, tool_args):
             absolute = os.path.normpath(os.path.join(cwd, path))
@@ -156,7 +155,7 @@ def _get_targets(tool_name, tool_args, cwd):
                 if display_path not in targets:
                     targets.append(display_path)
         return targets
-    if tool_name in _SHELL_TOOL_NAMES and isinstance(tool_args, dict):
+    if _tool_kinds['is_shell_tool'](tool_name) and isinstance(tool_args, dict):
         command = tool_args.get('command')
         if (isinstance(command, str) and _mentions_protected_path(command)
                 and _is_modifying_command(tool_name, command)):
