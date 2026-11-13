@@ -1,5 +1,4 @@
 import io
-import json
 import os
 import runpy
 import sys
@@ -12,6 +11,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 
 
@@ -102,10 +102,7 @@ def main():
     print(message, file=sys.stderr)
     # 標準エラーはユーザーに表示されないことがある。sessionStartで解釈される出力はadditionalContextだけのため、
     # エージェントに渡してユーザーへ伝えさせ、正常終了する。
-    print(json.dumps(
-        {'additionalContext': _ADDITIONAL_CONTEXT.format(message=message)},
-        ensure_ascii=False, separators=(',', ':'),
-    ))
+    _hook_output['write_additional_context'](_ADDITIONAL_CONTEXT.format(message=message))
     return 0
 
 

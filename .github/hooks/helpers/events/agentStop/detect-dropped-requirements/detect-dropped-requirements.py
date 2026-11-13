@@ -14,6 +14,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 
 
@@ -152,7 +153,7 @@ def main():
         if len(dropped) > _MAX_LISTED_ITEMS:
             items += f'; and {len(dropped) - _MAX_LISTED_ITEMS} more'
         reason = _REASON.format(count=len(dropped), total=total, items=items)
-        print(json.dumps({'decision': 'block', 'reason': reason}, ensure_ascii=False, separators=(',', ':')))
+        _hook_output['write_block_decision'](reason)
     return 0
 
 

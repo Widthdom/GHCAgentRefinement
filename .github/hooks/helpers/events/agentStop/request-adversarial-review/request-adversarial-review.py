@@ -13,6 +13,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _write_json_atomically = runpy.run_path(os.path.join(
@@ -150,7 +151,7 @@ def main():
 
     # この標準出力を受け取ったhook呼び出し元は、decision:blockに従って停止したのち、
     # reasonに従って敵対的レビューエージェントを呼び出すことになる。
-    print(json.dumps({'decision': 'block', 'reason': _REVIEW_REASON}, ensure_ascii=False))
+    _hook_output['write_block_decision'](_REVIEW_REASON)
 
     return 0
 

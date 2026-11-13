@@ -14,6 +14,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
@@ -32,21 +33,10 @@ def _is_non_empty_string(value):
     return isinstance(value, str) and bool(value.strip())
 
 
-# 引数を拒否理由とするJSONを構築して標準出力する。
-def _write_stdout_deny(reason):
-    # ensure_ascii=False：日本語などを \uXXXX にせず、そのまま出力する。出力先はUTF-8に設定するため問題なし。
-    # separators=(',', ':')：項目間やキーと値の間に余分な空白を入れない。（出力をコンパクトにするための指定で、省略してもJSONとしては正しく伝わる。）
-    # 引用符・バックスラッシュ・改行など、JSONとして必要なエスケープは、ensure_asciiの指定によらずjson.dumpsが常に行う。
-    print(json.dumps({
-        'permissionDecision': 'deny',
-        'permissionDecisionReason': reason,
-    }, ensure_ascii=False, separators=(',', ':')))
-
-
-# 引数を標準エラー出力するとともに、_write_stdout_denyを呼び出す。
+# 引数を標準エラー出力するとともに、拒否理由として標準出力する。
 def _write_stderr_msg_and_deny(msg):
     print(msg, file=sys.stderr)
-    _write_stdout_deny(msg)
+    _hook_output['write_deny_decision'](msg)
 
 
 def main(arguments=None):
@@ -181,7 +171,7 @@ def main(arguments=None):
     for compiled_pattern, reason in compiled_definitions:
         if compiled_pattern.search(command):
             # 拒否とその理由をJSON形式に変換して返却する。
-            _write_stdout_deny(reason)
+            _hook_output['write_deny_decision'](reason)
             return 0
 
     # 標準出力へ空のJSONオブジェクトを返すことで、「拒否する判断はない」ことを呼び出し元に伝える。

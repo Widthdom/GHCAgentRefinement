@@ -16,6 +16,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 
 
@@ -108,10 +109,9 @@ def main():
 
     if should_notify:
         # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
-        # 入出力仕様：https://docs.github.com/en/copilot/reference/hooks-reference
         # 終了コード2による助言も公式には記載があるが、ここでは
         # VS Code 1.143.1同梱SDKのhook processorで反映を確認した形式を使う。
-        print(json.dumps({'additionalContext': _RECOVERY_CONTEXT}, ensure_ascii=False))
+        _hook_output['write_additional_context'](_RECOVERY_CONTEXT)
     return 0
 
 

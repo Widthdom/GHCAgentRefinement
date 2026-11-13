@@ -14,6 +14,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
@@ -214,10 +215,7 @@ def main(arguments=None):
             f'- {manifest}: {", ".join(lock for lock, _ in locks)} unchanged; run `{locks[0][1]}`'
             for manifest, locks in drifts[:_MAX_FINDINGS]
         )
-        print(json.dumps(
-            {'decision': 'block', 'reason': _BLOCK_REASON.format(findings=findings)},
-            ensure_ascii=False, separators=(',', ':'),
-        ))
+        _hook_output['write_block_decision'](_BLOCK_REASON.format(findings=findings))
     return 0
 
 

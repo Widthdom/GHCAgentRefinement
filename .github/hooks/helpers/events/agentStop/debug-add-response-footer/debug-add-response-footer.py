@@ -13,6 +13,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['parse_session_id']
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 
@@ -165,19 +166,13 @@ def main():
         return 2
 
     if footer_correction is not None:
-        # ensure_ascii=False：日本語などを \uXXXX にせず、そのまま出力する。出力先はUTF-8に設定するため問題なし。
-        # separators=(',', ':')：項目間やキーと値の間に余分な空白を入れない。（出力をコンパクトにするための指定で、省略してもJSONとしては正しく伝わる。）
-        # 引用符・バックスラッシュ・改行など、JSONとして必要なエスケープは、ensure_asciiの指定によらずjson.dumpsが常に行う。
-        print(json.dumps({
-            'decision': 'block',
-            'reason': (
-                f'{_REASON_PREFIX} Preserve the response body. '
-                'Replace any existing footer blocks with the exact block below; if no footer exists, '
-                'append it to the end. The corrected response must contain exactly one footer block:\n'
-                '\n'
-                f'{footer_correction}'
-            ),
-        }, ensure_ascii=False, separators=(',', ':')))
+        _hook_output['write_block_decision'](
+            f'{_REASON_PREFIX} Preserve the response body. '
+            'Replace any existing footer blocks with the exact block below; if no footer exists, '
+            'append it to the end. The corrected response must contain exactly one footer block:\n'
+            '\n'
+            f'{footer_correction}'
+        )
     return 0
 
 

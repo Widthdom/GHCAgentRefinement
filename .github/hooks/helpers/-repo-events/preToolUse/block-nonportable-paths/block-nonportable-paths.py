@@ -1,5 +1,4 @@
 import io
-import json
 import os
 import re
 import runpy
@@ -14,6 +13,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
@@ -147,14 +147,11 @@ def main():
         print(f'Failed to check portable paths: {ex}', file=sys.stderr)
         return 2
     if findings:
-        print(json.dumps({
-            'permissionDecision': 'deny',
-            'permissionDecisionReason': (
-                'Edit denied: nonportable destination paths: ' + '; '.join(findings[:10]) + '. '
-                'Choose names usable on Windows, macOS and Linux, without case or Unicode-normalization '
-                'collisions. A case-only file rename is allowed when its source is removed in the same patch.'
-            ),
-        }, ensure_ascii=False))
+        _hook_output['write_deny_decision'](
+            'Edit denied: nonportable destination paths: ' + '; '.join(findings[:10]) + '. '
+            'Choose names usable on Windows, macOS and Linux, without case or Unicode-normalization '
+            'collisions. A case-only file rename is allowed when its source is removed in the same patch.'
+        )
     return 0
 
 
