@@ -1,4 +1,3 @@
-import hashlib
 import io
 import os
 import re
@@ -15,6 +14,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_get_text_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_text_sha256_digest']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
@@ -122,7 +124,7 @@ def main():
         if commands:
             masked.extend(commands)
             # 状態にはコマンドを保存せず、照合用のSHA-256だけを保存する。
-            command_keys.append(hashlib.sha256(command.encode('utf-8')).hexdigest())
+            command_keys.append(_get_text_sha256_digest(command))
 
         denied = False
         if command_keys:

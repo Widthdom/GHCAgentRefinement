@@ -1,4 +1,3 @@
-import hashlib
 import io
 import os
 import re
@@ -16,6 +15,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_get_text_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_text_sha256_digest']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
@@ -159,7 +161,7 @@ def _get_no_tests_detail(text):
 def _record_counts(state_path, command, executed, skipped):
     # 同じコマンドの前回の件数を返し、今回の件数で置き換える。コマンドは保存せず、照合用のSHA-256だけを保存する。
     # SQLiteのトランザクションで、並列のツール呼び出しでも状態の更新を取りこぼさない。
-    command_key = hashlib.sha256(command.encode('utf-8')).hexdigest()
+    command_key = _get_text_sha256_digest(command)
     os.makedirs(os.path.dirname(state_path), exist_ok=True)
     with closing(sqlite3.connect(state_path, timeout=3)) as connection:
         connection.execute(

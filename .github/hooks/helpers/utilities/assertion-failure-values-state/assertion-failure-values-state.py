@@ -1,4 +1,3 @@
-import hashlib
 import json
 import os
 import runpy
@@ -6,10 +5,13 @@ import sqlite3
 from contextlib import closing, contextmanager
 
 
-# 状態の保存先は共通のutilityで決める。utilityのフォルダーの親がutilitiesである。
-_state_path_utility = runpy.run_path(os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'get-state-path', 'get-state-path.py',
-))
+# 状態の保存先と照合用のダイジェストは共通のutilityで作る。utilityのフォルダーの親がutilitiesである。
+_utilities_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_state_path_utility = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))
+_sha256_digest = runpy.run_path(os.path.join(_utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py'))
+# 状態には値やパスを保存せず、照合用のSHA-256だけを保存する。
+get_value_key = _sha256_digest['get_text_sha256_digest']
+get_file_key = _sha256_digest['get_path_sha256_digest']
 
 
 # 最新のテスト実行で失敗したアサーションの、期待値と実際の値の組の状態。
@@ -38,18 +40,7 @@ def normalize_value(value):
 
 
 def get_pair_key(expected, actual):
-    return hashlib.sha256(
-        json.dumps([expected, actual], ensure_ascii=False, separators=(',', ':')).encode('utf-8'),
-    ).hexdigest()
-
-
-def get_value_key(value):
-    return hashlib.sha256(value.encode('utf-8')).hexdigest()
-
-
-def get_file_key(path):
-    # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-    return hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
+    return get_value_key(json.dumps([expected, actual], ensure_ascii=False, separators=(',', ':')))
 
 
 @contextmanager

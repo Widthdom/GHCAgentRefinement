@@ -1,5 +1,4 @@
 import argparse
-import hashlib
 import io
 import json
 import os
@@ -16,6 +15,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_get_path_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_path_sha256_digest']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
@@ -113,7 +115,7 @@ def main(arguments=None):
                 evidence = _get_evidence(path_patterns, marker_patterns, path, _get_display_path(path, real_cwd))
                 if evidence:
                     # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-                    candidates.setdefault(hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest(), evidence)
+                    candidates.setdefault(_get_path_sha256_digest(path), evidence)
 
         evidence = []
         if candidates:

@@ -1,14 +1,16 @@
-import hashlib
 import os
 import runpy
 import sqlite3
 from contextlib import closing, contextmanager
 
 
-# 状態の保存先は共通のutilityで決める。utilityのフォルダーの親がutilitiesである。
-_state_path_utility = runpy.run_path(os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'get-state-path', 'get-state-path.py',
-))
+# 状態の保存先と照合用のダイジェストは共通のutilityで作る。utilityのフォルダーの親がutilitiesである。
+_utilities_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_state_path_utility = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))
+# 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
+get_file_key = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_path_sha256_digest']
 
 
 # エージェントが内容を把握したファイル（known files）の状態。
@@ -29,11 +31,6 @@ def get_state_path(session_id):
 def normalize_path(cwd, path):
     # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。
     return os.path.normcase(os.path.realpath(os.path.join(cwd, path)))
-
-
-def get_file_key(path):
-    # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-    return hashlib.sha256(path.encode('utf-8')).hexdigest()
 
 
 @contextmanager

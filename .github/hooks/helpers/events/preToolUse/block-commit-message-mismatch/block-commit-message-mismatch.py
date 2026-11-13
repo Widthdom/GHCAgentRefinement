@@ -1,4 +1,3 @@
-import hashlib
 import io
 import os
 import re
@@ -16,6 +15,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_get_text_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_text_sha256_digest']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _filter_first_time_denials = runpy.run_path(os.path.join(
@@ -286,8 +288,7 @@ def _get_mismatches(message, paths, text):
 def _record_denial(state_path, message):
     # 戻り値は、このメッセージを今回初めて拒否するか。同じメッセージの拒否はセッションで1回だけにし、意図したメッセージなら再実行で通す。
     # 状態にはメッセージを保存せず、照合用のSHA-256だけを保存する。
-    digest = hashlib.sha256(message.encode('utf-8')).hexdigest()
-    return bool(_filter_first_time_denials(state_path, [(digest, message)]))
+    return bool(_filter_first_time_denials(state_path, [(_get_text_sha256_digest(message), message)]))
 
 
 def _get_deny_reason(missing, missing_tests):

@@ -16,6 +16,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_get_path_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_path_sha256_digest']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
@@ -124,7 +127,7 @@ def main():
 
         # 編集後のファイル内容を読む。パスと内容は保存せず、比較用のSHA-256だけを保存する。
         edits = [
-            (path, hashlib.sha256(normalized_path.encode('utf-8')).hexdigest(), _get_content_hash(path))
+            (path, _get_path_sha256_digest(normalized_path), _get_content_hash(path))
             for normalized_path, path in sorted(paths.items())
         ]
 

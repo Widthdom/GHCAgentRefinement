@@ -1,5 +1,4 @@
 import argparse
-import hashlib
 import io
 import json
 import os
@@ -16,6 +15,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
+_get_path_sha256_digest = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
+))['get_path_sha256_digest']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
@@ -110,7 +112,7 @@ def main(arguments=None):
             path = os.path.realpath(os.path.join(cwd, change['path']))
             display_path = _get_display_path(path, real_cwd)
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。normcaseで、同じファイルの別表記を同一と判定する。
-            file_key = hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest()
+            file_key = _get_path_sha256_digest(path)
             current = _read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None
             # 新規ファイルには消える内容がないため、骨組みとしてのプレースホルダーを許可する。
             if current is None:
