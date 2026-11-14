@@ -10,7 +10,7 @@ _utilities_directory = os.path.join(
 )
 _parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['parse_session_id']
 _get_debug_log_directory = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-debug-log-directory', 'get-debug-log-directory.py',
+    _utilities_directory, 'debug-mode-state', 'debug-mode-state.py',
 ))['get_debug_log_directory']
 _read_transcript_events = runpy.run_path(os.path.join(
     _utilities_directory, 'read-transcript-events', 'read-transcript-events.py',

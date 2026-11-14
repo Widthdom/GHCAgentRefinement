@@ -106,7 +106,7 @@ def main():
         # C# のdelegateのように、外部スクリプトから関数を取得する。
         get_debug_mode = runpy.run_path(
             # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
-            os.path.join(_utilities_directory, 'get-debug-mode', 'get-debug-mode.py')
+            os.path.join(_utilities_directory, 'debug-mode-state', 'debug-mode-state.py')
         )['get_debug_mode']
     except (OSError, SyntaxError, KeyError) as ex:
         # f'...' は formatted string literalのことでf-stringとも呼ばれる。文字列の中に {式} の値を埋め込める書き方。C#の $"..." に相当する。
