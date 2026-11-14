@@ -3,7 +3,6 @@ import json
 import os
 import re
 import runpy
-import subprocess
 import sys
 import tempfile
 import time
@@ -20,7 +19,6 @@ _helpers_directory = os.path.dirname(_runner_directory)
 _hooks_directory = os.path.dirname(_helpers_directory)
 # hooks → .github → リポジトリルート
 _repository_root = os.path.dirname(os.path.dirname(_hooks_directory))
-_runner_path = os.path.join(_runner_directory, 'run-hook.py')
 _utilities_directory = os.path.join(_helpers_directory, 'utilities')
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
@@ -29,8 +27,7 @@ _SHELL_TOOL_NAMES = runpy.run_path(
     os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'),
 )['SHELL_TOOL_NAMES']
 
-# hookランナーを通すhookの起動コマンドの先頭。続く部分が実行スクリプトのリポジトリルート相対パス。
-_RUNNER_COMMAND_PREFIX = 'python3 .github/hooks/helpers/runner/run-hook.py '
+_runtime = runpy.run_path(os.path.join(_runner_directory, 'adapted-hook-runtime.py'))
 # Claude Codeのイベント名と、対応するCopilot SDKのイベント名。
 # サブエージェントへの依頼は、Copilotでは `agentId` 付きのuserPromptSubmittedとして発火する。
 _EVENT_NAMES = {
@@ -223,95 +220,6 @@ def _convert_transcript(transcript_path, last_assistant_message, timestamp_ms):
     return events
 
 
-def _load_hook_entries(event):
-    # イベントのhook定義の要素を、このリポジトリ専用の定義（-repo-<event-name>.json）、共通の定義の順に返す。
-    entries = []
-    for filename in (f'-repo-{event}.json', f'{event}.json'):
-        path = os.path.join(_hooks_directory, filename)
-        if os.path.isfile(path):
-            with open(path, encoding='utf-8') as file:
-                entries.extend(json.load(file)['hooks'][event])
-    return entries
-
-
-def _run_in_process(run_hook, script, hook_input_bytes):
-    # hookランナーを、標準入出力を差し替えてこのプロセス内で実行する。hookごとにPythonを起動しないため。
-    # 戻り値は (終了コード, 標準出力のバイト列)。標準エラーはランナーがそのまま中継する。
-    stdout_buffer = io.BytesIO()
-    # 差し替えたストリームは、参照がなくなると下のBytesIOごと閉じられるため、値を取り出すまで保持する。
-    streams = (
-        io.TextIOWrapper(io.BytesIO(hook_input_bytes), encoding='utf-8'),
-        io.TextIOWrapper(stdout_buffer, encoding='utf-8', newline='\n'),
-    )
-    saved = (sys.stdin, sys.stdout, sys.argv)
-    sys.stdin, sys.stdout = streams
-    sys.argv = [_runner_path, script]
-    try:
-        exit_code = run_hook()
-        streams[1].flush()
-        return exit_code, stdout_buffer.getvalue()
-    finally:
-        sys.stdin, sys.stdout, sys.argv = saved
-
-
-def _run_command(entry, hook_input_bytes):
-    # hookランナーを通さないhook（.sh・.cmd）を、hook定義のコマンドのまま子プロセスで実行する。
-    if os.name == 'nt':
-        command = ['powershell', '-NoProfile', '-NonInteractive', '-Command', entry['powershell']]
-    else:
-        command = ['bash', '-c', entry['bash']]
-    try:
-        result = subprocess.run(
-            command, input=hook_input_bytes, stdout=subprocess.PIPE, cwd=_repository_root,
-            timeout=entry.get('timeoutSec'), check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired) as ex:
-        print(f'Failed to run hook command: {ex}', file=sys.stderr)
-        return 1, b''
-    return result.returncode, result.stdout
-
-
-def _parse_hook_output(output_bytes):
-    # hookの標準出力をJSONオブジェクトとして返す。出力がない、またはJSONオブジェクトでなければNone。
-    try:
-        output = json.loads(output_bytes.decode('utf-8'))
-    except ValueError:
-        return None
-    return output if isinstance(output, dict) else None
-
-
-def _merge_hook_outputs(claude_event, outputs):
-    # Copilot SDK形式の出力（トップレベルの判定・助言）を、Claude Codeの形式の1つの出力にまとめる。出力がなければNone。
-    def get_texts(key):
-        return [output[key] for output in outputs if isinstance(output.get(key), str) and output[key]]
-
-    merged = {}
-    specific = {}
-    if claude_event == 'PreToolUse':
-        denials = [output for output in outputs if output.get('permissionDecision') == 'deny']
-        if denials:
-            specific['permissionDecision'] = 'deny'
-            specific['permissionDecisionReason'] = '\n\n'.join(
-                denial['permissionDecisionReason'] for denial in denials
-                if isinstance(denial.get('permissionDecisionReason'), str)
-            )
-    if claude_event == 'Stop':
-        reasons = [
-            output['reason'] for output in outputs
-            if output.get('decision') == 'block' and isinstance(output.get('reason'), str)
-        ]
-        if reasons:
-            merged['decision'] = 'block'
-            merged['reason'] = _BLOCK_REASON_SEPARATOR.join(reasons)
-    # StopのadditionalContextは応答を続行させるため、差し戻しだけを渡す。
-    elif contexts := get_texts('additionalContext'):
-        specific['additionalContext'] = '\n\n'.join(contexts)
-    if messages := get_texts('systemMessage'):
-        merged['systemMessage'] = '\n\n'.join(messages)
-    if specific:
-        merged['hookSpecificOutput'] = {'hookEventName': claude_event, **specific}
-    return merged or None
-
 
 def main():
     # 型定義上の `sys.stderr` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
@@ -323,7 +231,7 @@ def main():
         if not isinstance(claude_input, dict):
             raise ValueError('hook input must be a JSON object.')
         event, hook_input = _convert_hook_input(claude_input, timestamp_ms)
-        entries = _load_hook_entries(event)
+        entries = _runtime['load_hook_entries'](event)
     except (OSError, ValueError, KeyError) as ex:
         print(f'Failed to prepare Claude Code hook: {ex}', file=sys.stderr)
         return 1
@@ -331,9 +239,6 @@ def main():
 
     # hook定義のコマンドはリポジトリルートからの相対パスで書かれている。
     os.chdir(_repository_root)
-    run_hook = runpy.run_path(_runner_path)['main']
-    outputs = []
-    failed = False
     with tempfile.TemporaryDirectory(prefix='ghc-claude-hook-') as temporary_directory:
         if claude_event == 'Stop':
             try:
@@ -348,23 +253,9 @@ def main():
             except OSError as ex:
                 print(f'Failed to convert Claude Code transcript: {ex}', file=sys.stderr)
                 return 1
-        hook_input_bytes = json.dumps(hook_input, ensure_ascii=False).encode('utf-8')
-        tool_name = hook_input.get('toolName')
-        for entry in entries:
-            if 'matcher' in entry and isinstance(tool_name, str) and not re.fullmatch(entry['matcher'], tool_name):
-                continue
-            if entry['bash'].startswith(_RUNNER_COMMAND_PREFIX):
-                exit_code, output_bytes = _run_in_process(
-                    run_hook, entry['bash'].removeprefix(_RUNNER_COMMAND_PREFIX), hook_input_bytes,
-                )
-            else:
-                exit_code, output_bytes = _run_command(entry, hook_input_bytes)
-            failed = failed or exit_code != 0
-            output = _parse_hook_output(output_bytes)
-            if output is not None:
-                outputs.append(output)
+        outputs, failed = _runtime['run_hook_entries'](entries, hook_input)
 
-    merged = _merge_hook_outputs(claude_event, outputs)
+    merged = _runtime['merge_hook_outputs'](claude_event, outputs)
     if merged is not None:
         sys.stdout.buffer.write(json.dumps(merged, ensure_ascii=False, separators=(',', ':')).encode('utf-8') + b'\n')
         sys.stdout.buffer.flush()
