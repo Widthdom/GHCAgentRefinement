@@ -210,7 +210,7 @@ def main():
         # テストの実行かどうかの判定と、編集ツールの引数の解析は、共通utilityで行う。
         check_test_runs = runpy.run_path(os.path.join(_utilities_directory, 'check-test-runs', 'check-test-runs.py'))
         extract_edit_tool_changes = runpy.run_path(
-            os.path.join(_utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py')
+            os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py')
         )['extract_edit_tool_changes']
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と最後のツール実行の結果を書き込み済みにする。
         runpy.run_path(

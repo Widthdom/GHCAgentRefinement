@@ -10,7 +10,7 @@ postToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_re
 
 ## 処理詳細
 
-1. [get-edited-paths](../../../utilities/get-edited-paths/README.md) で、ツール引数の `path`（`create` では `file_path`）、または `apply_patch` のパッチ本文の `*** Update File:` などの行から、編集されたファイルを特定する。
+1. [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) で、ツール引数の `path`（`create` では `file_path`）、または `apply_patch` のパッチ本文の `*** Update File:` などの行から、編集されたファイルを特定する。
 2. 各ファイルについて、HEADの内容を `git cat-file --filters` で取得する。チェックアウト時と同じ変換（`core.autocrlf` や `.gitattributes` の `eol`）を通した内容と比べるため、WindowsでCRLFに変換された作業ツリーを変更扱いしない。
 3. 編集後のファイルとHEADの内容を比べ、次の変化を検出する。
    - 改行コード：CRLFとLFの入れ替わり、または片方に統一されていたファイルへの混在

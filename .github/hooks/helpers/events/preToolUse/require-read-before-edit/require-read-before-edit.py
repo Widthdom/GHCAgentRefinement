@@ -13,10 +13,8 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
-_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
+_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 # パッチで既存の内容を書き換えるファイル。追加・削除・移動先は内容を把握する必要がないため対象外とする。
@@ -61,11 +59,8 @@ def main():
 
         # 照合には正規化したパス、表示には正規化前のパスを使う。
         paths = {}
-        tool_name = tool_name.removeprefix('functions.')
-        if _tool_kinds['is_edit_tool'](tool_name):
-            tool_args = _unwrap_tool_args(tool_args)
-            for path in _get_edited_paths(tool_name, tool_args, _PATCH_OPERATIONS):
-                paths.setdefault(state['normalize_path'](cwd, path), os.path.realpath(os.path.join(cwd, path)))
+        for path in _get_edited_paths(tool_name, tool_args, _PATCH_OPERATIONS):
+            paths.setdefault(state['normalize_path'](cwd, path), os.path.realpath(os.path.join(cwd, path)))
         # 新規作成と、存在しないファイルへの編集（ツール側で失敗する）は対象外とする。
         existing_paths = sorted(item for item in paths.items() if os.path.isfile(item[1]))
         if not existing_paths:

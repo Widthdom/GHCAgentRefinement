@@ -120,7 +120,7 @@ def main():
         real_cwd = os.path.realpath(cwd)
         # 編集ツールの引数の解析は、共通utilityで行う。
         extract_edit_tool_changes = runpy.run_path(os.path.join(
-            _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+            _utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py',
         ))['extract_edit_tool_changes']
         changes = extract_edit_tool_changes(tool_name, tool_args)
 

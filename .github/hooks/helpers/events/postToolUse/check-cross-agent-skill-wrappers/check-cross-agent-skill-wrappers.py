@@ -15,8 +15,7 @@ _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
-_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py'))['get_edited_paths']
 _filter_new_notifications = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-new-notifications', 'filter-new-notifications.py',
 ))['filter_new_notifications']
@@ -132,11 +131,10 @@ def main():
         cwd = _hook_input['get_cwd'](hook_input)
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        tool_name = tool_name.removeprefix('functions.')
         if not _tool_kinds['is_edit_tool'](tool_name):
             return 0
         # パッチの削除・移動元も含める。正本を消したときに、残ったラッパーを検出するため。
-        paths = {os.path.realpath(os.path.join(cwd, path)) for path in _get_edited_paths(tool_name, _unwrap_tool_args(tool_args))}
+        paths = {os.path.realpath(os.path.join(cwd, path)) for path in _get_edited_paths(tool_name, tool_args)}
         skills = sorted({skill for skill in map(_get_skill, paths) if skill is not None})
         if not skills:
             return 0

@@ -9,7 +9,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 処理詳細
 1. [mojibake-definitions.json](./mojibake-definitions.json) から、対象外のファイルのパス（`excludedFilePatterns`）と、文字化けの正規表現（`mojibakePatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
-   - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
+   - 各ツールの引数は [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) の規則で解析する。
 3. cwdからの相対パス（`/` 区切り）が `excludedFilePatterns` に一致しないファイルについて、書き込む内容の行ごとに `mojibakePatterns` に一致するものを拒否の候補とする。ただし、前後の空白を除いて同じ行が既存の内容（置換前の内容、パッチの削除行、ファイルの現在の内容）にあれば除く。
 4. 候補のうち、このセッションで同じファイルをまだ拒否していないものがあれば、元の文章をUTF-8で読み直して正しい文字で書くよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。理由で示す行では、制御文字と書式文字を `<U+XXXX>` に置き換える。
 

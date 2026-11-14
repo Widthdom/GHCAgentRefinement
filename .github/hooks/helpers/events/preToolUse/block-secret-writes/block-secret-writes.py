@@ -17,7 +17,7 @@ _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _extract_edit_tool_changes = runpy.run_path(os.path.join(
-    _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+    _utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py',
 ))['extract_edit_tool_changes']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(

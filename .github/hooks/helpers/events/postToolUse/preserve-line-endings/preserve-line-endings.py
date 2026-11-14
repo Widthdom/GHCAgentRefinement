@@ -19,9 +19,8 @@ _get_path_sha256_digest = runpy.run_path(os.path.join(
 ))['get_path_sha256_digest']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
-_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
+_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 _filter_new_notifications = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-new-notifications', 'filter-new-notifications.py',
 ))['filter_new_notifications']
@@ -101,13 +100,12 @@ def main():
         cwd = _hook_input['get_cwd'](hook_input)
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        tool_name = tool_name.removeprefix('functions.')
         if not _tool_kinds['is_edit_tool'](tool_name):
             return 0
         # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。
         # gitは大文字小文字を区別するため、問い合わせ・読み込み・表示には正規化前のパスを使い、normcaseは照合だけに使う。
         paths = {}
-        for path in _get_edited_paths(tool_name, _unwrap_tool_args(tool_args)):
+        for path in _get_edited_paths(tool_name, tool_args):
             real_path = os.path.realpath(os.path.join(cwd, path))
             paths.setdefault(os.path.normcase(real_path), real_path)
 

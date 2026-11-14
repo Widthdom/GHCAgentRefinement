@@ -1,6 +1,5 @@
 import io
 import os
-import re
 import runpy
 import sqlite3
 import sys
@@ -14,30 +13,23 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
-))['collect_json_string_values']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
-# 対象のファイルのパスは `path`、`create` では `file_path` で渡される。引数名はget-edited-paths utilityと共有する。
-_get_path_argument = runpy.run_path(
-    os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py')
-)['get_path_argument']
+_edit_tool_changes = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py'))
 
 
 # 成功すればファイルの内容を把握したとみなせる組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
 #   view・str_replace_editorのview：内容を読んだ。
 #   編集系：置換やパッチの適用には現在の内容との一致が必要で、作成したファイルは内容を自分で書いた。
 _READ_TOOL_NAMES = {'view', *_tool_kinds['EDIT_TOOL_NAMES']}
-# パッチの適用後に存在するファイル。削除したファイルと移動元は記録しない。
-_PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (?:(?:Add|Update) File|Move to): (.+?)\s*$', re.MULTILINE)
+# パッチで内容を書いたファイル。削除したファイルは記録しない。移動元は適用後に存在しないため、記録の前に除かれる。
+_PATCH_OPERATIONS = frozenset({'Add File', 'Update File', 'Move to'})
 
 
 def _get_read_paths(tool_name, tool_args):
     if tool_name == 'apply_patch':
-        return [
-            match for text in _collect_json_string_values(tool_args) for match in _PATCH_FILE_PATTERN.findall(text)
-        ]
-    path = _get_path_argument(tool_args)
+        return _edit_tool_changes['get_edited_paths'](tool_name, tool_args, _PATCH_OPERATIONS)
+    # 閲覧ツールも、対象のファイルのパスを編集ツールと同じ引数名（`path`、`create` では `file_path`）で渡す。
+    path = _edit_tool_changes['get_path_argument'](tool_args)
     return [path] if path is not None else []
 
 

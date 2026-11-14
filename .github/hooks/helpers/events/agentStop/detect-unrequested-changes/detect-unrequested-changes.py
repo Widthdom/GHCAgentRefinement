@@ -81,7 +81,7 @@ def _get_turn_summary(transcript_path):
     # 変更は {path, deleted, moved_to（移動先またはNone）, whitespace_only} のリスト。
     # 編集ツールの引数の解析は、共通utilityで行う。
     extract_edit_tool_changes = runpy.run_path(
-        os.path.join(_utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py')
+        os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py')
     )['extract_edit_tool_changes']
     events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
     request_texts = _turn_events['get_request_texts'](events)

@@ -130,7 +130,7 @@ def main(arguments=None):
         candidates = []
         # 編集ツールの引数の解析は、共通utilityで行う。
         extract_edit_tool_changes = runpy.run_path(os.path.join(
-            _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+            _utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py',
         ))['extract_edit_tool_changes']
         for change in extract_edit_tool_changes(tool_name, tool_args):
             path = os.path.realpath(os.path.join(cwd, change['path']))

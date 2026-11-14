@@ -18,18 +18,16 @@ _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-out
 _is_non_blank_string_list = runpy.run_path(os.path.join(
     _utilities_directory, 'check-string-list', 'check-string-list.py',
 ))['is_non_blank_string_list']
-_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
-_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))['get_edited_paths']
+_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py'))['get_edited_paths']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
 ))['filter_first_time_denials']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 # 削除は再生成で失われる手編集ではないため、追加と更新だけを対象とする。
@@ -107,15 +105,13 @@ def main(arguments=None):
 
         real_cwd = os.path.realpath(cwd)
         candidates = {}
-        tool_name = tool_name.removeprefix('functions.')
-        if _tool_kinds['is_edit_tool'](tool_name):
-            for relative_path in _get_edited_paths(tool_name, _unwrap_tool_args(tool_args), _PATCH_OPERATIONS):
-                path = os.path.realpath(os.path.join(cwd, relative_path))
-                # パスの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
-                evidence = _get_evidence(path_patterns, marker_patterns, path, _get_display_path(path, real_cwd))
-                if evidence:
-                    # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-                    candidates.setdefault(_get_path_sha256_digest(path), evidence)
+        for relative_path in _get_edited_paths(tool_name, tool_args, _PATCH_OPERATIONS):
+            path = os.path.realpath(os.path.join(cwd, relative_path))
+            # パスの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
+            evidence = _get_evidence(path_patterns, marker_patterns, path, _get_display_path(path, real_cwd))
+            if evidence:
+                # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
+                candidates.setdefault(_get_path_sha256_digest(path), evidence)
 
         evidence = []
         if candidates:

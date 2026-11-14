@@ -10,7 +10,7 @@ postToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_re
 
 ## 処理詳細
 
-1. [get-edited-paths](../../../utilities/get-edited-paths/README.md) で、ツール引数の `path`（`create` では `file_path`）、または `apply_patch` のパッチ本文の `*** Update File:` などの行から、編集されたファイルを特定する。
+1. [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) で、ツール引数の `path`（`create` では `file_path`）、または `apply_patch` のパッチ本文の `*** Update File:` などの行から、編集されたファイルを特定する。
 2. 編集後のファイル内容のSHA-256を、同じセッションの履歴と比べる。直前と同じ内容の書き込みは無視する。
 3. 10分以内に記録した内容へ、別の内容を挟んで戻った（A→B→Aの）場合に、試した案の整理と判断材料の提示を促す英語の助言を `additionalContext` として渡す。
 4. 通知したファイルでは、それまでに記録した内容へ戻っても再通知しない。新しい内容を記録した後、その内容へ戻った場合だけ改めて通知する。最後に記録してから10分を超えた内容は履歴から外す。

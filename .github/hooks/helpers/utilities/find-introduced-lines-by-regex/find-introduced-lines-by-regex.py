@@ -30,7 +30,7 @@ def _get_line(text, position):
 
 def find_introduced_lines_by_regex(changes, cwd, excluded_file_patterns, named_regexes):
     # introducedとは、この依頼で新たに書き込み（置換前の内容になかった行）、最終的なファイルに残っている行を指す。
-    # changes：extract-edit-tool-changesの変更のリスト。依頼中の編集を古い順に並べたもの。
+    # changes：edit-tool-changes utilityのextract_edit_tool_changesが返す変更のリスト。依頼中の編集を古い順に並べたもの。
     # excluded_file_patterns：対象外とする表示パスの正規表現。
     # named_regexes：(種類の名前, 正規表現) のリスト。一致した位置を含む行を該当行とする。
     # 戻り値は (表示パス, 種類の名前, 該当行) のリスト。

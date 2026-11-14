@@ -12,7 +12,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 3. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む行と、そのうちの追加行を特定する。
    - 置換前の内容にない行を追加行とする。`create` での上書きは、ファイルの現在の内容にない行を追加行とする。
    - `apply_patch` では、パッチの追加行（`+`）と文脈行（` `）を書き込む行とし、追加行だけを追加行とする。
-   - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
+   - 各ツールの引数は [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) の規則で解析する。
 4. テストファイル（cwdからの相対パス（`/` 区切り）で判定）と文章のファイル（`.md`・`.markdown`・`.txt`・`.rst`・`.adoc`）を除き、追加行の条件分岐を調べる。
    - 条件分岐：`if`・`elif`・`elsif`・`else if`・`unless`・`when`・`case` で始まる条件、または三項演算子（`==`・`===`・`!=`・`!==` から `?` まで）。
    - 条件にリテラル（文字列・数値・真偽値・null）があり、処理（同じ行の `return`・`yield`・`=>`・`then`・`:`・`)` の後、または続く3行以内で次の分岐（`else`・`case` など）より前）に期待値と同じリテラルがあれば、拒否の候補とする。

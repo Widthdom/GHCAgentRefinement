@@ -268,7 +268,7 @@ def main():
         cwd = _hook_input['get_cwd'](hook_input)
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
         extract_edit_tool_changes = runpy.run_path(
-            os.path.join(_utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py')
+            os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py')
         )['extract_edit_tool_changes']
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to detect stale parameter docs: {ex}', file=sys.stderr)

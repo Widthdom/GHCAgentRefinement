@@ -9,7 +9,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 処理詳細
 1. [check-test-files](../../../utilities/check-test-files/README.md) utilityで、テストファイルの判定の定義を読み込む。定義のファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から書き込む内容と対象のファイルを特定する。
-   - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
+   - 各ツールの引数は [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) の規則で解析する。
 3. テストファイルでなければ何もしない。
 4. 書き込む内容から2つの値を比べるアサーションを取り出し、比べる2つの式が空白を除いて同じなら自己比較とみなす。変数は、置換前の内容・ファイルの現在の内容・書き込む内容で1回だけ代入されたものに限り、代入された式に置き換えて比べる（`expected = f(x)` の後の `assert f(x) == expected` など）。
 5. Pythonのテスト関数 `test_<名前>...` の中（デコレーターを含む）で、`<名前>` 自身を差し替えるモックを、テスト対象の差し替えとみなす（`test_parse_empty` での `patch("app.parse")` など）。

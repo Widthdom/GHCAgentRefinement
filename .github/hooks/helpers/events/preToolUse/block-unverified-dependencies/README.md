@@ -8,7 +8,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 処理詳細
 1. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から書き込む内容と対象のファイルを特定する。
-   - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
+   - 各ツールの引数は [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) の規則で解析する。
 2. 対象のファイルの種類ごとに、書き込む内容から依存の名前（NuGetではバージョンも）を取り出す（[検出する内容](#検出する内容)）。
 3. 既存の内容（置換前の内容、ファイルの現在の内容）に同じ名前・同じバージョンの依存があれば、移動や周辺の編集とみなして除く。名前が既にあり、バージョンだけを変える場合は、バージョンだけを照合する。
 4. [record-verified-packages](../../postToolUse/record-verified-packages/README.md) hookが、このセッションで実在を確かめたと記録した名前は通す。

@@ -20,7 +20,6 @@ _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-out
 _is_non_blank_string_list = runpy.run_path(os.path.join(
     _utilities_directory, 'check-string-list', 'check-string-list.py',
 ))['is_non_blank_string_list']
-_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
@@ -32,9 +31,8 @@ _filter_first_time_denials = runpy.run_path(os.path.join(
 ))['filter_first_time_denials']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _simulate_edit_tool_changes = runpy.run_path(os.path.join(
-    _utilities_directory, 'simulate-edit-tool-changes', 'simulate-edit-tool-changes.py',
+    _utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py',
 ))['simulate_edit_tool_changes']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 # キーワードの直後が値の代入（`exclude = [...]`・`"exclude": [...]`・`omit:`）である場合だけ値を読む。
@@ -235,14 +233,9 @@ def main(arguments=None):
         cwd = _hook_input['get_cwd'](hook_input)
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        tool_name = tool_name.removeprefix('functions.')
-        edits = []
-        if _tool_kinds['is_edit_tool'](tool_name):
-            edits = _simulate_edit_tool_changes(tool_name, _unwrap_tool_args(tool_args), cwd)
-
         candidates = []
         tracked_files_by_directory = {}
-        for path, before, after in edits:
+        for path, before, after in _simulate_edit_tool_changes(tool_name, tool_args, cwd):
             config = _get_config(definitions, path)
             if config is None:
                 continue
