@@ -16,7 +16,7 @@ Codexで共通hookを実行するための設定を置く。共通指示は [AGE
 |[hooks.json](./hooks.json)|イベントごとにアダプターを1つ登録する。|
 |[run-codex-hook.py](../.github/hooks/helpers/runner/run-codex-hook.py)|Codexの入力と履歴をCopilot SDK形式に変換する。|
 |[adapted-hook-runtime.py](../.github/hooks/helpers/runner/adapted-hook-runtime.py)|Claude Codeと共通の定義読込・順次実行・出力集約。|
-|[test-run-codex-hook.py](../.github/hooks/helpers/runner/test-run-codex-hook.py)|形式変換、拒否、停止、起動設定のテスト。|
+|[test-run-codex-hook.py](../.github/hooks/helpers/runner/test-run-codex-hook.py)|形式変換、拒否、停止、起動設定のテスト。Windowsの起動テストはCodexと同じく、内部の引用符を保持したコマンド文字列をCOMSPECの `/c` に渡す。|
 
 Codexは同一イベントのコマンドhookを並列実行するため、アダプターを1つ登録し、その中で共通hookを定義順に実行する。hook一覧は `.github/hooks` の定義だけに保持する。
 

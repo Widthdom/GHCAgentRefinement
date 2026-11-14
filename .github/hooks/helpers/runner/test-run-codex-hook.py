@@ -191,16 +191,25 @@ class RunCodexHookTests(unittest.TestCase):
         handlers = [group[0]['hooks'][0] for group in config.values()]
         self.assertTrue(all(handler == handlers[0] for handler in handlers))
         self.assertEqual(handlers[0]['type'], 'command')
-        self.__hook('sessionStart', output={'additionalContext': 'started'})
+        path = self.__hook('sessionStart', output={'additionalContext': 'started'})
         subprocess.run(['git', 'init', self.__root], capture_output=True, check=True, timeout=30)
         nested = os.path.join(self.__root, 'nested')
         os.makedirs(nested)
         payload = {'session_id': self.__session, 'cwd': nested, 'hook_event_name': 'SessionStart'}
         command = handlers[0]['commandWindows' if os.name == 'nt' else 'command']
-        shell = ['cmd.exe', '/d', '/s', '/c'] if os.name == 'nt' else ['sh', '-c']
-        result = subprocess.run([*shell, command], cwd=nested, env=self.__env,
+        if os.name == 'nt':
+            # args配列ではlist2cmdlineが内部の引用符をエスケープしてしまう。
+            # Codexのraw_argと同じく、コマンド本文は変更せず外側だけ引用する。
+            shell = os.environ.get('COMSPEC', 'cmd.exe')
+            arguments = f'"{shell}" /c "{command}"'
+        else:
+            arguments = ['sh', '-c', command]
+        result = subprocess.run(arguments, cwd=nested, env=self.__env,
                                 input=json.dumps(payload).encode('utf-8'), capture_output=True, timeout=30, check=False)
-        self.assertEqual(result.returncode, 0, result.stderr)
+        diagnostics = f'stdout={result.stdout!r}, stderr={result.stderr!r}'
+        self.assertEqual(result.returncode, 0, diagnostics)
+        self.assertTrue(os.path.isfile(path), diagnostics)
+        self.assertEqual(self.__read(path)['cwd'], nested)
         self.assertEqual(json.loads(result.stdout)['hookSpecificOutput']['additionalContext'], 'started')
 
 
