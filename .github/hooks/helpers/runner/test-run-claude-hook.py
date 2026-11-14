@@ -15,7 +15,7 @@ _hooks_directory = os.path.dirname(_helpers_directory)
 _repository_root = os.path.dirname(os.path.dirname(_hooks_directory))
 _run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
-_RUNNER_FILES = ('run-hook.py', 'run-claude-hook.py', 'run-claude-hook.sh')
+_RUNNER_FILES = ('run-hook.py', 'run-claude-hook.py', 'run-claude-hook.sh', 'adapted-hook-runtime.py')
 _COPIED_UTILITIES = (
     'collect-json-string-values', 'get-state-path', 'hook-activity-state', 'parse-tool-calls', 'read-transcript-events',
 )

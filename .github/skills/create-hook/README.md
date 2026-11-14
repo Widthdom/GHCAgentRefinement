@@ -6,7 +6,7 @@
 
 ## 対象ランタイム
 
-VS CodeのSession Targetが `Copilot` の場合はCLIと同じSDK hook実装を使うため、SDKの仕様に従えば両方で動く。一方、`Local`、`Claude`、`Codex` は異なる実行環境であり、同じ設定が読み込まれても互換性があるとは限らない。そのため、hookにはSDK以外の形式向けの互換処理を加えない。Claude Codeだけは、hookの外側に置いたアダプターが入出力をSDKの形式に変換することで対応する（[.claude/README.md](../../../.claude/README.md)）。hook自体はSDKの形式だけを扱えばよい。VS Codeのバージョンによってイベントの対応状況が異なるため、対象バージョンでイベントを確認する。
+VS CodeのSession Targetが `Copilot` の場合はCLIと同じSDK hook実装を使うため、SDKの仕様に従えば両方で動く。一方、`Local`、`Claude`、`Codex` は異なる実行環境であり、同じ設定が読み込まれても互換性があるとは限らない。そのため、hookにはSDK以外の形式向けの互換処理を加えない。CodexとClaude Codeには、hookの外側に置いたアダプターで対応する（[Codex](../../../.codex/README.md)、[Claude Code](../../../.claude/README.md)）。hook自体はSDKの形式だけを扱えばよい。各アダプターの対応イベント・ツール・履歴の制約を確認する。VS Codeのバージョンによってイベントの対応状況が異なるため、対象バージョンでイベントを確認する。
 
 ## 実装言語
 
@@ -16,12 +16,13 @@ hookの実行スクリプトをPythonに統一すると、Windows、macOS、Linu
 
 `check-python` と `block-commands` は、Pythonがない環境でも案内や拒否ができる必要があるため、hookランナーを通さず、hook定義の `bash` からは `.sh` を、`powershell` からは `.cmd` を起動する。
 
-### CopilotとClaude Codeでの起動のされ方
+### Copilot・Claude Code・Codexでの起動のされ方
 
 - Copilotは、Windowsではhook定義の `powershell` のコマンドをPowerShellで実行し、macOS・Linuxでは `bash` のコマンドを実行する。
 - Claude Codeのhook設定（[.claude/settings.json](../../../.claude/settings.json)）は、1つのhookにコマンドを1つしか持てず、OSで出し分けられない。そのため、どのOSでも `sh` で起動スクリプト [run-claude-hook.sh](../../hooks/helpers/runner/run-claude-hook.sh) を実行し、アダプターがhook定義を読んで各hookを実行する。Windowsでは、Claude CodeがGit for Windowsに含まれるGit Bashを探してhookのコマンドを実行する。
 - アダプターは、ランナーを通さないこの2つのhookを、Windowsでは定義の `powershell` のコマンドのまま子プロセスで実行する。そのため、Claude Codeでも、Windowsでは `.cmd` が、それ以外では `.sh` が実行される。
 - アダプター自体がPythonで動くため、Claude CodeではPythonがない環境でこの2つのhookは働かない（[.claude/README.md](../../../.claude/README.md) を参照）。
+- Codexの [hooks.json](../../../.codex/hooks.json) はOS別の `commandWindows` を持てるため、WindowsではPowerShellから `python`、macOS/Linuxでは `python3` で直接アダプターを起動する。Git Bashを探す起動スクリプトは使わない。アダプター内の実行方式とPythonがない場合の制約はClaude Codeと同じ。
 
 ### Gitを前提としても `.cmd` を `.sh` に統一しない理由
 
@@ -60,7 +61,7 @@ Pythonの標準入出力の既定エンコーディングはOSやロケールに
 
 ## 終了コード
 
-Copilot SDK/CLIの `preToolUse` command hookでは非ゼロ終了が拒否扱いになる一方、VS Code Localでは `exit 1` が非ブロッキング警告、`exit 2` がブロッキングエラーを表す。Localは対象外だが、異常終了を `exit 2` に統一すると失敗の意味が明確になり、hook間の扱いも揃う。Claude Codeでも `exit 2` はブロックを表すため、アダプターが非ブロックの `exit 1` に変えて返す。
+Copilot SDK/CLIの `preToolUse` command hookでは非ゼロ終了が拒否扱いになる一方、VS Code Localでは `exit 1` が非ブロッキング警告、`exit 2` がブロッキングエラーを表す。Localは対象外だが、異常終了を `exit 2` に統一すると失敗の意味が明確になり、hook間の扱いも揃う。CodexとClaude Codeでも `exit 2` はブロックを表すため、アダプターが非ブロックの `exit 1` に変えて返す。明示的な判定がある場合は終了コード0とJSONで伝える。
 
 ## 発動フローの図の文言
 

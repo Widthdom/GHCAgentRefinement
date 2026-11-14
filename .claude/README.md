@@ -129,7 +129,6 @@ agentStopのhookは [read-transcript-events](../.github/hooks/helpers/utilities/
 
 - `userPromptTransformed`：Claude Codeに相当するイベントがない。
 - `SubagentStop`：Copilotでも、agentStopのhookはサブエージェントの停止を対象外としている。
-- Codex：hookを利用できない。
 
 ### 前提条件
 

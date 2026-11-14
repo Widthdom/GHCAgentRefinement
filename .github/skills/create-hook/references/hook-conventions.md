@@ -1,9 +1,9 @@
 # hookの共通規約
 
-1. Copilot SDKのイベント、設定、入出力仕様を使い、hookにはSDK以外の形式向けの互換処理、フォールバック、専用の実装・検証を加えない。Claude Codeでは、[アダプター](../../../../.claude/README.md) が入出力をSDKの形式に変換して同じhookを実行するため、hookをClaude Code向けに書き分けない。Windows特有の制御を行うhookを除き、Windows、macOS、Linuxのすべてを対象にする。イベントは対象VS Codeバージョンで使えることを確認する。
+1. Copilot SDKのイベント、設定、入出力仕様を使い、hookにはSDK以外の形式向けの互換処理、フォールバック、専用の実装・検証を加えない。CodexとClaude Codeでは、各アダプター（[Codex](../../../../.codex/README.md)、[Claude Code](../../../../.claude/README.md)）が入出力をSDKの形式に変換して同じhookを実行するため、hookを実行環境ごとに書き分けない。Windows特有の制御を行うhookを除き、Windows、macOS、Linuxのすべてを対象にする。イベントは対象VS Codeバージョンで使えることを確認する。
    - 入力の項目は[公式の入出力仕様](https://docs.github.com/en/copilot/reference/hooks-reference)で確認する。セッションのイベント履歴（`events.jsonl`）にある `hook.start` の `input` は、hookの標準入力と形式が異なる場合があるため、入力仕様の根拠にしない。
    - preToolUse・postToolUseには、ツール呼び出し1件の名前（`toolName`）と引数（`toolArgs`）が渡される。`toolCalls` 配列は渡されない。
-   - アダプターが対応していないイベントやツールを扱うhookは、Claude Codeでは動かない。動かす場合は、[アダプターのREADME](../../../../.claude/README.md) の「変更するとき」に従ってアダプターを更新する。
+   - アダプターが対応していないイベントやツールを扱うhookは、その実行環境では動かない。動かす場合は、各アダプターのREADME（[Codex](../../../../.codex/README.md)、[Claude Code](../../../../.claude/README.md)）の「変更するとき」に従ってアダプターを更新する。
    - 編集ツールの対象のファイルのパスは、ツールによって引数名が異なる（`edit` は `path`、`create` は `file_path`）。`path` を直接読まず、[edit-tool-changes.py](../../../hooks/helpers/utilities/edit-tool-changes/edit-tool-changes.py) の `get_path_argument` で取り出す。
 2. hook定義はイベントごとに `.github/hooks/<event-name>.json` の配列にまとめ、要素を実行スクリプトパスの昇順に並べる。
 3. hookのファイルは `.github/hooks/helpers/events/<event-name>/<hook-name>/` に置き、実行スクリプトは `<hook-name>.py` とする。複数hookで共有する補助スクリプトは [.github/hooks/helpers/utilities/](../../../hooks/helpers/utilities/) の `<utility-name>/<utility-name>.py` に置き、同じフォルダーにテスト `test-<utility-name>.py` を置く。utilityの処理の規則を複数のhookのREADMEで説明する場合は、同じフォルダーの `README.md` に1回だけ書き、hookのREADMEからはリンクする。既存のutilityと同じ処理は再実装せず、`runpy.run_path` で読み込んで使う。
