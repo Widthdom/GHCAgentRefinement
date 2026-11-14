@@ -10,7 +10,7 @@ postToolUse（ツール `view`・`edit`・`create`・`insert`・`str_replace_edi
 
 ## 処理詳細
 
-1. ツール引数の `path`（`create` では `file_path`。引数名は [get-edited-paths](../../../utilities/get-edited-paths/README.md) と共有する）、または `apply_patch` のパッチ本文の `*** Add File:`・`*** Update File:`・`*** Move to:` の行から、対象のファイルを特定する。
+1. ツール引数の `path`（`create` では `file_path`。引数名は [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) と共有する）、または `apply_patch` のパッチ本文の `*** Add File:`・`*** Update File:`・`*** Move to:` の行から、対象のファイルを特定する。
 2. 存在するファイルを、このセッションで内容を把握したファイルとして記録する。
 
 ## 例外

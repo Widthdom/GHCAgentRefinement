@@ -10,7 +10,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 1. [test-weakening-definitions.json](./test-weakening-definitions.json) から、アサーション（`assertionPatterns`）、テストを弱める行（`weakeningPatterns`）の正規表現を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。テストファイルの判定の定義は [check-test-files](../../../utilities/check-test-files/README.md) utilityで読み込む。
 2. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
    - `apply_patch` の `*** Delete File:` のファイルも対象とする。
-   - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
+   - 各ツールの引数は [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) の規則で解析する。
 3. cwdからの相対パス（`/` 区切り）が [check-test-files](../../../utilities/check-test-files/README.md) の規則でテストファイルに当たるファイルについて、次のいずれかに該当すれば拒否の候補とする。
    - 骨抜き：書き込む内容に、`weakeningPatterns` に一致する行がある。ただし、同じ行が既存の内容（置換前の内容、パッチの削除行、ファイルの現在の内容）にあれば除く。
    - アサーションの減少：`assertionPatterns` に一致する行の数が、置換前の内容より書き込む内容で少ない。`create` での上書きはファイルの現在の内容と、削除は現在の内容と空の内容とを比べる。

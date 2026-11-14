@@ -22,7 +22,7 @@ _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build
 _turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _extract_edit_tool_changes = runpy.run_path(os.path.join(
-    _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+    _utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py',
 ))['extract_edit_tool_changes']
 
 

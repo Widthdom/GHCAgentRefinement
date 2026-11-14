@@ -11,7 +11,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 2. このセッションで [record-test-failure-values](../../postToolUse/record-test-failure-values/README.md) hookが記録した、最新のテスト実行の失敗の期待値と実際の値の組を読み込む。記録がなければ許可する。
 3. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から対象のファイルごとに書き込む内容と置換前の内容を特定する。
    - `create` での上書きは、ファイルの現在の内容と比べる。
-   - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
+   - 各ツールの引数は [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) の規則で解析する。
 4. cwdからの相対パス（`/` 区切り）がテストファイルに当たるファイルについて、置換前の行と書き込む行のうち、リテラル（文字列・数値・真偽値・null）以外の部分が一致する組を対応させる。同じ位置のリテラルが、記録した期待値から実際の値に変わっていれば拒否の候補とする。
 5. 候補のうち、このセッションで同じファイルをまだ拒否していないものがあれば、テストではなく実装を直すよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。
 

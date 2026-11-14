@@ -90,7 +90,7 @@ def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、依頼の範囲のイベント・最終応答・編集を集める。
     # 編集ツールの引数の解析は、共通utilityで行う。
     extract_edit_tool_changes = runpy.run_path(
-        os.path.join(_utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py')
+        os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py')
     )['extract_edit_tool_changes']
     events = _turn_events['get_turns'](transcript_path)[-1]
     changes = [

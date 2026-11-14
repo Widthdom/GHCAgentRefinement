@@ -19,9 +19,10 @@ _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
-_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'get-edited-paths', 'get-edited-paths.py'))
+_edit_tool_changes = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py'))
 
 
+# 名前の末尾の空白を検出するため、パスの末尾の空白を除くedit-tool-changes utilityのパッチの解析は使わない。
 _PATCH_FILE_PATTERN = re.compile(r'^\*\*\* (Add|Update|Delete) File: (.+)$')
 _INVALID_CHARACTERS = frozenset('<>:"\\|?*')
 # Windows also reserves superscript 1, 2 and 3 in COM/LPT device names.
@@ -67,12 +68,12 @@ def _get_operations(tool_name, tool_args):
     else:
         if not isinstance(tool_args, dict):
             raise ValueError('editing toolArgs must be a JSON object.')
-        if tool_name == 'str_replace_editor' and tool_args.get('command') in ('view', 'undo_edit'):
+        if tool_name == 'str_replace_editor' and tool_args.get('command') in _edit_tool_changes['NON_WRITE_COMMANDS']:
             return [], set()
-        # 対象のファイルのパスは `path`、`create` では `file_path` で渡される。引数名はget-edited-paths utilityと共有する。
-        path = _edited_paths['get_path_argument'](tool_args)
+        # 対象のファイルのパスは `path`、`create` では `file_path` で渡される。引数名はedit-tool-changes utilityと共有する。
+        path = _edit_tool_changes['get_path_argument'](tool_args)
         if path is None:
-            raise ValueError(f"one of {', '.join(_edited_paths['PATH_KEYS'])} must be a non-blank string.")
+            raise ValueError(f"one of {', '.join(_edit_tool_changes['PATH_KEYS'])} must be a non-blank string.")
         destinations.append(path)
     if any(not path or '\0' in path for path in [*destinations, *removed]):
         raise ValueError('file paths must be non-empty and must not contain NUL.')

@@ -25,7 +25,7 @@ _get_path_sha256_digest = runpy.run_path(os.path.join(
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _extract_edit_tool_changes = runpy.run_path(os.path.join(
-    _utilities_directory, 'extract-edit-tool-changes', 'extract-edit-tool-changes.py',
+    _utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py',
 ))['extract_edit_tool_changes']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',

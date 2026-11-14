@@ -10,7 +10,7 @@ agentStop（エージェントの応答終了時）
 1. [orphaned-addition-definitions.json](./orphaned-addition-definitions.json) から、参照に数えないファイルのパス（`ignoredReferenceFilePatterns`）、対象外の名前（`excludedNamePatterns`）、言語ごとの定義（`languages`）を読み込む。また、[check-test-files](../../../utilities/check-test-files/README.md) utilityで、テストファイルの判定の定義を読み込む。いずれかのファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
 2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[wait-for-agent-stop-event](../../../utilities/wait-for-agent-stop-event/README.md)）。
 3. ユーザーの最新の依頼以降について、編集系ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）が書き込む内容と、置換前の内容を集める。
-   - 各ツールの引数は [extract-edit-tool-changes](../../../utilities/extract-edit-tool-changes/README.md) の規則で解析する。
+   - 各ツールの引数は [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) の規則で解析する。
 4. `git rev-parse --show-toplevel` でリポジトリルートを特定する。gitがない、またはリポジトリ外の場合は何もせず正常終了する。
 5. リポジトリ内のファイルのうち、リポジトリルートからの相対パス（`/` 区切り）が `languages` の `filePattern` に一致し、テストファイルでないものについて、書き込む内容から `definitionPatterns` に一致する定義を探し、名前付きグループ `name` を定義名とする。次の定義は除く。
    - 定義名が `excludedNamePatterns` に一致するもの

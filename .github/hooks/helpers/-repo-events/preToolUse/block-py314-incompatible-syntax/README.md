@@ -7,7 +7,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 編集後のPythonファイルがPython 3.14でコンパイルできない場合（3.15以降で追加された文法、Python 2の文法、構文エラーなど）、その編集を拒否する。
 
 ## 処理詳細
-1. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から書き込み先のファイルごとに編集前と編集後のファイル全体の内容を、[simulate-edit-tool-changes](../../../utilities/simulate-edit-tool-changes/README.md) の規則で求める。拡張子が `.py`・`.pyi`・`.pyw`（大文字小文字を区別しない）でないファイルは対象外とする。
+1. 呼び出すツール（`toolName`・`toolArgs`）が編集系ツールなら、その引数から書き込み先のファイルごとに編集前と編集後のファイル全体の内容を、[edit-tool-changes](../../../utilities/edit-tool-changes/README.md) の規則で求める。拡張子が `.py`・`.pyi`・`.pyw`（大文字小文字を区別しない）でないファイルは対象外とする。
 2. 編集後の内容を、`ast.parse`（`feature_version=(3, 14)`）で構文解析し、`compile` でコンパイルする。`SyntaxError`（`IndentationError`・`TabError` を含む）になったファイルを拒否の候補とする。警告（`SyntaxWarning` など）は対象外とする。
 3. 候補のうち、編集前の内容がコンパイルできるか、まだ存在しないファイルについて、Python 3.14でコンパイルできるよう直すことを求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。理由には、cwd配下のファイルをcwdからの相対パス（`/` 区切り）で、エラーの行番号と内容とともに最大3件示す。
 
@@ -33,7 +33,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - `feature_version` による新しい文法の判定はCPythonの文法の実装に依存し、hookを3.15以降で実行した場合、一部の新しい文法を見逃す可能性がある。
 - Python 2の `except E, ex:` は、3.14では括弧なしの複数例外（PEP 758）として正しい文法になるため検出しない。
 - 標準ライブラリAPIの有無（3.15以降で追加された関数など）は文法ではないため検出しない。
-- 編集後の内容の求め方による限界（CRLFのファイルの置換、パッチの適用位置）は [simulate-edit-tool-changes](../../../utilities/simulate-edit-tool-changes/README.md) を参照。
+- 編集後の内容の求め方による限界（CRLFのファイルの置換、パッチの適用位置）は [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) を参照。
 
 ## 備考
 - このリポジトリのPythonスクリプトはPython 3.14を最低対応とするため（[hookの共通規約](../../../../../skills/create-hook/references/hook-conventions.md) 項目6）、3.14で動かない文法を書き込む前に防ぐためのhook。
