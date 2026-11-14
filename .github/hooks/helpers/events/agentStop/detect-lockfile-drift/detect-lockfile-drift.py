@@ -19,7 +19,7 @@ _is_non_blank_string_list = runpy.run_path(os.path.join(
     _utilities_directory, 'check-string-list', 'check-string-list.py',
 ))['is_non_blank_string_list']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
-_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
+_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _extract_edit_tool_changes = runpy.run_path(os.path.join(
     _utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py',
@@ -80,7 +80,7 @@ def _load_definitions(path):
 
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・書き込んだファイル・本hookによる差し戻し済みかを集める。
-    events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
+    events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
     paths = []
     for event_type, data in events:
         tool_name = data.get('toolName')
@@ -90,7 +90,7 @@ def _get_turn_summary(transcript_path):
                 path for change in _extract_edit_tool_changes(tool_name, data.get('arguments'))
                 for path in (change['path'], change['moved_to']) if path
             )
-    return _turn_events['get_last_assistant_message'](events), paths, already_requested
+    return _transcript_events['get_last_assistant_message'](events), paths, already_requested
 
 
 def _resolve_keys(value, parts):
@@ -196,9 +196,7 @@ def main(arguments=None):
         transcript_path = _hook_input['get_transcript_path'](hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
-        runpy.run_path(
-            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
-        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, paths, already_requested = _get_turn_summary(transcript_path)
         # 同じ依頼で差し戻すのは1回だけにし、意図して残す場合に停止できなくなるのを防ぐ。

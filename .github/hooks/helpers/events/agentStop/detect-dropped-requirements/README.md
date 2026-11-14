@@ -8,7 +8,7 @@ agentStop（エージェントの応答終了時）
 
 ## 処理詳細
 1. [requirement-definitions.json](./requirement-definitions.json) から、キーワードにしない語（`stopWords`）を読み込む。ファイルがない場合、形式に違反する場合は標準エラーに原因を出力して異常終了する。
-2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[wait-for-agent-stop-event](../../../utilities/wait-for-agent-stop-event/README.md)）。
+2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[read-transcript-events](../../../utilities/read-transcript-events/README.md)）。
 3. ユーザーの最新の依頼と、それ以降の最終応答を集める。
 4. 依頼からコードブロックを除き、箇条書き・番号付きの項目（`-`・`*`・`+`・`•`・`・`・`1.`・`1)`・`1）`・`①`〜`⑳`）のうち、最も浅い字下げのものを最大20個取り出す。項目が2個未満なら何もしない。
 5. 項目ごとにキーワードを取り出す。
@@ -31,7 +31,7 @@ agentStop（エージェントの応答終了時）
 ## 例外
 - キーワードを持たない項目（`stopWords` だけの項目、ひらがなだけの項目など）は判定できないため、触れたものとみなす。
 - 深い字下げの項目は親の項目の詳細とみなし、判定に使わない。
-- 依頼の区切りは [get-turn-events](../../../utilities/get-turn-events/README.md) の規則に従う。割り込みで追加された項目は判定に使わない。
+- 依頼の区切りは [read-transcript-events](../../../utilities/read-transcript-events/README.md) の規則に従う。割り込みで追加された項目は判定に使わない。
 - サブエージェントの停止は対象外とする。
 
 ## 制約と限界

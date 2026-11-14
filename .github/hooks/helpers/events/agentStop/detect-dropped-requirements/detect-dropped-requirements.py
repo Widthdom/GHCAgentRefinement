@@ -19,7 +19,7 @@ _is_non_blank_string_list = runpy.run_path(os.path.join(
     _utilities_directory, 'check-string-list', 'check-string-list.py',
 ))['is_non_blank_string_list']
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
-_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
+_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 
 
 # 定義ファイルのキー。stopWordsは、どの項目にも現れやすく項目を見分けられないため、キーワードにしない語。
@@ -126,14 +126,12 @@ def main():
         transcript_path = _hook_input['get_transcript_path'](hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答を書き込み済みにする。
-        runpy.run_path(
-            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
-        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         # ユーザーの最新の依頼、以降の最終応答、本hookによる差し戻し済みかを集める。
-        events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
-        latest_request = _turn_events['get_request'](events)
-        last_assistant_msg = _turn_events['get_last_assistant_message'](events)
+        events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
+        latest_request = _transcript_events['get_request'](events)
+        last_assistant_msg = _transcript_events['get_last_assistant_message'](events)
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to inspect dropped requirements: {ex}', file=sys.stderr)
         return 2

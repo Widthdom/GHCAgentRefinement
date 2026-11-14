@@ -19,7 +19,7 @@ _is_non_blank_string_list = runpy.run_path(os.path.join(
     _utilities_directory, 'check-string-list', 'check-string-list.py',
 ))['is_non_blank_string_list']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
-_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
+_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 
 
 # 定義ファイルのキー。evidenceToolNamesは根拠の確認とみなすツール名、pushbackPatternsはユーザーの反論・疑問、
@@ -62,7 +62,7 @@ def _load_definitions(definitions_path):
 
 def _get_turn_summary(transcript_path, evidence_tool_names):
     # ユーザーの最新の依頼、その前の応答の有無、以降の最終応答・根拠確認ツールの使用・本hookによる差し戻し済みかを集める。
-    turns = _turn_events['get_turns'](transcript_path)
+    turns = _transcript_events['get_turn_events'](transcript_path)
     events = turns[-1]
     used_evidence_tool = any(
         event_type == 'tool.execution_start' and isinstance(data.get('toolName'), str)
@@ -70,11 +70,11 @@ def _get_turn_summary(transcript_path, evidence_tool_names):
         for event_type, data in events
     )
     return (
-        _turn_events['get_request'](events),
-        len(turns) > 1 and _turn_events['get_last_assistant_message'](turns[-2]) is not None,
-        _turn_events['get_last_assistant_message'](events),
+        _transcript_events['get_request'](events),
+        len(turns) > 1 and _transcript_events['get_last_assistant_message'](turns[-2]) is not None,
+        _transcript_events['get_last_assistant_message'](events),
         used_evidence_tool,
-        _turn_events['is_already_requested'](events, _REASON_PREFIX),
+        _transcript_events['is_already_requested'](events, _REASON_PREFIX),
     )
 
 
@@ -117,9 +117,7 @@ def main():
         transcript_path = _hook_input['get_transcript_path'](hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答とツール実行を書き込み済みにする。
-        runpy.run_path(
-            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
-        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         summary = _get_turn_summary(transcript_path, evidence_tool_names)
     except (OSError, UnicodeError, ValueError) as ex:

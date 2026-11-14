@@ -9,7 +9,7 @@ agentStop（エージェントの応答終了時）
 ## 処理詳細
 1. 入力に `agentId` があれば何もしない（サブエージェントの停止）。
 2. セッションIDに対応するデバッグモード状態を読み取る。
-3. デバッグモードが有効な場合だけ、入力の `transcriptPath` を検証し、トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[wait-for-agent-stop-event](../../../utilities/wait-for-agent-stop-event/README.md)）。無効な場合は、`transcriptPath` が不正でも正常終了する。
+3. デバッグモードが有効な場合だけ、入力の `transcriptPath` を検証し、トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[read-transcript-events](../../../utilities/read-transcript-events/README.md)）。無効な場合は、`transcriptPath` が不正でも正常終了する。
 4. ユーザーの最新の依頼以降に本hookが2回差し戻していれば、何もしない。
 5. トランスクリプトから直近の応答で使用したhookとskillを特定する。さらに、[hookランナー](../../../runner/README.md)の記録から今回のターンで実際に機能したhookを特定し、現在時刻（JST）とともにフッタを作成する。
 6. 応答末尾に正しいフッターがない場合、本文を維持して正しいフッタを追加または置換するよう応答を差し止める。
@@ -23,7 +23,7 @@ agentStop（エージェントの応答終了時）
 |`Current time`|フッター作成時の現在時刻（JST）|
 
 ## ターンの区切り
-- 依頼の区切りは [get-turn-events](../../../utilities/get-turn-events/README.md) の規則に従い、`delivery` が `queued` でない `user.message` とする。フッター修正の依頼や他のhookの差し戻しは `queued` として記録されるため、ターンの区切りとせず、同じ依頼で使ったhook・skillを引き続き集計する。
+- 依頼の区切りは [read-transcript-events](../../../utilities/read-transcript-events/README.md) の規則に従い、`delivery` が `queued` でない `user.message` とする。フッター修正の依頼や他のhookの差し戻しは `queued` として記録されるため、ターンの区切りとせず、同じ依頼で使ったhook・skillを引き続き集計する。
 - 「Hooks fired」は、直近のユーザー依頼の `userPromptSubmitted` の `hook.start` 以降に起動したhookを対象とする。`userPromptSubmitted` のhookは `user.message` より前に記録されるため。
 - skillツールの引数は、JSON文字列で記録された場合も解析して読む（[unwrap-tool-args](../../../utilities/unwrap-tool-args/unwrap-tool-args.py)）。
 

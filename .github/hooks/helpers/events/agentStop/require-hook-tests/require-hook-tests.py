@@ -14,7 +14,7 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
-_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
+_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
@@ -35,9 +35,9 @@ _PYTHON_COMMAND = 'python' if sys.platform == 'win32' else 'python3'
 def _get_turn_events(transcript_path):
     # ユーザーの最新の依頼以降の、編集ツールで変更したファイルとシェル実行を、完了した順に集める。
     # 戻り値は (('edit', パス) または ('shell', (コマンド, 終了コード)) のリスト, 本hookによる差し戻し済みか)。
-    turn_events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
+    turn_events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
     events = []
-    for tool_name, arguments, completion in _turn_events['get_tool_calls'](turn_events):
+    for tool_name, arguments, completion in _transcript_events['get_tool_calls'](turn_events):
         if completion is None:
             continue
         arguments = _unwrap_tool_args(arguments)
@@ -46,7 +46,7 @@ def _get_turn_events(transcript_path):
         elif (_tool_kinds['is_shell_tool'](tool_name) and isinstance(arguments, dict)
                 and isinstance(arguments.get('command'), str)):
             # 拒否などで実行されなかった場合は終了コードが記録されないため、成功とみなさない。
-            events.append(('shell', (arguments['command'], _turn_events['get_shell_exit_code'](completion))))
+            events.append(('shell', (arguments['command'], _transcript_events['get_shell_exit_code'](completion))))
     return events, already_requested
 
 
@@ -217,9 +217,7 @@ def main():
         transcript_path = _hook_input['get_transcript_path'](hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最後のツール実行の結果を書き込み済みにする。
-        runpy.run_path(
-            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
-        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         events, already_requested = _get_turn_events(transcript_path)
     except (OSError, UnicodeError, ValueError) as ex:

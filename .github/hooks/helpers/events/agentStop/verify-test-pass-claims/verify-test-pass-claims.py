@@ -15,7 +15,7 @@ _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
-_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
+_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
@@ -48,21 +48,21 @@ _MAX_COMMAND_LENGTH = 200
 def _get_turn_summary(transcript_path, extract_edit_tool_changes):
     # ユーザーの最新の依頼以降の、ファイル編集とシェル実行を完了した順に集め、依頼の範囲のイベントと最終応答も返す。
     # 編集は ('edit', 変更したファイルのパスのリスト)、シェル実行は ('shell', (コマンド, 終了コード)) とする。
-    turn_events = _turn_events['get_turns'](transcript_path)[-1]
+    turn_events = _transcript_events['get_turn_events'](transcript_path)[-1]
     events = []
     # 完了していないシェル実行は、終了コードのない実行として最後に加わる。
-    for tool_name, arguments, completion in _turn_events['get_tool_calls'](turn_events):
+    for tool_name, arguments, completion in _transcript_events['get_tool_calls'](turn_events):
         command = _get_shell_command(tool_name, arguments)
         if command is not None:
             # 拒否などで実行されなかった場合は終了コードが記録されないため、成功とみなさない。
-            events.append(('shell', (command, _turn_events['get_shell_exit_code'](completion))))
+            events.append(('shell', (command, _transcript_events['get_shell_exit_code'](completion))))
         elif completion is not None and completion.get('success') is True:
             changes = extract_edit_tool_changes(tool_name, arguments, include_deleted=True)
             if changes:
                 events.append(('edit', [
                     path for change in changes for path in (change['path'], change['moved_to']) if path is not None
                 ]))
-    return events, turn_events, _turn_events['get_last_assistant_message'](turn_events)
+    return events, turn_events, _transcript_events['get_last_assistant_message'](turn_events)
 
 
 def _get_shell_command(tool_name, arguments):
@@ -213,9 +213,7 @@ def main():
             os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py')
         )['extract_edit_tool_changes']
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と最後のツール実行の結果を書き込み済みにする。
-        runpy.run_path(
-            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
-        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         events, turn_events, last_assistant_msg = _get_turn_summary(transcript_path, extract_edit_tool_changes)
     except (OSError, UnicodeError, ValueError) as ex:
@@ -227,7 +225,7 @@ def main():
     # 同じ依頼で差し戻すのは種類ごとに1回だけにし、根拠を示せない場合に停止できなくなるのを防ぐ。
     # 複数の種類が当てはまる場合は1つずつ差し戻し、理由の書き出しで差し戻し済みの種類を判定できるようにする。
     for prefix, reason in _get_block_reasons(last_assistant_msg, events, cwd, check_test_runs):
-        if not _turn_events['is_already_requested'](turn_events, prefix):
+        if not _transcript_events['is_already_requested'](turn_events, prefix):
             _hook_output['write_block_decision'](reason)
             break
     return 0

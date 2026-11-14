@@ -393,10 +393,10 @@ class DebugResponseFooterTests(unittest.TestCase):
         for event, expected_error in (
             ([], 'line 1'),
             ([{'type': 'assistant.message'}], 'line 1'),
-            ({'type': 'assistant.message', 'data': []}, 'Event data must be a JSON object.'),
-            ({'type': 'assistant.message', 'data': None}, 'Event data must be a JSON object.'),
-            # 依頼ごとに分けるget-turn-eventsの規則で、assistant.message以外の行もdataの形を検証する。
-            ({'type': 'user.message', 'data': []}, 'Event data must be a JSON object.'),
+            ({'type': 'assistant.message', 'data': []}, 'Event data must be a JSON object at line 1.'),
+            ({'type': 'assistant.message', 'data': None}, 'Event data must be a JSON object at line 1.'),
+            # read-transcript-eventsの規則で、assistant.message以外の行もdataの形を検証する。
+            ({'type': 'user.message', 'data': []}, 'Event data must be a JSON object at line 1.'),
             ({'type': 'user.message', 'data': {'content': 'request'}}, 'No assistant response was found in the transcript.'),
         ):
             with self.subTest(event=event, expected_error=expected_error):
@@ -648,15 +648,9 @@ class DebugResponseFooterTests(unittest.TestCase):
                 'sessionId': self.__enabled_session_id, 'transcriptPath': self.__valid_transcript, 'timestamp': timestamp,
             })
 
-        real_run_path = runpy.run_path
         wait_mock = Mock()
-
-        def _run_path_with_wait_mock(path, *args, **kwargs):
-            if str(path).endswith('wait-for-agent-stop-event.py'):
-                return {'wait_for_agent_stop_event': wait_mock}
-            return real_run_path(path, *args, **kwargs)
-
-        exit_code, output, error = _run_main(_timestamped_input(123), Mock(side_effect=_run_path_with_wait_mock))
+        with patch.dict(hook['_transcript_events'], {'wait_for_agent_stop_event': wait_mock}):
+            exit_code, output, error = _run_main(_timestamped_input(123))
         if exit_code != 0 or error or json.loads(output).get('decision') != 'block':
             raise AssertionError(f'Expected footer check after waiting for hook.start: {exit_code}, {output}, {error}')
         wait_mock.assert_called_once_with(self.__valid_transcript, 123)

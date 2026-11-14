@@ -8,7 +8,7 @@ agentStop（エージェントの応答終了時）
 
 ## 処理詳細
 1. [temporary-code-definitions.json](./temporary-code-definitions.json) から、対象外のファイルのパス（`excludedFilePatterns`）、デバッグ用のコードの正規表現（`debugPatterns`）、仮実装の正規表現（`placeholderPatterns`）、応答で未実装に触れているとみなす正規表現（`placeholderDisclosurePatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
-2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[wait-for-agent-stop-event](../../../utilities/wait-for-agent-stop-event/README.md)）。
+2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[read-transcript-events](../../../utilities/read-transcript-events/README.md)）。
 3. ユーザーの最新の依頼以降について、最終応答と、編集系ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）の書き込む内容と置換前の内容を集める。
    - 各ツールの引数は [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) の規則で解析する。
 4. 次の種類の順に、cwdからの相対パス（`/` 区切り）が `excludedFilePatterns` に一致しないファイルについて、書き込む内容のうち種類の正規表現に一致する行を探す。前後の空白を除いて同じ行が置換前の内容にあるもの（元からあるもの）と、ファイルの現在の内容にないもの（後の編集で消えたもの）は除く。同じファイルの同じ行は、同じ種類の複数の項目に一致しても1件にまとめる。この照合は [find-introduced-lines-by-regex.py](../../../utilities/find-introduced-lines-by-regex/find-introduced-lines-by-regex.py) で行う。
@@ -45,7 +45,7 @@ agentStop（エージェントの応答終了時）
 - `FIXME` は対象外とする。[add-fixme-comment](../../../../../skills/add-fixme-comment/SKILL.md) skillが依頼範囲外の不具合の目印として意図的に書き込むため。
 - 応答で未実装に触れていても、デバッグ用のコードは検査する。
 - サブエージェントの停止は対象外。
-- 依頼の区切りは [get-turn-events](../../../utilities/get-turn-events/README.md) の規則に従う。
+- 依頼の区切りは [read-transcript-events](../../../utilities/read-transcript-events/README.md) の規則に従う。
 - 最新の依頼の編集だけを対象とする。それより前の依頼の編集やユーザーの変更で入ったものは検出しない。
 - シェルによる書き込みは対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../../preToolUse/block-shell-file-edits/README.md) hookが拒否する。
 

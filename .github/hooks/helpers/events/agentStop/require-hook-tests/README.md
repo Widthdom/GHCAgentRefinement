@@ -7,7 +7,7 @@ agentStop（エージェントの応答終了時）
 hookの実装・定義・テストなど対象のファイルを変更したのに、最後の変更の後で必要なテストが成功していなければ、テストを実行するか実行できない旨を明記するよう差し戻す。
 
 ## 処理詳細
-1. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[wait-for-agent-stop-event](../../../utilities/wait-for-agent-stop-event/README.md)）。
+1. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[read-transcript-events](../../../utilities/read-transcript-events/README.md)）。
 2. ユーザーの最新の依頼以降について、ファイル編集ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）で変更に成功したファイルと、bash・powershellで実行したコマンドとその終了コードを、完了した順に集める。
 3. 変更したファイルごとに、必要なテストを決める（[判定の範囲](#判定の範囲)を参照）。
 4. 最後に変更した後で、必要なテストを実行したコマンドが成功していなければ、未確認とする。終了コードが0で、かつその終了コードがテストの結果を表す場合を成功とする。
@@ -37,7 +37,7 @@ hookの実装・定義・テストなど対象のファイルを変更したの�
 - 削除したhook（フォルダーが残っていないもの）
 - 失敗した編集、`view` などの閲覧
 - [.github/hooks/](../../../../../hooks/) 以外のファイル
-- 依頼の区切りは [get-turn-events](../../../utilities/get-turn-events/README.md) の規則に従う。
+- 依頼の区切りは [read-transcript-events](../../../utilities/read-transcript-events/README.md) の規則に従う。
 - サブエージェントの停止は対象外とする。依頼の完了を報告するのは親のため。
 
 ## 制約と限界
