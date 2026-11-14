@@ -1,0 +1,81 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.github/hooks/helpers/runner/run-codex-hook.py\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -Command \"& python ((git rev-parse --show-toplevel) + '/.github/hooks/helpers/runner/run-codex-hook.py')\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.github/hooks/helpers/runner/run-codex-hook.py\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -Command \"& python ((git rev-parse --show-toplevel) + '/.github/hooks/helpers/runner/run-codex-hook.py')\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.github/hooks/helpers/runner/run-codex-hook.py\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -Command \"& python ((git rev-parse --show-toplevel) + '/.github/hooks/helpers/runner/run-codex-hook.py')\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.github/hooks/helpers/runner/run-codex-hook.py\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -Command \"& python ((git rev-parse --show-toplevel) + '/.github/hooks/helpers/runner/run-codex-hook.py')\""
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.github/hooks/helpers/runner/run-codex-hook.py\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -Command \"& python ((git rev-parse --show-toplevel) + '/.github/hooks/helpers/runner/run-codex-hook.py')\""
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.github/hooks/helpers/runner/run-codex-hook.py\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -Command \"& python ((git rev-parse --show-toplevel) + '/.github/hooks/helpers/runner/run-codex-hook.py')\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.github/hooks/helpers/runner/run-codex-hook.py\"",
+            "commandWindows": "powershell -NoProfile -NonInteractive -Command \"& python ((git rev-parse --show-toplevel) + '/.github/hooks/helpers/runner/run-codex-hook.py')\""
+          }
+        ]
+      }
+    ]
+  }
+}
