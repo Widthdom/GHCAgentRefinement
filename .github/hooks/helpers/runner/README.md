@@ -51,6 +51,9 @@ Copilotは `timeoutSec` を超えたhookのプロセスを終了させる。hook
 ### 未確認の事項
 Copilotはhookのコマンドを `bash`/`powershell` 経由で起動する。タイムアウト時にCopilotが終了させるのがシェルだけの場合、その先の `python` はランナーの方式によらず取り残される可能性がある。実際に `timeoutSec` を超えるhookでの確認は未実施。
 
+## Claude Codeからの起動
+Claude Codeでは、[run-claude-hook.py](./run-claude-hook.py) がClaude Codeの入出力をCopilot SDKの形式に変換し、hook定義のhookを本ランナーで実行する。起動と機能の記録は、Copilotからの起動と同じく行う。構成、変換の規則、制約は [.claude/README.md](../../../../.claude/README.md) を参照。
+
 ## 備考
 - 記録に失敗しても、hookの出力と終了コードは変えない。失敗の原因は標準エラーに出力する。
 - 記録を読むのは [debug-add-response-footer](../events/agentStop/debug-add-response-footer/README.md) のみ。

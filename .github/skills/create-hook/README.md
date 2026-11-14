@@ -6,7 +6,7 @@
 
 ## 対象ランタイム
 
-VS CodeのSession Targetが `Copilot` の場合はCLIと同じSDK hook実装を使うため、SDKの仕様に従えば両方で動く。一方、`Local`、`Claude`、`Codex` は異なる実行環境であり、同じ設定が読み込まれても互換性があるとは限らない。そのため、SDK以外の形式向けの互換処理は加えない。VS Codeのバージョンによってイベントの対応状況が異なるため、対象バージョンでイベントを確認する。
+VS CodeのSession Targetが `Copilot` の場合はCLIと同じSDK hook実装を使うため、SDKの仕様に従えば両方で動く。一方、`Local`、`Claude`、`Codex` は異なる実行環境であり、同じ設定が読み込まれても互換性があるとは限らない。そのため、hookにはSDK以外の形式向けの互換処理を加えない。Claude Codeだけは、hookの外側に置いたアダプターが入出力をSDKの形式に変換することで対応する（[.claude/README.md](../../../.claude/README.md)）。hook自体はSDKの形式だけを扱えばよい。VS Codeのバージョンによってイベントの対応状況が異なるため、対象バージョンでイベントを確認する。
 
 ## 実装言語
 
@@ -38,7 +38,7 @@ Pythonの標準入出力の既定エンコーディングはOSやロケールに
 
 ## 終了コード
 
-Copilot SDK/CLIの `preToolUse` command hookでは非ゼロ終了が拒否扱いになる一方、VS Code Localでは `exit 1` が非ブロッキング警告、`exit 2` がブロッキングエラーを表す。Localは対象外だが、異常終了を `exit 2` に統一すると失敗の意味が明確になり、hook間の扱いも揃う。
+Copilot SDK/CLIの `preToolUse` command hookでは非ゼロ終了が拒否扱いになる一方、VS Code Localでは `exit 1` が非ブロッキング警告、`exit 2` がブロッキングエラーを表す。Localは対象外だが、異常終了を `exit 2` に統一すると失敗の意味が明確になり、hook間の扱いも揃う。Claude Codeでも `exit 2` はブロックを表すため、アダプターが非ブロックの `exit 1` に変えて返す。
 
 ## 発動フローの図の文言
 
