@@ -4,7 +4,7 @@
 sessionStart（セッション開始時）
 
 ## 処理概要
-hookとエージェントが使うコマンドラインツール（ast-grep・Git・jq・ripgrep）が使えるかを確認し、使えないものがあれば導入方法をエージェント経由でユーザーに案内させる。
+hookとエージェントが使うコマンドラインツール（ast-grep・jq・ripgrep）が使えるかを確認し、使えないものがあれば導入方法をエージェント経由でユーザーに案内させる。
 
 ## 処理詳細
 1. [required-tool-definitions.json](./required-tool-definitions.json) から、ツールの表示名（`name`）、コマンド（`command`）、バージョンの表示を読み取る正規表現（`versionPattern`）、最低バージョン（`minimumVersion`）、OSごとの導入方法（`install`）を読み込む。ファイルがない、形式が不正、正規表現・バージョンが不正な場合は異常終了する。
@@ -16,8 +16,7 @@ hookとエージェントが使うコマンドラインツール（ast-grep・Gi
 |ツール|コマンド|最低バージョン|根拠|
 |--|--|--|--|
 |ast-grep|`ast-grep`|なし|1.0未満で頻繁に破壊的変更があり、Ubuntu LTSなど基準にできる標準パッケージもないため、特定のバージョンを要件にする根拠がない。|
-|Git|`git`|2.34.1|標準サポート期間中で最も古いUbuntu LTS（22.04）の標準パッケージ。|
-|jq|`jq`|1.6|同上。|
+|jq|`jq`|1.6|標準サポート期間中で最も古いUbuntu LTS（22.04）の標準パッケージ。|
 |ripgrep|`rg`|13.0.0|同上。|
 
 ## 制約と限界
@@ -25,6 +24,7 @@ hookとエージェントが使うコマンドラインツール（ast-grep・Gi
 - 最新バージョンかどうかは確認しない。
 - PATH上で最初に見つかったコマンドを確認する。ripgrepでは、VS Code同梱のripgrepかどうかは区別しない（[トラブルシューティング](#トラブルシューティング)を参照）。
 - Pythonは確認しない。このhookはPythonで動くため、Pythonがない環境でも案内できるよう、[check-python](../check-python/README.md) hookが `.sh`・`.cmd` で確認する。
+- Gitは確認しない。インストールされていることを前提とする（[.github/README.md](../../../../../README.md) の前提条件を参照）。WindowsのClaude CodeではGit Bashの `sh` がないとアダプターの起動スクリプト（[run-claude-hook.sh](../../../runner/run-claude-hook.sh)）を実行できず、このhookでは案内できないため。
 
 ## 備考
 - 標準エラーはユーザーに表示されないことがある。sessionStartで解釈される出力は `additionalContext` だけで、標準出力は終了コード0のときだけ読まれるため、案内はエージェントを介して行う。
