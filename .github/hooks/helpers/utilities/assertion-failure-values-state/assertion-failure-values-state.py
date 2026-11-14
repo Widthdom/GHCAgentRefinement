@@ -1,8 +1,6 @@
 import json
 import os
 import runpy
-import sqlite3
-from contextlib import closing, contextmanager
 
 
 # 状態の保存先と照合用のダイジェストは共通のutilityで作る。utilityのフォルダーの親がutilitiesである。
@@ -43,20 +41,16 @@ def get_pair_key(expected, actual):
     return get_value_key(json.dumps([expected, actual], ensure_ascii=False, separators=(',', ':')))
 
 
-@contextmanager
 def open_state(state_path):
-    # SQLiteのトランザクションで、並列のツール呼び出しでも状態の更新を取りこぼさない。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
+    # 書き込みのトランザクションを始めた状態の接続を返す。表は次のとおり。
     #   pairs：最新のテスト実行で失敗した (期待値, 実際の値) の組。
     #   expected_values：pairsの期待値。期待値の側が決まらない形式では両方の値。
     #   denials：期待値の書き換えを1回拒否したファイル（block-goalpost-moving）。
     #   hardcoding_denials：期待値のハードコードを1回拒否したファイル（block-hardcoding-for-tests）。
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute('CREATE TABLE IF NOT EXISTS pairs (pair TEXT PRIMARY KEY)')
-        connection.execute('CREATE TABLE IF NOT EXISTS expected_values (value TEXT PRIMARY KEY)')
-        connection.execute('CREATE TABLE IF NOT EXISTS denials (file TEXT PRIMARY KEY)')
-        connection.execute('CREATE TABLE IF NOT EXISTS hardcoding_denials (file TEXT PRIMARY KEY)')
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            yield connection
+    return _state_path_utility['open_state_database'](
+        state_path,
+        'CREATE TABLE IF NOT EXISTS pairs (pair TEXT PRIMARY KEY)',
+        'CREATE TABLE IF NOT EXISTS expected_values (value TEXT PRIMARY KEY)',
+        'CREATE TABLE IF NOT EXISTS denials (file TEXT PRIMARY KEY)',
+        'CREATE TABLE IF NOT EXISTS hardcoding_denials (file TEXT PRIMARY KEY)',
+    )

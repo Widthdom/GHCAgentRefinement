@@ -1,8 +1,6 @@
 import os
 import runpy
 import re
-import sqlite3
-from contextlib import closing, contextmanager
 
 
 # 状態の保存先は共通のutilityで決める。utilityのフォルダーの親がutilitiesである。
@@ -39,23 +37,12 @@ def normalize_name(ecosystem, name):
     return name
 
 
-@contextmanager
-def _open_state(state_path):
-    # SQLiteのトランザクションで、並列のツール呼び出しでも状態の更新を取りこぼさない。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute(
-            'CREATE TABLE IF NOT EXISTS verified (ecosystem TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY (ecosystem, name))'
-        )
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            yield connection
-
-
 def record_verified(state_path, packages):
     # packages：(エコシステム, 名前) のリスト。
-    with _open_state(state_path) as connection:
+    with _state_path_utility['open_state_database'](
+        state_path,
+        'CREATE TABLE IF NOT EXISTS verified (ecosystem TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY (ecosystem, name))',
+    ) as connection:
         connection.executemany(
             'INSERT OR IGNORE INTO verified (ecosystem, name) VALUES (?, ?)',
             [(ecosystem, normalize_name(ecosystem, name)) for ecosystem, name in packages],
@@ -64,10 +51,4 @@ def record_verified(state_path, packages):
 
 def get_verified(state_path):
     # 戻り値は (エコシステム, 正規化した名前) の集合。状態ファイルがなければ空。
-    if not os.path.isfile(state_path):
-        return set()
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        try:
-            return set(connection.execute('SELECT ecosystem, name FROM verified').fetchall())
-        except sqlite3.OperationalError:
-            return set()
+    return set(_state_path_utility['read_state_database'](state_path, 'SELECT ecosystem, name FROM verified'))

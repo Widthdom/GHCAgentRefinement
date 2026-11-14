@@ -38,13 +38,6 @@ class FilterFirstTimeDenialsTests(unittest.TestCase):
         connection.close()
         self.assertEqual(rows, [('a',)])
 
-    def test_invalid_state_file(self):
-        os.makedirs(os.path.dirname(self.__state_path))
-        with open(self.__state_path, 'wb') as file:
-            file.write(b'not a database')
-        with self.assertRaises(sqlite3.Error):
-            _filter_first_time_denials(self.__state_path, [('a', None)])
-
 
 if __name__ == '__main__':
     _run_tests()

@@ -4,7 +4,6 @@ import re
 import runpy
 import sqlite3
 import sys
-from contextlib import closing
 from typing import cast
 
 
@@ -20,7 +19,8 @@ _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kind
 _get_text_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_text_sha256_digest']
-_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
+_state_path_utility = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))
+_get_state_path = _state_path_utility['get_state_path']
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
@@ -163,21 +163,18 @@ def _record_counts(state_path, command, executed, skipped):
     # 同じコマンドの前回の件数を返し、今回の件数で置き換える。コマンドは保存せず、照合用のSHA-256だけを保存する。
     # SQLiteのトランザクションで、並列のツール呼び出しでも状態の更新を取りこぼさない。
     command_key = _get_text_sha256_digest(command)
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
+    with _state_path_utility['open_state_database'](
+        state_path,
+        'CREATE TABLE IF NOT EXISTS counts ('
+        'command TEXT PRIMARY KEY, executed INTEGER NOT NULL, skipped INTEGER NOT NULL)',
+    ) as connection:
+        previous = connection.execute(
+            'SELECT executed, skipped FROM counts WHERE command = ?', (command_key,),
+        ).fetchone()
         connection.execute(
-            'CREATE TABLE IF NOT EXISTS counts ('
-            'command TEXT PRIMARY KEY, executed INTEGER NOT NULL, skipped INTEGER NOT NULL)'
+            'INSERT OR REPLACE INTO counts (command, executed, skipped) VALUES (?, ?, ?)',
+            (command_key, executed, skipped),
         )
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            previous = connection.execute(
-                'SELECT executed, skipped FROM counts WHERE command = ?', (command_key,),
-            ).fetchone()
-            connection.execute(
-                'INSERT OR REPLACE INTO counts (command, executed, skipped) VALUES (?, ?, ?)',
-                (command_key, executed, skipped),
-            )
     return previous
 
 
