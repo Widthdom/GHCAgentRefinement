@@ -9,7 +9,7 @@ preToolUse（bashまたはpowershellツールの実行前）
 ## 処理詳細
 1. Windowsでは `python`、macOS/Linuxでは `python3` が見つからない場合、またはPython 3.14未満の場合、標準エラーにその旨を出力したうえでツール実行拒否JSONを標準出力する。
 2. 1.以外の場合、標準入力を引き継いで[py](./block-commands.py)を実行する。
-3. [blocked-command-definitions.json](./blocked-command-definitions.json) が存在しない場合、フォーマット違反の場合、不正な正規表現がひとつでも含まれていた場合は異常終了し、標準エラーにその旨を出力したうえでツール実行拒否JSONを標準出力する。
+3. [blocked-command-definitions.json](./blocked-command-definitions.json) を [read-definitions](../../../utilities/read-definitions/README.md) で読み込む。定義は `name`・`pattern`・`reason` を持つオブジェクトの空でない配列とする。ファイルがない場合、フォーマット違反（空の配列を含む）の場合、不正な正規表現がひとつでも含まれていた場合は、危険なコマンドを止められないため異常終了し、標準エラーにその旨を出力したうえでツール実行拒否JSONを標準出力する。
 4. 呼び出すツール（`toolName`・`toolArgs`）がbash・powershellで、そのコマンドが `blocked-command-definitions.json` に定義された正規表現に一致した場合は、定義の `reason` を拒否理由とするツール実行拒否JSONを標準出力し、正常終了する。標準エラーには出力しない。
    - `toolArgs` がJSON文字列に包まれている場合は、[unwrap-tool-args.py](../../../utilities/unwrap-tool-args/unwrap-tool-args.py) で包みを外してから `command` を取り出す。JSONとして解析できない文字列は、そのままコマンドとして扱う。
 

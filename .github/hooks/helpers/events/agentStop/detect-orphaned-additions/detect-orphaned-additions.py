@@ -1,6 +1,5 @@
 import argparse
 import io
-import json
 import os
 import re
 import runpy
@@ -15,11 +14,8 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_is_non_blank_string_list = runpy.run_path(os.path.join(
-    _utilities_directory, 'check-string-list', 'check-string-list.py',
-))['is_non_blank_string_list']
 _transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 
@@ -43,43 +39,30 @@ _BLOCK_REASON = (
 
 def _load_language(definition):
     # 戻り値は (ファイルのパスの正規表現, 注釈の正規表現またはNone, 定義の正規表現のリスト)。
-    if not isinstance(definition, dict) or not all(
-        isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'filePattern')
-    ):
-        raise ValueError(f'each item of {_LANGUAGES_KEY} requires non-blank strings for name and filePattern.')
-    key = f'{_LANGUAGES_KEY}[{definition["name"]}]'
-    annotation = definition.get('annotationPattern')
-    if annotation is not None and not (isinstance(annotation, str) and annotation.strip()):
-        raise ValueError(f'annotationPattern in {key} must be a non-blank string when present.')
-    definition_patterns = definition.get('definitionPatterns')
-    if not _is_non_blank_string_list(definition_patterns):
-        raise ValueError(f'definitionPatterns in {key} must be a non-empty array of non-blank strings.')
+    if not isinstance(definition, dict) or not isinstance(definition.get('name'), str) or not definition['name'].strip():
+        raise ValueError(f'each item of {_LANGUAGES_KEY} requires a non-blank string for name.')
+    label = f'{_LANGUAGES_KEY}[{definition["name"]}]'
     # 定義は行頭から照合するため、行頭は各行に一致させる。
-    compiled = _build_regex_matchers(definition_patterns, key, re.MULTILINE)
+    compiled = _definitions['get_regex_matchers'](definition, 'definitionPatterns', label, flags=re.MULTILINE)
     if any('name' not in pattern.groupindex for pattern in compiled):
-        raise ValueError(f'each definitionPattern in {key} requires a named group "name".')
+        raise ValueError(f'each definitionPattern in {label} requires a named group "name".')
     return (
-        _build_regex_matchers([definition['filePattern']], key)[0],
-        None if annotation is None else _build_regex_matchers([annotation], key)[0],
+        _definitions['get_regex_matcher'](definition, 'filePattern', label),
+        None if definition.get('annotationPattern') is None
+        else _definitions['get_regex_matcher'](definition, 'annotationPattern', label),
         compiled,
     )
 
 
 def _load_definitions(path):
-    # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
-    with open(path, encoding='utf-8-sig') as definitions_file:
-        definitions = json.load(definitions_file)
-    if not isinstance(definitions, dict):
-        raise ValueError('orphaned addition definitions must be a JSON object.')
-    for key in (_IGNORED_REFERENCE_FILE_PATTERNS_KEY, _EXCLUDED_NAME_PATTERNS_KEY):
-        if not _is_non_blank_string_list(definitions.get(key), allow_empty_list=True):
-            raise ValueError(f'orphaned addition definitions require an array of non-blank strings for {key}.')
+    label = 'orphaned addition definitions'
+    definitions = _definitions['read_definitions'](path, label)
     languages = definitions.get(_LANGUAGES_KEY)
     if not isinstance(languages, list) or not languages:
-        raise ValueError(f'orphaned addition definitions require a non-empty array for {_LANGUAGES_KEY}.')
+        raise ValueError(f'{_LANGUAGES_KEY} in {label} must be a non-empty array.')
     return (
-        _build_regex_matchers(definitions[_IGNORED_REFERENCE_FILE_PATTERNS_KEY], _IGNORED_REFERENCE_FILE_PATTERNS_KEY),
-        _build_regex_matchers(definitions[_EXCLUDED_NAME_PATTERNS_KEY], _EXCLUDED_NAME_PATTERNS_KEY),
+        _definitions['get_regex_matchers'](definitions, _IGNORED_REFERENCE_FILE_PATTERNS_KEY, label, allow_empty_list=True),
+        _definitions['get_regex_matchers'](definitions, _EXCLUDED_NAME_PATTERNS_KEY, label, allow_empty_list=True),
         [_load_language(language) for language in languages],
     )
 

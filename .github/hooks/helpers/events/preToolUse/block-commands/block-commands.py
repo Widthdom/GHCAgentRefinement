@@ -1,6 +1,5 @@
 import argparse
 import io
-import json
 import os
 import re
 import runpy
@@ -15,7 +14,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
@@ -37,6 +36,19 @@ def _is_non_blank_string(value):
 def _write_stderr_msg_and_deny(msg):
     print(msg, file=sys.stderr)
     _hook_output['write_deny_decision'](msg)
+
+
+def _load_definitions(path):
+    # 定義ファイルは、name・pattern・reasonを持つオブジェクトの、空でないJSON配列として読み込む。UTF-8 BOMは許容する。
+    # 戻り値は (コンパイル済みの正規表現, 拒否理由) のリスト。
+    # 定義ファイルがなければOSError、形式や正規表現が不正ならValueErrorを送出する。
+    label = 'blocked command definitions'
+    definitions = _definitions['read_definitions'](path, label, list)
+    named_patterns = _definitions['build_named_regex_matchers'](definitions, label)
+    # name・patternの検証で、各定義がJSONオブジェクトであることは確かめ済み。
+    if not all(_is_non_blank_string(definition.get('reason')) for definition in definitions):
+        raise ValueError(f'each item of {label} requires a non-blank string for reason.')
+    return [(pattern, definition['reason']) for (_, pattern), definition in zip(named_patterns, definitions)]
 
 
 def main(arguments=None):
@@ -66,62 +78,13 @@ def main(arguments=None):
     # parse_args：引数がNoneのときはsys.argv[1:]（実際のコマンドライン引数からスクリプト名を除いたもの）を解析する。
     parsed_args = parser.parse_args(arguments)
 
-    # ブロック対象定義ファイルが見つからない、または存在を確認できない場合は異常終了。
-    # f'...' は formatted string literalのことで、文字列の中に {式} の値を埋め込める書き方。C#の $"..." に相当する。
-    if not os.path.exists(parsed_args.defs_path):
-        _write_stderr_msg_and_deny(f'Blocked command definitions not found or existence could not be verified: {parsed_args.defs_path}')
-        return 2
-
-    # ブロック対象定義ファイルパスがファイルではない、またはファイルであることを確認できない場合は異常終了。
-    if not os.path.isfile(parsed_args.defs_path):
-        _write_stderr_msg_and_deny(f'Blocked command definitions path is not a file or could not be verified as a file: {parsed_args.defs_path}')
-        return 2
-
-    # 定義ファイルはUTF-8のJSON配列として読み込む。UTF-8 BOMは許容する。
-    # sig は signatureの略でありここではByte Order Mark (BOM) を指す。
-    # BOMはテキストファイルのバイト列先頭に付けることがある、文字コードなどを識別するための目印。（UTF-8ではBOMなしも一般的）
-    # `utf-8-sig` を指定することで、BOMが存在する場合は取り除いて読むことができる。
+    # ブロック対象定義ファイルを読み込み、各定義を検証する。
+    # 定義を読めない、または不正な場合は、危険なコマンドを止められないため、異常終了するとともにツール実行を拒否する。
     try:
-        # with：処理を抜けるときの後片付けを自動で行う構文（C#のusingに相当）。
-        with open(parsed_args.defs_path, encoding='utf-8-sig') as defs_json_array:
-            definitions = json.load(defs_json_array)
-    except (OSError, UnicodeError, json.JSONDecodeError) as ex:
-        _write_stderr_msg_and_deny(f'Failed to parse blocked command definitions: {ex}')
+        compiled_definitions = _load_definitions(parsed_args.defs_path)
+    except (OSError, ValueError) as ex:
+        _write_stderr_msg_and_deny(f'Failed to load blocked command definitions: {ex}')
         return 2
-
-    # blocked-command-definitions.jsonはJSON配列すなわち最外側が[]なので、前段のjson.loadによりdefinitionsはlistとなる。
-    if not isinstance(definitions, list):
-        _write_stderr_msg_and_deny('Blocked command definitions must be a JSON array.')
-        return 2
-
-    # 各定義を検証する。
-    compiled_definitions = []
-    for definition in definitions:
-        # blocked-command-definitions.jsonのJSON配列要素は{}なので、前段のjson.loadによりdefinitionはdictとなる。
-        if not isinstance(definition, dict):
-            _write_stderr_msg_and_deny('Each blocked command definition must be a JSON object.')
-            return 2
-
-        # 必須項目に欠落があれば異常終了。
-        # 各キーの値を取得して、空白以外を含む文字列か否かの結果を確認し、ひとつでもFalseであれば異常終了。
-        # allは、前から評価してFalseが見つかった時点で即座にFalseを返す。
-        #   ここでは_is_non_blank_string(definition.get('pattern'))がfalseなら_is_non_blank_string(definition.get('reason'))は実行されない。
-        if not all(
-            # getはキーが無くてもNoneを返す。ここでdefinitions[key]のようにするとKeyErrorが発生する可能性がある。
-            _is_non_blank_string(definition.get(key)) for key in ('name', 'pattern', 'reason')
-        ):
-            _write_stderr_msg_and_deny('Each blocked command definition requires non-blank strings for name, pattern, and reason.')
-            return 2
-            
-        # 正規表現が正しく書けているか検証する。不正な場合、utilityはValueErrorを送出する。
-        try:
-            compiled_pattern = _build_regex_matchers([definition['pattern']], f"blocked command definition '{definition['name']}'")[0]
-        except ValueError as ex:
-            _write_stderr_msg_and_deny(str(ex))
-            return 2
-
-        # コンパイル済みの正規表現と理由をtupleとしてListに追加する。
-        compiled_definitions.append((compiled_pattern, definition['reason']))
 
     # preToolUseのタイミングで本スクリプトの呼び出し元であるCopilotがPythonプロセスを起動し
     # 標準入力パイプにツール名や引数を含むイベント情報をJSON形式で書き込むので、それを読み込む。

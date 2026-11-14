@@ -1,7 +1,6 @@
 import argparse
 import fnmatch
 import io
-import json
 import os
 import re
 import runpy
@@ -17,13 +16,10 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_is_non_blank_string_list = runpy.run_path(os.path.join(
-    _utilities_directory, 'check-string-list', 'check-string-list.py',
-))['is_non_blank_string_list']
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _filter_first_time_denials = runpy.run_path(os.path.join(
@@ -57,35 +53,28 @@ _DENY_REASON = (
 )
 
 
-def _compile_patterns(values, key):
-    if not _is_non_blank_string_list(values, allow_empty_list=True):
-        raise ValueError(f'exclusion definitions require an array of non-blank strings for {key}.')
-    return _build_regex_matchers(values, key)
-
-
 def _load_definitions(path):
     # 戻り値は {ignore_files: [正規表現], config_files: [{name, file, values, keywords}]}。
-    with open(path, encoding='utf-8-sig') as definitions_file:
-        definitions = json.load(definitions_file)
-    if not isinstance(definitions, dict):
-        raise ValueError('exclusion definitions must be a JSON object.')
-    ignore_files = _compile_patterns(definitions.get('ignoreFiles'), 'ignoreFiles')
+    label = 'exclusion definitions'
+    definitions = _definitions['read_definitions'](path, label)
+    ignore_files = _definitions['get_regex_matchers'](definitions, 'ignoreFiles', label, allow_empty_list=True)
     entries = definitions.get('configFiles')
     if not isinstance(entries, list) or not entries:
-        raise ValueError('exclusion definitions require a non-empty array for configFiles.')
+        raise ValueError(f'configFiles in {label} must be a non-empty array.')
     config_files = []
     for entry in entries:
         if not isinstance(entry, dict) or not isinstance(entry.get('name'), str) or not entry['name'].strip():
             raise ValueError('each configFiles entry requires a non-empty name.')
-        values = _compile_patterns(entry.get('valuePatterns'), 'valuePatterns')
+        entry_label = f'configFiles entry {entry["name"]}'
+        values = _definitions['get_regex_matchers'](entry, 'valuePatterns', entry_label, allow_empty_list=True)
         if any(pattern.groups != 1 for pattern in values):
-            raise ValueError('each valuePatterns entry requires exactly one capturing group.')
-        keywords = _compile_patterns(entry.get('keywordPatterns'), 'keywordPatterns')
+            raise ValueError(f'each valuePatterns in {entry_label} requires exactly one capturing group.')
+        keywords = _definitions['get_regex_matchers'](entry, 'keywordPatterns', entry_label, allow_empty_list=True)
         if not values and not keywords:
-            raise ValueError(f'configFiles entry {entry["name"]} requires valuePatterns or keywordPatterns.')
+            raise ValueError(f'{entry_label} requires valuePatterns or keywordPatterns.')
         config_files.append({
             'name': entry['name'],
-            'file': _compile_patterns([entry.get('filePattern')], 'filePattern')[0],
+            'file': _definitions['get_regex_matcher'](entry, 'filePattern', entry_label),
             'values': values,
             'keywords': keywords,
         })

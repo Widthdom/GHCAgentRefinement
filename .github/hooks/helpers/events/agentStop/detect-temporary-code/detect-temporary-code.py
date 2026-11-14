@@ -1,6 +1,5 @@
 import argparse
 import io
-import json
 import os
 import re
 import runpy
@@ -15,12 +14,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_is_non_blank_string_list = runpy.run_path(os.path.join(
-    _utilities_directory, 'check-string-list', 'check-string-list.py',
-))['is_non_blank_string_list']
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 
 
 _EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
@@ -46,43 +42,15 @@ _MAX_FINDINGS = 10
 _MAX_SNIPPET_LENGTH = 80
 
 
-def _load_named_patterns(definitions, key):
-    named_definitions = definitions.get(key)
-    if not isinstance(named_definitions, list) or not named_definitions or not all(
-        isinstance(definition, dict) and all(
-            isinstance(definition.get(name), str) and definition[name].strip() for name in ('name', 'pattern')
-        )
-        for definition in named_definitions
-    ):
-        raise ValueError(
-            'temporary code definitions require a non-empty array of objects with non-blank strings for name and '
-            f'pattern in {key}.'
-        )
-    # 行全体に一致させる定義（`debugger` 文など）のため、行頭・行末は各行に一致させる。
-    patterns = _build_regex_matchers([definition['pattern'] for definition in named_definitions], key, re.MULTILINE)
-    return [(definition['name'], pattern) for definition, pattern in zip(named_definitions, patterns)]
-
-
 def _load_definitions(path):
-    # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
-    with open(path, encoding='utf-8-sig') as definitions_file:
-        definitions = json.load(definitions_file)
-    if not isinstance(definitions, dict):
-        raise ValueError('temporary code definitions must be a JSON object.')
-    if not _is_non_blank_string_list(definitions.get(_EXCLUDED_FILE_PATTERNS_KEY), allow_empty_list=True):
-        raise ValueError(
-            f'temporary code definitions require an array of non-blank strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
-        )
-    if not _is_non_blank_string_list(definitions.get(_PLACEHOLDER_DISCLOSURE_PATTERNS_KEY)):
-        raise ValueError(
-            'temporary code definitions require a non-empty array of non-blank strings for '
-            f'{_PLACEHOLDER_DISCLOSURE_PATTERNS_KEY}.'
-        )
+    label = 'temporary code definitions'
+    definitions = _definitions['read_definitions'](path, label)
+    # 行全体に一致させる定義（`debugger` 文など）のため、行頭・行末は各行に一致させる。
     return (
-        _build_regex_matchers(definitions[_EXCLUDED_FILE_PATTERNS_KEY], _EXCLUDED_FILE_PATTERNS_KEY),
-        _load_named_patterns(definitions, _DEBUG_PATTERNS_KEY),
-        _load_named_patterns(definitions, _PLACEHOLDER_PATTERNS_KEY),
-        _build_regex_matchers(definitions[_PLACEHOLDER_DISCLOSURE_PATTERNS_KEY], _PLACEHOLDER_DISCLOSURE_PATTERNS_KEY),
+        _definitions['get_regex_matchers'](definitions, _EXCLUDED_FILE_PATTERNS_KEY, label, allow_empty_list=True),
+        _definitions['get_named_regex_matchers'](definitions, _DEBUG_PATTERNS_KEY, label, flags=re.MULTILINE),
+        _definitions['get_named_regex_matchers'](definitions, _PLACEHOLDER_PATTERNS_KEY, label, flags=re.MULTILINE),
+        _definitions['get_regex_matchers'](definitions, _PLACEHOLDER_DISCLOSURE_PATTERNS_KEY, label),
     )
 
 

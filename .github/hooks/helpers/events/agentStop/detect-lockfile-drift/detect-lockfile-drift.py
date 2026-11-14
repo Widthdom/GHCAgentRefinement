@@ -15,10 +15,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_is_non_blank_string_list = runpy.run_path(os.path.join(
-    _utilities_directory, 'check-string-list', 'check-string-list.py',
-))['is_non_blank_string_list']
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _extract_edit_tool_changes = runpy.run_path(os.path.join(
@@ -41,9 +38,8 @@ _BLOCK_REASON = (
 
 def _load_definitions(path):
     # 戻り値は [{name, file, format, keys, lines, locks}]。正規表現はコンパイル済み。
-    with open(path, encoding='utf-8-sig') as definitions_file:
-        definitions = json.load(definitions_file)
-    manifests = definitions.get('manifests') if isinstance(definitions, dict) else None
+    definitions = _definitions['read_definitions'](path, 'lockfile drift definitions')
+    manifests = definitions.get('manifests')
     if not isinstance(manifests, list) or not manifests:
         raise ValueError('lockfile drift definitions require a non-empty array for manifests.')
     loaded = []
@@ -51,29 +47,24 @@ def _load_definitions(path):
         if not isinstance(manifest, dict) or not isinstance(manifest.get('name'), str) or not manifest['name'].strip():
             raise ValueError('each manifest requires a non-empty name.')
         name = manifest['name']
+        label = f'manifest {name}'
         if manifest.get('format') not in _FORMATS:
-            raise ValueError(f'manifest {name} requires format to be one of {sorted(_FORMATS)}.')
+            raise ValueError(f'{label} requires format to be one of {sorted(_FORMATS)}.')
         locks = manifest.get('lockFiles')
         if not isinstance(locks, list) or not locks or not all(
             isinstance(lock, dict) and isinstance(lock.get('file'), str) and lock['file'].strip()
             and isinstance(lock.get('command'), str) and lock['command'].strip()
             for lock in locks
         ):
-            raise ValueError(f'manifest {name} requires a non-empty array of {{file, command}} for lockFiles.')
-        key = 'linePatterns' if manifest['format'] == 'lines' else 'dependencyKeys'
-        values = manifest.get(key)
-        if not _is_non_blank_string_list(values):
-            raise ValueError(f'manifest {name} requires a non-empty array of non-blank strings for {key}.')
-        file_pattern, *line_patterns = _build_regex_matchers(
-            [manifest.get('filePattern') if isinstance(manifest.get('filePattern'), str) else '',
-             *(values if manifest['format'] == 'lines' else [])],
-            f'manifest {name}',
-        )
-        if not file_pattern.pattern:
-            raise ValueError(f'manifest {name} requires a non-empty filePattern.')
+            raise ValueError(f'{label} requires a non-empty array of {{file, command}} for lockFiles.')
+        is_lines = manifest['format'] == 'lines'
         loaded.append({
-            'name': name, 'file': file_pattern, 'format': manifest['format'],
-            'keys': [] if line_patterns else values, 'lines': line_patterns, 'locks': locks,
+            'name': name,
+            'file': _definitions['get_regex_matcher'](manifest, 'filePattern', label),
+            'format': manifest['format'],
+            'keys': [] if is_lines else _definitions['get_string_list'](manifest, 'dependencyKeys', label),
+            'lines': _definitions['get_regex_matchers'](manifest, 'linePatterns', label) if is_lines else [],
+            'locks': locks,
         })
     return loaded
 

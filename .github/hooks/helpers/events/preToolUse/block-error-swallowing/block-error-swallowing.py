@@ -1,6 +1,5 @@
 import argparse
 import io
-import json
 import os
 import re
 import runpy
@@ -16,14 +15,11 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_is_non_blank_string_list = runpy.run_path(os.path.join(
-    _utilities_directory, 'check-string-list', 'check-string-list.py',
-))['is_non_blank_string_list']
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
@@ -48,34 +44,12 @@ _DENY_REASON = (
 
 
 def _load_definitions(path):
-    # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
-    with open(path, encoding='utf-8-sig') as definitions_file:
-        definitions = json.load(definitions_file)
-    if not isinstance(definitions, dict):
-        raise ValueError('error swallowing definitions must be a JSON object.')
-    excluded = definitions.get(_EXCLUDED_FILE_PATTERNS_KEY)
-    if not _is_non_blank_string_list(excluded, allow_empty_list=True):
-        raise ValueError(
-            f'error swallowing definitions require an array of non-blank strings for {_EXCLUDED_FILE_PATTERNS_KEY}.'
-        )
-    swallowing_definitions = definitions.get(_SWALLOWING_PATTERNS_KEY)
-    if not isinstance(swallowing_definitions, list) or not swallowing_definitions or not all(
-        isinstance(definition, dict) and all(
-            isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'pattern')
-        )
-        for definition in swallowing_definitions
-    ):
-        raise ValueError(
-            f'error swallowing definitions require a non-empty array of objects with non-blank strings for name and '
-            f'pattern in {_SWALLOWING_PATTERNS_KEY}.'
-        )
+    label = 'error swallowing definitions'
+    definitions = _definitions['read_definitions'](path, label)
     # 行全体に一致させる定義のため、行頭・行末は各行に一致させる。
-    swallowing_patterns = _build_regex_matchers(
-        [definition['pattern'] for definition in swallowing_definitions], _SWALLOWING_PATTERNS_KEY, re.MULTILINE,
-    )
     return (
-        _build_regex_matchers(excluded, _EXCLUDED_FILE_PATTERNS_KEY),
-        [(definition['name'], pattern) for definition, pattern in zip(swallowing_definitions, swallowing_patterns)],
+        _definitions['get_regex_matchers'](definitions, _EXCLUDED_FILE_PATTERNS_KEY, label, allow_empty_list=True),
+        _definitions['get_named_regex_matchers'](definitions, _SWALLOWING_PATTERNS_KEY, label, flags=re.MULTILINE),
     )
 
 

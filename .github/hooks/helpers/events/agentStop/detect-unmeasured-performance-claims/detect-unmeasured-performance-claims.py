@@ -1,6 +1,5 @@
 import argparse
 import io
-import json
 import os
 import re
 import runpy
@@ -15,12 +14,9 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_is_non_blank_string_list = runpy.run_path(os.path.join(
-    _utilities_directory, 'check-string-list', 'check-string-list.py',
-))['is_non_blank_string_list']
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
@@ -43,17 +39,9 @@ _BLOCK_REASON = (
 
 def _load_definitions(path):
     # 戻り値は {キー: [コンパイル済みの正規表現]}。
-    with open(path, encoding='utf-8-sig') as definitions_file:
-        definitions = json.load(definitions_file)
-    if not isinstance(definitions, dict):
-        raise ValueError('performance claim definitions must be a JSON object.')
-    loaded = {}
-    for key in _DEFINITION_KEYS:
-        patterns = definitions.get(key)
-        if not _is_non_blank_string_list(patterns):
-            raise ValueError(f'performance claim definitions require a non-empty array of non-blank strings for {key}.')
-        loaded[key] = _build_regex_matchers(patterns, key)
-    return loaded
+    label = 'performance claim definitions'
+    definitions = _definitions['read_definitions'](path, label)
+    return {key: _definitions['get_regex_matchers'](definitions, key, label) for key in _DEFINITION_KEYS}
 
 
 def _get_turn_summary(transcript_path):

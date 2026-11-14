@@ -1,7 +1,6 @@
 import argparse
 import datetime
 import io
-import json
 import os
 import re
 import runpy
@@ -17,13 +16,10 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_is_non_blank_string_list = runpy.run_path(os.path.join(
-    _utilities_directory, 'check-string-list', 'check-string-list.py',
-))['is_non_blank_string_list']
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
@@ -69,21 +65,16 @@ _DENY_REASON = (
 
 def _load_definitions(path):
     # 戻り値は {pastDays, futureDays, clockPatterns, frozenClockPatterns}。正規表現はコンパイル済み。
-    with open(path, encoding='utf-8-sig') as definitions_file:
-        definitions = json.load(definitions_file)
-    if not isinstance(definitions, dict):
-        raise ValueError('time bomb definitions must be a JSON object.')
+    label = 'time bomb definitions'
+    definitions = _definitions['read_definitions'](path, label)
     loaded = {}
     for key in ('pastDays', 'futureDays'):
         value = definitions.get(key)
         if type(value) is not int or value < 0:
-            raise ValueError(f'time bomb definitions require a non-negative integer for {key}.')
+            raise ValueError(f'{key} in {label} must be a non-negative integer.')
         loaded[key] = value
     for key in ('clockPatterns', 'frozenClockPatterns'):
-        patterns = definitions.get(key)
-        if not _is_non_blank_string_list(patterns):
-            raise ValueError(f'time bomb definitions require a non-empty array of non-blank strings for {key}.')
-        loaded[key] = _build_regex_matchers(patterns, key)
+        loaded[key] = _definitions['get_regex_matchers'](definitions, key, label)
     return loaded
 
 

@@ -1,6 +1,5 @@
 import argparse
 import io
-import json
 import os
 import re
 import runpy
@@ -17,7 +16,7 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
@@ -42,17 +41,8 @@ _DENY_REASON = (
 
 def _load_update_commands(path):
     # 戻り値は (名前, コンパイル済みの正規表現) のリスト。
-    with open(path, encoding='utf-8-sig') as definitions_file:
-        definitions = json.load(definitions_file)
-    entries = definitions.get(_UPDATE_COMMANDS_KEY) if isinstance(definitions, dict) else None
-    if not isinstance(entries, list) or not entries or not all(
-        isinstance(entry, dict) and isinstance(entry.get('name'), str) and entry['name'].strip()
-        and isinstance(entry.get('pattern'), str) and entry['pattern'].strip()
-        for entry in entries
-    ):
-        raise ValueError(f'snapshot update definitions require a non-empty array of {{name, pattern}} for {_UPDATE_COMMANDS_KEY}.')
-    patterns = _build_regex_matchers([entry['pattern'] for entry in entries], _UPDATE_COMMANDS_KEY)
-    return [(entry['name'], pattern) for entry, pattern in zip(entries, patterns)]
+    label = 'snapshot update definitions'
+    return _definitions['get_named_regex_matchers'](_definitions['read_definitions'](path, label), _UPDATE_COMMANDS_KEY, label)
 
 
 def _get_update_kinds(update_commands, command):

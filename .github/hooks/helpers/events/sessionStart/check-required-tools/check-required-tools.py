@@ -1,6 +1,5 @@
 import argparse
 import io
-import json
 import os
 import re
 import runpy
@@ -14,7 +13,7 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 
 
@@ -37,9 +36,7 @@ def _parse_version(text):
 
 def _load_definitions(path):
     # 戻り値は {name, command, version_pattern, minimum_version（Noneなら存在だけを確かめる）, install} のリスト。
-    with open(path, encoding='utf-8') as file:
-        definitions = json.load(file)
-    tools = definitions.get('tools') if isinstance(definitions, dict) else None
+    tools = _definitions['read_definitions'](path, 'required tool definitions').get('tools')
     if not isinstance(tools, list) or not tools:
         raise ValueError('required tool definitions require a non-empty array for tools.')
     loaded = []
@@ -53,12 +50,11 @@ def _load_definitions(path):
             isinstance(install.get(platform), str) and install[platform].strip() for platform in _PLATFORMS
         ):
             raise ValueError(f'required tool {tool["name"]} requires install messages for {", ".join(_PLATFORMS)}.')
-        version_pattern = _build_regex_matchers([tool['versionPattern']], f'versionPattern for {tool["name"]}')[0]
         minimum_version = tool.get('minimumVersion')
         loaded.append({
             'name': tool['name'],
             'command': tool['command'],
-            'version_pattern': version_pattern,
+            'version_pattern': _definitions['get_regex_matcher'](tool, 'versionPattern', f'required tool {tool["name"]}'),
             'minimum_version': None if minimum_version is None else _parse_version(minimum_version),
             'minimum_version_text': minimum_version,
             'install': install,

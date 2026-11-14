@@ -1,6 +1,5 @@
 import argparse
 import io
-import json
 import os
 import re
 import runpy
@@ -16,11 +15,8 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_is_non_blank_string_list = runpy.run_path(os.path.join(
-    _utilities_directory, 'check-string-list', 'check-string-list.py',
-))['is_non_blank_string_list']
 _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 _collect_json_string_values = runpy.run_path(os.path.join(
@@ -50,19 +46,9 @@ _REASON_PREFIX = 'The final response speculates about files'
 
 
 def _load_definitions(definitions_path):
-    # 定義ファイルはUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
-    if not os.path.isfile(definitions_path):
-        raise ValueError(f'Definitions path is not a file or could not be verified as a file: {definitions_path}')
-    try:
-        with open(definitions_path, encoding='utf-8-sig') as file:
-            definitions = json.load(file)
-    except json.JSONDecodeError as ex:
-        raise ValueError(f'Definitions are not valid JSON: {ex}') from ex
-    if not isinstance(definitions, dict):
-        raise ValueError('Definitions must be a JSON object.')
-    if not _is_non_blank_string_list(definitions.get(_SPECULATION_PATTERNS_KEY)):
-        raise ValueError(f'Definitions require a non-empty array of non-blank strings for {_SPECULATION_PATTERNS_KEY}.')
-    return tuple(_build_regex_matchers(definitions[_SPECULATION_PATTERNS_KEY], _SPECULATION_PATTERNS_KEY))
+    label = 'unread speculation definitions'
+    definitions = _definitions['read_definitions'](definitions_path, label)
+    return tuple(_definitions['get_regex_matchers'](definitions, _SPECULATION_PATTERNS_KEY, label))
 
 
 def _get_turn_summary(transcript_path):

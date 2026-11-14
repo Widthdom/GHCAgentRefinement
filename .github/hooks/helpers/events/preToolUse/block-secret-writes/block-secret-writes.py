@@ -1,6 +1,5 @@
 import argparse
 import io
-import json
 import os
 import re
 import runpy
@@ -15,7 +14,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _extract_edit_tool_changes = runpy.run_path(os.path.join(
     _utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py',
 ))['extract_edit_tool_changes']
@@ -39,22 +38,9 @@ _DENY_REASON = (
 
 
 def _load_definitions(path):
-    # 定義はUTF-8のJSON配列として読み込む。UTF-8 BOMは許容する。
-    with open(path, encoding='utf-8-sig') as definitions_file:
-        definitions = json.load(definitions_file)
-    if not isinstance(definitions, list) or not definitions:
-        raise ValueError('secret definitions must be a non-empty JSON array.')
-    compiled = []
-    for definition in definitions:
-        if not isinstance(definition, dict) or not all(
-            isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'pattern')
-        ):
-            raise ValueError('each secret definition requires non-blank strings for name and pattern.')
-        compiled.append((
-            definition['name'],
-            _build_regex_matchers([definition['pattern']], f"secret definition '{definition['name']}'")[0],
-        ))
-    return compiled
+    # 戻り値は (名前, コンパイル済みの正規表現) のリスト。
+    label = 'secret definitions'
+    return _definitions['build_named_regex_matchers'](_definitions['read_definitions'](path, label, list), label)
 
 
 def _is_env_file(path):
