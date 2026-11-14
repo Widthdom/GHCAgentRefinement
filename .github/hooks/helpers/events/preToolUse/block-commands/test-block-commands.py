@@ -141,17 +141,18 @@ _payload_cases = [
 
 _valid_definition = {'name': 'test rule', 'pattern': 'blocked', 'reason': '拒否理由'}
 _definition_cases = [
-    {'Name': 'empty array', 'Text': '[]', 'Expected': None},
+    # 定義が空では危険なコマンドを止められないため、不正な定義として拒否する。
+    {'Name': 'empty array', 'Text': '[]', 'Error': 'must be a non-empty JSON array'},
     {'Name': 'valid definition', 'Text': json.dumps([_valid_definition]), 'Expected': 'deny'},
     {'Name': 'UTF-8 BOM', 'Text': json.dumps([_valid_definition]), 'Encoding': 'utf-8-sig', 'Expected': 'deny'},
-    {'Name': 'empty file', 'Text': '', 'Error': 'Failed to parse'},
-    {'Name': 'blank file', 'Text': ' \r\n\t', 'Error': 'Failed to parse'},
-    {'Name': 'null definitions', 'Text': 'null', 'Error': 'must be a JSON array'},
-    {'Name': 'single object', 'Text': json.dumps(_valid_definition), 'Error': 'must be a JSON array'},
-    {'Name': 'invalid JSON', 'Text': '[', 'Error': 'Failed to parse'},
-    {'Name': 'UTF-16', 'Text': json.dumps([_valid_definition]), 'Encoding': 'utf-16', 'Error': 'Failed to parse'},
-    {'Name': 'UTF-32', 'Text': json.dumps([_valid_definition]), 'Encoding': 'utf-32', 'Error': 'Failed to parse'},
-    {'Name': 'invalid UTF-8', 'Bytes': b'["\xff"]', 'Error': 'Failed to parse'},
+    {'Name': 'empty file', 'Text': '', 'Error': 'are not valid JSON'},
+    {'Name': 'blank file', 'Text': ' \r\n\t', 'Error': 'are not valid JSON'},
+    {'Name': 'null definitions', 'Text': 'null', 'Error': 'must be a non-empty JSON array'},
+    {'Name': 'single object', 'Text': json.dumps(_valid_definition), 'Error': 'must be a non-empty JSON array'},
+    {'Name': 'invalid JSON', 'Text': '[', 'Error': 'are not valid JSON'},
+    {'Name': 'UTF-16', 'Text': json.dumps([_valid_definition]), 'Encoding': 'utf-16', 'Error': 'Failed to load blocked command definitions'},
+    {'Name': 'UTF-32', 'Text': json.dumps([_valid_definition]), 'Encoding': 'utf-32', 'Error': 'Failed to load blocked command definitions'},
+    {'Name': 'invalid UTF-8', 'Bytes': b'["\xff"]', 'Error': 'Failed to load blocked command definitions'},
     {'Name': 'invalid pattern', 'Text': json.dumps([{**_valid_definition, 'pattern': '['}]), 'Error': 'invalid regular expression'},
     {'Name': 'escaped error reason', 'Text': json.dumps([{**_valid_definition, 'name': '日本語 "rule"\\path\nnext', 'pattern': '['}]), 'Error': 'invalid regular expression'},
     {'Name': 'later invalid pattern', 'Text': json.dumps([_valid_definition, {**_valid_definition, 'pattern': '['}]), 'Error': 'invalid regular expression'},
@@ -161,15 +162,19 @@ for value in (None, True, 42, 'text', []):
     _definition_cases.append({
         'Name': f'non-object definition {value!r}',
         'Text': json.dumps([value]),
-        'Error': 'must be a JSON object',
+        'Error': 'must be a non-empty array of objects with non-blank strings for name and pattern',
     })
 
-for key in ('name', 'pattern', 'reason'):
+for key, error in (
+    ('name', 'must be a non-empty array of objects with non-blank strings for name and pattern'),
+    ('pattern', 'must be a non-empty array of objects with non-blank strings for name and pattern'),
+    ('reason', 'requires a non-blank string for reason'),
+):
     for value in (None, True, 42, 1.5, [], {}, '', ' \t\n'):
         _definition_cases.append({
             'Name': f'invalid {key}: {value!r}',
             'Text': json.dumps([{**_valid_definition, key: value}]),
-            'Error': 'requires non-blank strings',
+            'Error': error,
         })
     for replacement in (None, key.upper()):
         definition = _valid_definition.copy()
@@ -179,7 +184,7 @@ for key in ('name', 'pattern', 'reason'):
         _definition_cases.append({
             'Name': f'missing or wrong-case {key}: {replacement}',
             'Text': json.dumps([definition]),
-            'Error': 'requires non-blank strings',
+            'Error': error,
         })
 
 # cmdラッパーを検証するコードページ。932はShift_JIS、65001はUTF-8。
@@ -295,11 +300,10 @@ class BlockCommandsTests(unittest.TestCase):
                         if result.exit_code != 0 or result.error or json.loads(result.output) != expected_output:
                             raise AssertionError(f"Unexpected definition result for '{test_case['Name']}': {result!r}")
             missing_file = os.path.join(directory, 'missing.json')
-            result = self.__invoke_hook_input('{}', definitions_file=missing_file)
-            _assert_error_denial(result, 'definitions not found or existence could not be verified')
-
-            result = self.__invoke_hook_input('{}', definitions_file=directory)
-            _assert_error_denial(result, 'path is not a file or could not be verified as a file')
+            for path in (missing_file, directory):
+                with self.subTest(path=path):
+                    result = self.__invoke_hook_input('{}', definitions_file=path)
+                    _assert_error_denial(result, 'path is not a file or could not be verified as a file')
 
     # ラッパーは、このテストを実行しているPythonが3.14未満ならすべてのコマンドを拒否するため、判定を確かめられない。
     @unittest.skipIf(sys.version_info < (3, 14), 'The wrappers deny every command when Python is older than 3.14.')
@@ -352,7 +356,7 @@ class BlockCommandsTests(unittest.TestCase):
                             json.dump([{**_valid_definition, 'pattern': '['}], defs_file)
                         for path, expected_error in (
                             (invalid_definitions, 'invalid regular expression'),
-                            (os.path.join(directory, 'missing.json'), 'definitions not found'),
+                            (os.path.join(directory, 'missing.json'), 'path is not a file'),
                         ):
                             result = self.__invoke_hook_input(
                                 '{"toolName":"bash","toolArgs":"git status"}',
@@ -386,7 +390,7 @@ class BlockCommandsTests(unittest.TestCase):
                             )
                     # ラッパーが使うPythonのバージョン確認と、hookが読み込む入力の読み込み・判定の出力・正規表現のコンパイル・引数の包みを外す処理も複製する。
                     for utility in (
-                        'check-python-version', 'read-hook-input', 'write-hook-output', 'build-regex-matchers',
+                        'check-python-version', 'read-hook-input', 'write-hook-output', 'read-definitions',
                         'unwrap-tool-args',
                     ):
                         copied_utilities_directory = os.path.join(helpers_directory, 'utilities', utility)

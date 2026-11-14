@@ -1,6 +1,5 @@
 import argparse
 import io
-import json
 import os
 import runpy
 import sqlite3
@@ -15,13 +14,10 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_is_non_blank_string_list = runpy.run_path(os.path.join(
-    _utilities_directory, 'check-string-list', 'check-string-list.py',
-))['is_non_blank_string_list']
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
-_build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
+_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
@@ -48,32 +44,11 @@ _DENY_REASON = (
 
 
 def _load_definitions(path):
-    # 定義はUTF-8のJSONオブジェクトとして読み込む。UTF-8 BOMは許容する。
-    with open(path, encoding='utf-8-sig') as definitions_file:
-        definitions = json.load(definitions_file)
-    if not isinstance(definitions, dict):
-        raise ValueError('test weakening definitions must be a JSON object.')
-    if not _is_non_blank_string_list(definitions.get(_ASSERTION_PATTERNS_KEY)):
-        raise ValueError(
-            f'test weakening definitions require a non-empty array of non-blank strings for {_ASSERTION_PATTERNS_KEY}.'
-        )
-    weakening_definitions = definitions.get(_WEAKENING_PATTERNS_KEY)
-    if not isinstance(weakening_definitions, list) or not weakening_definitions or not all(
-        isinstance(definition, dict) and all(
-            isinstance(definition.get(key), str) and definition[key].strip() for key in ('name', 'pattern')
-        )
-        for definition in weakening_definitions
-    ):
-        raise ValueError(
-            f'test weakening definitions require a non-empty array of objects with non-blank strings for name and '
-            f'pattern in {_WEAKENING_PATTERNS_KEY}.'
-        )
-    weakening_patterns = _build_regex_matchers(
-        [definition['pattern'] for definition in weakening_definitions], _WEAKENING_PATTERNS_KEY,
-    )
+    label = 'test weakening definitions'
+    definitions = _definitions['read_definitions'](path, label)
     return (
-        _build_regex_matchers(definitions[_ASSERTION_PATTERNS_KEY], _ASSERTION_PATTERNS_KEY),
-        [(definition['name'], pattern) for definition, pattern in zip(weakening_definitions, weakening_patterns)],
+        _definitions['get_regex_matchers'](definitions, _ASSERTION_PATTERNS_KEY, label),
+        _definitions['get_named_regex_matchers'](definitions, _WEAKENING_PATTERNS_KEY, label),
     )
 
 

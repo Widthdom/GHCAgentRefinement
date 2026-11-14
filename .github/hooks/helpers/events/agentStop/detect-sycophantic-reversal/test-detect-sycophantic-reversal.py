@@ -199,7 +199,7 @@ class DetectSycophanticReversalTests(unittest.TestCase):
         ]
         for key in valid:
             for value in (None, [], [''], [' '], [1], 'a'):
-                cases.append((json.dumps({**valid, key: value}), f'non-empty array of non-blank strings for {key}'))
+                cases.append((json.dumps({**valid, key: value}), f'{key} in sycophantic reversal definitions must be a non-empty array of non-blank strings'))
         for key in ('pushbackPatterns', 'reversalPatterns'):
             cases.append((json.dumps({**valid, key: ['(']}), f'invalid regular expression in {key}'))
         self.__write_transcript([*_pushback_turn(), _agent_stop_start()])
@@ -219,7 +219,7 @@ class DetectSycophanticReversalTests(unittest.TestCase):
                 result = self.__invoke(definitions_path=path)
                 self.assertEqual(result.returncode, 2)
                 self.assertEqual(result.stdout, b'')
-                self.assertIn(b'Definitions path is not a file', result.stderr)
+                self.assertIn(b'sycophantic reversal definitions path is not a file', result.stderr)
 
     def test_invalid_input_reports_error(self):
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'\xff']
