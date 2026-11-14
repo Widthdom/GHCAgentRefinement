@@ -53,10 +53,6 @@ class KnownFilesStateTests(unittest.TestCase):
         # 状態はseen・deniedのどちらかに限る。
         with self.assertRaises(sqlite3.IntegrityError), _utility['open_state'](state_path) as connection:
             connection.execute('INSERT INTO files (file, state) VALUES (?, ?)', ('k3', 'unknown'))
-        # 例外で抜けた更新は保存しない。
-        with self.assertRaises(RuntimeError), _utility['open_state'](state_path) as connection:
-            connection.execute('INSERT INTO files (file, state) VALUES (?, ?)', ('k4', _utility['SEEN']))
-            raise RuntimeError
         with _utility['open_state'](state_path) as connection:
             rows = connection.execute('SELECT file, state FROM files ORDER BY file').fetchall()
         self.assertEqual(rows, [('k1', 'seen'), ('k2', 'denied')])

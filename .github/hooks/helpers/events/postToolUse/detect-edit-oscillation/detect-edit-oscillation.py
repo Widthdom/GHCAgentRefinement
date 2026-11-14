@@ -5,7 +5,6 @@ import runpy
 import sqlite3
 import sys
 import time
-from contextlib import closing
 from typing import cast
 
 
@@ -20,7 +19,8 @@ _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kind
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
-_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
+_state_path_utility = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))
+_get_state_path = _state_path_utility['get_state_path']
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 
@@ -50,51 +50,48 @@ def _record_edits(state_path, edits):
     # 戻り値は、変更を挟んで以前と同じ内容に戻ったファイルパスのリスト。
     oscillated_paths = []
     # SQLiteのトランザクションで、並列に編集しても履歴の更新を取りこぼさない。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
+    with _state_path_utility['open_state_database'](
+        state_path,
+        'CREATE TABLE IF NOT EXISTS contents ('
+        'file TEXT NOT NULL, '
+        'content TEXT NOT NULL, '
+        'last_seen REAL NOT NULL, '
+        'sequence INTEGER NOT NULL, '
+        'notified INTEGER NOT NULL CHECK (notified IN (0, 1)), '
+        'PRIMARY KEY (file, content))',
+    ) as connection:
+        # ロック待ちの後に時刻を取り、並列処理の記録を「未来」として消さない。
+        now = time.time()
+        # 古い内容と、時計が巻き戻った場合の未来の記録は引き継がない。
         connection.execute(
-            'CREATE TABLE IF NOT EXISTS contents ('
-            'file TEXT NOT NULL, '
-            'content TEXT NOT NULL, '
-            'last_seen REAL NOT NULL, '
-            'sequence INTEGER NOT NULL, '
-            'notified INTEGER NOT NULL CHECK (notified IN (0, 1)), '
-            'PRIMARY KEY (file, content))'
+            'DELETE FROM contents WHERE last_seen < ? OR last_seen > ?',
+            (now - _WINDOW_SECONDS, now),
         )
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            # ロック待ちの後に時刻を取り、並列処理の記録を「未来」として消さない。
-            now = time.time()
-            # 古い内容と、時計が巻き戻った場合の未来の記録は引き継がない。
+        # 内容の新旧はファイルをまたいだ連番で決める。同時刻の記録でも順序が崩れない。
+        sequence = connection.execute('SELECT COALESCE(MAX(sequence), 0) + 1 FROM contents').fetchone()[0]
+        for path, file_key, content in edits:
+            latest = connection.execute(
+                'SELECT content FROM contents WHERE file = ? ORDER BY sequence DESC LIMIT 1', (file_key,),
+            ).fetchone()
+            # 内容が変わらない書き込みは往復ではないため、履歴を更新しない。
+            if latest and latest[0] == content:
+                continue
+            previous = connection.execute(
+                'SELECT notified FROM contents WHERE file = ? AND content = ?', (file_key, content),
+            ).fetchone()
+            # 通知時はそのファイルの既存の内容をすべて通知済みにし、以降の同じ往復で助言を繰り返さない。
+            # 新しい内容を経由して再び往復した場合だけ、改めて通知する。
+            notified = 1 if previous else 0
+            if previous and not previous[0]:
+                oscillated_paths.append(path)
+                connection.execute('UPDATE contents SET notified = 1 WHERE file = ?', (file_key,))
             connection.execute(
-                'DELETE FROM contents WHERE last_seen < ? OR last_seen > ?',
-                (now - _WINDOW_SECONDS, now),
+                'INSERT INTO contents (file, content, last_seen, sequence, notified) VALUES (?, ?, ?, ?, ?) '
+                'ON CONFLICT(file, content) DO UPDATE SET '
+                'last_seen = excluded.last_seen, sequence = excluded.sequence, notified = excluded.notified',
+                (file_key, content, now, sequence, notified),
             )
-            # 内容の新旧はファイルをまたいだ連番で決める。同時刻の記録でも順序が崩れない。
-            sequence = connection.execute('SELECT COALESCE(MAX(sequence), 0) + 1 FROM contents').fetchone()[0]
-            for path, file_key, content in edits:
-                latest = connection.execute(
-                    'SELECT content FROM contents WHERE file = ? ORDER BY sequence DESC LIMIT 1', (file_key,),
-                ).fetchone()
-                # 内容が変わらない書き込みは往復ではないため、履歴を更新しない。
-                if latest and latest[0] == content:
-                    continue
-                previous = connection.execute(
-                    'SELECT notified FROM contents WHERE file = ? AND content = ?', (file_key, content),
-                ).fetchone()
-                # 通知時はそのファイルの既存の内容をすべて通知済みにし、以降の同じ往復で助言を繰り返さない。
-                # 新しい内容を経由して再び往復した場合だけ、改めて通知する。
-                notified = 1 if previous else 0
-                if previous and not previous[0]:
-                    oscillated_paths.append(path)
-                    connection.execute('UPDATE contents SET notified = 1 WHERE file = ?', (file_key,))
-                connection.execute(
-                    'INSERT INTO contents (file, content, last_seen, sequence, notified) VALUES (?, ?, ?, ?, ?) '
-                    'ON CONFLICT(file, content) DO UPDATE SET '
-                    'last_seen = excluded.last_seen, sequence = excluded.sequence, notified = excluded.notified',
-                    (file_key, content, now, sequence, notified),
-                )
-                sequence += 1
+            sequence += 1
     return oscillated_paths
 
 
@@ -130,7 +127,6 @@ def main():
 
         # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
         # 期限切れレコードは次回編集時に削除する。DBファイル自体は自動削除しない。
-        os.makedirs(os.path.dirname(state_path), exist_ok=True)
         oscillated_paths = _record_edits(state_path, edits)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to detect edit oscillation: {ex}', file=sys.stderr)

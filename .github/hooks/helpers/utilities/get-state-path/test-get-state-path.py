@@ -1,5 +1,6 @@
 import os
 import runpy
+import sqlite3
 import tempfile
 import unittest
 import uuid
@@ -55,6 +56,59 @@ class GetStatePathTests(unittest.TestCase):
                     with self.assertRaises(ValueError) as context:
                         call()
                     self.assertEqual(str(context.exception), message)
+
+
+class StateDatabaseTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix='ghc-state-database-test-')
+        self.addCleanup(temporary.cleanup)
+        # 保存先のフォルダーはまだない。
+        self.__state_path = os.path.join(temporary.name, 'states', 'state.sqlite3')
+
+    def __open(self):
+        return _utility['open_state_database'](
+            self.__state_path,
+            'CREATE TABLE IF NOT EXISTS items (key TEXT PRIMARY KEY)',
+            'CREATE TABLE IF NOT EXISTS others (value TEXT)',
+        )
+
+    def __read(self, query='SELECT key FROM items ORDER BY key'):
+        return _utility['read_state_database'](self.__state_path, query)
+
+    def test_creates_folder_and_tables_and_commits(self):
+        with self.__open() as connection:
+            self.assertTrue(connection.in_transaction)
+            connection.execute('INSERT INTO items (key) VALUES (?)', ('a',))
+        self.assertEqual(self.__read(), [('a',)])
+        self.assertEqual(
+            self.__read("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name"), [('items',), ('others',)],
+        )
+
+    def test_rolls_back_on_exception(self):
+        with self.__open() as connection:
+            connection.execute('INSERT INTO items (key) VALUES (?)', ('a',))
+        with self.assertRaises(RuntimeError), self.__open() as connection:
+            connection.execute('INSERT INTO items (key) VALUES (?)', ('b',))
+            raise RuntimeError
+        with self.assertRaises(sqlite3.IntegrityError), self.__open() as connection:
+            connection.execute('INSERT INTO items (key) VALUES (?)', ('c',))
+            connection.execute('INSERT INTO items (key) VALUES (?)', ('a',))
+        self.assertEqual(self.__read(), [('a',)])
+
+    def test_read_without_state_or_table(self):
+        # 状態ファイルや表がまだなければ、記録がないとみなす。状態ファイルは作らない。
+        self.assertEqual(self.__read(), [])
+        self.assertFalse(os.path.exists(self.__state_path))
+        os.makedirs(os.path.dirname(self.__state_path))
+        sqlite3.connect(self.__state_path).close()
+        self.assertEqual(self.__read(), [])
+
+    def test_invalid_state_file(self):
+        os.makedirs(os.path.dirname(self.__state_path))
+        with open(self.__state_path, 'wb') as file:
+            file.write(b'not a database')
+        with self.assertRaises(sqlite3.Error), self.__open():
+            pass
 
 
 if __name__ == '__main__':

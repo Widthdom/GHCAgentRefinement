@@ -43,13 +43,6 @@ class FilterNewNotificationsTests(unittest.TestCase):
             rows = connection.execute('SELECT key, problem FROM notified_problems ORDER BY problem').fetchall()
         self.assertEqual(rows, [('a', 'x'), ('a', 'y')])
 
-    def test_invalid_state_file(self):
-        os.makedirs(os.path.dirname(self.__state_path))
-        with open(self.__state_path, 'wb') as file:
-            file.write(b'not a database')
-        with self.assertRaises(sqlite3.Error):
-            self.__filter([('a', None, ['x'])])
-
 
 if __name__ == '__main__':
     _run_tests()

@@ -1,7 +1,5 @@
 import os
 import runpy
-import sqlite3
-from contextlib import closing, contextmanager
 
 
 # 状態の保存先と照合用のダイジェストは共通のutilityで作る。utilityのフォルダーの親がutilitiesである。
@@ -33,17 +31,9 @@ def normalize_path(cwd, path):
     return os.path.normcase(os.path.realpath(os.path.join(cwd, path)))
 
 
-@contextmanager
 def open_state(state_path):
-    # SQLiteのトランザクションで、並列のツール呼び出しでも状態の更新を取りこぼさない。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute(
-            'CREATE TABLE IF NOT EXISTS files ('
-            'file TEXT PRIMARY KEY, '
-            f"state TEXT NOT NULL CHECK (state IN ('{SEEN}', '{DENIED}')))"
-        )
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            yield connection
+    # 書き込みのトランザクションを始めた状態の接続を返す。
+    return _state_path_utility['open_state_database'](
+        state_path,
+        f"CREATE TABLE IF NOT EXISTS files (file TEXT PRIMARY KEY, state TEXT NOT NULL CHECK (state IN ('{SEEN}', '{DENIED}')))",
+    )

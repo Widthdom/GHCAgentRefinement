@@ -1,10 +1,8 @@
 import os
 import runpy
-import sqlite3
 import tempfile
 import unittest
 import uuid
-from contextlib import closing
 from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
@@ -52,12 +50,6 @@ class VerifiedPackagesStateTests(unittest.TestCase):
         _utility['record_verified'](self.__state_path, [(_utility['_PYPI'], 'Foo_Bar'), (_utility['_NPM'], 'Left-Pad')])
         _utility['record_verified'](self.__state_path, [(_utility['_PYPI'], 'foo-bar')])
         self.assertEqual(_utility['get_verified'](self.__state_path), {('pypi', 'foo-bar'), ('npm', 'left-pad')})
-
-    def test_get_without_table(self):
-        os.makedirs(os.path.dirname(self.__state_path))
-        with closing(sqlite3.connect(self.__state_path)):
-            pass
-        self.assertEqual(_utility['get_verified'](self.__state_path), set())
 
 
 if __name__ == '__main__':

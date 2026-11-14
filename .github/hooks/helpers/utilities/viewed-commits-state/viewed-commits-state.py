@@ -1,7 +1,5 @@
 import os
 import runpy
-import sqlite3
-from contextlib import closing
 
 
 # 状態の保存先は共通のutilityで決める。utilityのフォルダーの親がutilitiesである。
@@ -21,24 +19,14 @@ def get_state_path(session_id):
 
 
 def record_viewed(state_path, commit_ids):
-    # SQLiteのトランザクションで、並列のツール呼び出しでも記録を取りこぼさない。
-    # context managerだけでは接続は閉じないため、closingで終了時に閉じる。
-    os.makedirs(os.path.dirname(state_path), exist_ok=True)
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        connection.execute('CREATE TABLE IF NOT EXISTS commits (id TEXT PRIMARY KEY)')
-        with connection:
-            connection.execute('BEGIN IMMEDIATE')
-            connection.executemany(
-                'INSERT OR IGNORE INTO commits (id) VALUES (?)', [(commit_id.lower(),) for commit_id in commit_ids],
-            )
+    with _state_path_utility['open_state_database'](
+        state_path, 'CREATE TABLE IF NOT EXISTS commits (id TEXT PRIMARY KEY)',
+    ) as connection:
+        connection.executemany(
+            'INSERT OR IGNORE INTO commits (id) VALUES (?)', [(commit_id.lower(),) for commit_id in commit_ids],
+        )
 
 
 def get_viewed(state_path):
     # 戻り値はコミットIDの集合。状態ファイルがなければ空。
-    if not os.path.isfile(state_path):
-        return set()
-    with closing(sqlite3.connect(state_path, timeout=3)) as connection:
-        try:
-            return {row[0] for row in connection.execute('SELECT id FROM commits')}
-        except sqlite3.OperationalError:
-            return set()
+    return {commit_id for (commit_id,) in _state_path_utility['read_state_database'](state_path, 'SELECT id FROM commits')}
