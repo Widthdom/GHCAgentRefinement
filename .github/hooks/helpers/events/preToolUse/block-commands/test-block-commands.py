@@ -391,7 +391,7 @@ class BlockCommandsTests(unittest.TestCase):
                     # ラッパーが使うPythonのバージョン確認と、hookが読み込む入力の読み込み・判定の出力・正規表現のコンパイル・引数の包みを外す処理も複製する。
                     for utility in (
                         'check-python-version', 'read-hook-input', 'write-hook-output', 'read-definitions',
-                        'unwrap-tool-args',
+                        'parse-tool-calls',
                     ):
                         copied_utilities_directory = os.path.join(helpers_directory, 'utilities', utility)
                         os.makedirs(copied_utilities_directory)

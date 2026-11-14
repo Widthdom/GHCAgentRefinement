@@ -15,7 +15,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 _definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
@@ -27,7 +27,7 @@ _collect_json_string_values = runpy.run_path(os.path.join(
 # 定義ファイルのキー。speculationPatternsは推測とみなす表現の正規表現。
 _SPECULATION_PATTERNS_KEY = 'speculationPatterns'
 # 引数にパスが含まれていれば、そのファイルを読んだとみなすツール。`cat`・`sed -n`・`rg <pattern> <file>` などでの閲覧はrecord-seen-filesが記録しないため。
-_COMMAND_READ_TOOL_NAMES = {*_tool_kinds['SHELL_TOOL_NAMES'], 'rg', 'grep'}
+_COMMAND_READ_TOOL_NAMES = {*_tool_calls['SHELL_TOOL_NAMES'], 'rg', 'grep'}
 _FENCED_CODE_PATTERN = re.compile(r'^(```|~~~).*?^\1', re.MULTILINE | re.DOTALL)
 _INLINE_CODE_PATTERN = re.compile(r'`([^`\n]+)`')
 _MARKDOWN_LINK_PATTERN = re.compile(r'\]\(([^()\s]+)\)')
@@ -59,7 +59,7 @@ def _get_turn_summary(transcript_path):
         for events in turns
         for event_type, data in events
         if event_type == 'tool.execution_start' and isinstance(data.get('toolName'), str)
-        and data['toolName'].removeprefix('functions.') in _COMMAND_READ_TOOL_NAMES
+        and _tool_calls['get_tool_name'](data['toolName']) in _COMMAND_READ_TOOL_NAMES
         for text in _collect_json_string_values(data.get('arguments'))
     ]
     return (

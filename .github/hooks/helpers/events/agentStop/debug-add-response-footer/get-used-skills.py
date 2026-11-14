@@ -10,7 +10,7 @@ _utilities_directory = os.path.join(
 _get_turn_events = runpy.run_path(os.path.join(
     _utilities_directory, 'read-transcript-events', 'read-transcript-events.py',
 ))['get_turn_events']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 
 
 def get_used_skills(transcript_path):
@@ -21,7 +21,7 @@ def get_used_skills(transcript_path):
             continue
 
         # 引数はJSON文字列で記録される場合もある。オブジェクトでない引数はskill名がないものとして読み飛ばす。
-        arguments = _unwrap_tool_args(data.get('arguments'))
+        arguments = _tool_calls['unwrap_tool_args'](data.get('arguments'))
         skill_name = arguments.get('skill') if isinstance(arguments, dict) else None
         if isinstance(skill_name, str) and skill_name.strip() and skill_name not in used_skills:
             used_skills.append(skill_name)

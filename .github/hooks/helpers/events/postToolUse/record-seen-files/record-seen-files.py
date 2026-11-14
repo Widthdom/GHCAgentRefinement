@@ -12,15 +12,14 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
-_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 _edit_tool_changes = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py'))
 
 
 # 成功すればファイルの内容を把握したとみなせる組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
 #   view・str_replace_editorのview：内容を読んだ。
 #   編集系：置換やパッチの適用には現在の内容との一致が必要で、作成したファイルは内容を自分で書いた。
-_READ_TOOL_NAMES = {'view', *_tool_kinds['EDIT_TOOL_NAMES']}
+_READ_TOOL_NAMES = {'view', *_tool_calls['EDIT_TOOL_NAMES']}
 # パッチで内容を書いたファイル。削除したファイルは記録しない。移動元は適用後に存在しないため、記録の前に除かれる。
 _PATCH_OPERATIONS = frozenset({'Add File', 'Update File', 'Move to'})
 
@@ -50,10 +49,9 @@ def main():
         cwd = _hook_input['get_cwd'](hook_input)
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        tool_name = tool_name.removeprefix('functions.')
+        tool_name, tool_args = _tool_calls['parse_tool_call'](tool_name, tool_args)
         if tool_name not in _READ_TOOL_NAMES:
             return 0
-        tool_args = _unwrap_tool_args(tool_args)
         paths = {
             state['normalize_path'](cwd, path) for path in _get_read_paths(tool_name, tool_args)
         }

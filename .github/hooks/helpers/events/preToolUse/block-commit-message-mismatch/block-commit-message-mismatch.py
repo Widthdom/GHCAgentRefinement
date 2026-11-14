@@ -15,7 +15,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 _get_text_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_text_sha256_digest']
@@ -24,7 +24,6 @@ _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
 ))['filter_first_time_denials']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 # コマンドの区切り。`2>&1` の `&` は区切りになるが、前後がgitのコマンドにならないため影響しない。
@@ -320,7 +319,7 @@ def main():
         cwd = _hook_input['get_cwd'](hook_input)
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        tool_args = _unwrap_tool_args(tool_args) if _tool_kinds['is_shell_tool'](tool_name) else None
+        tool_args = _tool_calls['unwrap_tool_args'](tool_args) if _tool_calls['is_shell_tool'](tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
 
         reason = None

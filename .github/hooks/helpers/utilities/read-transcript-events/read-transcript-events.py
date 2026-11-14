@@ -1,4 +1,6 @@
 import json
+import os
+import runpy
 import time
 from datetime import datetime
 
@@ -7,6 +9,11 @@ from datetime import datetime
 #   wait_for_agent_stop_event：agentStop hookの発動時点で、それより前のイベントが書き込まれるのを待つ。
 #   get_turn_events：イベントをユーザーの依頼ごとに分ける。以降の関数は、分けた依頼のイベントから必要な情報を取り出す。
 # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
+
+# ツール名の接頭辞は共通のutilityで外す。utilityのフォルダーの親がutilitiesである。
+_get_tool_name = runpy.run_path(os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'parse-tool-calls', 'parse-tool-calls.py',
+))['get_tool_name']
 
 # hook入力のtimestampとトランスクリプトのイベントの時刻は、記録する処理が異なるため前後しうる。その幅（ミリ秒）。
 _CLOCK_TOLERANCE_MS = 1000
@@ -165,7 +172,7 @@ def get_tool_calls(events):
         if event_type == 'tool.execution_start':
             tool_name = data.get('toolName')
             if isinstance(call_id, str) and isinstance(tool_name, str):
-                started[call_id] = (tool_name.removeprefix('functions.'), data.get('arguments'))
+                started[call_id] = (_get_tool_name(tool_name), data.get('arguments'))
         elif event_type == 'tool.execution_complete' and isinstance(call_id, str) and call_id in started:
             calls.append((*started.pop(call_id), data))
     calls.extend((tool_name, arguments, None) for tool_name, arguments in started.values())

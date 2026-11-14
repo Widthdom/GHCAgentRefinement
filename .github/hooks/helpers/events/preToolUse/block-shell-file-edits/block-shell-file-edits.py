@@ -15,7 +15,7 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 _split_bash_lines = runpy.run_path(os.path.join(_utilities_directory, 'split-bash-lines', 'split-bash-lines.py'))['split_bash_lines']
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 
@@ -319,7 +319,7 @@ def main():
 
         paths = set()
         match = _SHELL_TOOL_PATTERN.match(tool_name)
-        tool_args = _unwrap_tool_args(tool_args) if match else None
+        tool_args = _tool_calls['unwrap_tool_args'](tool_args) if match else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         if match and isinstance(command, str):
             for base, text in _get_write_targets(command, match.group(1).lower(), cwd):

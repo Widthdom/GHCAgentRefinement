@@ -15,7 +15,7 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 
 
 def _is_non_blank_string(value):
@@ -118,7 +118,7 @@ def main(arguments=None):
 
     # toolArgsはJSON文字列に包まれて渡される場合もあるため、包みを外してから取り出す。
     # JSONとして解析できない文字列だけを、生のコマンドとして扱う。
-    tool_args = _unwrap_tool_args(hook_input.get('toolArgs'))
+    tool_args = _tool_calls['unwrap_tool_args'](hook_input.get('toolArgs'))
     if isinstance(tool_args, str):
         command = tool_args
     elif isinstance(tool_args, dict):

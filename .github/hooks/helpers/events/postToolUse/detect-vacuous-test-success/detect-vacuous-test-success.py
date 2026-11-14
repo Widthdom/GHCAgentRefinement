@@ -15,13 +15,12 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
-_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 _get_text_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_text_sha256_digest']
 _state_path_utility = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))
 _get_state_path = _state_path_utility['get_state_path']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 _ANSI_ESCAPE_PATTERN = re.compile(r'\x1b\[[0-9;?]*[A-Za-z]')
@@ -212,9 +211,9 @@ def main():
         state_path = _get_state_path('test-counts', hook_input.get('sessionId'))
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        if not _tool_kinds['is_shell_tool'](tool_name):
+        if not _tool_calls['is_shell_tool'](tool_name):
             return 0
-        tool_args = _unwrap_tool_args(tool_args)
+        tool_args = _tool_calls['unwrap_tool_args'](tool_args)
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         if not isinstance(command, str) or not is_test_command(command):
             return 0

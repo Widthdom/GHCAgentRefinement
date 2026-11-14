@@ -15,10 +15,9 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
-_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 _definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 _DEFINITION_KEYS = ('claimPatterns', 'hedgePatterns', 'measurementCommandPatterns')
@@ -51,9 +50,9 @@ def _get_turn_summary(transcript_path):
     # 引数はJSON文字列で記録される場合もあるため、包みを外してから読む。
     succeeded_commands = []
     for tool_name, arguments, completion in _transcript_events['get_tool_calls'](events):
-        arguments = _unwrap_tool_args(arguments)
+        arguments = _tool_calls['unwrap_tool_args'](arguments)
         command = arguments.get('command') if isinstance(arguments, dict) else None
-        if (_tool_kinds['is_shell_tool'](tool_name) and isinstance(command, str)
+        if (_tool_calls['is_shell_tool'](tool_name) and isinstance(command, str)
                 and _transcript_events['get_shell_exit_code'](completion) == 0):
             succeeded_commands.append(command)
     return _transcript_events['get_last_assistant_message'](events), succeeded_commands, already_requested

@@ -14,10 +14,9 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
-_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 _transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 _VERIFICATION_CLAIM_PATTERNS = (
@@ -66,9 +65,9 @@ def _get_turn_summary(transcript_path, extract_edit_tool_changes):
 
 
 def _get_shell_command(tool_name, arguments):
-    if not _tool_kinds['is_shell_tool'](tool_name):
+    if not _tool_calls['is_shell_tool'](tool_name):
         return None
-    arguments = _unwrap_tool_args(arguments)
+    arguments = _tool_calls['unwrap_tool_args'](arguments)
     command = arguments.get('command') if isinstance(arguments, dict) else None
     return command if isinstance(command, str) else None
 

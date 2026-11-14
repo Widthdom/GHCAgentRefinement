@@ -13,6 +13,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _extract_edit_tool_changes = runpy.run_path(os.path.join(
@@ -97,7 +98,7 @@ def main(arguments=None):
                 real_path = os.path.realpath(os.path.join(cwd, path))
                 resolved.setdefault(os.path.normcase(real_path), real_path)
             resolved_paths = [resolved[key] for key in sorted(resolved)]
-            display_paths = ', '.join(_get_display_path(path, real_cwd) for path in resolved_paths) or tool_name.removeprefix('functions.')
+            display_paths = ', '.join(_get_display_path(path, real_cwd) for path in resolved_paths) or _tool_calls['get_tool_name'](tool_name)
 
             env_paths = [path for path in resolved_paths if _is_env_file(path)]
             if env_paths:
