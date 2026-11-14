@@ -2,7 +2,6 @@ import io
 import os
 import runpy
 import sys
-from datetime import datetime, timezone
 from typing import cast
 
 
@@ -12,10 +11,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
-_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
-_write_json_atomically = runpy.run_path(os.path.join(
-    _utilities_directory, 'write-json-atomically', 'write-json-atomically.py',
-))['write_json_atomically']
+_debug_mode_state = runpy.run_path(os.path.join(_utilities_directory, 'debug-mode-state', 'debug-mode-state.py'))
 
 
 def main():
@@ -29,7 +25,7 @@ def main():
     # userPromptSubmittedのタイミングで本スクリプトの呼び出し元であるCopilotがPythonプロセスを起動し
     # 標準入力パイプにセッションIDやプロンプトを含むイベント情報をJSON形式で書き込むので、それを読み込む。
     # このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
-    # 状態ファイルの保存先は、状態を読むget-debug-mode utilityと共有する。
+    # 状態ファイルの保存先と形式は、状態を読むhookとdebug-mode-state utilityで共有する。
     try:
         hook_input = _hook_input['read_hook_input']()
         # getはキーが無くてもNoneを返す。
@@ -38,7 +34,7 @@ def main():
             raise ValueError('prompt must be a string.')
         if not prompt.strip():
             raise ValueError('prompt must not be empty or whitespace.')
-        state_path = _get_state_path('debug-mode', hook_input.get('sessionId'), '.json')
+        state_path = _debug_mode_state['get_debug_mode_path'](hook_input.get('sessionId'))
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to parse userPromptSubmitted hook input: {ex}', file=sys.stderr)
         return 2
@@ -52,17 +48,8 @@ def main():
     # プロンプト先頭が厳密に ?? であれば有効にする。
     enabled = prompt.startswith('??')
 
-    # 状態ファイルに保存する内容をdictとして作成する。
-    # 内部的な記録なのでUTCを使用する。
-    # isoformat() で日時オブジェクトをISO 8601形式の文字列に変換する。
-    state = {
-        'updatedAt': datetime.now(timezone.utc).isoformat(),
-        'enabled': enabled,
-    }
-
     try:
-        # 一時ファイルに書いてから置き換え、読む側のhookに書き込み途中の状態ファイルを読ませない。
-        _write_json_atomically(state_path, state)
+        _debug_mode_state['save_debug_mode'](state_path, enabled)
     except OSError as ex:
         print(f'Failed to save debug mode: {ex}', file=sys.stderr)
         return 2
