@@ -55,17 +55,6 @@
         ]
       }
     ],
-    "SubagentStop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$(git rev-parse --show-toplevel)/.github/hooks/helpers/runner/run-codex-hook.py\"",
-            "commandWindows": "powershell -NoProfile -NonInteractive -Command \"& python ((git rev-parse --show-toplevel) + '/.github/hooks/helpers/runner/run-codex-hook.py')\""
-          }
-        ]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "hooks": [

@@ -25,7 +25,6 @@ _EVENT_NAMES = {
     'PreToolUse': 'preToolUse',
     'PostToolUse': 'postToolUse',
     'Stop': 'agentStop',
-    'SubagentStop': 'agentStop',
 }
 _SHELL_NAMES = {'Bash', 'exec_command', 'shell_command', 'shell'}
 _EXIT_CODE = re.compile(r'^Process exited with code (-?\d+)\s*$', re.MULTILINE)
@@ -209,7 +208,7 @@ def main():
         host_event = payload['hook_event_name']
         with tempfile.TemporaryDirectory(prefix='ghc-codex-hook-') as temporary:
             if event == 'agentStop':
-                path = payload.get('agent_transcript_path') if host_event == 'SubagentStop' else payload.get('transcript_path')
+                path = payload.get('transcript_path')
                 if not isinstance(path, str) or not path:
                     raise ValueError('Stop requires a readable transcript path.')
                 events = _convert_transcript(os.path.expanduser(path), payload.get('last_assistant_message'), timestamp_ms)

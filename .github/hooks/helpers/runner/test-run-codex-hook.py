@@ -117,7 +117,7 @@ class RunCodexHookTests(unittest.TestCase):
         self.__run('PostToolUse', tool_name='mcp__fs__read', tool_input={'file': 'a'}, tool_response='content')
         self.assertEqual(self.__read(path)['toolName'], 'mcp__fs__read')
 
-    def test_stop_and_subagent_stop_transcripts_and_loop_guard(self):
+    def test_stop_transcript_and_loop_guard(self):
         path = self.__hook('agentStop', output={'decision': 'block', 'reason': '再確認', 'additionalContext': 'ignored'})
         transcript = self.__transcript(
             ('event_msg', {'type': 'user_message', 'message': '依頼'}),
@@ -137,9 +137,15 @@ class RunCodexHookTests(unittest.TestCase):
         self.assertEqual(events[-1]['data']['input']['timestamp'], data['timestamp'])
         result = self.__run('Stop', transcript_path=transcript, stop_hook_active=True)
         self.assertEqual((result.returncode, result.stdout), (0, b''))
-        result = self.__run('SubagentStop', transcript_path='missing-parent', agent_transcript_path=transcript, agent_id='child')
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(json.loads(result.stdout)['decision'], 'block')
+
+    def test_subagent_stop_is_not_supported(self):
+        config = self.__read(os.path.join(_root, '.codex', 'hooks.json'))['hooks']
+        self.assertNotIn('SubagentStop', config)
+        path = self.__hook('agentStop', output={'decision': 'block', 'reason': '再確認'})
+        result = self.__run('SubagentStop', agent_id='child')
+        self.assertEqual((result.returncode, result.stdout), (1, b''))
+        self.assertIn(b"unsupported hook_event_name: 'SubagentStop'", result.stderr)
+        self.assertFalse(os.path.exists(path))
 
     def test_paginated_history_and_incomplete_shell(self):
         transcript = self.__transcript(

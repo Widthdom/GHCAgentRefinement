@@ -32,7 +32,8 @@ Codexは同一イベントのコマンドhookを並列実行するため、ア�
 |`PreToolUse`|`preToolUse`|ツール名と引数を変換して拒否を集約する。|
 |`PostToolUse`|`postToolUse`|非ゼロ終了のシェルも含む。出力の文字列を `toolResult.textResultForLlm` に渡す。|
 |`Stop`|`agentStop`|親の履歴と最終応答を検査する。|
-|`SubagentStop`|`agentStop`|`agent_transcript_path` の子の履歴を検査する。親の履歴を代用しない。|
+
+`SubagentStop` は対象外とし、登録・変換しない。共通の `agentStop` hookはサブエージェントの停止を対象外としているため、停止時の検査は親の `Stop` だけで実行する。
 
 `PostToolUseFailure` と `userPromptTransformed` に対応するイベントは登録しない。このため、失敗の繰り返し検出と変換後プロンプトの記録はCodexでは働かない。承認を代行する `PermissionRequest` も登録しない。
 
