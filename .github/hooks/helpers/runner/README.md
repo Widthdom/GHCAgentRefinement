@@ -56,6 +56,9 @@ Claude Codeでは、[run-claude-hook.py](./run-claude-hook.py) がClaude Codeの
 
 アダプターからのhook定義の読込、matcherによる選択、順次実行、出力の集約は [adapted-hook-runtime.py](./adapted-hook-runtime.py) が担当する。ホスト固有の入力と履歴の変換は各アダプターが担当する。
 
+## Codexからの起動
+Codexでは、[run-codex-hook.py](./run-codex-hook.py) がイベントと履歴を変換し、共通ランタイムを通じて本ランナーを実行する。設定、公式仕様への参照、対応しないイベントと履歴の制約は [.codex/README.md](../../../../.codex/README.md) を参照。
+
 ## 備考
 - 記録に失敗しても、hookの出力と終了コードは変えない。失敗の原因は標準エラーに出力する。
 - 記録を読むのは [debug-add-response-footer](../events/agentStop/debug-add-response-footer/README.md) のみ。
