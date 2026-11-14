@@ -133,8 +133,8 @@ agentStopのhookは [read-transcript-events](../.github/hooks/helpers/utilities/
 
 ### 前提条件
 
-- [.github/README.md](../.github/README.md) の前提条件と同じく、Python 3.14以降が必要。
-- 起動スクリプトの実行に `sh` が必要。Windowsでは、Git for Windowsに含まれるGit Bashを使う。Claude Codeは、Git Bashがあればhookのコマンドをそこで実行する。
+- [.github/README.md](../.github/README.md) の前提条件と同じく、Gitのインストールを前提とし、Python 3.14以降が必要。
+- 起動スクリプト（[run-claude-hook.sh](../.github/hooks/helpers/runner/run-claude-hook.sh)）の実行に `sh` が必要。Windowsでは、Git for Windowsに含まれるGit Bashの `sh` を使う。Claude Codeは、Git Bashがあればhookのコマンドをそこで実行する。
 - クラウドのセッションでは、環境にPython 3.14以降を `python3` として用意する。3.14より古いと、`block-commands` がすべてのシェルの実行を拒否する。
 
 ### Windows用の `.cmd` を置かない理由

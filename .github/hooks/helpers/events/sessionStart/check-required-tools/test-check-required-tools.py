@@ -17,31 +17,27 @@ _hook = runpy.run_path(_hook_path)
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
 _run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
-_COMMANDS = ('ast-grep', 'git', 'jq', 'rg')
-_SATISFIED = {'ast-grep': 'ast-grep 0.39.5\n', 'git': 'git version 2.47.1\n', 'jq': 'jq-1.7.1\n', 'rg': 'ripgrep 14.1.1\n'}
+_COMMANDS = ('ast-grep', 'jq', 'rg')
+_SATISFIED = {'ast-grep': 'ast-grep 0.39.5\n', 'jq': 'jq-1.7.1\n', 'rg': 'ripgrep 14.1.1\n'}
 # 条件を満たさない場合の、コマンドごとの案内。
 _REQUIREMENTS = {
     'ast-grep': 'ast-grep is required, and it must be available as the ast-grep command.',
-    'git': 'Git 2.34.1 or later is required, and it must be available as the git command.',
     'jq': 'jq 1.6 or later is required, and it must be available as the jq command.',
     'rg': 'ripgrep 13.0.0 or later is required, and it must be available as the rg command.',
 }
 _INSTALL_MESSAGES = {
     'win32': {
         'ast-grep': 'Install it with: winget install --id ast-grep.ast-grep --exact --source winget',
-        'git': 'Install it with: winget install --id Git.Git --exact --source winget',
         'jq': 'Install it with: winget install --id jqlang.jq --exact --source winget',
         'rg': 'Install it with: winget install --id BurntSushi.ripgrep.MSVC --exact --source winget',
     },
     'darwin': {
         'ast-grep': 'Install it with: brew install ast-grep',
-        'git': 'Install it with: brew install git',
         'jq': 'Install it with: brew install jq',
         'rg': 'Install it with: brew install ripgrep',
     },
     'linux': {
         'ast-grep': 'Installation guide: https://github.com/ast-grep/ast-grep#installation',
-        'git': 'Installation guide: https://git-scm.com/install/linux',
         'jq': 'Installation guide: https://github.com/jqlang/jq#installation',
         'rg': 'Installation guide: https://github.com/BurntSushi/ripgrep#installation',
     },
@@ -99,8 +95,6 @@ class CheckRequiredToolsTests(unittest.TestCase):
     def test_supported_versions(self):
         for command, outputs in {
             'ast-grep': ['ast-grep 0.1.0\n', 'ast-grep 1.0.0\n'],
-            'git': ['git version 2.34.1\n', 'git version 2.47.1.windows.2\n',
-                    'git version 2.39.5 (Apple Git-154)\n', 'git version 3.0.0\n'],
             # jqはパッチ番号を省略する版があるため、省略時は0とみなす。
             'jq': ['jq-1.6\n', 'jq-1.8.0-dirty\n', 'jq-2.0\n'],
             'rg': ['ripgrep 13.0.0\n-SIMD -AVX (compiled)\n', 'ripgrep 14.1.1 (rev 4649aa9700)\n\nfeatures:+pcre2\n',
@@ -112,8 +106,8 @@ class CheckRequiredToolsTests(unittest.TestCase):
 
     def test_unsatisfied_cases(self):
         for command, output in (
-            ('git', 'git version 2.34.0\n'), ('jq', 'jq-1.5-1-a5b5cbe\n'), ('rg', 'ripgrep 12.1.1\n'),
-            ('ast-grep', 'unknown\n'), ('ast-grep', ''), ('git', 'unknown\n'),
+            ('jq', 'jq-1.5-1-a5b5cbe\n'), ('rg', 'ripgrep 12.1.1\n'),
+            ('ast-grep', 'unknown\n'), ('ast-grep', ''), ('jq', 'unknown\n'),
             ('jq', FileNotFoundError()), ('rg', subprocess.CalledProcessError(1, ['rg', '--version'])),
         ):
             with self.subTest(command=command, output=output):
@@ -125,7 +119,7 @@ class CheckRequiredToolsTests(unittest.TestCase):
         for platform in _INSTALL_MESSAGES:
             with self.subTest(platform=platform):
                 self.__assert_notified(_run_main(platform, missing), platform, _COMMANDS)
-        self.__assert_notified(_run_main(results={'git': FileNotFoundError(), 'rg': 'old\n'}), 'linux', ['git', 'rg'])
+        self.__assert_notified(_run_main(results={'ast-grep': FileNotFoundError(), 'rg': 'old\n'}), 'linux', ['ast-grep', 'rg'])
 
     def test_invalid_definitions(self):
         with tempfile.TemporaryDirectory() as directory:

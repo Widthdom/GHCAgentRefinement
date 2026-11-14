@@ -12,6 +12,28 @@ VS CodeのSession Targetが `Copilot` の場合はCLIと同じSDK hook実装を�
 
 hookの実行スクリプトをPythonに統一すると、Windows、macOS、Linuxで同じスクリプトを起動でき、OSごとにシェルスクリプトを書き分ける必要がなくなる。JSON・正規表現・パス操作・一時ディレクトリなど、hookで必要な処理は標準ライブラリだけで扱える。
 
+## Pythonなしで動くhookの起動
+
+`check-python` と `block-commands` は、Pythonがない環境でも案内や拒否ができる必要があるため、hookランナーを通さず、hook定義の `bash` からは `.sh` を、`powershell` からは `.cmd` を起動する。
+
+### CopilotとClaude Codeでの起動のされ方
+
+- Copilotは、Windowsではhook定義の `powershell` のコマンドをPowerShellで実行し、macOS・Linuxでは `bash` のコマンドを実行する。
+- Claude Codeのhook設定（[.claude/settings.json](../../../.claude/settings.json)）は、1つのhookにコマンドを1つしか持てず、OSで出し分けられない。そのため、どのOSでも `sh` で起動スクリプト [run-claude-hook.sh](../../hooks/helpers/runner/run-claude-hook.sh) を実行し、アダプターがhook定義を読んで各hookを実行する。Windowsでは、Claude CodeがGit for Windowsに含まれるGit Bashを探してhookのコマンドを実行する。
+- アダプターは、ランナーを通さないこの2つのhookを、Windowsでは定義の `powershell` のコマンドのまま子プロセスで実行する。そのため、Claude Codeでも、Windowsでは `.cmd` が、それ以外では `.sh` が実行される。
+- アダプター自体がPythonで動くため、Claude CodeではPythonがない環境でこの2つのhookは働かない（[.claude/README.md](../../../.claude/README.md) を参照）。
+
+### Gitを前提としても `.cmd` を `.sh` に統一しない理由
+
+Gitのインストールを前提とし、WindowsではGit for Windows（Git Bashを含む）があるとみなしている。それでも、`powershell` のコマンドを `bash .../xxx.sh` にして `.cmd` を廃止することはしない。
+
+- Copilotは、Windowsでは `powershell` のコマンドをPowerShellで実行するため、`bash` はPATHから探される。
+- Git for Windowsは、既定のインストールでは `Git\cmd`（`git.exe` など）だけをPATHに加え、`bash.exe` のある `Git\bin` は加えない。
+- 代わりに、WSLの起動用の `C:\Windows\System32\bash.exe` や `%LOCALAPPDATA%\Microsoft\WindowsApps\bash.exe` が見つかる（Windows 11の実機で、PowerShellの `Get-Command bash` がこの順に返すことを確認した）。この場合、スクリプトはWSLの中で動き、PythonもWSL側のものを使う。WSLのディストリビューションがなければエラーになる。
+- Git Bashのフルパスを書く方法もあるが、インストール先は環境によって異なる。
+- Claude Codeは自分でGit Bashを探すため、この問題は起きない。ただし、Windowsではアダプターが `.cmd` を実行するため、`.cmd` をなくしてもClaude Code側の構成は簡単にならない。
+- 対象はこの2つのhookだけで、`.cmd` も短いため、残しても保守の負担は小さい。
+
 ## Windows特有の制御
 
 サービスの制御やレジストリ、CIM/WMIなどのWindows管理機能は、Windows PowerShellのコマンドレット（`Get-Service`、`Restart-Service` など）から直接扱える。Pythonで同じことをするには外部コマンドの呼び出しや追加パッケージが必要になる。Windows PowerShell 5.1はWindowsに標準搭載されており追加インストールが不要なため、Windowsでしか意味を持たない処理は5.1で実装する。
