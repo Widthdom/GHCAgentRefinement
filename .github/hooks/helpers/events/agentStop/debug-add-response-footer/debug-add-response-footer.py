@@ -15,7 +15,7 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['parse_session_id']
-_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
+_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 
 _REASON_PREFIX = 'The final response footer is missing or incorrect.'
 # 同じ依頼で差し戻す上限。フッターの時刻や機能したhookは差し戻しのたびに変わるため、合わせ損ねても止まれるようにする。
@@ -25,17 +25,15 @@ _MAX_CORRECTIONS = 2
 
 def _count_corrections(transcript_path):
     # ユーザーの最新の依頼以降に、本hookが差し戻した回数を返す。
-    return sum(
-        1 for event_type, data in _turn_events['get_turns'](transcript_path)[-1]
-        if event_type == 'user.message' and data.get('delivery') == 'queued'
-        and isinstance(data.get('content'), str) and data['content'].startswith(_REASON_PREFIX)
+    return _transcript_events['count_requests_by_hook'](
+        _transcript_events['get_turn_events'](transcript_path)[-1], _REASON_PREFIX,
     )
 
 
 def _get_last_assistant_msg(transcript_path):
     # トランスクリプト全体から、空白以外を含む最後の応答の文を返す。なければNone。
-    return _turn_events['get_last_assistant_message'](
-        [event for events in _turn_events['get_turns'](transcript_path) for event in events]
+    return _transcript_events['get_last_assistant_message'](
+        [event for events in _transcript_events['get_turn_events'](transcript_path) for event in events]
     )
 
 
@@ -148,9 +146,7 @@ def main():
     try:
         # GitHub Copilot はトランスクリプトに非同期で追記するため、agentStop hookが起動した直後は、最終応答がまだ書き込まれていない可能性がある。
         # 自身のhook.startが書き込まれるまで最大5秒待ち、それより前に発生した最終応答を書き込み済みにする。
-        runpy.run_path(
-            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
-        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg = _get_last_assistant_msg(transcript_path)
         if last_assistant_msg is None:
