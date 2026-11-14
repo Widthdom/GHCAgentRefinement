@@ -14,10 +14,9 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
-_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 _get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py'))['get_edited_paths']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 # 守るパス。hookの定義・実装・テストと、hookが保持する状態（変更の許可の記録を含む）。
@@ -146,7 +145,7 @@ def _is_modifying_command(tool_name, command):
 
 def _get_targets(tool_name, tool_args, cwd):
     # 戻り値は、拒否の理由で示す変更の対象（ファイルのパスまたはコマンド）のリスト。
-    if _tool_kinds['is_edit_tool'](tool_name):
+    if _tool_calls['is_edit_tool'](tool_name):
         targets = []
         for path in _get_edited_paths(tool_name, tool_args):
             absolute = os.path.normpath(os.path.join(cwd, path))
@@ -156,7 +155,7 @@ def _get_targets(tool_name, tool_args, cwd):
                 if display_path not in targets:
                     targets.append(display_path)
         return targets
-    if _tool_kinds['is_shell_tool'](tool_name) and isinstance(tool_args, dict):
+    if _tool_calls['is_shell_tool'](tool_name) and isinstance(tool_args, dict):
         command = tool_args.get('command')
         if (isinstance(command, str) and _mentions_protected_path(command)
                 and _is_modifying_command(tool_name, command)):
@@ -180,9 +179,7 @@ def main():
         cwd = _hook_input['get_cwd'](hook_input)
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        targets = _get_targets(
-            tool_name.removeprefix('functions.'), _unwrap_tool_args(tool_args), os.path.normpath(cwd),
-        )
+        targets = _get_targets(*_tool_calls['parse_tool_call'](tool_name, tool_args), os.path.normpath(cwd))
         if not targets or state['is_permitted'](state_path):
             return 0
     except (OSError, UnicodeError, ValueError) as ex:

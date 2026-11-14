@@ -23,7 +23,7 @@ _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
 ))['filter_first_time_denials']
 _split_bash_lines = runpy.run_path(os.path.join(_utilities_directory, 'split-bash-lines', 'split-bash-lines.py'))['split_bash_lines']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 
 
 # powershellはパイプラインの終了コードの扱いが異なるため、bashだけを対象にする。
@@ -115,7 +115,7 @@ def main():
 
         masked = []
         command_keys = []
-        tool_args = _unwrap_tool_args(tool_args) if _SHELL_TOOL_PATTERN.match(tool_name) else None
+        tool_args = _tool_calls['unwrap_tool_args'](tool_args) if _SHELL_TOOL_PATTERN.match(tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         commands = _get_masked_commands(
             command, runs_checked_command, check_test_runs['update_pipefail'],

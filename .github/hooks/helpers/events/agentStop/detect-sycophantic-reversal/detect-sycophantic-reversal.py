@@ -13,6 +13,7 @@ _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
@@ -51,7 +52,7 @@ def _get_turn_summary(transcript_path, evidence_tool_names):
     events = turns[-1]
     used_evidence_tool = any(
         event_type == 'tool.execution_start' and isinstance(data.get('toolName'), str)
-        and data['toolName'].removeprefix('functions.') in evidence_tool_names
+        and _tool_calls['get_tool_name'](data['toolName']) in evidence_tool_names
         for event_type, data in events
     )
     return (

@@ -14,8 +14,7 @@ _utilities_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
-_is_edit_tool = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))['is_edit_tool']
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 
 # 対象のファイルのパスを表す引数名。`edit`・`view` は `path`、`create` は `file_path` で渡される。
 PATH_KEYS = ('path', 'file_path')
@@ -46,10 +45,9 @@ def _get_first_string(tool_args, keys):
 
 def _parse_tool_call(tool_name, raw_tool_args):
     # 編集ツールなら `functions.` 接頭辞を外したツール名と、包みを外した引数を返す。それ以外は (None, None)。
-    tool_name = tool_name.removeprefix('functions.')
-    if not _is_edit_tool(tool_name):
+    if not _tool_calls['is_edit_tool'](tool_name):
         return None, None
-    return tool_name, _unwrap_tool_args(raw_tool_args)
+    return _tool_calls['parse_tool_call'](tool_name, raw_tool_args)
 
 
 def _get_command(tool_name, tool_args):

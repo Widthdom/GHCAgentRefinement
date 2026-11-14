@@ -15,13 +15,12 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 _definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
 _filter_first_time_denials = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
 ))['filter_first_time_denials']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
 _UPDATE_COMMANDS_KEY = 'updateCommands'
@@ -74,7 +73,7 @@ def main(arguments=None):
         state_path = _get_state_path('block-snapshot-rubber-stamp', hook_input.get('sessionId'))
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        tool_args = _unwrap_tool_args(tool_args) if _tool_kinds['is_shell_tool'](tool_name) else None
+        tool_args = _tool_calls['unwrap_tool_args'](tool_args) if _tool_calls['is_shell_tool'](tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         kinds = _get_update_kinds(update_commands, command) if isinstance(command, str) else []
 

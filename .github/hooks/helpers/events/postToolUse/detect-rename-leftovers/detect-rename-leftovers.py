@@ -19,8 +19,6 @@ _extract_edit_tool_changes = runpy.run_path(os.path.join(
 ))['extract_edit_tool_changes']
 
 
-# ファイルに書き込む組み込みツール。CLI形式の `functions.` 接頭辞も許容する。
-_EDIT_TOOL_NAMES = {'edit', 'str_replace_editor', 'apply_patch'}
 # 他のファイルから参照される定義。ローカル変数の名前の変更は、他のファイルに参照が残らないため対象外とする。
 _DEFINITION_PATTERNS = [
     re.compile(r'\b(?:class|interface|struct|enum|record|trait|protocol|type)\s+(?P<name>[A-Za-z_]\w*)'),
@@ -123,9 +121,7 @@ def main():
         print(f'Failed to detect rename leftovers: {ex}', file=sys.stderr)
         return 2
 
-    tool_name = tool_name.removeprefix('functions.')
-    if tool_name not in _EDIT_TOOL_NAMES:
-        return 0
+    # 置換前の内容が分かる置換とパッチだけを対象にするため、それ以外のツールからは変更を取り出さない。
     renames = []
     for change in _get_changes(tool_name, tool_args):
         for rename in _find_renames(change['removed'], change['written']):

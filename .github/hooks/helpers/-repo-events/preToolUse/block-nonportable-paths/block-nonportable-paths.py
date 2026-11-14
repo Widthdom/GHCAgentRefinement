@@ -14,11 +14,10 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
-_unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 _edit_tool_changes = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py'))
 
 
@@ -136,10 +135,9 @@ def main():
         hook_input = _hook_input['read_hook_input']()
         cwd = _hook_input['get_cwd'](hook_input)
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
-        tool_name = tool_name.removeprefix('functions.')
-        if not _tool_kinds['is_edit_tool'](tool_name):
+        tool_name, tool_args = _tool_calls['parse_tool_call'](tool_name, tool_args)
+        if not _tool_calls['is_edit_tool'](tool_name):
             return 0
-        tool_args = _unwrap_tool_args(tool_args)
         if tool_name == 'apply_patch' and not isinstance(tool_args, (str, dict)):
             raise ValueError('apply_patch toolArgs must be a patch string or JSON object.')
         destinations, removed = _get_operations(tool_name, tool_args)

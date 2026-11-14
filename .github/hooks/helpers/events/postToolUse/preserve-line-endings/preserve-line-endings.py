@@ -13,7 +13,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
+_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py'))
 _get_path_sha256_digest = runpy.run_path(os.path.join(
     _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
 ))['get_path_sha256_digest']
@@ -100,7 +100,7 @@ def main():
         cwd = _hook_input['get_cwd'](hook_input)
         tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
 
-        if not _tool_kinds['is_edit_tool'](tool_name):
+        if not _tool_calls['is_edit_tool'](tool_name):
             return 0
         # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。
         # gitは大文字小文字を区別するため、問い合わせ・読み込み・表示には正規化前のパスを使い、normcaseは照合だけに使う。
