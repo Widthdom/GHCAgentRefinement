@@ -7,7 +7,7 @@ agentStop（エージェントの応答終了時）
 最終応答の「テストが通った」「動作確認した」という主張を、実際に実行したコマンドと終了コード、その前後の編集で確かめる。根拠がない、再実行で通っただけ、成功の後に変更した、のいずれかなら差し戻す。
 
 ## 処理詳細
-1. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[wait-for-agent-stop-event](../../../utilities/wait-for-agent-stop-event/README.md)）。
+1. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[read-transcript-events](../../../utilities/read-transcript-events/README.md)）。
 2. ユーザーの最新の依頼以降について、最終応答と、ファイル編集ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）による変更の成功、bash・powershellで実行したコマンドとその終了コードを、完了した順に集める。完了していないコマンドは、終了コードのない実行として最後に加える。
    - 編集ツールの引数は [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) の規則で解析する。変更したファイルには、パッチで削除したファイルと移動先も含める。
 3. 最終応答（コードブロックを除く）が「テストが通った」と主張している場合、次の順に検査し、最初に当てはまったものを差し戻す。「テストが通った」という記述とテストとみなすコマンドは、[check-test-runs](../../../utilities/check-test-runs/README.md) の規則で判定する。`ls tests`・`git log | grep test` などの読むだけのコマンドはテストとみなさない。
@@ -18,7 +18,7 @@ agentStop（エージェントの応答終了時）
 5. 差し戻しは `{"decision":"block","reason":"..."}` を標準出力する。
 
 ## 例外
-- 依頼の区切りは [get-turn-events](../../../utilities/get-turn-events/README.md) の規則に従う。
+- 依頼の区切りは [read-transcript-events](../../../utilities/read-transcript-events/README.md) の規則に従う。
 - サブエージェントの停止は対象外とする。最終応答として報告されるのは親の応答のため。
 - 直後に否定が続く表現（「通っていない」など）は主張とみなさない。
 - テスト成功の表現がコードブロック、インラインコード、引用符（`「」`・`『』`・`""`・`“”`）、Markdownの引用行（`>`）の中にある場合は主張とみなさない。「テスト0件成功」のような条件の説明を誤検出しないため。引用の外にも成功主張があれば引き続き検査する。
@@ -43,6 +43,6 @@ agentStop（エージェントの応答終了時）
 - 1つのコマンドの中でテストを繰り返す場合（`for` での再実行や、テストランナーの再試行オプションなど）は検出しない。
 
 ## 備考
-- 終了コードは [get-turn-events](../../../utilities/get-turn-events/README.md) の規則で、トランスクリプトの `shellExecution.exitCode` から取得する。
+- 終了コードは [read-transcript-events](../../../utilities/read-transcript-events/README.md) の規則で、トランスクリプトの `shellExecution.exitCode` から取得する。
 - `dotnet test | tail` のようにパイプで終了コードが隠れるコマンドは、[block-masked-exit-codes](../../preToolUse/block-masked-exit-codes/README.md) hookが実行前に拒否する。
 - 再実行だけで通ったテストを、最後に成功したテストの後の変更より先に示す。先にテストを再実行させると、先の失敗と最後のテストの間に編集が挟まり、再実行の検査に当てはまらなくなるため。

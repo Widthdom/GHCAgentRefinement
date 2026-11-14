@@ -8,8 +8,8 @@ agentStop（エージェントの応答終了時）
 
 ## 処理詳細
 1. [unrequested-change-definitions.json](./unrequested-change-definitions.json) から、対象外のファイルのパス（`excludedFilePatterns`）、整形を依頼したとみなす正規表現（`formattingRequestPatterns`）、削除・移動を依頼したとみなす正規表現（`removalRequestPatterns`）を読み込む。ファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
-2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[wait-for-agent-stop-event](../../../utilities/wait-for-agent-stop-event/README.md)）。
-3. ユーザーの最新の依頼以降について、依頼の文（割り込みの指示を含む）、応答の文（途中の応答を含む）、編集系ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）の変更を集める。[get-turn-events](../../../utilities/get-turn-events/README.md) で開始と完了のイベントを対応させ、完了イベントの `success` が `true` の呼び出しだけを対象とする。
+2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[read-transcript-events](../../../utilities/read-transcript-events/README.md)）。
+3. ユーザーの最新の依頼以降について、依頼の文（割り込みの指示を含む）、応答の文（途中の応答を含む）、編集系ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）の変更を集める。[read-transcript-events](../../../utilities/read-transcript-events/README.md) で開始と完了のイベントを対応させ、完了イベントの `success` が `true` の呼び出しだけを対象とする。
    - `edit`・`create`・`insert`・`str_replace_editor`：`path` のファイルの変更とする（`str_replace_editor` の `view`・`undo_edit` は除く）。`old_str` と `new_str` があれば、空白だけが異なるかを判定する。
    - `apply_patch`：`*** Add File:`・`*** Update File:`・`*** Delete File:` ごとの変更とし、`*** Move to:` を移動とする。`*** Update File:` の削除行（`-`）と追加行（`+`）が空白だけ異なるかを判定する。
    - 各ツールの引数は [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) の規則で解析する。
@@ -33,7 +33,7 @@ agentStop（エージェントの応答終了時）
 - ロックファイル（`package-lock.json`・`yarn.lock`・`pnpm-lock.yaml`・`poetry.lock`・`uv.lock`・`Cargo.lock`・`go.sum` など）は対象外とする。
 - 書き込む時点では判定せず、応答終了時に依頼の文と応答の文をそろえて判定する。途中の応答で言及したファイルも対象外とする。
 - サブエージェントの停止は対象外。
-- 依頼の区切りと依頼の文は [get-turn-events](../../../utilities/get-turn-events/README.md) の規則に従う。割り込みで追加された指示は依頼の文に含め、他のhookの差し戻しは含めない。
+- 依頼の区切りと依頼の文は [read-transcript-events](../../../utilities/read-transcript-events/README.md) の規則に従う。割り込みで追加された指示は依頼の文に含め、他のhookの差し戻しは含めない。
 - 最新の依頼の編集だけを対象とする。
 - 拒否・失敗した編集、未完了の編集、対応する開始イベントがない完了は変更とみなさない。ファイルの現在の有無では判定しないため、成功した削除・移動は引き続き検査する。
 - シェルによる書き込み・削除（`rm`・`git mv` など）は対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../../preToolUse/block-shell-file-edits/README.md) hookが拒否する。

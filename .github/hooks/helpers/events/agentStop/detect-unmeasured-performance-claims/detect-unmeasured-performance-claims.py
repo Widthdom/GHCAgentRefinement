@@ -21,7 +21,7 @@ _is_non_blank_string_list = runpy.run_path(os.path.join(
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
 _tool_kinds = runpy.run_path(os.path.join(_utilities_directory, 'check-tool-kinds', 'check-tool-kinds.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
-_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
+_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 _unwrap_tool_args = runpy.run_path(os.path.join(_utilities_directory, 'unwrap-tool-args', 'unwrap-tool-args.py'))['unwrap_tool_args']
 
 
@@ -58,17 +58,17 @@ def _load_definitions(path):
 
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・シェル実行・本hookによる差し戻し済みかを集める。
-    events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
+    events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
     # 拒否などで実行されなかった場合は終了コードが記録されないため、計測とみなさない。
     # 引数はJSON文字列で記録される場合もあるため、包みを外してから読む。
     succeeded_commands = []
-    for tool_name, arguments, completion in _turn_events['get_tool_calls'](events):
+    for tool_name, arguments, completion in _transcript_events['get_tool_calls'](events):
         arguments = _unwrap_tool_args(arguments)
         command = arguments.get('command') if isinstance(arguments, dict) else None
         if (_tool_kinds['is_shell_tool'](tool_name) and isinstance(command, str)
-                and _turn_events['get_shell_exit_code'](completion) == 0):
+                and _transcript_events['get_shell_exit_code'](completion) == 0):
             succeeded_commands.append(command)
-    return _turn_events['get_last_assistant_message'](events), succeeded_commands, already_requested
+    return _transcript_events['get_last_assistant_message'](events), succeeded_commands, already_requested
 
 
 def _find_claim(definitions, response):
@@ -109,9 +109,7 @@ def main(arguments=None):
         transcript_path = _hook_input['get_transcript_path'](hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答とシェル実行の結果を書き込み済みにする。
-        runpy.run_path(
-            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
-        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, succeeded_commands, already_requested = _get_turn_summary(transcript_path)
     except (OSError, UnicodeError, ValueError) as ex:

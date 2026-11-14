@@ -19,7 +19,7 @@ _is_non_blank_string_list = runpy.run_path(os.path.join(
     _utilities_directory, 'check-string-list', 'check-string-list.py',
 ))['is_non_blank_string_list']
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
-_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
+_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 
 
@@ -83,8 +83,8 @@ def _get_turn_summary(transcript_path):
     extract_edit_tool_changes = runpy.run_path(
         os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py')
     )['extract_edit_tool_changes']
-    events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
-    request_texts = _turn_events['get_request_texts'](events)
+    events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
+    request_texts = _transcript_events['get_request_texts'](events)
     response_texts = []
     for event_type, data in events:
         content = data.get('content')
@@ -97,7 +97,7 @@ def _get_turn_summary(transcript_path):
             'moved_to': change['moved_to'],
             'whitespace_only': _is_whitespace_only_change(change),
         }
-        for tool_name, arguments, completion in _turn_events['get_tool_calls'](events)
+        for tool_name, arguments, completion in _transcript_events['get_tool_calls'](events)
         if completion is not None and completion.get('success') is True
         for change in extract_edit_tool_changes(tool_name, arguments, include_deleted=True)
     ]
@@ -172,9 +172,7 @@ def main(arguments=None):
         transcript_path = _hook_input['get_transcript_path'](hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
-        runpy.run_path(
-            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
-        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         request_text, response_text, changes, already_requested = _get_turn_summary(transcript_path)
         # 同じ依頼で差し戻すのは1回だけにし、必要な変更を応答で説明した後に停止できなくなるのを防ぐ。

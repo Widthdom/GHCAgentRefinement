@@ -19,7 +19,7 @@ _is_non_blank_string_list = runpy.run_path(os.path.join(
     _utilities_directory, 'check-string-list', 'check-string-list.py',
 ))['is_non_blank_string_list']
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
-_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
+_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 _build_regex_matchers = runpy.run_path(os.path.join(_utilities_directory, 'build-regex-matchers', 'build-regex-matchers.py'))['build_regex_matchers']
 
 
@@ -92,14 +92,14 @@ def _get_turn_summary(transcript_path):
     extract_edit_tool_changes = runpy.run_path(
         os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py')
     )['extract_edit_tool_changes']
-    events = _turn_events['get_turns'](transcript_path)[-1]
+    events = _transcript_events['get_turn_events'](transcript_path)[-1]
     changes = [
         change
         for event_type, data in events
         if event_type == 'tool.execution_start' and isinstance(data.get('toolName'), str)
         for change in extract_edit_tool_changes(data['toolName'], data.get('arguments'))
     ]
-    return events, _turn_events['get_last_assistant_message'](events), changes
+    return events, _transcript_events['get_last_assistant_message'](events), changes
 
 
 def _format_finding(finding):
@@ -134,9 +134,7 @@ def main(arguments=None):
         transcript_path = _hook_input['get_transcript_path'](hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
-        runpy.run_path(
-            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
-        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         events, last_assistant_msg, changes = _get_turn_summary(transcript_path)
         if last_assistant_msg is None or not changes:
@@ -154,7 +152,7 @@ def main(arguments=None):
         # 複数の種類が当てはまる場合は1つずつ差し戻し、理由の書き出しで差し戻し済みの種類を判定できるようにする。
         reason = None
         for prefix, reason_format, patterns in kinds:
-            if _turn_events['is_already_requested'](events, prefix):
+            if _transcript_events['is_already_requested'](events, prefix):
                 continue
             findings = find_introduced_lines_by_regex(changes, cwd, excluded_file_patterns, patterns)
             if findings:

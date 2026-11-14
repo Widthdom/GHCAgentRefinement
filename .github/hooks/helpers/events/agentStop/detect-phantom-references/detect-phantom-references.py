@@ -13,7 +13,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
+_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
 
 
@@ -207,17 +207,15 @@ def main():
             raise ValueError('cwd must be an existing directory.')
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答を書き込み済みにする。
-        runpy.run_path(
-            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
-        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         # ユーザーの最新の依頼文、それ以降の最終応答、本hookによる差し戻し済みかを集める。
-        events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
-        last_assistant_msg = _turn_events['get_last_assistant_message'](events)
+        events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
+        last_assistant_msg = _transcript_events['get_last_assistant_message'](events)
         # 同じ依頼で差し戻すのは1回だけにし、参照を直せない場合に停止できなくなるのを防ぐ。
         if last_assistant_msg is None or already_requested:
             return 0
-        phantoms = _get_phantom_references(last_assistant_msg, _turn_events['get_request'](events) or '', cwd)
+        phantoms = _get_phantom_references(last_assistant_msg, _transcript_events['get_request'](events) or '', cwd)
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to inspect path references: {ex}', file=sys.stderr)
         return 2

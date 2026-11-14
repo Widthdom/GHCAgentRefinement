@@ -13,6 +13,7 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['parse_session_id']
+_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 
 
 def main():
@@ -34,9 +35,7 @@ def main():
 
         transcript_path = _hook_input['get_transcript_path'](hook_input)
         # トランスクリプトは非同期で追記されるため、自身のhook.startが書き込まれるまで最大5秒待つ。
-        runpy.run_path(
-            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py'),
-        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
         get_prompt_log_paths = runpy.run_path(
             os.path.join(script_directory, 'get-prompt-log-paths.py'),
         )['get_prompt_log_paths']

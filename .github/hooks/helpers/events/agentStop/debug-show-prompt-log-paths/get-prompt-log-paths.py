@@ -12,21 +12,19 @@ _parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state
 _get_debug_log_directory = runpy.run_path(os.path.join(
     _utilities_directory, 'get-debug-log-directory', 'get-debug-log-directory.py',
 ))['get_debug_log_directory']
+_read_transcript_events = runpy.run_path(os.path.join(
+    _utilities_directory, 'read-transcript-events', 'read-transcript-events.py',
+))['read_transcript_events']
 
 
 def get_prompt_log_paths(transcript_path, session_id):
     session_id = _parse_session_id(str(session_id))
-    read_jsonl_objects = runpy.run_path(
-        os.path.join(_utilities_directory, 'read-jsonl-objects', 'read-jsonl-objects.py'),
-    )['read_jsonl_objects']
     timestamps = set()
     response_started = False
-    for event in read_jsonl_objects(transcript_path):
+    for event in _read_transcript_events(transcript_path):
         if event.get('type') != 'hook.start':
             continue
-        data = event.get('data', {})
-        if not isinstance(data, dict):
-            raise ValueError('Event data must be a JSON object.')
+        data = event['data']
         hook_input = data.get('input')
         if not isinstance(hook_input, dict) or hook_input.get('agentId'):
             continue

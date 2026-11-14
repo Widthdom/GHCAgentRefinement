@@ -14,7 +14,7 @@ _utilities_directory = os.path.join(
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 _truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate-text.py'))['truncate_text']
-_turn_events = runpy.run_path(os.path.join(_utilities_directory, 'get-turn-events', 'get-turn-events.py'))
+_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 
 
 # 作業を後回しにすると約束する表現。エージェントには応答の後に作業する機会がないため、果たされない。
@@ -52,13 +52,13 @@ _MAX_PROMISE_LENGTH = 200
 
 def _get_turn(transcript_path, extract_edit_tool_changes):
     # ユーザーの最新の依頼以降の最終応答と、FIXMEコメントを書き込んだかを返す。本hookによる差し戻し済みかも返す。
-    events, already_requested = _turn_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
+    events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
     wrote_fixme = any(
         completion is not None and completion.get('success') is True
         and any(_FIXME_PATTERN.search(change['written']) for change in extract_edit_tool_changes(tool_name, arguments))
-        for tool_name, arguments, completion in _turn_events['get_tool_calls'](events)
+        for tool_name, arguments, completion in _transcript_events['get_tool_calls'](events)
     )
-    return _turn_events['get_last_assistant_message'](events), wrote_fixme, already_requested
+    return _transcript_events['get_last_assistant_message'](events), wrote_fixme, already_requested
 
 
 def _find_promises(response):
@@ -108,9 +108,7 @@ def main():
             os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py')
         )['extract_edit_tool_changes']
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答を書き込み済みにする。
-        runpy.run_path(
-            os.path.join(_utilities_directory, 'wait-for-agent-stop-event', 'wait-for-agent-stop-event.py')
-        )['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, wrote_fixme, already_requested = _get_turn(transcript_path, extract_edit_tool_changes)
     except (OSError, UnicodeError, ValueError) as ex:

@@ -8,7 +8,7 @@ agentStop（エージェントの応答終了時）
 
 ## 処理詳細
 1. [orphaned-addition-definitions.json](./orphaned-addition-definitions.json) から、参照に数えないファイルのパス（`ignoredReferenceFilePatterns`）、対象外の名前（`excludedNamePatterns`）、言語ごとの定義（`languages`）を読み込む。また、[check-test-files](../../../utilities/check-test-files/README.md) utilityで、テストファイルの判定の定義を読み込む。いずれかのファイルがない、形式が不正、正規表現が不正な場合は異常終了する。
-2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[wait-for-agent-stop-event](../../../utilities/wait-for-agent-stop-event/README.md)）。
+2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[read-transcript-events](../../../utilities/read-transcript-events/README.md)）。
 3. ユーザーの最新の依頼以降について、編集系ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）が書き込む内容と、置換前の内容を集める。
    - 各ツールの引数は [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) の規則で解析する。
 4. `git rev-parse --show-toplevel` でリポジトリルートを特定する。gitがない、またはリポジトリ外の場合は何もせず正常終了する。
@@ -46,7 +46,7 @@ agentStop（エージェントの応答終了時）
 - テストファイル内の定義はテストフレームワークが呼ぶため対象外とする。テストファイルからの参照しかない定義は、実装が本体から呼ばれていないものとして差し戻す。
 - `override` や属性・デコレーター付きの定義、Pythonのメソッド、JavaScript/TypeScriptのクラスのメソッドは、基底クラスやフレームワークから名前で呼ばれることが多いため対象外とする。
 - サブエージェントの停止は対象外。
-- 依頼の区切りは [get-turn-events](../../../utilities/get-turn-events/README.md) の規則に従う。
+- 依頼の区切りは [read-transcript-events](../../../utilities/read-transcript-events/README.md) の規則に従う。
 - 最新の依頼の編集だけを対象とする。それより前の依頼の編集やユーザーの変更で入った定義は検出しない。
 - シェルによる書き込みは対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../../preToolUse/block-shell-file-edits/README.md) hookが拒否する。
 - gitの検索に失敗した場合（タイムアウトの10秒を超えた場合を含む）は、参照を数えられないため何もせず正常終了する。
