@@ -120,6 +120,14 @@ def _convert_transcript(path, last_message, timestamp_ms):
     def add(kind, data, timestamp):
         events.append({'type': kind, 'data': data, 'timestamp': timestamp})
 
+    def start(call_id, name, arguments, timestamp):
+        if not isinstance(call_id, str) or not call_id or call_id in calls:
+            return
+        calls[call_id] = name
+        add('tool.execution_start', {
+            'toolCallId': call_id, 'toolName': name, 'arguments': arguments,
+        }, timestamp)
+
     def complete(call_id, exit_code, timestamp):
         if call_id not in calls or call_id in completed:
             return
@@ -166,8 +174,18 @@ def _convert_transcript(path, last_message, timestamp_ms):
                                     'decision': 'block', 'reason': reason,
                                 }}, timestamp)
                                 add('user.message', {'content': reason, 'delivery': 'queued'}, timestamp)
-                    elif item_type == 'CommandExecution' and type(item.get('exit_code')) is int:
-                        complete(item.get('id'), item['exit_code'], timestamp)
+                    elif item_type == 'CommandExecution':
+                        call_id, command = item.get('id'), item.get('command')
+                        # コードモード内の呼び出しにはresponse_itemがない場合がある。
+                        # JavaScript本文を解析せず、ホストが記録した実行コマンドを復元する。
+                        # write_stdinの通信とユーザー自身のシェル実行は新しい呼び出しにしない。
+                        if (item.get('source') in ('agent', 'unified_exec_startup')
+                                and isinstance(command, list) and command
+                                and all(isinstance(part, str) for part in command)):
+                            name, arguments = _convert_tool('shell', {'command': command})
+                            start(call_id, name, arguments, timestamp)
+                        if type(item.get('exit_code')) is int:
+                            complete(call_id, item['exit_code'], timestamp)
             elif kind == 'response_item':
                 item_type = item.get('type')
                 if item_type in ('function_call', 'custom_tool_call'):
@@ -175,10 +193,7 @@ def _convert_transcript(path, last_message, timestamp_ms):
                     if not isinstance(name, str) or not isinstance(call_id, str):
                         continue
                     name, arguments = _convert_tool(name, item.get('arguments', item.get('input')))
-                    calls[call_id] = name
-                    add('tool.execution_start', {
-                        'toolCallId': call_id, 'toolName': name, 'arguments': arguments,
-                    }, timestamp)
+                    start(call_id, name, arguments, timestamp)
                 elif item_type in ('function_call_output', 'custom_tool_call_output'):
                     call_id = item.get('call_id')
                     exit_code = _shell_exit(item.get('output'))

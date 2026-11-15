@@ -172,6 +172,110 @@ class RunCodexHookTests(unittest.TestCase):
                 self.assertEqual((result.returncode, result.stdout), (1, b''))
                 self.assertIn(b'Failed to run Codex hook', result.stderr)
 
+    def test_code_mode_shell_completion_without_response_item(self):
+        path = self.__hook('agentStop')
+        command = 'python3 .github/hooks/tests/test-all-hooks.py'
+        item = {'type': 'CommandExecution', 'id': 'exec-nested',
+                'command': ['/bin/zsh', '-lc', command], 'source': 'unified_exec_startup',
+                'status': 'completed', 'exit_code': 1}
+        transcript = self.__transcript(
+            ('response_item', {'type': 'custom_tool_call', 'name': 'functions.exec',
+                               'input': 'await tools.exec_command({cmd: command})', 'call_id': 'outer'}),
+            ('event_msg', {'type': 'item_completed', 'item': item}),
+            ('event_msg', {'type': 'item_completed', 'item': item}),
+            ('response_item', {'type': 'custom_tool_call_output', 'call_id': 'outer', 'output': 'done'}),
+        )
+        result = self.__run('Stop', transcript_path=transcript)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        events = self.__read(path)['transcript']
+        nested = [e for e in events if e['data'].get('toolCallId') == 'exec-nested']
+        self.assertEqual([e['type'] for e in nested], ['tool.execution_start', 'tool.execution_complete'])
+        self.assertEqual(nested[0]['data']['toolName'], 'bash')
+        self.assertEqual(nested[0]['data']['arguments'], {'command': command})
+        self.assertEqual(nested[1]['data']['shellExecution'], {'exitCode': 1})
+
+    def test_completed_items_do_not_duplicate_direct_calls(self):
+        for item_first in (False, True):
+            with self.subTest(item_first=item_first):
+                call = ('response_item', {'type': 'function_call', 'name': 'functions.exec_command',
+                                         'arguments': '{"cmd":"pytest"}', 'call_id': 't'})
+                item = ('event_msg', {'type': 'item_completed', 'item': {
+                    'type': 'CommandExecution', 'id': 't', 'command': ['sh', '-c', 'pytest'],
+                    'source': 'agent', 'exit_code': 0,
+                }})
+                records = (item, call) if item_first else (call, item)
+                transcript = self.__transcript(*records, ('response_item', {
+                    'type': 'function_call_output', 'call_id': 't', 'output': '{"exit_code":0}',
+                }))
+                events = _adapter['_convert_transcript'](transcript, None, 123)
+                self.assertEqual([e['type'] for e in events], [
+                    'tool.execution_start', 'tool.execution_complete', 'hook.start',
+                ])
+
+    def test_stop_test_requirement_observes_nested_test_exit_code(self):
+        requirement = runpy.run_path(os.path.join(
+            _hooks, 'helpers', 'events', 'agentStop', 'require-hook-tests', 'require-hook-tests.py',
+        ))
+        for exit_code, expected in ((0, []), (1, ['failed with exit code 1']), (None, ['not run'])):
+            with self.subTest(exit_code=exit_code):
+                transcript = self.__transcript(
+                    ('event_msg', {'type': 'user_message', 'message': 'hookを修正'}),
+                    ('response_item', {'type': 'custom_tool_call', 'name': 'apply_patch', 'call_id': 'edit',
+                                       'input': '*** Begin Patch\n*** Update File: .github/hooks/helpers/runner/run-codex-hook.py\n@@\n-a\n+b\n*** End Patch'}),
+                    ('response_item', {'type': 'custom_tool_call_output', 'call_id': 'edit', 'output': 'Success'}),
+                    ('event_msg', {'type': 'item_completed', 'item': {
+                        'type': 'CommandExecution', 'id': 'nested-test', 'source': 'unified_exec_startup',
+                        'command': ['sh', '-c', 'python3 .github/hooks/tests/test-all-hooks.py'],
+                        'exit_code': exit_code,
+                    }}),
+                )
+                events = _adapter['_convert_transcript'](transcript, None, 123)
+                with open(transcript, 'w', encoding='utf-8', newline='\n') as file:
+                    for event in events:
+                        file.write(json.dumps(event) + '\n')
+                turn, _ = requirement['_get_turn_events'](transcript)
+                unverified, _ = requirement['_get_unverified'](turn, _root)
+                self.assertEqual([status for _, status in unverified], expected)
+
+    def test_shell_items_do_not_invent_success_or_execution(self):
+        for source, command, exit_code, started, completed in (
+            ('unified_exec_startup', ['sh', '-c', 'pytest'], None, True, False),
+            ('unified_exec_startup', ['sh', '-c', 'pytest'], True, True, False),
+            ('unified_exec_startup', ['python3', 'test.py'], 0, True, True),
+            ('unified_exec_interaction', ['sh', '-c', 'pytest'], 0, False, False),
+            ('user_shell', ['sh', '-c', 'pytest'], 0, False, False),
+            ('unified_exec_startup', [], 0, False, False),
+            ('unified_exec_startup', 'pytest', 0, False, False),
+        ):
+            with self.subTest(source=source, command=command, exit_code=exit_code):
+                transcript = self.__transcript(('event_msg', {'type': 'item_completed', 'item': {
+                    'type': 'CommandExecution', 'id': 'nested', 'source': source,
+                    'command': command, 'exit_code': exit_code,
+                }}))
+                events = _adapter['_convert_transcript'](transcript, None, 123)
+                self.assertEqual(sum(e['type'] == 'tool.execution_start' for e in events), int(started))
+                self.assertEqual(sum(e['type'] == 'tool.execution_complete' for e in events), int(completed))
+                if completed:
+                    self.assertEqual(events[0]['data']['arguments']['command'], 'python3 test.py')
+
+    def test_nested_shell_hook_payload_uses_normal_tool_hooks(self):
+        # コードモードのPre/Postは外側のJavaScriptではなく個々のツール入力を受け取る。
+        pre = self.__hook('preToolUse', output={'permissionDecision': 'deny',
+                                             'permissionDecisionReason': 'blocked'}, matcher='bash')
+        post = self.__hook('postToolUse', output={'additionalContext': 'checked'}, matcher='bash')
+        for name in ('Bash', 'functions.Bash', 'exec_command', 'functions.exec_command'):
+            with self.subTest(name=name):
+                arguments = {'command': 'pytest'} if name.endswith('Bash') else {'cmd': 'pytest'}
+                result = self.__run('PreToolUse', tool_name=name, tool_input=arguments)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout)['hookSpecificOutput']['permissionDecision'], 'deny')
+                self.assertEqual(self.__read(pre)['toolArgs']['command'], 'pytest')
+                result = self.__run('PostToolUse', tool_name=name, tool_input=arguments,
+                                    tool_response={'output': 'failed', 'exit_code': 1})
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(json.loads(result.stdout)['hookSpecificOutput']['additionalContext'], 'checked')
+                self.assertEqual(self.__read(post)['toolResult']['textResultForLlm'], 'failed')
+
     def test_invalid_input_and_hook_failures_do_not_block(self):
         result = self.__run('PostToolUseFailure')
         self.assertEqual(result.returncode, 1)
