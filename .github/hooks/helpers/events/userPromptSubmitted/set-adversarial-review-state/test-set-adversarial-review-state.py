@@ -13,6 +13,7 @@ _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'set-adversarial-review-state.py')
 _helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
 _hooks_directory = os.path.dirname(_helpers_directory)
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 
 
 class ReviewModeTests(unittest.TestCase):
@@ -137,6 +138,4 @@ class ReviewModeTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    _run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
-
     _run_tests()

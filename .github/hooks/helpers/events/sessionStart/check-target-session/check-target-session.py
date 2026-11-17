@@ -55,7 +55,6 @@ def main():
     }, ensure_ascii=False, separators=(',', ':')))
     return 0
 
-# このファイルが直接実行されたときだけ main() を呼び出す。
-# import されただけでは main() は呼び出されない。
+
 if __name__ == '__main__':
     sys.exit(main())
