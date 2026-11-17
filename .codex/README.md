@@ -66,7 +66,7 @@ CLIの `/hooks` でこのリポジトリの6イベントを一度信頼すると
 |[setup-codex-hooks.py](./setup-codex-hooks.py)|clone先のプロジェクトとhookの信頼をユーザー設定に保存し、別プロセスで確認する。|
 |[test-setup-codex-hooks.py](../.github/hooks/helpers/runner/test-setup-codex-hooks.py)|セットアップの設定保持、再実行、読み取り確認、異常系を検証する。|
 |[run-codex-hook.py](../.github/hooks/helpers/runner/run-codex-hook.py)|Codexの入力と履歴をCopilot SDK形式に変換する。|
-|[adapted-hook-runtime.py](../.github/hooks/helpers/runner/adapted-hook-runtime.py)|Claude Codeと共通の定義読込・順次実行・出力集約。|
+|[adapted-hook-runtime.py](../.github/hooks/helpers/runner/adapted-hook-runtime.py)|Claude Codeと共通の定義読込・順次実行・出力集約・履歴の末尾の補完と書き出し。|
 |[test-run-codex-hook.py](../.github/hooks/helpers/runner/test-run-codex-hook.py)|形式変換、拒否、停止、起動設定のテスト。Windowsの起動テストはCodexと同じく、内部の引用符を保持したコマンド文字列をCOMSPECの `/c` に渡す。|
 
 Codexは同一イベントのコマンドhookを並列実行するため、アダプターを1つ登録し、その中で共通hookを定義順に実行する。hook一覧は `.github/hooks` の定義だけに保持する。

@@ -6,7 +6,6 @@ import runpy
 import sys
 import tempfile
 import time
-from datetime import datetime, timezone
 from typing import cast
 
 # Claude Codeのhookとして起動され、Copilot SDK形式のhookをそのまま実行するアダプター。
@@ -15,11 +14,7 @@ from typing import cast
 # 設定と変換の規則、制約は .claude/README.md を参照。
 
 _runner_directory = os.path.dirname(os.path.abspath(__file__))
-_helpers_directory = os.path.dirname(_runner_directory)
-_hooks_directory = os.path.dirname(_helpers_directory)
-# hooks → .github → リポジトリルート
-_repository_root = os.path.dirname(os.path.dirname(_hooks_directory))
-_utilities_directory = os.path.join(_helpers_directory, 'utilities')
+_utilities_directory = os.path.join(os.path.dirname(_runner_directory), 'utilities')
 _collect_json_string_values = runpy.run_path(os.path.join(
     _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
@@ -54,9 +49,6 @@ _TOOL_NAMES = {
 }
 # Claude Codeは、シェルの非ゼロ終了を「Exit code <終了コード>」で始まるエラーとして返す。
 _EXIT_CODE_PATTERN = re.compile(r'Exit code (-?\d+)(?:\n|$)')
-# 複数のagentStop hookの差し戻しを1つの `reason` にまとめるときの区切り。
-# トランスクリプトの変換時に同じ区切りで分け、hookごとの差し戻しに戻す。
-_BLOCK_REASON_SEPARATOR = '\n\n---\n\n'
 
 
 def _convert_tool_name(tool_name):
@@ -159,7 +151,7 @@ def _convert_transcript(transcript_path, last_assistant_message, timestamp_ms):
                 reason = blocking_error.get('blockingError') if isinstance(blocking_error, dict) else None
                 if attachment.get('hookEvent') != 'Stop' or not isinstance(reason, str):
                     continue
-                for part in reason.split(_BLOCK_REASON_SEPARATOR):
+                for part in reason.split(_runtime['BLOCK_REASON_SEPARATOR']):
                     add('hook.end', {'hookType': 'agentStop', 'output': {'decision': 'block', 'reason': part}}, timestamp)
                     add('user.message', {'content': part, 'delivery': 'queued'}, timestamp)
             elif entry_type == 'assistant' and isinstance(content, list):
@@ -205,20 +197,7 @@ def _convert_transcript(transcript_path, last_assistant_message, timestamp_ms):
                     add_hook_start('userPromptSubmitted', timestamp)
                     add('user.message', {'content': text}, timestamp)
 
-    # Stopの時点で、最終応答がトランスクリプトにまだ書き込まれていない場合がある。入力の最終応答で補う。
-    if isinstance(last_assistant_message, str) and last_assistant_message.strip():
-        last_content = next((
-            event['data']['content'] for event in reversed(events) if event['type'] == 'assistant.message'
-        ), '')
-        if last_content.strip() != last_assistant_message.strip():
-            add('assistant.message', {'content': last_assistant_message}, None)
-    # hookは、自身のhook.startが記録されるまでトランスクリプトの追記を待つ。待たせないよう末尾に加える。
-    add(
-        'hook.start', {'hookType': 'agentStop', 'input': {'timestamp': timestamp_ms}},
-        datetime.fromtimestamp(timestamp_ms / 1000, timezone.utc).isoformat(),
-    )
-    return events
-
+    return _runtime['complete_transcript_events'](events, last_assistant_message, timestamp_ms)
 
 
 def main():
@@ -237,8 +216,6 @@ def main():
         return 1
     claude_event = claude_input['hook_event_name']
 
-    # hook定義のコマンドはリポジトリルートからの相対パスで書かれている。
-    os.chdir(_repository_root)
     with tempfile.TemporaryDirectory(prefix='ghc-claude-hook-') as temporary_directory:
         if claude_event == 'Stop':
             try:
@@ -246,10 +223,7 @@ def main():
                     os.path.expanduser(claude_input.get('transcript_path') or ''),
                     claude_input.get('last_assistant_message'), timestamp_ms,
                 )
-                hook_input['transcriptPath'] = os.path.join(temporary_directory, 'events.jsonl')
-                with open(hook_input['transcriptPath'], 'w', encoding='utf-8', newline='\n') as file:
-                    for transcript_event in events:
-                        file.write(json.dumps(transcript_event, ensure_ascii=False) + '\n')
+                hook_input['transcriptPath'] = _runtime['write_transcript_events'](temporary_directory, events)
             except OSError as ex:
                 print(f'Failed to convert Claude Code transcript: {ex}', file=sys.stderr)
                 return 1
