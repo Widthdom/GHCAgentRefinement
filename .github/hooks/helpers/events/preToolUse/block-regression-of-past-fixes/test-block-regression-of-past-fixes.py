@@ -232,7 +232,7 @@ class BlockRegressionOfPastFixesTests(unittest.TestCase):
             self.__run_call('str_replace_editor', {'command': 'view', 'path': 'src/calc.py'}), 'view must be ignored.',
         )
 
-    def test_invalid_input_exits_with_error(self):
+    def test_invalid_input(self):
         cases = [
             ('empty input', b''),
             ('invalid JSON', b'{'),
@@ -250,7 +250,7 @@ class BlockRegressionOfPastFixesTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to check regression of past fixes', result.stderr, name)
 
-    def test_invalid_definitions_exit_with_error(self):
+    def test_invalid_definitions(self):
         cases = [
             ('not an object', []),
             ('missing patterns', {}),

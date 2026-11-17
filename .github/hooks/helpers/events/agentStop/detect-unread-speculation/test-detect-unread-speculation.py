@@ -233,7 +233,7 @@ class DetectUnreadSpeculationTests(unittest.TestCase):
         self.__assert_block(self.__invoke([_user('調べて'), _assistant('`src/a.py` はきっと古い。')], definitions_path=custom_path))
         self.__assert_silent(self.__invoke([_user('調べて'), _assistant('`src/a.py` はおそらく古い。')], definitions_path=custom_path))
 
-    def test_invalid_definitions_report_error(self):
+    def test_invalid_definitions(self):
         cases = [('{', 'not valid JSON'), ('[]', 'must be a JSON object'), ('\xff', None)]
         for value in (None, [], [''], [' '], [1], 'a'):
             cases.append((json.dumps({'speculationPatterns': value}), 'speculationPatterns in unread speculation definitions must be a non-empty array of non-blank strings'))
@@ -257,7 +257,7 @@ class DetectUnreadSpeculationTests(unittest.TestCase):
                 self.assertEqual(result.stdout, b'')
                 self.assertIn(b'unread speculation definitions path is not a file', result.stderr)
 
-    def test_invalid_input_reports_error(self):
+    def test_invalid_input(self):
         self.__write_transcript([_user('調べて')])
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'\xff']
         for value in (None, '', ' ', 3, [], os.path.join(self.__root, 'missing.jsonl'), self.__root):

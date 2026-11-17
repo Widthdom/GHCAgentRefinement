@@ -51,14 +51,14 @@ class BlockPy314IncompatibleSyntaxTests(unittest.TestCase):
         with open(full_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(content)
 
-    def __run_process(self, hook_input):
+    def __run_hook(self, hook_input):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path], input=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
         )
 
     def __run_call(self, tool_name, tool_args):
-        return self.__run_process({'cwd': self.__directory, 'toolName': tool_name, 'toolArgs': tool_args})
+        return self.__run_hook({'cwd': self.__directory, 'toolName': tool_name, 'toolArgs': tool_args})
 
     def __assert_allowed(self, result, message):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''), message)
@@ -179,7 +179,7 @@ class BlockPy314IncompatibleSyntaxTests(unittest.TestCase):
             ('no tool args', encode({'cwd': self.__directory, 'toolName': 'edit'})),
         ]:
             with self.subTest(name=name):
-                result = self.__run_process(hook_input)
+                result = self.__run_hook(hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertEqual(result.stdout, b'', name)
                 self.assertIn(b'Failed to check Python 3.14 syntax', result.stderr, name)

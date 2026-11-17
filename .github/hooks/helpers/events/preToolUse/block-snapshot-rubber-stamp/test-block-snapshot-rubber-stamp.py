@@ -138,7 +138,7 @@ class BlockSnapshotRubberStampTests(unittest.TestCase):
         })
         self.__assert_denied(result, ['Jest/Vitest/Playwright'], 'JSON string toolArgs must be parsed.')
 
-    def test_invalid_input_exits_with_error(self):
+    def test_invalid_input(self):
         cases = [
             ('empty input', b''),
             ('invalid JSON', b'{'),
@@ -154,7 +154,7 @@ class BlockSnapshotRubberStampTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to check snapshot updates', result.stderr, name)
 
-    def test_invalid_definitions_exit_with_error(self):
+    def test_invalid_definitions(self):
         cases = [
             ('not an object', '[]'),
             ('empty array', '{"updateCommands": []}'),

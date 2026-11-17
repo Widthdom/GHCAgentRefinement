@@ -199,7 +199,7 @@ class BlockShellFileEditsTests(unittest.TestCase):
         payload['cwd'] = self.__root
         self.__assert_allowed(self.__run_hook(payload))
 
-    def test_invalid_input_reports_error(self):
+    def test_invalid_input(self):
         base = self.__payload(('bash', {'command': 'echo x'}))
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'true', b'{"cwd":"\xff"}']
         for field in ('cwd', 'toolName', 'toolArgs'):

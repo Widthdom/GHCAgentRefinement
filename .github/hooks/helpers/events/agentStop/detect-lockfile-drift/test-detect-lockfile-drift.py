@@ -195,7 +195,7 @@ class DetectLockfileDriftTests(unittest.TestCase):
             os.makedirs(outside)
             self.__assert_silent(self.__invoke(events, payload={**self.__payload, 'cwd': outside}))
 
-    def test_invalid_input_exits_with_error(self):
+    def test_invalid_input(self):
         self.__invoke([_user('x'), _assistant('y')])
         cases = [
             ('empty input', b''),
@@ -215,7 +215,7 @@ class DetectLockfileDriftTests(unittest.TestCase):
                 file.write('not json\n')
             self.assertEqual(self.__invoke().returncode, 2)
 
-    def test_invalid_definitions_exit_with_error(self):
+    def test_invalid_definitions(self):
         manifest = {'name': 'x', 'filePattern': 'x', 'format': 'json', 'dependencyKeys': ['a'],
                     'lockFiles': [{'file': 'x.lock', 'command': 'x'}]}
         cases = [

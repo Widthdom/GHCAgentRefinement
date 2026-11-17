@@ -198,7 +198,7 @@ class BlockCommitMessageMismatchTests(unittest.TestCase):
         reason = self.__assert_denied(self.__invoke(f"git commit -m '{message}'"), '- name09', '... and 2 more')
         self.assertNotIn('name10', reason)
 
-    def test_invalid_input_reports_error(self):
+    def test_invalid_input(self):
         valid = {'sessionId': str(uuid.uuid4()), 'cwd': self.__root, 'toolName': 'bash', 'toolArgs': {'command': 'ls'}}
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'\xff']
         for key, value in (

@@ -41,7 +41,7 @@ class BlockTimeoutInflationTests(unittest.TestCase):
         # テストごとに別セッションとし、拒否の記録を持ち越さない。
         self.__session_id = str(uuid.uuid4())
 
-    def __run_process(self, hook_input, *arguments):
+    def __run_hook(self, hook_input, *arguments):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path, *arguments], input=raw,
@@ -49,7 +49,7 @@ class BlockTimeoutInflationTests(unittest.TestCase):
         )
 
     def __run_call(self, tool_call):
-        return self.__run_process({
+        return self.__run_hook({
             'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args'],
         })
 
@@ -189,7 +189,7 @@ class BlockTimeoutInflationTests(unittest.TestCase):
             ('invalid utf-8', b'\xff'),
         ]:
             with self.subTest(name=name):
-                result = self.__run_process(raw)
+                result = self.__run_hook(raw)
                 self.assertEqual((result.returncode, result.stdout), (2, b''), name)
                 self.assertIn(b'Failed to check timeout inflation:', result.stderr)
 
@@ -208,7 +208,7 @@ class BlockTimeoutInflationTests(unittest.TestCase):
                 definitions_path = os.path.join(self.__root, 'definitions.json')
                 with open(definitions_path, 'w', encoding='utf-8', newline='\n') as file:
                     file.write(content)
-                result = self.__run_process(valid_input, '--definitions-path', definitions_path)
+                result = self.__run_hook(valid_input, '--definitions-path', definitions_path)
                 self.assertEqual((result.returncode, result.stdout), (2, b''), name)
                 self.assertIn(b'Failed to check timeout inflation:', result.stderr)
 

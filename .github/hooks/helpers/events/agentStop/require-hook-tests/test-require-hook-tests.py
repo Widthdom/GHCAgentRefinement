@@ -269,7 +269,7 @@ class RequireHookTestsTests(unittest.TestCase):
         self.__invoke(events)
         self.__assert_silent(self.__invoke(payload={**self.__payload, 'agentId': 'agent-1'}))
 
-    def test_invalid_input_reports_error(self):
+    def test_invalid_input(self):
         self.__invoke([_user('直して')])
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42']
         for changes in (

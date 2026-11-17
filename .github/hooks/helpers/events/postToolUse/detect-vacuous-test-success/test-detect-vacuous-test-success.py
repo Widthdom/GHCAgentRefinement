@@ -192,7 +192,7 @@ class DetectVacuousTestSuccessTests(unittest.TestCase):
         self.assertNotIn('pytest', rows[0][0])
         self.assertEqual(len(rows[0][0]), 64)
 
-    def test_invalid_input_reports_error(self):
+    def test_invalid_input(self):
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'\xff']
         base = self.__payload('pytest', 'no tests ran')
         for key, value in (('sessionId', None), ('sessionId', 'not-uuid'), ('toolName', ''), ('toolName', 3)):

@@ -182,7 +182,7 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
         with self.subTest(name='no final response'):
             self.__assert_silent(self.__invoke([_user('速くして')]))
 
-    def test_invalid_input_exits_with_error(self):
+    def test_invalid_input(self):
         self.__invoke([_user('x'), _assistant('y')])
         cases = [
             ('empty input', b''),
@@ -201,7 +201,7 @@ class DetectUnmeasuredPerformanceClaimsTests(unittest.TestCase):
                 file.write('not json\n')
             self.assertEqual(self.__invoke().returncode, 2)
 
-    def test_invalid_definitions_exit_with_error(self):
+    def test_invalid_definitions(self):
         valid = {'claimPatterns': ['a'], 'hedgePatterns': ['b'], 'measurementCommandPatterns': ['c']}
         cases = [
             ('not an object', []),

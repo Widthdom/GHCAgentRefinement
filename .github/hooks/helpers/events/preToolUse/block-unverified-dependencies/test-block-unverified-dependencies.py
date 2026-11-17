@@ -212,7 +212,7 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
         self.__assert_allowed(self.__run_call('bash', {'command': 'echo zz-missing >> requirements.txt'}), 'bash')
         self.__assert_allowed(self.__run_call('str_replace_editor', {'command': 'view', 'path': 'App/App.csproj'}), 'view')
 
-    def test_invalid_input_fails(self):
+    def test_invalid_input(self):
         inputs = [
             b'',
             b'[]',

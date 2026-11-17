@@ -46,7 +46,7 @@ class BlockInvisibleCharactersTests(unittest.TestCase):
         # テストごとに別セッションとし、拒否の記録を持ち越さない。
         self.__session_id = str(uuid.uuid4())
 
-    def __run_process(self, hook_input, *arguments):
+    def __run_hook(self, hook_input, *arguments):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path, *arguments], input=raw,
@@ -54,7 +54,7 @@ class BlockInvisibleCharactersTests(unittest.TestCase):
         )
 
     def __run_call(self, tool_call):
-        return self.__run_process({
+        return self.__run_hook({
             'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': tool_call['name'], 'toolArgs': tool_call['args'],
         })
 
@@ -196,7 +196,7 @@ class BlockInvisibleCharactersTests(unittest.TestCase):
             ('invalid utf-8', b'\xff'),
         ]:
             with self.subTest(name=name):
-                result = self.__run_process(hook_input)
+                result = self.__run_hook(hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertEqual(result.stdout, b'', name)
                 self.assertIn(b'Failed to check invisible characters:', result.stderr)
@@ -219,7 +219,7 @@ class BlockInvisibleCharactersTests(unittest.TestCase):
                 if content is not None:
                     with open(path, 'w', encoding='utf-8', newline='\n') as file:
                         file.write(content if isinstance(content, str) else json.dumps(content))
-                result = self.__run_process(valid_input, '--definitions-path', path)
+                result = self.__run_hook(valid_input, '--definitions-path', path)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to check invisible characters:', result.stderr)
 
