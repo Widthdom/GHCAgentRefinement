@@ -5,14 +5,17 @@ import re
 import runpy
 import subprocess
 import sys
+from datetime import datetime, timezone
 
-# アダプター共通のhook定義の読込・順次実行・判定の集約。
+# アダプター共通のhook定義の読込・順次実行・判定の集約と、変換したトランスクリプトの仕上げ・書き出し。
 _runner_directory = os.path.dirname(os.path.abspath(__file__))
 _hooks_directory = os.path.dirname(os.path.dirname(_runner_directory))
 _repository_root = os.path.dirname(os.path.dirname(_hooks_directory))
 _runner_path = os.path.join(_runner_directory, 'run-hook.py')
 _RUNNER_COMMAND_PREFIX = 'python3 .github/hooks/helpers/runner/run-hook.py '
-_BLOCK_REASON_SEPARATOR = '\n\n---\n\n'
+# 複数のagentStop hookの差し戻しを1つの `reason` にまとめるときの区切り。
+# アダプターはトランスクリプトの変換時に同じ区切りで分け、hookごとの差し戻しに戻す。
+BLOCK_REASON_SEPARATOR = '\n\n---\n\n'
 
 
 def load_hook_entries(event):
@@ -94,7 +97,7 @@ def merge_hook_outputs(host_event, outputs):
         ]
         if reasons:
             merged['decision'] = 'block'
-            merged['reason'] = _BLOCK_REASON_SEPARATOR.join(reasons)
+            merged['reason'] = BLOCK_REASON_SEPARATOR.join(reasons)
     # StopのadditionalContextは応答を続行させるため、差し戻しだけを渡す。
     elif contexts := get_texts('additionalContext'):
         specific['additionalContext'] = '\n\n'.join(contexts)
@@ -104,6 +107,32 @@ def merge_hook_outputs(host_event, outputs):
         merged['hookSpecificOutput'] = {'hookEventName': host_event, **specific}
     return merged or None
 
+
+def complete_transcript_events(events, last_assistant_message, timestamp_ms):
+    # 変換したCopilotのイベントのリストの末尾に、agentStop hookが読むイベントを加えて返す。
+    # Stopの時点で、最終応答がトランスクリプトにまだ書き込まれていない場合がある。入力の最終応答で補う。
+    if isinstance(last_assistant_message, str) and last_assistant_message.strip():
+        last_content = next((
+            event['data']['content'] for event in reversed(events) if event['type'] == 'assistant.message'
+        ), '')
+        if last_content.strip() != last_assistant_message.strip():
+            events.append({'type': 'assistant.message', 'timestamp': None, 'data': {'content': last_assistant_message}})
+    # hookは、自身のhook.startが記録されるまでトランスクリプトの追記を待つ。待たせないよう末尾に加える。
+    events.append({
+        'type': 'hook.start',
+        'timestamp': datetime.fromtimestamp(timestamp_ms / 1000, timezone.utc).isoformat(),
+        'data': {'hookType': 'agentStop', 'input': {'timestamp': timestamp_ms}},
+    })
+    return events
+
+
+def write_transcript_events(directory, events):
+    # イベントのリストをdirectoryのevents.jsonlに書き、hookの入力の `transcriptPath` にするパスを返す。
+    path = os.path.join(directory, 'events.jsonl').replace(os.sep, '/')
+    with open(path, 'w', encoding='utf-8', newline='\n') as file:
+        for event in events:
+            file.write(json.dumps(event, ensure_ascii=False) + '\n')
+    return path
 
 
 def run_hook_entries(entries, hook_input):

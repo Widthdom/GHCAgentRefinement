@@ -54,7 +54,7 @@ Copilotはhookのコマンドを `bash`/`powershell` 経由で起動する。タ
 ## Claude Codeからの起動
 Claude Codeでは、[run-claude-hook.py](./run-claude-hook.py) がClaude Codeの入出力をCopilot SDKの形式に変換し、hook定義のhookを本ランナーで実行する。起動と機能の記録は、Copilotからの起動と同じく行う。構成、変換の規則、制約は [.claude/README.md](../../../../.claude/README.md) を参照。
 
-アダプターからのhook定義の読込、matcherによる選択、順次実行、出力の集約は [adapted-hook-runtime.py](./adapted-hook-runtime.py) が担当する。ホスト固有の入力と履歴の変換は各アダプターが担当する。
+アダプターからのhook定義の読込、matcherによる選択、順次実行、出力の集約、変換した履歴の末尾の補完（最終応答と `agentStop` の `hook.start`）と書き出しは [adapted-hook-runtime.py](./adapted-hook-runtime.py) が担当する。ホスト固有の入力と履歴の変換は各アダプターが担当する。
 
 ## Codexからの起動
 Codexでは、[run-codex-hook.py](./run-codex-hook.py) がイベントと履歴を変換し、共通ランタイムを通じて本ランナーを実行する。設定、公式仕様への参照、対応しないイベントと履歴の制約は [.codex/README.md](../../../../.codex/README.md) を参照。

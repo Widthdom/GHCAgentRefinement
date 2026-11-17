@@ -8,7 +8,6 @@ import sys
 import tempfile
 import time
 import uuid
-from datetime import datetime, timezone
 from typing import cast
 
 # Codexの公開hook入力をCopilot SDK形式に変換する。対応範囲は .codex/README.md を参照。
@@ -28,7 +27,6 @@ _EVENT_NAMES = {
 }
 _SHELL_NAMES = {'Bash', 'exec_command', 'shell_command', 'shell'}
 _EXIT_CODE = re.compile(r'^Process exited with code (-?\d+)\s*$', re.MULTILINE)
-_BLOCK_SEPARATOR = '\n\n---\n\n'
 
 
 def _convert_tool(name, arguments):
@@ -169,7 +167,7 @@ def _convert_transcript(path, last_message, timestamp_ms):
                         for fragment in item.get('fragments', []):
                             if not isinstance(fragment, dict) or not isinstance(fragment.get('text'), str):
                                 continue
-                            for reason in fragment['text'].split(_BLOCK_SEPARATOR):
+                            for reason in fragment['text'].split(_runtime['BLOCK_REASON_SEPARATOR']):
                                 add('hook.end', {'hookType': 'agentStop', 'output': {
                                     'decision': 'block', 'reason': reason,
                                 }}, timestamp)
@@ -202,13 +200,7 @@ def _convert_transcript(path, last_message, timestamp_ms):
                         complete(call_id, exit_code, timestamp)
     if not recognized:
         raise ValueError('unsupported or empty Codex transcript format.')
-    if isinstance(last_message, str) and last_message.strip():
-        latest = next((e['data']['content'] for e in reversed(events) if e['type'] == 'assistant.message'), '')
-        if latest.strip() != last_message.strip():
-            add('assistant.message', {'content': last_message}, None)
-    add('hook.start', {'hookType': 'agentStop', 'input': {'timestamp': timestamp_ms}},
-        datetime.fromtimestamp(timestamp_ms / 1000, timezone.utc).isoformat())
-    return events
+    return _runtime['complete_transcript_events'](events, last_message, timestamp_ms)
 
 
 def main():
@@ -227,16 +219,13 @@ def main():
                 if not isinstance(path, str) or not path:
                     raise ValueError('Stop requires a readable transcript path.')
                 events = _convert_transcript(os.path.expanduser(path), payload.get('last_assistant_message'), timestamp_ms)
-                hook_input['transcriptPath'] = os.path.join(temporary, 'events.jsonl').replace(os.sep, '/')
-                with open(hook_input['transcriptPath'], 'w', encoding='utf-8', newline='\n') as file:
-                    for item in events:
-                        file.write(json.dumps(item, ensure_ascii=False) + '\n')
+                hook_input['transcriptPath'] = _runtime['write_transcript_events'](temporary, events)
             outputs, failed = _runtime['run_hook_entries'](entries, hook_input)
         # 形式が異なる旧履歴でも差し戻しを繰り返さないよう、続行後のStopでは再ブロックしない。
         if event == 'agentStop' and payload.get('stop_hook_active') is True:
             outputs = [{key: value for key, value in output.items() if key not in ('decision', 'reason')}
                        for output in outputs]
-        merged = _runtime['merge_hook_outputs']('Stop' if event == 'agentStop' else host_event, outputs)
+        merged = _runtime['merge_hook_outputs'](host_event, outputs)
         if merged:
             sys.stdout.buffer.write(json.dumps(merged, ensure_ascii=False).encode('utf-8') + b'\n')
             return 0
