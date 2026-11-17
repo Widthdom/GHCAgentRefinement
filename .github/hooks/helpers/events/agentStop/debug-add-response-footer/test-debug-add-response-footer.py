@@ -5,9 +5,9 @@ import runpy
 import subprocess
 import sys
 import tempfile
-import unittest
 import threading
 import time
+import unittest
 import uuid
 from datetime import datetime
 from unittest.mock import Mock, patch

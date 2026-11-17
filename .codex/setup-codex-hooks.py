@@ -1,6 +1,4 @@
 import argparse
-from collections import Counter
-from contextlib import contextmanager
 import json
 import ntpath
 import os
@@ -11,10 +9,12 @@ import subprocess
 import sys
 import threading
 import time
+from collections import Counter
+from contextlib import contextmanager
 
 
-_directory = os.path.dirname(os.path.abspath(__file__))
-_root = os.path.dirname(_directory)
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_repository_root = os.path.dirname(_script_directory)
 _TIMEOUT_SECONDS = 30
 
 
@@ -202,7 +202,7 @@ def main(argv=None):
             raise ValueError('codex was not found on PATH. Install the Codex CLI first.')
         if shutil.which('git') is None:
             raise ValueError('git was not found on PATH.')
-        _setup(_root, [codex], check=args.check)
+        _setup(_repository_root, [codex], check=args.check)
         return 0
     except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.TimeoutExpired) as ex:
         print(f'Failed to set up Codex hooks: {ex}', file=sys.stderr)
