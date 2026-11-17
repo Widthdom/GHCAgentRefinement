@@ -6,7 +6,7 @@ Codexで共通hookを実行するための設定を置く。共通指示は [AGE
 
 - ローカルのCodexで、プロジェクトの `.codex/hooks.json`、`commandWindows`、下表のイベントをサポートする版を使う。調査環境のCLIは `0.169.0`。公式ガイドは2026-11-15に確認した。古い版やVS Codeの別のSession Targetで同じ動作をするとは限らない。
 - GitとPython 3.14以降をPATHから実行できること。macOS/Linuxは `python3`、Windowsは `python` とWindows PowerShellを使う。Pythonを新規導入する場合は3.14系の最新パッチ版を使う。
-- プロジェクトとhookをCodexで信頼済みにする。下の初回セットアップ、またはCLIの `/hooks` で信頼を保存する。新規・変更された未承認hookはスキップされる。
+- プロジェクトとhookをCodexで信頼済みにする（[hookの信頼](#hookの信頼)）。
 - hook機能は公式の既定では有効。ユーザーや管理者の設定で無効になっている場合は実行されない。
 
 ## clone後の初回セットアップ
@@ -38,7 +38,7 @@ python3 .codex/setup-codex-hooks.py --check
 - 使用中のCodexホームのユーザー設定（既定は `~/.codex/config.toml`、`CODEX_HOME` 指定時はその配下）に、このcloneのプロジェクト信頼と `.codex/hooks.json` の各hookの現在のハッシュを保存する。
 - Codex公式APIで対象フィールドをマージするため、他のプロジェクト・hookの信頼、モデル、承認、サンドボックスなどの設定は保持する。無効化済みのhookは自動で有効にせず、`/hooks` での確認を求めて終了する。
 - プロジェクト信頼を保存してからhook一覧を取得し、clone内の定義と一致することを確認してhookの信頼を保存する。最後に別のapp-serverプロセスで保存結果を確認する。スレッドやモデル、hookのコマンドは起動しない。
-- 同じ内容で再実行できる。別端末・別のCodexホーム・別のclone先では初回に実行する。hook定義を変更した場合も、変更内容を確認してから再実行する。同じ環境・定義ならセッションごとの実行は不要。
+- 同じ内容で再実行できる。別端末・別のCodexホーム（CLIと実際に使うアプリで異なる場合を含む）・別のclone先では初回に実行する。hook定義を変更した場合も、変更内容を確認してから再実行する。同じ環境・定義ならセッションごとの実行は不要。
 
 ### 失敗した場合
 
@@ -46,17 +46,17 @@ python3 .codex/setup-codex-hooks.py --check
 
 プロジェクト信頼は先に保存するため、後続のhook検証・保存に失敗しても、そのプロジェクト信頼は残る。表示された原因を解消して再実行する。`--check` が未信頼を報告した場合は、`--check` を外してセットアップするか `/hooks` で確認する。
 
-CLIと実際に使うアプリでCodexホームや接続先が異なる場合、その環境でもセットアップが必要。管理ポリシーやhook機能の無効化は変更しない。linked worktreeで本体のhookが読み込まれる場合は定義の不一致として停止するため、本体のcloneで実行する。Windows/Linuxの実CLI検証は未実施。
+管理ポリシーやhook機能の無効化は変更しない。linked worktreeで本体のhookが読み込まれる場合は定義の不一致として停止するため、本体のcloneで実行する。Windows/Linuxの実CLI検証は未実施。
 
 ## hookの信頼
 
-プロジェクトの `trust_level = "trusted"` と、個別hookの信頼は別の設定。プロジェクトだけを信頼しても、未信頼のhookは全イベントでスキップされ、アダプターには入力が届かない。
+プロジェクトの `trust_level = "trusted"` と、個別hookの信頼は別の設定。プロジェクトだけを信頼しても、新規・変更された未信頼のhookは全イベントでスキップされ、アダプターには入力が届かない。
 
-CLIの `/hooks` でこのリポジトリの6イベントを一度信頼すると、使用中のCodexホームの `config.toml` に `hooks.state.<hookのキー>.trusted_hash` が保存される。同じCodexホーム・hookのキー・定義ハッシュなら、セッションごとの信頼操作は不要。別のCodexホームやリモート環境を使う場合、リポジトリの移動やhook定義の変更でキー・ハッシュが変わった場合は、その環境・定義を改めて信頼する。
+hookの信頼は、上の初回セットアップの代わりにCLIの `/hooks` で6イベントを信頼して保存してもよい。どちらも同じ経路（`config/batchWrite` による `hooks.state` への `upsert`）で、使用中のCodexホームの `config.toml` に `hooks.state.<hookのキー>.trusted_hash` を保存する。リポジトリの移動やhook定義の変更でキー・ハッシュが変わった場合は、改めて信頼する。
 
-全イベントが動かない場合は、`/hooks` で各イベントの有効状態と信頼状態を確認する。APIで調べる場合はCodex app-serverの `hooks/list` に `cwds` を渡すと、`sourcePath`、`enabled`、`trustStatus`、`currentHash`、警告・エラーを確認できる。信頼を明示的に保存する場合は、対象の `sourcePath` に絞った `key` と `currentHash` を、`config/batchWrite` で `hooks.state` に `upsert` する。これはCLIの `/hooks` と同じ保存経路。ハッシュを自前で算出したり、全hookの信頼確認を無効化したりしない。
+全イベントが動かない場合は、`/hooks` で各イベントの有効状態と信頼状態を確認する。APIで調べる場合はCodex app-serverの `hooks/list` に `cwds` を渡すと、`sourcePath`、`enabled`、`trustStatus`、`currentHash`、警告・エラーを確認できる。ハッシュを自前で算出したり、全hookの信頼確認を無効化したりしない。
 
-アダプターは信頼設定を自動更新しない。設定を保存した後は新しいセッションで確認する。既にスキップされた `SessionStart` などが遡って実行されることはない。
+アダプターは信頼設定を自動更新しない。既にスキップされた `SessionStart` などは、信頼を保存した後も遡って実行されない。
 
 ## 構成
 
