@@ -246,7 +246,7 @@ class PreserveLineEndingsTests(unittest.TestCase):
         self.__environment['PATH'] = empty_bin
         self.__assert_silent(self.__edit(b'a\nb\n'))
 
-    def test_invalid_input_reports_error(self):
+    def test_invalid_input(self):
         self.__commit(b'a\r\nb\r\n')
         self.__write(b'a\nb\n')
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'true', b'{"toolName":"\xff"}']

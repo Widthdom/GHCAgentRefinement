@@ -197,7 +197,7 @@ class BlockExclusionEscapesTests(unittest.TestCase):
             with self.subTest(name=name):
                 self.__assert_allowed(self.__run_call(tool_name, args), name)
 
-    def test_invalid_input_exits_with_error(self):
+    def test_invalid_input(self):
         cases = [
             ('empty input', b''),
             ('invalid JSON', b'{'),
@@ -215,7 +215,7 @@ class BlockExclusionEscapesTests(unittest.TestCase):
                 self.assertEqual(result.returncode, 2, name)
                 self.assertIn(b'Failed to check exclusion escapes', result.stderr, name)
 
-    def test_invalid_definitions_exit_with_error(self):
+    def test_invalid_definitions(self):
         config = {'name': 'x', 'filePattern': 'x', 'valuePatterns': [], 'keywordPatterns': ['y']}
         cases = [
             ('not an object', []),

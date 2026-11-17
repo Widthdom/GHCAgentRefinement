@@ -35,7 +35,7 @@ class BlockHookTamperingTests(unittest.TestCase):
         with open(self.__state_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(content if isinstance(content, str) else json.dumps(content))
 
-    def __run_process(self, hook_input):
+    def __run_hook(self, hook_input):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path], input=raw,
@@ -43,7 +43,7 @@ class BlockHookTamperingTests(unittest.TestCase):
         )
 
     def __run_call(self, tool_name, tool_args):
-        return self.__run_process({
+        return self.__run_hook({
             'sessionId': self.__session_id, 'timestamp': 0, 'cwd': self.__directory,
             'toolName': tool_name, 'toolArgs': tool_args,
         })
@@ -237,7 +237,7 @@ class BlockHookTamperingTests(unittest.TestCase):
             ('tool name not string', encode({'sessionId': self.__session_id, 'cwd': self.__directory, 'toolName': 1, 'toolArgs': {}})),
         ]:
             with self.subTest(name=name):
-                result = self.__run_process(hook_input)
+                result = self.__run_hook(hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertEqual(result.stdout, b'', name)
                 self.assertIn(b'Failed to check hook tampering:', result.stderr)

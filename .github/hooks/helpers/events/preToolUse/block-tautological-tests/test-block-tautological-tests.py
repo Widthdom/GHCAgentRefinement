@@ -181,7 +181,7 @@ class BlockTautologicalTestsTests(unittest.TestCase):
         self.__assert_allowed(self.__run_call('str_replace_editor', {'command': 'view', 'path': 'test_math.py'}), 'view')
         self.__assert_allowed(self.__run_call('bash', {'command': 'echo "assert a == a" > test_x.py'}), 'bash')
 
-    def test_invalid_input_fails(self):
+    def test_invalid_input(self):
         inputs = [
             b'',
             b'[]',

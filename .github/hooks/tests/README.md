@@ -1,4 +1,4 @@
-# .github/hooks/tests README
+# hook tests README
 
 ## test-all-hooks
 - [test-all-hooks.py](./test-all-hooks.py) は `.github/hooks/helpers` 配下のすべての `test-*.py` を、リポジトリルートをカレントディレクトリとして実行する。実行中のファイルは、リポジトリルート相対の `/` 区切りのパスで表示する。

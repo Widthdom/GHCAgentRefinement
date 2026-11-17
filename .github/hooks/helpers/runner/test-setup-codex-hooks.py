@@ -1,4 +1,3 @@
-from contextlib import redirect_stdout
 import io
 import json
 import os
@@ -8,15 +7,16 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from unittest.mock import patch
 
 
-_directory = os.path.dirname(os.path.abspath(__file__))
-_hooks = os.path.dirname(os.path.dirname(_directory))
-_root = os.path.dirname(os.path.dirname(_hooks))
-_script = os.path.join(_root, '.codex', 'setup-codex-hooks.py')
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hooks_directory = os.path.dirname(os.path.dirname(_script_directory))
+_repository_root = os.path.dirname(os.path.dirname(_hooks_directory))
+_script = os.path.join(_repository_root, '.codex', 'setup-codex-hooks.py')
 _setup = runpy.run_path(_script)
-_run_tests = runpy.run_path(os.path.join(_hooks, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 _FAKE_SERVER = '''import hashlib, json, os, sys, time
 base = os.path.dirname(__file__)
 state_path = os.path.join(base, 'state.json')
@@ -112,7 +112,7 @@ class SetupCodexHooksTests(unittest.TestCase):
         self.addCleanup(environment.stop)
         self.__root = os.path.join(self.__temporary, 'clone 日本語 with spaces')
         os.makedirs(os.path.join(self.__root, '.codex'))
-        shutil.copy(os.path.join(_root, '.codex', 'hooks.json'), os.path.join(self.__root, '.codex'))
+        shutil.copy(os.path.join(_repository_root, '.codex', 'hooks.json'), os.path.join(self.__root, '.codex'))
         self.__fake = os.path.join(self.__temporary, 'fake-server.py')
         with open(self.__fake, 'w', encoding='utf-8', newline='\n') as file:
             file.write(_FAKE_SERVER)

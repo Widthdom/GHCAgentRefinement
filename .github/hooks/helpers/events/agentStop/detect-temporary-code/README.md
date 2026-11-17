@@ -19,7 +19,6 @@ agentStop（エージェントの応答終了時）
    - 仮実装：実装するか、残す箇所と理由を応答に明記するよう求める。
 
 ## 検出する内容
-
 |種類|例|
 |--|--|
 |consoleへの出力|`console.log(...)`・`console.debug(...)`・`console.trace(...)`・`console.dir(...)`・`console.table(...)`|

@@ -164,7 +164,7 @@ class DetectRenameLeftoversTests(unittest.TestCase):
         })
         self.__assert_context(result, ['app/main.py:1'], 'str_replace_editor')
 
-    def test_invalid_input_fails(self):
+    def test_invalid_input(self):
         inputs = [
             b'',
             b'[]',

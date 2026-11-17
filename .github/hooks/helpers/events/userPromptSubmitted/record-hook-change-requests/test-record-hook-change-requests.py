@@ -36,7 +36,7 @@ class RecordHookChangeRequestsTests(unittest.TestCase):
             self.__root, 'ghc-agent-refinement', 'hook-states', 'hook-change-requests', f'{self.__session_id}.json',
         )
 
-    def __run_process(self, hook_input):
+    def __run_hook(self, hook_input):
         raw = hook_input if isinstance(hook_input, bytes) else json.dumps(hook_input).encode('utf-8')
         return subprocess.run(
             [sys.executable, _hook_path], input=raw,
@@ -44,7 +44,7 @@ class RecordHookChangeRequestsTests(unittest.TestCase):
         )
 
     def __submit(self, prompt, **extra):
-        return self.__run_process({
+        return self.__run_hook({
             'sessionId': self.__session_id, 'timestamp': 0, 'cwd': self.__cwd, 'prompt': prompt, **extra,
         })
 
@@ -100,9 +100,9 @@ class RecordHookChangeRequestsTests(unittest.TestCase):
     def test_works_without_hooks_directory(self):
         outside = os.path.join(self.__root, 'outside')
         os.makedirs(outside)
-        self.__assert_silent(self.__run_process({'sessionId': self.__session_id, 'cwd': outside, 'prompt': 'block-commandsを直して'}))
+        self.__assert_silent(self.__run_hook({'sessionId': self.__session_id, 'cwd': outside, 'prompt': 'block-commandsを直して'}))
         self.assertFalse(os.path.exists(self.__state_path))
-        self.__assert_silent(self.__run_process({'sessionId': self.__session_id, 'cwd': outside, 'prompt': 'hookを直して'}))
+        self.__assert_silent(self.__run_hook({'sessionId': self.__session_id, 'cwd': outside, 'prompt': 'hookを直して'}))
         self.assertIs(self.__read_state()['permitted'], True)
 
     def test_invalid_input(self):
@@ -122,7 +122,7 @@ class RecordHookChangeRequestsTests(unittest.TestCase):
             ('relative cwd', encode({'sessionId': self.__session_id, 'cwd': 'relative', 'prompt': 'hook'})),
         ]:
             with self.subTest(name=name):
-                result = self.__run_process(hook_input)
+                result = self.__run_hook(hook_input)
                 self.assertEqual(result.returncode, 2, name)
                 self.assertEqual(result.stdout, b'', name)
                 self.assertIn(b'Failed to record hook change request:', result.stderr)

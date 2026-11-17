@@ -107,7 +107,7 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
                 self.assertEqual(result.stdout, b'')
                 self.assertIn(error, result.stderr.decode('utf-8'))
 
-    def test_invalid_input_reports_error(self):
+    def test_invalid_input(self):
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'true', b'{"agentId":"\xff"}']
         for value in ('', ' \t', 3, False, [], {}):
             invalid.append(json.dumps({**self.__subagent_payload, 'agentId': value}).encode('utf-8'))

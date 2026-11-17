@@ -18,7 +18,6 @@ agentStop（エージェントの応答終了時）
 7. ドリフトがあれば、`<マニフェスト>: <ロックファイル> unchanged; run <コマンド>` の形式で最大10件列挙し、ロックファイルを更新するか依存の変更を戻すよう求める英語の理由とともに `{"decision":"block","reason":"..."}` を標準出力して差し戻す。
 
 ## 検出する内容
-
 |種類|マニフェスト|依存の宣言|ロックファイルと更新コマンド|
 |--|--|--|--|
 |npm・Yarn・pnpm・Bun|`package.json`|`dependencies`・`devDependencies`・`optionalDependencies`・`peerDependencies`・`bundleDependencies`・`overrides`・`resolutions`・`pnpm.overrides`・`workspaces`|`package-lock.json`・`npm-shrinkwrap.json`（`npm install`）・`yarn.lock`（`yarn install`）・`pnpm-lock.yaml`（`pnpm install`）・`bun.lock`・`bun.lockb`（`bun install`）|

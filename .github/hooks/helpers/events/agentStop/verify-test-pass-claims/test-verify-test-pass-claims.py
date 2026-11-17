@@ -469,7 +469,7 @@ class VerifyTestPassClaimsTests(unittest.TestCase):
         output, error = process.communicate(timeout=15)
         self.__assert_block(subprocess.CompletedProcess([], process.returncode, output, error), _STALE_PREFIX, '- src/a.py')
 
-    def test_invalid_input_reports_error(self):
+    def test_invalid_input(self):
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'\xff']
         for value in (None, '', ' ', 3, [], os.path.join(self.__root, 'missing.jsonl'), self.__root):
             invalid.append(json.dumps({**self.__payload, 'transcriptPath': value}).encode('utf-8'))

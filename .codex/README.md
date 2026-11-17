@@ -3,14 +3,12 @@
 Codexで共通hookを実行するための設定を置く。共通指示は [AGENTS.md](../AGENTS.md)、skillは [.agents/skills](../.agents/skills) から読み込む。
 
 ## 前提条件
-
 - ローカルのCodexで、プロジェクトの `.codex/hooks.json`、`commandWindows`、下表のイベントをサポートする版を使う。調査環境のCLIは `0.169.0`。公式ガイドは2026-11-15に確認した。古い版やVS Codeの別のSession Targetで同じ動作をするとは限らない。
 - GitとPython 3.14以降をPATHから実行できること。macOS/Linuxは `python3`、Windowsは `python` とWindows PowerShellを使う。Pythonを新規導入する場合は3.14系の最新パッチ版を使う。
 - プロジェクトとhookをCodexで信頼済みにする（[hookの信頼](#hookの信頼)）。
 - hook機能は公式の既定では有効。ユーザーや管理者の設定で無効になっている場合は実行されない。
 
 ## clone後の初回セットアップ
-
 Codex CLIの `codex`、Git、Python 3.14以降をPATHから実行できる状態で、[hooks.json](./hooks.json) と起動先のアダプター・共通hookを確認し、このcloneを信頼する場合に実行する。セットアップには `hooks/list` と `config/batchWrite` に対応するCodex CLIが必要。検証した版は `0.169.0`。
 
 リポジトリルートで、macOS/Linuxは次を実行する。
@@ -34,14 +32,12 @@ python3 .codex/setup-codex-hooks.py --check
 ```
 
 ### 保存する内容と再実行
-
 - 使用中のCodexホームのユーザー設定（既定は `~/.codex/config.toml`、`CODEX_HOME` 指定時はその配下）に、このcloneのプロジェクト信頼と `.codex/hooks.json` の各hookの現在のハッシュを保存する。
 - Codex公式APIで対象フィールドをマージするため、他のプロジェクト・hookの信頼、モデル、承認、サンドボックスなどの設定は保持する。無効化済みのhookは自動で有効にせず、`/hooks` での確認を求めて終了する。
 - プロジェクト信頼を保存してからhook一覧を取得し、clone内の定義と一致することを確認してhookの信頼を保存する。最後に別のapp-serverプロセスで保存結果を確認する。スレッドやモデル、hookのコマンドは起動しない。
 - 同じ内容で再実行できる。別端末・別のCodexホーム（CLIと実際に使うアプリで異なる場合を含む）・別のclone先では初回に実行する。hook定義を変更した場合も、変更内容を確認してから再実行する。同じ環境・定義ならセッションごとの実行は不要。
 
 ### 失敗した場合
-
 終了コードは成功時0、失敗時2。APIエラー、応答待ちのタイムアウト（各要求30秒）、定義の欠落・不一致、無効化されたhook、保存後も未信頼のhookはエラーとして報告する。
 
 プロジェクト信頼は先に保存するため、後続のhook検証・保存に失敗しても、そのプロジェクト信頼は残る。表示された原因を解消して再実行する。`--check` が未信頼を報告した場合は、`--check` を外してセットアップするか `/hooks` で確認する。
@@ -49,7 +45,6 @@ python3 .codex/setup-codex-hooks.py --check
 管理ポリシーやhook機能の無効化は変更しない。linked worktreeで本体のhookが読み込まれる場合は定義の不一致として停止するため、本体のcloneで実行する。Windows/Linuxの実CLI検証は未実施。
 
 ## hookの信頼
-
 プロジェクトの `trust_level = "trusted"` と、個別hookの信頼は別の設定。プロジェクトだけを信頼しても、新規・変更された未信頼のhookは全イベントでスキップされ、アダプターには入力が届かない。
 
 hookの信頼は、上の初回セットアップの代わりにCLIの `/hooks` で6イベントを信頼して保存してもよい。どちらも同じ経路（`config/batchWrite` による `hooks.state` への `upsert`）で、使用中のCodexホームの `config.toml` に `hooks.state.<hookのキー>.trusted_hash` を保存する。リポジトリの移動やhook定義の変更でキー・ハッシュが変わった場合は、改めて信頼する。
@@ -59,7 +54,6 @@ hookの信頼は、上の初回セットアップの代わりにCLIの `/hooks` 
 アダプターは信頼設定を自動更新しない。既にスキップされた `SessionStart` などは、信頼を保存した後も遡って実行されない。
 
 ## 構成
-
 |ファイル|役割|
 |--|--|
 |[hooks.json](./hooks.json)|イベントごとにアダプターを1つ登録する。|
@@ -74,7 +68,6 @@ Codexは同一イベントのコマンドhookを並列実行するため、ア�
 起動パスは `git rev-parse --show-toplevel` で解決するため、サブディレクトリからCodexを開始しても使える。Windowsは `commandWindows` でPowerShellからPythonを起動する。Claude Code用のGit Bash起動スクリプトには依存しない。
 
 ## イベントの対応
-
 |Codex|Copilot SDK|処理|
 |--|--|--|
 |`SessionStart`|`sessionStart`|起動元の `source` を渡す。|
@@ -89,7 +82,6 @@ Codexは同一イベントのコマンドhookを並列実行するため、ア�
 `PostToolUseFailure` と `userPromptTransformed` に対応するイベントは登録しない。このため、失敗の繰り返し検出と変換後プロンプトの記録はCodexでは働かない。承認を代行する `PermissionRequest` も登録しない。
 
 ## 入力と実行
-
 - `session_id`、`cwd`、現在時刻を `sessionId`、`cwd`、`timestamp` に変換する。UUIDでないセッションIDは名前ベースUUIDに変換する。
 - Codexのサブエージェントhookは親のセッションIDを持つため、`agent_id` があれば親と子のIDの組から名前ベースUUIDを作り、状態の衝突を防ぐ。`agentId` も渡す。
 - Codexの正規化済みツール名 `Bash` は `bash` に変換する。履歴中の `exec_command`、`shell_command`、`shell` も同じ形式にし、`cmd` やコマンド配列を `command` に変換する。
@@ -100,7 +92,6 @@ Codexは同一イベントのコマンドhookを並列実行するため、ア�
 - ランナーを通すPython hookは同一プロセスで実行する。直接起動のhookはOSに応じて定義の `bash` または `powershell` を使う。詳細は [runner README](../.github/hooks/helpers/runner/README.md) を参照。
 
 ## 停止時の履歴
-
 `transcript_path` は公式にも非安定インターフェースとされている。アダプターは公開ソースのrollout JSONL（`type`、`payload`）を対象に、次の情報を一時的なCopilot形式の履歴に変換する。
 
 - 旧形式の `event_msg.user_message` / `agent_message`、ページ分割形式の `item_completed` の `UserMessage` / `AgentMessage`。
@@ -113,7 +104,6 @@ Codexは同一イベントのコマンドhookを並列実行するため、ア�
 指示や圧縮要約を、ユーザーが入力した依頼として補完しない。一時的な履歴は実行終了時に削除する。読めない・空・未知の履歴は標準エラーに報告し、その回の停止検査を実行しない。
 
 ## 出力
-
 - ツールの拒否は `hookSpecificOutput.permissionDecision: deny` と理由にまとめる。
 - 停止時の差し戻しは `decision: block` と `reason` にまとめる。Codexが続行したあとの `stop_hook_active: true` では再ブロックしない。差し戻しは1ターンにつき最大1回となる。
 - 停止時以外の `additionalContext` はイベント名付きの `hookSpecificOutput` にまとめる。`systemMessage` はトップレベルにまとめる。
@@ -121,7 +111,6 @@ Codexは同一イベントのコマンドhookを並列実行するため、ア�
 - アダプターやhookの異常は終了コード1で報告する。Codexの終了コード2はブロックを意味するため、内部エラーには使わない。他のhookから判定が得られた場合は終了コード0で判定を返す。
 
 ## 制約と限界
-
 - 共通hookをPythonなしで起動できない。Python未導入時には `check-python`、`block-commands` も動かない。
 - Codexがhookに渡さない呼び出し（ホスト側Web検索など）は検査できない。`write_stdin` は既存プロセスの通信であり、再度の実行前検査はない。ホストがイベントを通知しない場合、アダプターだけでは実行前・実行後の検査を追加できない。
 - コードモード内部のツールに独立した `response_item` がない場合、停止時に復元するのは上記の `CommandExecution`。編集やMCPなど、他の完了項目から元の引数は復元しない。それらに依存する停止検査には履歴の制約が残る。
@@ -132,14 +121,12 @@ Codexは同一イベントのコマンドhookを並列実行するため、ア�
 - テストはアダプターを子プロセスで実行する方式。Codexによる信頼済みhookの実発火とWindows/Linux上の実行は、この変更時には確認していない。
 
 ## 変更するとき
-
 1. 公式ガイドでイベント・入出力・起動方法を確認し、履歴を扱う場合は公開ソースの保存形式も確認する。
 2. Codex固有の変換はアダプターに加える。共通hookにはCodex専用の分岐を加えない。
 3. イベントを増減した場合は `hooks.json` と上表を合わせる。
 4. `python3 .github/hooks/helpers/runner/test-run-codex-hook.py`、`python3 .github/hooks/helpers/runner/test-setup-codex-hooks.py`、`python3 .github/hooks/tests/test-all-hooks.py`、`python3 .github/hooks/tests/test-hook-configurations.py` を実行する。Windowsでは `python` を使う。
 
 ## 確認した公式情報
-
 - [Hooksガイド](https://learn.chatgpt.com/docs/hooks)：イベント、設定探索、信頼、OS別コマンド、入出力、履歴の非安定性。
 - [CLIのhook信頼保存](https://github.com/openai/codex/blob/ee344ca9458351a6ea102795fa73110ad3ede5dc/codex-rs/tui/src/hooks_rpc.rs)：`hooks/list` と `config/batchWrite` による `trusted_hash` の永続化。
 - [プロジェクト信頼の照合](https://github.com/openai/codex/blob/ee344ca9458351a6ea102795fa73110ad3ede5dc/codex-rs/config/src/loader/mod.rs)：cloneの信頼判定とWindowsの設定キーの正規化。

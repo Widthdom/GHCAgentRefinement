@@ -1,7 +1,7 @@
 # block-commit-message-mismatch hook README
 
 ## 発動条件
-preToolUse（bashまたはpowershellツールの実行前）
+preToolUse（ツール `bash`・`powershell` の実行前）
 
 ## 処理概要
 コミットメッセージに、コミットする差分にない名前（ファイル・識別子）が書いてあるか、テストのファイルがないのに「テストを追加」と書いてあるコミットを拒否し、変更を載せるかメッセージを直すよう求める。
@@ -21,7 +21,6 @@ preToolUse（bashまたはpowershellツールの実行前）
 6. 拒否は、差分にない名前を最大10個と、テストのファイルがない旨を示し、`git diff --cached` で確かめて変更を載せるかメッセージを直すよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力する。
 
 ## 例
-
 `src/app.py` の `parse` だけを変えてステージしたとき、次のコマンドは `render` と `docs/guide.md` が差分にないため拒否する。
 
 ```bash
@@ -46,4 +45,4 @@ git commit -m '`parse` と `render` を直し、docs/guide.md を更新した'
 
 ## 備考
 - 状態には拒否したメッセージのSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block-commit-message-mismatch/<セッションID>.sqlite3` に保存する。拒否しないコミットでは状態ファイルを作らない。
-- 不正な入力では異常終了する。Copilotはhookの異常終了をツール実行の拒否として扱う。
+- hookの異常終了（不正な入力）は、Copilotがツール実行の拒否として扱う。

@@ -1,7 +1,7 @@
 # set-adversarial-review-state hook README
 
 ## 発動条件
-userPromptSubmitted（ユーザがプロンプトを投入する度）
+userPromptSubmitted（メインエージェントへの依頼時）
 
 ## 処理概要
 プロンプト末尾の `;;` の有無で、敵対的レビューモードとレビュー待ち状態を切り替える。

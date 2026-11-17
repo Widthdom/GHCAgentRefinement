@@ -1,7 +1,6 @@
-# clean-hook-temp-files skill scripts
+# clean-hook-temp-files skill scripts README
 
 ## clean-hook-temp-files.py
-
 hookが一時フォルダーに残した状態ファイルとデバッグログのうち、48時間を超えて更新されていないものを削除する。
 
 ```

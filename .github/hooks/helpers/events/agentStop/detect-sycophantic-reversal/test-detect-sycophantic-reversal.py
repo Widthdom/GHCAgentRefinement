@@ -190,7 +190,7 @@ class DetectSycophanticReversalTests(unittest.TestCase):
         events[3:5] = _tool('c1', 'view')
         self.__assert_block(self.__invoke(events, definitions_path=custom_path))
 
-    def test_invalid_definitions_report_error(self):
+    def test_invalid_definitions(self):
         valid = {'evidenceToolNames': ['view'], 'pushbackPatterns': ['a'], 'reversalPatterns': ['b']}
         cases = [
             ('{', 'not valid JSON'),
@@ -221,7 +221,7 @@ class DetectSycophanticReversalTests(unittest.TestCase):
                 self.assertEqual(result.stdout, b'')
                 self.assertIn(b'sycophantic reversal definitions path is not a file', result.stderr)
 
-    def test_invalid_input_reports_error(self):
+    def test_invalid_input(self):
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'\xff']
         for value in (None, '', ' ', 3, [], os.path.join(self.__root, 'missing.jsonl'), self.__root):
             invalid.append(json.dumps({**self.__payload, 'transcriptPath': value}).encode('utf-8'))

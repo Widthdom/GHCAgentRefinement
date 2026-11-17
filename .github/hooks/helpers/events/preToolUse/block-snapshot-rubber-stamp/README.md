@@ -1,7 +1,7 @@
 # block-snapshot-rubber-stamp hook README
 
 ## 発動条件
-preToolUse（bashまたはpowershellツールの実行前）
+preToolUse（ツール `bash`・`powershell` の実行前）
 
 ## 処理概要
 スナップショットやゴールデンファイルを現在の出力で一括承認するコマンドを拒否し、差分を確かめてから実装を直すか、意図した変更として報告するよう求める。
@@ -11,8 +11,7 @@ preToolUse（bashまたはpowershellツールの実行前）
 2. 呼び出すツール（`toolName`・`toolArgs`）がbash・powershellなら、その `command` を `;`・`&&`・`||`・`|`・改行で区切り、区切った単位ごとに `updateCommands` の正規表現と照合する。
 3. 一致した種類のうち、このセッションでまだ拒否していないものがあれば、テストを更新なしで実行して差分を確かめるよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。
 
-## 検出するコマンド
-
+## 検出する内容
 |種類|例|
 |--|--|
 |Jest・Vitest・Playwrightの `-u`・`--update`|`npx jest -u`・`npm test -- -u`・`npx vitest run -u`|
@@ -39,4 +38,4 @@ preToolUse（bashまたはpowershellツールの実行前）
 ## 備考
 - 状態には種類の名前だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block-snapshot-rubber-stamp/<セッションID>.sqlite3` に保存する。拒否しないコマンドでは状態ファイルを作らない。
 - 正規表現はPythonの `re` 構文で書き、大文字小文字を区別しない場合は `(?i)` を先頭に付ける。テスト用に `--definitions-path` で定義ファイルを差し替えられる。
-- 不正な入力では異常終了する。Copilotはhookの異常終了をツール実行の拒否として扱う。
+- hookの異常終了（不正な入力や定義ファイル）は、Copilotがツール実行の拒否として扱う。

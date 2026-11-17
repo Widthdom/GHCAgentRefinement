@@ -1,7 +1,7 @@
 # give-subagents-instructions hook README
 
 ## 発動条件
-userPromptSubmitted（ユーザがプロンプトを投入する度）
+userPromptSubmitted（サブエージェントへの依頼時）
 
 ## 処理概要
 サブエージェントへの依頼に、共通指示（`.github/copilot-instructions.md`）を添える。

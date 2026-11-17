@@ -146,7 +146,7 @@ class RecordSeenFilesTests(unittest.TestCase):
         for value in (self.__workspace, '対象.py'):
             self.assertNotIn(value.encode('utf-8'), saved)
 
-    def test_invalid_input_reports_error(self):
+    def test_invalid_input(self):
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'true', b'{"toolName":"\xff"}']
         for field in ('sessionId', 'cwd', 'toolName', 'toolArgs'):
             payload = self.__payload.copy()

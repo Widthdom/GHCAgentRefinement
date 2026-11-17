@@ -174,7 +174,7 @@ class RequireReadBeforeEditTests(unittest.TestCase):
         self.__assert_denied(self.__invoke(edit, session_id=str(uuid.uuid4())), '対象.py')
         self.__assert_allowed(self.__invoke(edit, session_id=' {' + self.__session_id.upper() + '} '))
 
-    def test_invalid_input_reports_error(self):
+    def test_invalid_input(self):
         base = self.__payload(('edit', {'path': self.__target}))
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'true', b'{"cwd":"\xff"}']
         for field in ('sessionId', 'cwd', 'toolName', 'toolArgs'):

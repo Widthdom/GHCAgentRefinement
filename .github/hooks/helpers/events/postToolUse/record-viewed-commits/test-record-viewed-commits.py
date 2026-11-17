@@ -89,7 +89,7 @@ class RecordViewedCommitsTests(unittest.TestCase):
                 self.__run_call(tool_name, args, output)
         self.assertFalse(os.path.exists(self.__state_path), 'Nothing must be recorded.')
 
-    def test_invalid_input_exits_with_error(self):
+    def test_invalid_input(self):
         cases = [
             ('empty input', b''),
             ('invalid JSON', b'{'),

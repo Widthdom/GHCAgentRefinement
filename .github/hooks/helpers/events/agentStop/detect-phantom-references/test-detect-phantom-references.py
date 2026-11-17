@@ -238,7 +238,7 @@ class DetectPhantomReferencesTests(unittest.TestCase):
         self.__assert_silent(self.__respond('`src/missing.py`', payload={**self.__payload, 'agentId': 'child-agent'}))
         self.__assert_silent(self.__invoke([_assistant('`src/missing.py`'), _user('次の依頼')]))
 
-    def test_invalid_input_reports_error(self):
+    def test_invalid_input(self):
         self.__respond('`src/app.py`')
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'\xff']
         for value in (None, '', ' ', 3, [], os.path.join(self.__root, 'missing.jsonl'), self.__root):

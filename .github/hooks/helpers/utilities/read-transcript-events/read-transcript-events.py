@@ -28,10 +28,10 @@ def _read_jsonl_objects(path, skip_incomplete_lines):
                 continue
             try:
                 value = json.loads(line)
-            except ValueError as exception:
+            except ValueError as ex:
                 if skip_incomplete_lines:
                     continue
-                raise ValueError(f'Invalid JSON at line {line_number}: {exception}') from exception
+                raise ValueError(f'Invalid JSON at line {line_number}: {ex}') from ex
             if not isinstance(value, dict):
                 raise ValueError(f'Transcript event must be a JSON object at line {line_number}.')
             yield line_number, value

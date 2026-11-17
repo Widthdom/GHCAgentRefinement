@@ -1,7 +1,7 @@
 # block-commands hook README
 
 ## 発動条件
-preToolUse（bashまたはpowershellツールの実行前）
+preToolUse（ツール `bash`・`powershell` の実行前）
 
 ## 処理概要
 定義ファイルの正規表現に一致する危険なコマンドの実行を、定義された理由とともに拒否する。Pythonが使えない環境では、すべてのコマンドを拒否する。

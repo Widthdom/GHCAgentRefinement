@@ -15,6 +15,7 @@ _hook_path = os.path.join(_script_directory, 'request-adversarial-review.py')
 _helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
 _hooks_directory = os.path.dirname(_helpers_directory)
 _github_directory = os.path.dirname(_hooks_directory)
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
 _prompt_hook = os.path.join(
     _helpers_directory, 'events', 'userPromptSubmitted', 'set-adversarial-review-state',
     'set-adversarial-review-state.py',
@@ -240,6 +241,4 @@ class RequestReviewTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    _run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
-
     _run_tests()

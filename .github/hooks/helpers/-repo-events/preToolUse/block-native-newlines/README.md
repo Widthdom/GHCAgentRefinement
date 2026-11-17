@@ -15,7 +15,6 @@ Pythonで、改行を `\n` に固定せずにテキストを書き出す呼び�
 6. 残った呼び出しのうち、このセッションで同じファイルをまだ拒否していないものがあれば、`newline='\n'` を指定するよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。理由には、ファイル（cwdからの相対パス、`/` 区切り）・種類・呼び出しの先頭の行を最大3件示す。
 
 ## 検出する内容
-
 |種類|例|改行を固定した例|
 |--|--|--|
 |stdout/stderr reconfigure|`cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')`・`sys.stderr.reconfigure(...)`|`reconfigure(encoding='utf-8', errors='replace', newline='\n')`|
@@ -33,7 +32,7 @@ Pythonで、改行を `\n` に固定せずにテキストを書き出す呼び�
 - シェルによる書き込みは対象外とする。git管理下のファイルへの書き込みは [block-shell-file-edits](../../../events/preToolUse/block-shell-file-edits/README.md) hookが拒否する。
 
 ## 制約と限界
-- 拒否は同じファイルにつき1回だけ。改行を変換しても問題がない呼び出しなど意図した編集は、同じ編集を再実行すれば通る。
+- 拒否は同じファイルにつきセッションで1回だけ。改行を変換しても問題がない呼び出しなど意図した編集は、同じ編集を再実行すれば通る。
 - `newline=` の値は判定しないため、OS依存の変換を行う `newline=None` や、CRLFに変換する `newline='\r\n'` も許可する。
 - 書き込む内容だけを見るため、複数行の呼び出しの一部だけを書き換える編集では、括弧の範囲が書き込む内容の終わりまでになり、`newline=` が範囲の外にあれば誤って拒否しうる。
 - 正規表現で検出するため、定義にない書き方（`codecs.open`、モードを変数で渡す `open` など）は見逃す。読み込み用の `TextIOWrapper` も、読み書きを区別できないため対象にする。

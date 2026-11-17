@@ -213,7 +213,7 @@ class DetectStaleParameterDocsTests(unittest.TestCase):
         context = self.__assert_context(self.__invoke('create', {'path': path, 'file_text': source}), '12 functions', '`f09`', '... and 2 more')
         self.assertNotIn('`f10`', context)
 
-    def test_invalid_input_reports_error(self):
+    def test_invalid_input(self):
         valid = {'cwd': self.__root, 'toolName': 'edit', 'toolArgs': {}}
         invalid = [b'', b' \n', b'{', b'null', b'[]', b'42', b'\xff']
         for key, value in (('cwd', None), ('cwd', 'relative'), ('toolName', None), ('toolName', ' ')):

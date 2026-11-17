@@ -5,7 +5,7 @@ import runpy
 # block-hardcoding-for-tests・block-tautological-tests・block-time-bomb-literals・detect-orphaned-additions）が共有する。
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-# utilityのフォルダー → utilities の直下に共有の処理がある。
+# 定義の読み込みは共通のutilityで行う。utilityのフォルダーの親がutilitiesである。
 _utilities_directory = os.path.dirname(_script_directory)
 _definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 

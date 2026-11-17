@@ -126,7 +126,7 @@ class RecordVerifiedPackagesTests(unittest.TestCase):
         self.assertEqual(self.__run_call('bash', 'not json', 'requests'), set())
         self.assertFalse(os.path.exists(self.__state_path))
 
-    def test_invalid_input_fails(self):
+    def test_invalid_input(self):
         inputs = [
             b'',
             b'[]',

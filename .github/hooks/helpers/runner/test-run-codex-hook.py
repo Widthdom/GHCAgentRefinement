@@ -9,11 +9,12 @@ import unittest
 import uuid
 
 
-_directory = os.path.dirname(os.path.abspath(__file__))
-_hooks = os.path.dirname(os.path.dirname(_directory))
-_root = os.path.dirname(os.path.dirname(_hooks))
-_run_tests = runpy.run_path(os.path.join(_hooks, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
-_adapter = runpy.run_path(os.path.join(_directory, 'run-codex-hook.py'))
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_helpers_directory = os.path.dirname(_script_directory)
+_hooks_directory = os.path.dirname(_helpers_directory)
+_repository_root = os.path.dirname(os.path.dirname(_hooks_directory))
+_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
+_adapter = runpy.run_path(os.path.join(_script_directory, 'run-codex-hook.py'))
 _FAKE_HOOK = '''import json, os, sys
 data = json.loads(sys.stdin.buffer.read().decode('utf-8'))
 if 'transcriptPath' in data:
@@ -35,11 +36,11 @@ class RunCodexHookTests(unittest.TestCase):
         self.__runner = os.path.join(self.__hooks, 'helpers', 'runner')
         os.makedirs(self.__runner)
         for name in ('run-hook.py', 'adapted-hook-runtime.py', 'run-codex-hook.py'):
-            shutil.copy(os.path.join(_directory, name), self.__runner)
+            shutil.copy(os.path.join(_script_directory, name), self.__runner)
         for name in ('get-state-path', 'hook-activity-state', 'collect-json-string-values'):
             target = os.path.join(self.__hooks, 'helpers', 'utilities', name)
             os.makedirs(target)
-            shutil.copy(os.path.join(_hooks, 'helpers', 'utilities', name, name + '.py'), target)
+            shutil.copy(os.path.join(_helpers_directory, 'utilities', name, name + '.py'), target)
         self.__env = dict(os.environ, TMPDIR=temporary.name, TEMP=temporary.name, TMP=temporary.name)
         self.__session = str(uuid.uuid4())
 
@@ -139,7 +140,7 @@ class RunCodexHookTests(unittest.TestCase):
         self.assertEqual((result.returncode, result.stdout), (0, b''))
 
     def test_subagent_stop_is_not_supported(self):
-        config = self.__read(os.path.join(_root, '.codex', 'hooks.json'))['hooks']
+        config = self.__read(os.path.join(_repository_root, '.codex', 'hooks.json'))['hooks']
         self.assertNotIn('SubagentStop', config)
         path = self.__hook('agentStop', output={'decision': 'block', 'reason': '再確認'})
         result = self.__run('SubagentStop', agent_id='child')
@@ -214,7 +215,7 @@ class RunCodexHookTests(unittest.TestCase):
 
     def test_stop_test_requirement_observes_nested_test_exit_code(self):
         requirement = runpy.run_path(os.path.join(
-            _hooks, 'helpers', 'events', 'agentStop', 'require-hook-tests', 'require-hook-tests.py',
+            _helpers_directory, 'events', 'agentStop', 'require-hook-tests', 'require-hook-tests.py',
         ))
         for exit_code, expected in ((0, []), (1, ['failed with exit code 1']), (None, ['not run'])):
             with self.subTest(exit_code=exit_code):
@@ -234,7 +235,7 @@ class RunCodexHookTests(unittest.TestCase):
                     for event in events:
                         file.write(json.dumps(event) + '\n')
                 turn, _ = requirement['_get_turn_events'](transcript)
-                unverified, _ = requirement['_get_unverified'](turn, _root)
+                unverified, _ = requirement['_get_unverified'](turn, _repository_root)
                 self.assertEqual([status for _, status in unverified], expected)
 
     def test_shell_items_do_not_invent_success_or_execution(self):
@@ -290,7 +291,7 @@ class RunCodexHookTests(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout)['hookSpecificOutput']['permissionDecision'], 'deny')
 
     def test_configuration_launches_from_subdirectory(self):
-        config = self.__read(os.path.join(_root, '.codex', 'hooks.json'))['hooks']
+        config = self.__read(os.path.join(_repository_root, '.codex', 'hooks.json'))['hooks']
         self.assertEqual(set(config), set(_adapter['_EVENT_NAMES']))
         handlers = [group[0]['hooks'][0] for group in config.values()]
         self.assertTrue(all(handler == handlers[0] for handler in handlers))

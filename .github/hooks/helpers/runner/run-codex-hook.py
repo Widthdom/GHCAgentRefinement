@@ -11,12 +11,13 @@ import uuid
 from typing import cast
 
 # Codexの公開hook入力をCopilot SDK形式に変換する。対応範囲は .codex/README.md を参照。
-_directory = os.path.dirname(os.path.abspath(__file__))
-_runtime = runpy.run_path(os.path.join(_directory, 'adapted-hook-runtime.py'))
-_utilities = os.path.join(os.path.dirname(_directory), 'utilities')
-_collect_text = runpy.run_path(os.path.join(
-    _utilities, 'collect-json-string-values', 'collect-json-string-values.py',
+_runner_directory = os.path.dirname(os.path.abspath(__file__))
+_utilities_directory = os.path.join(os.path.dirname(_runner_directory), 'utilities')
+_collect_json_string_values = runpy.run_path(os.path.join(
+    _utilities_directory, 'collect-json-string-values', 'collect-json-string-values.py',
 ))['collect_json_string_values']
+
+_runtime = runpy.run_path(os.path.join(_runner_directory, 'adapted-hook-runtime.py'))
 _EVENT_NAMES = {
     'SessionStart': 'sessionStart',
     'UserPromptSubmit': 'userPromptSubmitted',
@@ -79,7 +80,7 @@ def _convert_hook_input(payload, timestamp_ms):
         if event == 'PostToolUse':
             converted['toolResult'] = {
                 'resultType': 'success',
-                'textResultForLlm': '\n'.join(_collect_text(payload.get('tool_response'))),
+                'textResultForLlm': '\n'.join(_collect_json_string_values(payload.get('tool_response'))),
             }
     return _EVENT_NAMES[event], converted
 

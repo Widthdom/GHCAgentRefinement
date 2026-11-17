@@ -136,7 +136,7 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
         os.makedirs(os.path.join(self.__log_directory, '100-directory.md'))
         self.__assert_silent(self.__invoke())
 
-    def test_invalid_input_reports_error_without_progress(self):
+    def test_invalid_input_without_progress(self):
         invalid = [b'', b' ', b'{', b'null', b'[]', b'42', b'{"sessionId":"\xff"}']
         for changes in (
             {'sessionId': None}, {'sessionId': ''}, {'sessionId': '../bad'}, {'sessionId': []},
