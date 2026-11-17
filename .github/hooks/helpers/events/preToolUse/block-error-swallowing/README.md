@@ -15,7 +15,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 4. 候補のうち、このセッションで同じファイルをまだ拒否していないものがあれば、原因を直すかエラーを明示的に扱うよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。
 
 ## 検出する内容
-
 |種類|例|
 |--|--|
 |空のPython例外ハンドラー|`except:` / `pass`・`except Exception: ...`・`except ValueError: pass`|

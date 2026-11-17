@@ -1,15 +1,12 @@
 # .github README
 
 ## Codex・Claudeでの利用
-
 - Codexは [AGENTS.md](../AGENTS.md) と [.agents/skills](../.agents/skills)、Claudeは [CLAUDE.md](../CLAUDE.md) と [.claude/skills](../.claude/skills) を通じて、共通指示とskillを利用できる。
 - hookは、Codexでは [.codex/hooks.json](../.codex/hooks.json)、Claude Codeでは [.claude/settings.json](../.claude/settings.json) に登録したアダプターを通じて利用できる。構成と制約は [.codex/README.md](../.codex/README.md) と [.claude/README.md](../.claude/README.md) を参照。
 - 指示と手順の正本は [.github/copilot-instructions.md](./copilot-instructions.md) と [.github/skills](./skills)。ラッパーの作成・同期ルールは [skillの共通規約](./skills/create-skill/references/skill-conventions.md) を参照。
 
 ## hookについて
-
 ### 前提条件
-
 - このリポジトリのhookはCopilot SDK形式で実装する。CodexとClaude Codeでは、入出力をSDK形式に変換するアダプターを通じて同じhookを実行する（[Codex](../.codex/README.md)、[Claude Code](../.claude/README.md)）。
 - VS CodeのCopilot Chatで使う場合は、Session Targetを `Copilot` にする。
 - `Copilot` targetはCLIと同じSDK hook実装を使うが、利用中のVS Codeが対象イベントに対応するか確認する。
@@ -19,7 +16,6 @@
 - 状態を保存するhookは、Python 3.14以降の標準の `sqlite3` を使う。SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 
 ### 発動フロー
-
 ```mermaid
 flowchart LR
 
@@ -353,36 +349,28 @@ flowchart LR
 </table>
 
 ### デバッグモード
-
 先頭 `??` のプロンプトを入力するとデバッグモードになり、 `debug-` 接頭辞付きのhookのデバッグ処理が有効になる。詳細は[set-debug-mode hook README](./hooks/helpers/events/userPromptSubmitted/set-debug-mode/README.md)を参照。
 
 ### 敵対的レビューモード
-
 末尾 `;;` のプロンプトを入力すると、変更差分のレビューを[敵対的レビューエージェント](./agents/adversarial-review.agent.md)に依頼する。詳細は[request-adversarial-review hook README](./hooks/helpers/events/agentStop/request-adversarial-review/README.md)を参照。
 
 ### 一時ファイル
-
 - hookは状態ファイルとデバッグログを、一時フォルダー配下に出力する。
 - 上記が一定の条件を満たすと、セッション開始時に[削除用skill](./skills/clean-hook-temp-files/SKILL.md)の実行を推奨する。
 - 詳細は[check-hook-temp-files hook README](./hooks/helpers/events/sessionStart/check-hook-temp-files/README.md)を参照。
 
 ### テスト
-
 #### Pylanceの設定
-
 - hookはWindows・macOS・Linuxのすべてを対象にし、`os.name == 'nt'` などでOSごとに分岐するため、リポジトリ直下の [pyrightconfig.json](../pyrightconfig.json) で `pythonPlatform` を `All` にして、実行中のOS以外向けの分岐も解析させる。
 - このファイルがあると、Pylanceは `python.analysis.*` の設定（`typeCheckingMode` など）よりこのファイルを優先するため、ユーザー設定で変えている項目はこのファイルにも記載する。
 
 ### トラブルシューティング
-
 #### デバッグフッターにsessionStartのhookが載らない
-
 デバッグモードで回答に付与される（[debug-add-response-footer](./hooks/helpers/events/agentStop/debug-add-response-footer/README.md)）フッターに `check-python` や `load-copilot-instructions` などsessionStartのhookが載らないのは仕様。
 - 「Hooks used」は、直近のユーザー発言以降にトランスクリプトへ記録された `hook.start` のイベント種別から推定するため、最初のユーザー発言より前に動くsessionStartのhookは表示範囲外になる。
 - 「Hooks fired」は、直近のユーザー依頼の `userPromptSubmitted` の `hook.start` 以降に起動したhookが対象のため、ターンの区切りより前に動くsessionStartのhookは対象外になる。
 
 #### デバッグフッターの「Hooks used」にhookが並ぶのに「Hooks fired」がnoneになる
-
 「Hooks used」はイベント種別からの推定であり、各hookが実際に出力したことを示すものではない。一方「Hooks fired」は実際に機能したhookだけを表示し、agentStopのhookは除外する。そのため、ツールを呼び出さないターンでは「Hooks used」にagentStopのhookが並んでも、「Hooks fired」が `none` になることがある。フッターに載らないことや `none` だけでは、hookが起動しなかったとは判断できない。
 
 各項目の対象と、hookランナーを通さないため「Hooks fired」に載らない `block-commands`・`check-python` については、[debug-add-response-footer](./hooks/helpers/events/agentStop/debug-add-response-footer/README.md) を参照。

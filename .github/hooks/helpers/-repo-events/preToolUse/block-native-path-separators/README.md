@@ -14,7 +14,6 @@ OS依存の区切り（Windowsでは `\`）で相対パスを返すAPIの呼び�
 4. 候補のうち、このセッションで同じファイルをまだ拒否していないものがあれば、パスを `/` 区切りに変換するよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。理由には、cwd配下のファイルをcwdからの相対パス（`/` 区切り）で示す。
 
 ## 検出する内容
-
 |種類|例|`/` 区切りへの変換の例|
 |--|--|--|
 |Python relative path|`os.path.relpath(path, cwd)`・`path.relative_to(root)`|`.replace(os.sep, '/')`・`.as_posix()`・`posixpath.relpath(...)`|

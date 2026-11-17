@@ -19,7 +19,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 7. 読んでいない修正コミット由来の行があれば拒否する。その際、ファイル・行番号・コミットID・件名・実行すべき `git show <コミットID>`（1ファイルにつき3コミットまで）と、コミットを読んで修正の意図を保つよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力する。
 
 ## 検出する内容
-
 |種類|例|
 |--|--|
 |英語の修正コミット|`fix: ...`・`Fixes crash ...`・`Hotfix ...`・`bugfix: ...`・`... bug ...`・`Prevent regression ...`|

@@ -21,7 +21,6 @@ preToolUse（ツール `bash`・`powershell` の実行前）
 6. 拒否は、差分にない名前を最大10個と、テストのファイルがない旨を示し、`git diff --cached` で確かめて変更を載せるかメッセージを直すよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力する。
 
 ## 例
-
 `src/app.py` の `parse` だけを変えてステージしたとき、次のコマンドは `render` と `docs/guide.md` が差分にないため拒否する。
 
 ```bash

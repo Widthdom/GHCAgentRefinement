@@ -18,7 +18,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 5. 一致したファイルがあり、このセッションで同じ設定ファイルをまだ拒否していなければ、除外の指定と一致したファイルを最大3件示し、除外せずに直すよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。
 
 ## 検出する内容
-
 |種類|設定ファイル|除外の指定の例|
 |--|--|--|
 |Pythonのテスト・静的検査|`pytest.ini`・`pyproject.toml`・`setup.cfg`・`tox.ini`・`.coveragerc`・`conftest.py`・`.flake8`・`mypy.ini`・`.pylintrc`・`ruff.toml`|`--ignore=`・`--ignore-glob=`・`--deselect`・`norecursedirs`・`collect_ignore`・`omit`・`exclude`・`extend-exclude`・`ignore-paths`・`ignore-patterns`|

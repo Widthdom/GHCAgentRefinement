@@ -12,7 +12,6 @@ preToolUse（ツール `bash`・`powershell` の実行前）
 3. 一致した種類のうち、このセッションでまだ拒否していないものがあれば、テストを更新なしで実行して差分を確かめるよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。
 
 ## 検出する内容
-
 |種類|例|
 |--|--|
 |Jest・Vitest・Playwrightの `-u`・`--update`|`npx jest -u`・`npm test -- -u`・`npx vitest run -u`|

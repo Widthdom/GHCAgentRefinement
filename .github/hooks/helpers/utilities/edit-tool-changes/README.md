@@ -23,7 +23,6 @@
 - それ以外の編集ツール：対象のファイルのパスを取り出す。`view` は対象外とし、ファイルを書き換える `undo_edit` は対象とする。
 
 ## extract_edit_tool_changes
-
 |ツール|書き込む内容|置換前の内容|
 |--|--|--|
 |`edit`・`create`・`insert`・`str_replace_editor`|`path`・`file_path`・`command`・`old_str`（`old_string`）を除く引数の文字列|`old_str`（`old_string`）|

@@ -17,7 +17,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 4. 候補のうち、このセッションで同じファイル・同じ種類をまだ拒否していないものがあれば、テストではなく実装を直すよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。
 
 ## 検出する内容
-
 |種類|例|
 |--|--|
 |スキップの属性・デコレーター|`[Fact(Skip = "...")]`・`[Ignore]`・`@Disabled`・`#[ignore]`・`@pytest.mark.skip`・`@pytest.mark.xfail`・`@unittest.skipIf(...)`|

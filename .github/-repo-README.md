@@ -3,15 +3,12 @@
 このリポジトリ専用のhookについて記載する。共通のhookと前提条件は [.github/README.md](./README.md) を参照。
 
 ## hookについて
-
 ### 配置
-
 - hook定義は `.github/hooks/-repo-<event-name>.json`、hookのファイルは [.github/hooks/helpers/-repo-events/](./hooks/helpers/-repo-events/) 配下に置く。
 - 起動は共通のhookと同じく [hookランナー](./hooks/helpers/runner/README.md) を通す。テストは [test-all-hooks.py](./hooks/tests/test-all-hooks.py) の一括実行に含まれる。
 - 作成・更新の規約は [hookの共通規約](./skills/create-hook/references/hook-conventions.md) を参照。
 
 ### 発動フロー
-
 ```mermaid
 flowchart LR
 
@@ -58,5 +55,4 @@ flowchart LR
 </table>
 
 ## CIについて
-
 - [-repo-hook-tests.yml](./workflows/-repo-hook-tests.yml) はmainへのpushとmain向けPRで（Markdownのみの変更を除く）、Linux・Windows・macOS上のPython 3.14でhookのテスト一式を実行する。

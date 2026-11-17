@@ -18,7 +18,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 5. 該当するファイルのうち、このセッションでまだ拒否していないものがあれば、書き換えの前後の行を最大3組示し、待ち時間を延ばさずに原因を直すよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。
 
 ## 例
-
 次の編集を拒否する。
 
 ```diff
@@ -40,7 +39,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - 新しいファイルの作成や、`insert` による行の追加
 
 ## 対象の語
-
 |語|例|
 |--|--|
 |タイムアウト|`Timeout`・`timeout-minutes`・`time_out`・`setTimeout`|

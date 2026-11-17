@@ -15,7 +15,6 @@ Pythonで、改行を `\n` に固定せずにテキストを書き出す呼び�
 6. 残った呼び出しのうち、このセッションで同じファイルをまだ拒否していないものがあれば、`newline='\n'` を指定するよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力して拒否する。理由には、ファイル（cwdからの相対パス、`/` 区切り）・種類・呼び出しの先頭の行を最大3件示す。
 
 ## 検出する内容
-
 |種類|例|改行を固定した例|
 |--|--|--|
 |stdout/stderr reconfigure|`cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8')`・`sys.stderr.reconfigure(...)`|`reconfigure(encoding='utf-8', errors='replace', newline='\n')`|
