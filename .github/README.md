@@ -4,7 +4,7 @@
 
 - Codexは [AGENTS.md](../AGENTS.md) と [.agents/skills](../.agents/skills)、Claudeは [CLAUDE.md](../CLAUDE.md) と [.claude/skills](../.claude/skills) を通じて、共通指示とskillを利用できる。
 - hookは、Codexでは [.codex/hooks.json](../.codex/hooks.json)、Claude Codeでは [.claude/settings.json](../.claude/settings.json) に登録したアダプターを通じて利用できる。構成と制約は [.codex/README.md](../.codex/README.md) と [.claude/README.md](../.claude/README.md) を参照。
-- 指示と手順の正本は [.github/copilot-instructions.md](./copilot-instructions.md) と [.github/skills](./skills) 。ラッパーの作成・同期ルールは [skillの共通規約](./skills/create-skill/references/skill-conventions.md) を参照。
+- 指示と手順の正本は [.github/copilot-instructions.md](./copilot-instructions.md) と [.github/skills](./skills)。ラッパーの作成・同期ルールは [skillの共通規約](./skills/create-skill/references/skill-conventions.md) を参照。
 
 ## hookについて
 
