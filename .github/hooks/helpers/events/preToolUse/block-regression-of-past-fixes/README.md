@@ -57,4 +57,4 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 備考
 - 状態は読むだけで、書き込まない。読んだコミットの記録は `<一時フォルダー>/ghc-agent-refinement/hook-states/viewed-commits/<セッションID>.sqlite3` にある。
 - 正規表現はPythonの `re` 構文で書き、大文字小文字を区別しない場合は `(?i)` を先頭に付ける。テスト用に `--definitions-path` で定義ファイルを差し替えられる。
-- 不正な入力では異常終了する。Copilotはhookの異常終了をツール実行の拒否として扱う。
+- hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。

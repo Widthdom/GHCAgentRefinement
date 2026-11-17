@@ -1,7 +1,7 @@
 # block-hook-tampering hook README
 
 ## 発動条件
-preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_replace_editor`・`apply_patch` と、bash・powershellの実行前）
+preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_replace_editor`・`apply_patch` と、ツール `bash`・`powershell` の実行前）
 
 ## 処理概要
 ユーザーがこのセッションでhookの変更に触れていないのに、hookの定義・実装・状態ファイルを変更する操作を拒否する。
@@ -57,4 +57,4 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 備考
 - hookに拒否されたエージェントが、hookの定義や実装、定義ファイル、状態ファイルを書き換えて制限を外すのを防ぐためのhook。hookが増えるほど、hookそのものを守る仕組みが必要になる。
-- 状態ファイルが壊れている場合は異常終了し、Copilotがツールの実行の拒否として扱う。
+- hookの異常終了（不正な入力や状態ファイルの破損）は、Copilotがツール実行の拒否として扱う。

@@ -2,7 +2,7 @@
 
 ## 発動条件
 
-postToolUse（bash・powershellツールが成功した直後）
+postToolUse（ツール `bash`・`powershell` が成功した直後）
 
 ## 処理概要
 

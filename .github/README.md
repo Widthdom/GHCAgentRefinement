@@ -43,7 +43,7 @@ flowchart LR
 
     LoopEnd[\作業終了/]
 
-    agentStop["<b><i><u>agentStop</u></i></b><br/><div style='text-align: left; width: 256px; font-size: 16px'>□根拠のない主張の検知<br/>・存在しないファイル参照検知<br/>・未読ファイルに対する推測検知<br/>・テスト通過の主張の真偽判定<br/>・未計測の性能改善主張検知<br/>・ユーザへの迎合検知<br/>□依頼との食い違いの検知<br/>・依頼項目の取りこぼし検知<br/>・果たせない後回しの約束検知<br/>・依頼外の変更検知<br/>□仕上げ漏れの検知<br/>・hookのテスト実行催促<br/>・作業途中のコードの残置検知<br/>・ロックファイル更新漏れ検知<br/>・未使用の追加定義検知<br/>■デバッグモード有効時<br/>・プロンプト変換ログ保存先表示<br/>・回答にデバッグ情報を付与<br/>■敵対的レビューモード有効時<br/>・敵対的レビュー要請<br/></div>"]
+    agentStop["<b><i><u>agentStop</u></i></b><br/><div style='text-align: left; width: 256px; font-size: 16px'>□根拠のない主張の検知<br/>・存在しないファイル参照検知<br/>・未読ファイルに対する推測検知<br/>・テスト通過の主張の真偽判定<br/>・未計測の性能改善主張検知<br/>・ユーザーへの迎合検知<br/>□依頼との食い違いの検知<br/>・依頼項目の取りこぼし検知<br/>・果たせない後回しの約束検知<br/>・依頼外の変更検知<br/>□仕上げ漏れの検知<br/>・hookのテスト実行催促<br/>・作業途中のコードの残置検知<br/>・ロックファイル更新漏れ検知<br/>・未使用の追加定義検知<br/>■デバッグモード有効時<br/>・プロンプト変換ログ保存先表示<br/>・回答にデバッグ情報を付与<br/>■敵対的レビューモード有効時<br/>・敵対的レビュー要請</div>"]
 
     agentStopResult{"判定"}
 
@@ -300,7 +300,7 @@ flowchart LR
       <td><a href="./hooks/helpers/events/agentStop/detect-unmeasured-performance-claims/README.md">detect-unmeasured-performance-claims</a></td>
     </tr>
     <tr>
-      <td>ユーザへの迎合検知</td>
+      <td>ユーザーへの迎合検知</td>
       <td><a href="./hooks/helpers/events/agentStop/detect-sycophantic-reversal/README.md">detect-sycophantic-reversal</a></td>
     </tr>
     <tr>

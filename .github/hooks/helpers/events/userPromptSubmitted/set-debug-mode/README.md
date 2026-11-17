@@ -1,7 +1,7 @@
 # set-debug-mode hook README
 
 ## 発動条件
-userPromptSubmitted（ユーザがプロンプトを投入する度）
+userPromptSubmitted（メインエージェントへの依頼時）
 
 ## 処理概要
 プロンプト先頭の `??` の有無で、`debug-` 接頭辞付きのhookを動かすデバッグモードを切り替える。
@@ -15,5 +15,5 @@ userPromptSubmitted（ユーザがプロンプトを投入する度）
 
 ## 備考
 - デバッグモードが無効な場合も対象イベントで `debug-` 接頭辞付きのhookは起動するが、デバッグ処理をせず終了する。
-- `agentStop`後の内部修正では `userPromptSubmitted` hookが発動しないため、直前のユーザプロンプトで設定されたデバッグモード有効/無効状態が維持される。
+- `agentStop` 後の内部修正では `userPromptSubmitted` hookが発動しないため、直前のユーザーのプロンプトで設定したデバッグモードの有効・無効が維持される。
 - 状態ファイルは [write-json-atomically](../../../utilities/write-json-atomically/README.md) で一時ファイルに書いてから置き換え、読む側のhookに書き込み途中の内容を読ませない。

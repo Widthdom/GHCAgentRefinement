@@ -57,6 +57,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 失敗するテストや警告の出るファイルを、直さずに除外設定へ加えるとテストランナー・静的検査・カバレッジから見えなくなり、失敗が消えたように見える。テストの中身を書き換える [block-test-weakening](../block-test-weakening/README.md) hookでは防げない、設定ファイルからの抜け道を塞ぐ。
 
 ## 備考
-- 状態にはパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block-exclusion-escapes/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
+- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block-exclusion-escapes/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
 - 正規表現はPythonの `re` 構文で書き、大文字小文字を区別しない場合は `(?i)` を先頭に付ける。テスト用に `--definitions-path` で定義ファイルを差し替えられる。
-- 不正な入力では異常終了する。Copilotはhookの異常終了をツール実行の拒否として扱う。
+- hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。
