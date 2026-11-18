@@ -27,6 +27,9 @@ _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-displ
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
     _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
 ))['read_stored_file_content_for_write_comparison']
+_get_stripped_lines = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-stripped-lines', 'get-stripped-lines.py',
+))['get_stripped_lines']
 
 
 # 2つの値を比べるアサーションの呼び出し。最初の2引数を比べる。
@@ -252,7 +255,7 @@ def _get_patched_target(line):
 def _find_self_mocks(written, context):
     # Pythonのテスト関数 `test_<対象>...` の中（デコレーターを含む）で、`<対象>` 自身を差し替える行。
     # 関数の範囲はインデントで判断し、関数の行以下のインデントの行で抜けたとみなす。
-    existing_lines = {line.strip() for line in context.splitlines()}
+    existing_lines = _get_stripped_lines(context)
     self_mocks = []
     pending_decorators = []
     # (テスト対象の名前, テスト関数のインデント)

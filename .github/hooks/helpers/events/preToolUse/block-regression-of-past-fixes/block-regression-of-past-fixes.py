@@ -22,6 +22,9 @@ _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
     _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
 ))['read_stored_file_content_for_write_comparison']
+_get_stripped_lines = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-stripped-lines', 'get-stripped-lines.py',
+))['get_stripped_lines']
 
 
 _FIX_COMMIT_PATTERNS_KEY = 'fixCommitPatterns'
@@ -58,21 +61,21 @@ def _find_removed_line_numbers(change, current):
     # 戻り値は、編集で消える現在のファイルの行番号（1始まり）の集合。書き込む内容に同じ行が残るものは除く。
     current_lines = current.splitlines()
     if change['full_content'] is not None:
-        kept = {line.strip() for line in change['full_content'].splitlines()}
+        kept = _get_stripped_lines(change['full_content'])
         return {number for number, line in enumerate(current_lines, 1) if _is_significant(line) and line.strip() not in kept}
     if change['replacement'] is not None:
         old, new = change['replacement']
         offset = current.find(old)
         if offset < 0:
             return set()
-        kept = {line.strip() for line in new.splitlines()}
+        kept = _get_stripped_lines(new)
         first = current.count('\n', 0, offset) + 1
         return {
             first + index for index, line in enumerate(old.splitlines())
             if _is_significant(line) and line.strip() not in kept
         }
     # パッチは位置を特定できないため、削除行と同じ内容の行をすべて対象にする。
-    kept = {line.strip() for line in change['written'].splitlines()}
+    kept = _get_stripped_lines(change['written'])
     removed = {line.strip() for line in change['removed'].splitlines() if _is_significant(line)} - kept
     return {number for number, line in enumerate(current_lines, 1) if line.strip() in removed}
 

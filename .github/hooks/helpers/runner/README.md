@@ -51,13 +51,45 @@ Copilotは `timeoutSec` を超えたhookのプロセスを終了させる。hook
 ### 未確認の事項
 Copilotはhookのコマンドを `bash`/`powershell` 経由で起動する。タイムアウト時にCopilotが終了させるのがシェルだけの場合、その先の `python` はランナーの方式によらず取り残される可能性がある。実際に `timeoutSec` を超えるhookでの確認は未実施。
 
-## Claude Codeからの起動
-Claude Codeでは、[run-claude-hook.py](./run-claude-hook.py) がClaude Codeの入出力をCopilot SDKの形式に変換し、hook定義のhookを本ランナーで実行する。起動と機能の記録は、Copilotからの起動と同じく行う。構成、変換の規則、制約は [.claude/README.md](../../../../.claude/README.md) を参照。
+## アダプターからの起動
+Claude CodeとCodexでは、アダプターがホストの入出力をCopilot SDKの形式に変換し、hook定義のhookを本ランナーで実行する。起動と機能の記録は、Copilotからの起動と同じく行う。
 
-アダプターからのhook定義の読込、matcherによる選択、順次実行、出力の集約、変換した履歴の末尾の補完（最終応答と `agentStop` の `hook.start`）と書き出しは [adapted-hook-runtime.py](./adapted-hook-runtime.py) が担当する。ホスト固有の入力と履歴の変換は各アダプターが担当する。
+|アダプター|担当|
+|--|--|
+|[run-claude-hook.py](./run-claude-hook.py)|Claude Codeの入力・トランスクリプトの変換。設定、変換の規則、Claude Code固有の制約は [.claude/README.md](../../../../.claude/README.md) を参照。|
+|[run-codex-hook.py](./run-codex-hook.py)|Codexの入力・履歴の変換。設定、公式仕様への参照、Codex固有の制約は [.codex/README.md](../../../../.codex/README.md) を参照。|
+|[adapted-hook-runtime.py](./adapted-hook-runtime.py)|両アダプターに共通の、hook定義の読み込み、順次実行、出力の集約、変換した履歴の末尾の補完（最終応答と `agentStop` の `hook.start`）と書き出し。以下で説明する。|
 
-## Codexからの起動
-Codexでは、[run-codex-hook.py](./run-codex-hook.py) がイベントと履歴を変換し、共通ランタイムを通じて本ランナーを実行する。設定、公式仕様への参照、対応しないイベントと履歴の制約は [.codex/README.md](../../../../.codex/README.md) を参照。
+### アダプターを1本にする理由
+hookごとにホスト向けのラッパーを作らず、イベントごとにアダプターを1つだけ登録する。理由は次のとおり。
+
+- Claude CodeもCodexも、同じイベントのhookを並列に実行する。アダプターを1本にすれば、状態を共有するhookを定義順に1つずつ実行でき、拒否や差し戻しも1つにまとめて返せる。
+- hookの一覧を `.github/hooks` のhook定義だけに書けば済み、ホストの設定（`.claude/settings.json`・`.codex/hooks.json`）と二重に管理せずに済む。hookを追加・削除しても、ホストの設定は変わらない。
+
+### 共通の実行
+1. 対応するイベントのhook定義を、このリポジトリ専用の定義（`-repo-<event-name>.json`）、共通の定義（`<event-name>.json`）の順に読む。`matcher` があるhookは、変換後のツール名の全体に一致するものだけを対象にする。
+2. 対象のhookを定義順に1つずつ実行する。拒否や差し戻しを出力したhookがあっても、残りのhookを実行する。
+   - 本ランナーを通すhookは、アダプターのプロセス内で本ランナーを呼び出して実行する。hookごとにPythonを起動しないため。
+   - 本ランナーを通さないhook（`check-python`・`block-commands`）は、hook定義のコマンド（Windowsでは `powershell`、それ以外では `bash`）のまま、リポジトリルートで子プロセスとして実行する。
+3. 各hookの出力を、ホストの形式の1つの出力にまとめる（[出力の集約](#出力の集約)）。
+
+### 出力の集約
+|Copilot SDKの出力|ホストの出力|
+|--|--|
+|`permissionDecision: "deny"`（preToolUse）|`hookSpecificOutput.permissionDecision: "deny"`。複数のhookの理由は空行でつなぐ。|
+|`decision: "block"`（agentStop）|`decision: "block"`。複数のhookの理由は `---` の行でつなぐ。アダプターは履歴の変換で同じ区切りで分け、hookごとの差し戻しに戻す。|
+|`additionalContext`|`hookSpecificOutput.additionalContext`。複数のhookの助言は空行でつなぐ。Stopでは渡さない（ホストが応答を続行させるため）。|
+|`systemMessage`|`systemMessage`。複数のhookの文は空行でつなぐ。|
+
+終了コードは次のとおり。
+
+- 出力があれば、出力して0で終える。
+- 出力がなく、異常終了したhookがあれば、1で終える。Claude CodeでもCodexでも終了コード2が「ブロック」を意味し、hookの異常終了（入力の不正など）でツールの実行や応答の終了が止まるため、非ブロックのエラーである1にする。原因はhookが標準エラーに出力する。
+- 異常終了したhookでも、判定のJSONを出力していれば判定を採用する。Pythonが古いときに [block-commands](../events/preToolUse/block-commands/README.md) がシェルの実行を拒否できるようにするため。
+
+### 共通の制約
+- hook定義の `timeoutSec` は、本ランナーを通さないhookにだけ適用する。プロセス内で実行するhookは個別に止められず、全体がホストのhookのタイムアウトに従う。
+- アダプター自体がPythonで動くため、Pythonがない環境ではアダプターが起動できず、[check-python](../events/sessionStart/check-python/README.md) の案内も `block-commands` の拒否も働かない。
 
 ## 備考
 - 記録に失敗しても、hookの出力と終了コードは変えない。失敗の原因は標準エラーに出力する。

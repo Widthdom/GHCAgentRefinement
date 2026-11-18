@@ -26,6 +26,9 @@ _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-displ
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
     _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
 ))['read_stored_file_content_for_write_comparison']
+_get_stripped_lines = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-stripped-lines', 'get-stripped-lines.py',
+))['get_stripped_lines']
 
 
 # 上書きで、既存の行数がこれ以上あり、新しい行数がこの割合未満になれば縮小とみなす。
@@ -56,7 +59,7 @@ def _load_definitions(path):
 
 def _find_elision_lines(definitions, written, existing):
     # 既存の内容に同じ行があるプレースホルダーは、元からあるものとみなす。
-    existing_lines = {line.strip() for line in existing.splitlines()}
+    existing_lines = _get_stripped_lines(existing)
     lines = []
     for pattern in definitions:
         for match in pattern.finditer(written):

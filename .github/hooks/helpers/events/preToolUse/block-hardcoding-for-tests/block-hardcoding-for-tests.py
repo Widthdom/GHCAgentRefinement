@@ -20,6 +20,9 @@ _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-displ
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
     _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
 ))['read_stored_file_content_for_write_comparison']
+_get_stripped_lines = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-stripped-lines', 'get-stripped-lines.py',
+))['get_stripped_lines']
 
 
 # コードではなく文章のファイル。説明用のコード例を書く編集は拒否しない。
@@ -152,7 +155,7 @@ def main():
                 if change['full_content'] is not None:
                     lines, added, removed = change['full_content'].splitlines(), None, current
                 if added is None:
-                    existing_lines = {line.strip() for line in removed.splitlines()}
+                    existing_lines = _get_stripped_lines(removed)
                     added = {index for index, line in enumerate(lines) if line.strip() not in existing_lines}
                 hardcoding = _find_hardcoding(state, expected_keys, lines, added)
                 # 同じファイルの拒否は1回だけにし、意図した編集なら再実行で通す。

@@ -8,7 +8,7 @@
 |`read_transcript_events`|イベントを1件ずつ検証して読む|
 |`wait_for_agent_stop_event`|agentStop hookの発動時点で、それより前のイベントが書き込まれるのを待つ|
 |`get_turn_events`|イベントをユーザーの依頼ごとに分ける|
-|`get_latest_turn`・`is_already_requested`・`count_requests_by_hook`・`get_request`・`get_request_texts`・`get_last_assistant_message`・`get_tool_calls`・`get_shell_exit_code`|分けた依頼のイベントから、差し戻しの有無・依頼の文・最終応答・ツール呼び出しなどを取り出す|
+|`get_latest_turn`・`is_already_requested`・`count_requests_by_hook`・`get_request`・`get_request_texts`・`get_last_assistant_message`・`get_tool_calls`・`get_started_edit_tool_changes`・`get_shell_exit_code`|分けた依頼のイベントから、差し戻しの有無・依頼の文・最終応答・ツール呼び出し・編集などを取り出す|
 |`get_event_time_ms`|イベントの時刻（`timestamp`、ISO 8601）をUnixミリ秒にする|
 
 ## 読み方
@@ -34,6 +34,7 @@ Copilotはトランスクリプトへ非同期に追記するため、agentStop 
 ## ツール呼び出しの取り出し方
 - `tool.execution_start` と `tool.execution_complete` を `toolCallId` で対応させ、完了した順に返す。完了していない呼び出しは最後に加える。
 - シェル実行の終了コードは、完了イベントの `shellExecution.exitCode` から取得する。拒否などで実行されなかった場合は記録されないため、終了コードなしとする。
+- 編集は、`tool.execution_start` の順に、各呼び出しの引数を [edit-tool-changes](../edit-tool-changes/README.md) の `extract_edit_tool_changes` で解析して返す（`get_started_edit_tool_changes`）。完了したか、成功したかは問わず、削除は含めない。後の編集で消えた内容などは、呼び出し元のhookがファイルの現在の内容と照らして除く。
 
 ## 背景
 - macOSで、デバッグモードが有効でもdebug-add-response-footerがフッターの修正を求めず、`No assistant response was found in the transcript.` で異常終了していた。agentStopの発動時点で最終応答の `assistant.message` が書き込まれておらず、同じターンのそれまでの応答がツール呼び出しだけ（本文が空）だったため、本文を持つ応答が見つからなかった。この対策として待つようになった。

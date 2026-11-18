@@ -11,12 +11,7 @@ Claude Code向けの設定を置く。
 ### 背景
 このリポジトリのhookは、Copilot SDKの形式（イベント名、入力、出力、トランスクリプト）で実装し、検証している。Claude Codeにもhookはあるが、形式が異なるため、同じスクリプトをそのまま登録しても動かない。
 
-hookごとに互換処理を入れると、すべてのhookが2つの形式を意識することになる。そこで、hookの外側に置いた1本のアダプターがClaude Codeの形式をCopilot SDKの形式に変換し、既存のhookを変更せずに実行する。
-
-hookごとにラッパーを作らず、アダプターを1本にした理由は次のとおり。
-
-- Claude Codeは同じイベントのhookを並列に実行する。アダプターを1本にすれば、状態を共有するhookを定義順に1つずつ実行でき、拒否や差し戻しも1つにまとめて返せる。
-- hookの一覧を [.github/hooks](../.github/hooks) のhook定義（`<event-name>.json`）と `settings.json` に二重に書かずに済む。hookを追加・削除しても `settings.json` は変わらない。
+hookごとに互換処理を入れると、すべてのhookが2つの形式を意識することになる。そこで、hookの外側に置いた1本のアダプターがClaude Codeの形式をCopilot SDKの形式に変換し、既存のhookを変更せずに実行する。アダプターを1本にした理由と、Codexのアダプターと共通の実行・出力の集約は [hookランナーのREADME](../.github/hooks/helpers/runner/README.md#アダプターからの起動) を参照。ここではClaude Code固有の事項を記載する。
 
 ### 構成
 |ファイル|役割|
@@ -29,11 +24,7 @@ hookごとにラッパーを作らず、アダプターを1本にした理由は
 ### 処理の流れ
 1. Claude Codeの入力を、Copilot SDKの入力に変換する（[入力の変換](#入力の変換)）。
 2. Stopでは、Claude CodeのトランスクリプトをCopilotのイベント履歴（`events.jsonl`）の形式に変換して一時フォルダーに書き、そのパスを `transcriptPath` として渡す（[トランスクリプトの変換](#トランスクリプトの変換)）。一時フォルダーはhookの実行後に削除する。
-3. 対応するイベントのhook定義を、このリポジトリ専用の定義（`-repo-<event-name>.json`）、共通の定義（`<event-name>.json`）の順に読む。`matcher` があるhookは、変換後のツール名の全体に一致するものだけを対象にする。
-4. 対象のhookを定義順に1つずつ実行する。拒否や差し戻しを出力したhookがあっても、残りのhookを実行する。
-   - [hookランナー](../.github/hooks/helpers/runner/README.md) を通すhookは、アダプターのプロセス内でランナーを呼び出して実行する。hookごとにPythonを起動しないため。起動と、機能したかどうかは、Copilotでの実行と同じく記録される。
-   - ランナーを通さないhook（`check-python`・`block-commands`）は、hook定義のコマンド（Windowsでは `powershell`、それ以外では `bash`）のまま、リポジトリルートで子プロセスとして実行する。
-5. 各hookの出力を、Claude Codeの形式の1つの出力にまとめる（[出力の変換](#出力の変換)）。
+3. hook定義を読み、対象のhookを定義順に1つずつ実行して、出力をClaude Codeの形式の1つの出力にまとめる（[hookランナーのREADME](../.github/hooks/helpers/runner/README.md#共通の実行) を参照）。
 
 ### イベントの対応
 |Claude Code|Copilot SDK|備考|
@@ -77,20 +68,6 @@ hookごとにラッパーを作らず、アダプターを1本にした理由は
 
 表にないツール（MCPのツール、`NotebookEdit` など）は名前を変えない。引数は変換しない。編集ツールの引数名の違い（`file_path`・`old_string`・`new_string`・`content`）は、[edit-tool-changes](../.github/hooks/helpers/utilities/edit-tool-changes/README.md) が元から受け付ける。
 
-### 出力の変換
-|Copilot SDKの出力|Claude Codeの出力|
-|--|--|
-|`permissionDecision: "deny"`（preToolUse）|`hookSpecificOutput.permissionDecision: "deny"`。複数のhookの理由は空行でつなぐ。|
-|`decision: "block"`（agentStop）|`decision: "block"`。複数のhookの理由は `---` の行でつなぐ。|
-|`additionalContext`|`hookSpecificOutput.additionalContext`。複数のhookの助言は空行でつなぐ。Stopでは渡さない（Claude Codeでは応答を続行させるため）。|
-|`systemMessage`|`systemMessage`。複数のhookの文は空行でつなぐ。|
-
-終了コードは次のとおり。
-
-- 出力があれば、出力して0で終える。
-- 出力がなく、異常終了したhookがあれば、1で終える。Claude Codeでは終了コード2が「ブロック」を意味し、hookの異常終了（入力の不正など）でツールの実行や応答の終了が止まるため、非ブロックのエラーである1にする。原因はhookが標準エラーに出力する。
-- 異常終了したhookでも、判定のJSONを出力していれば判定を採用する。Pythonが古いときに [block-commands](../.github/hooks/helpers/events/preToolUse/block-commands/README.md) がシェルの実行を拒否できるようにするため。
-
 ### トランスクリプトの変換
 agentStopのhookは [read-transcript-events](../.github/hooks/helpers/utilities/read-transcript-events/read-transcript-events.py) でCopilotのイベント履歴を読む。Claude Codeのトランスクリプトから、hookが読むイベントを次のように組み立てる。サブエージェントのやり取り（`isSidechain`）は含めない。
 
@@ -105,10 +82,10 @@ agentStopのhookは [read-transcript-events](../.github/hooks/helpers/utilities/
 
 ### Copilotとの違いと制約
 - Copilotは同じイベントのhookを並列に実行するが、アダプターは定義順に1つずつ実行する。
-- hook定義の `timeoutSec` は、ランナーを通さないhookにだけ適用する。プロセス内で実行するhookは個別に止められず、全体がClaude Codeのhookのタイムアウト（既定は600秒、UserPromptSubmitは30秒）に従う。タイムアウトすると、そのイベントのすべてのhookの出力が失われる。
+- プロセス内で実行するhookは、全体がClaude Codeのhookのタイムアウト（既定は600秒、UserPromptSubmitは30秒）に従う（[共通の制約](../.github/hooks/helpers/runner/README.md#共通の制約)）。タイムアウトすると、そのイベントのすべてのhookの出力が失われる。
 - Stop hookの差し戻しは、ツール呼び出しを挟まずに8回続くとClaude Codeが打ち切る（`CLAUDE_CODE_STOP_HOOK_BLOCK_CAP` で変更できる）。
 - `additionalContext` は、Claude Codeでは10,000文字が上限。
-- Pythonがない環境ではアダプター自体が起動できず、非ブロックのエラーになるだけで、[check-python](../.github/hooks/helpers/events/sessionStart/check-python/README.md) の案内も `block-commands` の拒否も働かない。Pythonが3.14より古い環境では、どちらも働く。
+- Pythonがない環境では、アダプターの起動の失敗は非ブロックのエラーになるだけで、`check-python`・`block-commands` は働かない（[共通の制約](../.github/hooks/helpers/runner/README.md#共通の制約)）。Pythonが3.14より古い環境では、どちらも働く。
 - `Edit` の `replace_all` は、編集後の内容の再現（`simulate_edit_tool_changes`）では最初の1か所だけの置換として扱われる。
 - バックグラウンドで実行したシェル（`run_in_background`）は、終了コードを不明として扱う。
 - 応答の途中でユーザーが送った文と、ローカルコマンド（`/compact` など）の記録は、新しい依頼として扱う。Copilotの `queued` のような区別を、Claude Codeの記録から確認できていないため。
@@ -121,8 +98,8 @@ agentStopのhookは [read-transcript-events](../.github/hooks/helpers/utilities/
 - `SubagentStop`：Copilotでも、agentStopのhookはサブエージェントの停止を対象外としている。
 
 ### 前提条件
-- [.github/README.md](../.github/README.md) の前提条件と同じく、Gitのインストールを前提とし、Python 3.14以降が必要。
-- 起動スクリプト（[run-claude-hook.sh](../.github/hooks/helpers/runner/run-claude-hook.sh)）の実行に `sh` が必要。Windowsでは、Git for Windowsに含まれるGit Bashの `sh` を使う。Claude Codeは、Git Bashがあればhookのコマンドをそこで実行する。
+- Git・Pythonの前提は [.github/README.md](../.github/README.md#前提条件) のとおり。
+- 起動スクリプト（[run-claude-hook.sh](../.github/hooks/helpers/runner/run-claude-hook.sh)）の実行に `sh` が必要。Windowsでは、Git for Windowsに含まれるGit Bashの `sh` を使う。Claude Codeは、Git Bashがあればhookのコマンドをそこで実行する。リポジトリ全体でGitのインストールを前提とするのは、このため。
 - クラウドのセッションでは、環境にPython 3.14以降を `python3` として用意する。3.14より古いと、`block-commands` がすべてのシェルの実行を拒否する。
 
 ### Windows用の `.cmd` を置かない理由

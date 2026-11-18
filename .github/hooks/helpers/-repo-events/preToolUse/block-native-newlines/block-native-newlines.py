@@ -28,6 +28,7 @@ _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-displ
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
     _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
 ))['read_stored_file_content_for_write_comparison']
+_stripped_lines = runpy.run_path(os.path.join(_utilities_directory, 'get-stripped-lines', 'get-stripped-lines.py'))
 
 
 _INCLUDED_FILE_PATTERNS_KEY = 'includedFilePatterns'
@@ -120,17 +121,11 @@ def _get_code_ranges(text):
     return ranges
 
 
-def _get_line(text, position):
-    start = text.rfind('\n', 0, position) + 1
-    end = text.find('\n', position)
-    return text[start:None if end < 0 else end].strip()
-
-
 def _find_unpinned_calls(definitions, written, existing):
     # 戻り値は (種類の名前のリスト, 呼び出しの先頭の行のリスト)。
     # newlineを指定した呼び出しと、既存の内容に同じ行がある呼び出し（元からあるもの）は除く。
     _, calls, text_write_mode, pinned_newline = definitions
-    existing_lines = {line.strip() for line in existing.splitlines()}
+    existing_lines = _stripped_lines['get_stripped_lines'](existing)
     code_ranges = _get_code_ranges(written)
     kinds = []
     snippets = []
@@ -138,7 +133,7 @@ def _find_unpinned_calls(definitions, written, existing):
         for match in pattern.finditer(written):
             if not any(start <= match.start() < end for start, end in code_ranges):
                 continue
-            line = _get_line(written, match.start())
+            line = _stripped_lines['get_stripped_line_at'](written, match.start())
             if line in existing_lines:
                 continue
             arguments = _get_arguments(written, match.end() - 1)

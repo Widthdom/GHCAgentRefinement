@@ -16,19 +16,19 @@ _utilities_directory = os.path.join(
 )
 _hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read-hook-input.py'))
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
-_get_path_sha256_digest = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-sha256-digest', 'get-sha256-digest.py',
-))['get_path_sha256_digest']
 _definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get-state-path.py'))['get_state_path']
-_filter_first_time_denials = runpy.run_path(os.path.join(
+_is_first_time_file_denial = runpy.run_path(os.path.join(
     _utilities_directory, 'filter-first-time-denials', 'filter-first-time-denials.py',
-))['filter_first_time_denials']
+))['is_first_time_file_denial']
 _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get-display-path.py'))['get_display_path']
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
     _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
 ))['read_stored_file_content_for_write_comparison']
+_get_stripped_lines = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-stripped-lines', 'get-stripped-lines.py',
+))['get_stripped_lines']
 
 
 # 文字列の中の日付（`2026-11-03`・`2026/11/03`）。バージョン番号（`1.2026-...`）の一部は除く。
@@ -106,7 +106,7 @@ def _find_date_literals(text):
 
 def _get_added_text(removed, written):
     # 置換前にもあった行は、今回書き加えた日付ではないため除く。
-    removed_lines = {line.strip() for line in removed.splitlines()}
+    removed_lines = _get_stripped_lines(removed)
     return '\n'.join(line for line in written.splitlines() if line.strip() not in removed_lines)
 
 
@@ -123,12 +123,6 @@ def _find_time_bomb(definitions, today, added, content):
         if earliest <= date <= latest:
             return literal, date, clock
     return None
-
-
-def _record_denial(state_path, path):
-    # 戻り値は、このファイルを今回初めて拒否するか。同じファイルの拒否はセッションで1回だけにする。
-    # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-    return bool(_filter_first_time_denials(state_path, [(_get_path_sha256_digest(path), path)]))
 
 
 def _parse_today(value):
@@ -190,7 +184,8 @@ def main(arguments=None):
         findings = []
         if candidates:
             for path, display_path, (literal, date, clock) in candidates:
-                if _record_denial(state_path, path):
+                # 同じファイルの拒否はセッションで1回だけにする。
+                if _is_first_time_file_denial(state_path, path):
                     findings.append(_FINDING.format(file=display_path, literal=literal, date=date.isoformat(), clock=clock))
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
         print(f'Failed to check time bomb literals: {ex}', file=sys.stderr)

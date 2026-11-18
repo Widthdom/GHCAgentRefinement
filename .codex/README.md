@@ -63,7 +63,7 @@ hookの信頼は、上の初回セットアップの代わりにCLIの `/hooks` 
 |[adapted-hook-runtime.py](../.github/hooks/helpers/runner/adapted-hook-runtime.py)|Claude Codeと共通の定義読込・順次実行・出力集約・履歴の末尾の補完と書き出し。|
 |[test-run-codex-hook.py](../.github/hooks/helpers/runner/test-run-codex-hook.py)|形式変換、拒否、停止、起動設定のテスト。Windowsの起動テストはCodexと同じく、内部の引用符を保持したコマンド文字列をCOMSPECの `/c` に渡す。|
 
-Codexは同一イベントのコマンドhookを並列実行するため、アダプターを1つ登録し、その中で共通hookを定義順に実行する。hook一覧は `.github/hooks` の定義だけに保持する。
+イベントごとにアダプターを1つだけ登録する理由と、Claude Codeのアダプターと共通の実行・出力の集約は [hookランナーのREADME](../.github/hooks/helpers/runner/README.md#アダプターからの起動) を参照。ここではCodex固有の事項を記載する。
 
 起動パスは `git rev-parse --show-toplevel` で解決するため、サブディレクトリからCodexを開始しても使える。Windowsは `commandWindows` でPowerShellからPythonを起動する。Claude Code用のGit Bash起動スクリプトには依存しない。
 
@@ -88,8 +88,7 @@ Codexは同一イベントのコマンドhookを並列実行するため、ア�
 - `apply_patch` はそのまま渡す。パッチ本文は `tool_input.command` に入るため、既存の編集用utilityが読める。履歴中の自由形式パッチは `command` に包む。
 - MCPなどのその他のツール名・引数は保持する。共通hookに対応する判定がなければ処理対象にならない。
 - `functions.exec` のコードモードでも、対応版のCodexは内部の個々のツールに `PreToolUse` / `PostToolUse` を通知する。シェルなら `Bash` とコマンド、編集なら `apply_patch` とパッチを上と同じ経路で処理する。アダプターで外側のJavaScriptをシェルとみなしたり、文字列解析して内部呼び出しを推定したりしない。
-- `.github/hooks/-repo-<event>.json`、`.github/hooks/<event>.json` の順に読み、変換後のツール名に `matcher` が一致するhookを順次実行する。拒否があっても残りのhookは実行する。
-- ランナーを通すPython hookは同一プロセスで実行する。直接起動のhookはOSに応じて定義の `bash` または `powershell` を使う。詳細は [runner README](../.github/hooks/helpers/runner/README.md) を参照。
+- hook定義の読み込みと実行は、Claude Codeのアダプターと共通（[共通の実行](../.github/hooks/helpers/runner/README.md#共通の実行)）。
 
 ## 停止時の履歴
 `transcript_path` は公式にも非安定インターフェースとされている。アダプターは公開ソースのrollout JSONL（`type`、`payload`）を対象に、次の情報を一時的なCopilot形式の履歴に変換する。
@@ -104,20 +103,18 @@ Codexは同一イベントのコマンドhookを並列実行するため、ア�
 指示や圧縮要約を、ユーザーが入力した依頼として補完しない。一時的な履歴は実行終了時に削除する。読めない・空・未知の履歴は標準エラーに報告し、その回の停止検査を実行しない。
 
 ## 出力
-- ツールの拒否は `hookSpecificOutput.permissionDecision: deny` と理由にまとめる。
-- 停止時の差し戻しは `decision: block` と `reason` にまとめる。Codexが続行したあとの `stop_hook_active: true` では再ブロックしない。差し戻しは1ターンにつき最大1回となる。
-- 停止時以外の `additionalContext` はイベント名付きの `hookSpecificOutput` にまとめる。`systemMessage` はトップレベルにまとめる。
-- 停止時の単なる助言は続行理由に変えない。
-- アダプターやhookの異常は終了コード1で報告する。Codexの終了コード2はブロックを意味するため、内部エラーには使わない。他のhookから判定が得られた場合は終了コード0で判定を返す。
+- 出力の集約と終了コードは、Claude Codeのアダプターと共通（[出力の集約](../.github/hooks/helpers/runner/README.md#出力の集約)）。
+- Codexが続行したあとの `stop_hook_active: true` では、停止時の差し戻しを外して再ブロックしない。差し戻しは1ターンにつき最大1回となる。
+- アダプター自体の異常（入力や履歴を読めないなど）も、終了コード1で報告する。
 
 ## 制約と限界
-- 共通hookをPythonなしで起動できない。Python未導入時には `check-python`、`block-commands` も動かない。
+- 共通hookをPythonなしで起動できない（[共通の制約](../.github/hooks/helpers/runner/README.md#共通の制約)）。
 - Codexがhookに渡さない呼び出し（ホスト側Web検索など）は検査できない。`write_stdin` は既存プロセスの通信であり、再度の実行前検査はない。ホストがイベントを通知しない場合、アダプターだけでは実行前・実行後の検査を追加できない。
 - コードモード内部のツールに独立した `response_item` がない場合、停止時に復元するのは上記の `CommandExecution`。編集やMCPなど、他の完了項目から元の引数は復元しない。それらに依存する停止検査には履歴の制約が残る。
 - 共通hookの検出対象がCopilotのツールに限られる場合、別名のMCPツールなどには同じ検出が働くとは限らない。
 - 古い履歴で後続の `write_stdin` にだけ終了コードがある場合、元のコマンドの終了コードを推定しない。ページ分割形式の `CommandExecution` があれば元の呼び出しIDで補う。
 - 履歴のロールバックや圧縮による置換・欠落、旧形式の割り込みの依頼区切りは完全には再現しない。履歴依存の停止検査は取得できた範囲に限る。
-- Python hook個別の `timeoutSec` は同一プロセス内では適用されない。アダプター全体にCodexのタイムアウト（設定省略時600秒）が適用される。直接起動するhookには定義の `timeoutSec` を適用する。
+- プロセス内で実行するhookは、全体がCodexのタイムアウト（設定省略時600秒）に従う（[共通の制約](../.github/hooks/helpers/runner/README.md#共通の制約)）。
 - テストはアダプターを子プロセスで実行する方式。Codexによる信頼済みhookの実発火とWindows/Linux上の実行は、この変更時には確認していない。
 
 ## 変更するとき

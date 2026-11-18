@@ -11,7 +11,7 @@
 - VS CodeのCopilot Chatで使う場合は、Session Targetを `Copilot` にする。
 - `Copilot` targetはCLIと同じSDK hook実装を使うが、利用中のVS Codeが対象イベントに対応するか確認する。
 - VS CodeのSession Target `Local` は対象外とする。Session Target `Codex`・`Claude` での動作は確認していない。アダプターの対応範囲は各READMEを参照し、個々のhookにはSDK以外の互換処理やfallbackを加えない。
-- Gitのインストールを前提とし、hookでは導入状況を確認しない。これはClaude Codeでの事情を考慮したものである。詳細は [.claude/README.md](../.claude/README.md) の前提条件を参照。
+- Gitのインストールを前提とし、hookでは導入状況を確認しない。これはClaude Codeでの事情を考慮したものである。理由は [.claude/README.md](../.claude/README.md#前提条件) を参照。
 - `.py` の実行にはPython 3.14以降が必要で、起動コマンドはmacOS/Linuxでは `python3`、Windowsでは `python` を使う。
 - 状態を保存するhookは、Python 3.14以降の標準の `sqlite3` を使う。SQLite自体のインストールは不要（公式Windows版Pythonにも同梱）。
 

@@ -18,6 +18,9 @@ _transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-tra
 _definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
+_get_stripped_lines = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-stripped-lines', 'get-stripped-lines.py',
+))['get_stripped_lines']
 
 
 _IGNORED_REFERENCE_FILE_PATTERNS_KEY = 'ignoredReferenceFilePatterns'
@@ -69,18 +72,12 @@ def _load_definitions(path):
 
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・編集・本hookによる差し戻し済みかを集める。
-    # 編集ツールの引数の解析は、共通utilityで行う。
-    extract_edit_tool_changes = runpy.run_path(
-        os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py')
-    )['extract_edit_tool_changes']
     events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
-    changes = [
-        change
-        for event_type, data in events
-        if event_type == 'tool.execution_start' and isinstance(data.get('toolName'), str)
-        for change in extract_edit_tool_changes(data['toolName'], data.get('arguments'))
-    ]
-    return _transcript_events['get_last_assistant_message'](events), changes, already_requested
+    return (
+        _transcript_events['get_last_assistant_message'](events),
+        _transcript_events['get_started_edit_tool_changes'](events),
+        already_requested,
+    )
 
 
 def _read_file_lines(path):
@@ -137,7 +134,7 @@ def _find_candidates(changes, cwd, repository_root, excluded_name_patterns, lang
         language = _get_language(languages, relative_path)
         if language is None or _check_test_files['is_test_file'](test_file_patterns, relative_path):
             continue
-        removed_lines = {line.strip() for line in removed.splitlines()}
+        removed_lines = _get_stripped_lines(removed)
         for pattern in language[2]:
             for match in pattern.finditer(written):
                 name = match.group('name')
