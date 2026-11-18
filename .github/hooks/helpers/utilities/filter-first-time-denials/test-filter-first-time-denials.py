@@ -5,7 +5,9 @@ import tempfile
 import unittest
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_filter_first_time_denials = runpy.run_path(os.path.join(_script_directory, 'filter-first-time-denials.py'))['filter_first_time_denials']
+_utility = runpy.run_path(os.path.join(_script_directory, 'filter-first-time-denials.py'))
+_filter_first_time_denials = _utility['filter_first_time_denials']
+_is_first_time_file_denial = _utility['is_first_time_file_denial']
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
 _run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook-test-output.py'))['run_tests']
@@ -37,6 +39,23 @@ class FilterFirstTimeDenialsTests(unittest.TestCase):
             rows = connection.execute('SELECT key FROM first_denials').fetchall()
         connection.close()
         self.assertEqual(rows, [('a',)])
+
+    def test_file_denial_is_first_time_only_once_per_file(self):
+        first = os.path.join('project', 'a.txt')
+        second = os.path.join('project', 'b.txt')
+        self.assertTrue(_is_first_time_file_denial(self.__state_path, first))
+        self.assertFalse(_is_first_time_file_denial(self.__state_path, first))
+        self.assertTrue(_is_first_time_file_denial(self.__state_path, second))
+
+    def test_file_denial_stores_only_the_digest(self):
+        path = os.path.join('project', 'secret-name.txt')
+        _is_first_time_file_denial(self.__state_path, path)
+        with sqlite3.connect(self.__state_path) as connection:
+            rows = connection.execute('SELECT key FROM first_denials').fetchall()
+        connection.close()
+        self.assertEqual(len(rows), 1)
+        self.assertRegex(rows[0][0], r'^[0-9a-f]{64}$')
+        self.assertNotIn('secret-name', rows[0][0])
 
 
 if __name__ == '__main__':
