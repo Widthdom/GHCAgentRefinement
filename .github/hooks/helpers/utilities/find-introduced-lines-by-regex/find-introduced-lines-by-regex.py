@@ -10,22 +10,13 @@ _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-displ
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
     _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
 ))['read_stored_file_content_for_write_comparison']
-
-
-def _normalize_lines(text):
-    # インデントの違いで既存の内容との照合が外れないよう、各行の前後の空白を除く。
-    return {line.strip() for line in text.splitlines()}
+# インデントの違いで既存の内容との照合が外れないよう、各行は前後の空白を除いて比べる。
+_stripped_lines = runpy.run_path(os.path.join(_utilities_directory, 'get-stripped-lines', 'get-stripped-lines.py'))
 
 
 def _read_lines(path):
     text = _read_stored_file_content_for_write_comparison(path)
-    return None if text is None else _normalize_lines(text)
-
-
-def _get_line(text, position):
-    start = text.rfind('\n', 0, position) + 1
-    end = text.find('\n', position)
-    return text[start:None if end < 0 else end].strip()
+    return None if text is None else _stripped_lines['get_stripped_lines'](text)
 
 
 def find_introduced_lines_by_regex(changes, cwd, excluded_file_patterns, named_regexes):
@@ -46,10 +37,10 @@ def find_introduced_lines_by_regex(changes, cwd, excluded_file_patterns, named_r
         if any(pattern.search(display_path) for pattern in excluded_file_patterns):
             continue
         written = change['written']
-        removed_lines = _normalize_lines(change['removed'])
+        removed_lines = _stripped_lines['get_stripped_lines'](change['removed'])
         for name, regex in named_regexes:
             for match in regex.finditer(written):
-                line = _get_line(written, match.start())
+                line = _stripped_lines['get_stripped_line_at'](written, match.start())
                 if line in removed_lines or (display_path, line) in found:
                     continue
                 if full_path not in current_lines:

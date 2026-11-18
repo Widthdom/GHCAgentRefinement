@@ -26,6 +26,9 @@ _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-displ
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
     _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
 ))['read_stored_file_content_for_write_comparison']
+_get_stripped_lines = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-stripped-lines', 'get-stripped-lines.py',
+))['get_stripped_lines']
 
 
 # 文字列の中の日付（`2026-11-03`・`2026/11/03`）。バージョン番号（`1.2026-...`）の一部は除く。
@@ -103,7 +106,7 @@ def _find_date_literals(text):
 
 def _get_added_text(removed, written):
     # 置換前にもあった行は、今回書き加えた日付ではないため除く。
-    removed_lines = {line.strip() for line in removed.splitlines()}
+    removed_lines = _get_stripped_lines(removed)
     return '\n'.join(line for line in written.splitlines() if line.strip() not in removed_lines)
 
 

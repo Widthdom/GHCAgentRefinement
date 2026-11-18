@@ -30,6 +30,9 @@ _get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-displ
 _read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
     _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read-stored-file-content-for-write-comparison.py',
 ))['read_stored_file_content_for_write_comparison']
+_get_stripped_lines = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-stripped-lines', 'get-stripped-lines.py',
+))['get_stripped_lines']
 
 
 _EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
@@ -58,15 +61,11 @@ def _load_definitions(path):
     )
 
 
-def _normalize_lines(text):
-    # インデントの違いで既存の内容との照合が外れないよう、各行の前後の空白を除く。
-    return {line.strip() for line in text.splitlines()}
-
-
 def _find_native_paths(native_patterns, normalization_patterns, written, existing):
     # 戻り値は (種類の名前のリスト, 該当行のリスト)。
     # 同じ行で `/` 区切りに変換しているものと、既存の内容に同じ行があるもの（元からあるもの）は除く。
-    existing_lines = _normalize_lines(existing)
+    # インデントの違いで既存の内容との照合が外れないよう、各行は前後の空白を除いて比べる。
+    existing_lines = _get_stripped_lines(existing)
     kinds = []
     snippets = []
     for line in written.splitlines():

@@ -18,6 +18,9 @@ _transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-tra
 _definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check-test-files.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
+_get_stripped_lines = runpy.run_path(os.path.join(
+    _utilities_directory, 'get-stripped-lines', 'get-stripped-lines.py',
+))['get_stripped_lines']
 
 
 _IGNORED_REFERENCE_FILE_PATTERNS_KEY = 'ignoredReferenceFilePatterns'
@@ -137,7 +140,7 @@ def _find_candidates(changes, cwd, repository_root, excluded_name_patterns, lang
         language = _get_language(languages, relative_path)
         if language is None or _check_test_files['is_test_file'](test_file_patterns, relative_path):
             continue
-        removed_lines = {line.strip() for line in removed.splitlines()}
+        removed_lines = _get_stripped_lines(removed)
         for pattern in language[2]:
             for match in pattern.finditer(written):
                 name = match.group('name')
