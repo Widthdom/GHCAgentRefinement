@@ -18,9 +18,6 @@ _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-out
 _definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read-definitions.py'))
 _transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read-transcript-events.py'))
 _git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run-git.py'))
-_extract_edit_tool_changes = runpy.run_path(os.path.join(
-    _utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py',
-))['extract_edit_tool_changes']
 
 
 _FORMATS = {'json', 'toml', 'lines'}
@@ -72,15 +69,11 @@ def _load_definitions(path):
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・書き込んだファイル・本hookによる差し戻し済みかを集める。
     events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
-    paths = []
-    for event_type, data in events:
-        tool_name = data.get('toolName')
-        if event_type == 'tool.execution_start' and isinstance(tool_name, str):
-            # 書き込むファイルと移動先を集める。削除するファイルは対象外とする。
-            paths.extend(
-                path for change in _extract_edit_tool_changes(tool_name, data.get('arguments'))
-                for path in (change['path'], change['moved_to']) if path
-            )
+    # 書き込むファイルと移動先を集める。削除するファイルは対象外とする。
+    paths = [
+        path for change in _transcript_events['get_started_edit_tool_changes'](events)
+        for path in (change['path'], change['moved_to']) if path
+    ]
     return _transcript_events['get_last_assistant_message'](events), paths, already_requested
 
 

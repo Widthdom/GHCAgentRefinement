@@ -276,6 +276,25 @@ class GetTurnEventsTests(_TranscriptTestCase):
             ('view', None, None),
         ])
 
+    def test_started_edit_tool_changes_in_call_order(self):
+        events = [
+            ('tool.execution_start', {'toolCallId': 'a', 'toolName': 'edit',
+                                      'arguments': {'path': 'a.py', 'old_str': 'old', 'new_str': 'new'}}),
+            ('tool.execution_start', {'toolCallId': 'b', 'toolName': 'bash', 'arguments': {'command': 'echo x > c.py'}}),
+            ('tool.execution_start', {'toolCallId': 'c', 'toolName': 'functions.create',
+                                      'arguments': '{"file_path": "b.py", "file_text": "text"}'}),
+            ('tool.execution_start', {'toolCallId': 'd', 'toolName': None, 'arguments': {'path': 'd.py'}}),
+            ('tool.execution_complete', {'toolCallId': 'a', 'success': False}),
+            ('user.message', {'content': 'not a tool call'}),
+        ]
+        # 完了したか、成功したかは問わない。編集ツール以外と、ツール名が文字列でない呼び出しからは何も取り出さない。
+        changes = _utility['get_started_edit_tool_changes'](events)
+        self.assertEqual([(change['path'], change['written'], change['removed']) for change in changes], [
+            ('a.py', 'new', 'old'),
+            ('b.py', 'text', ''),
+        ])
+        self.assertEqual(_utility['get_started_edit_tool_changes']([]), [])
+
     def test_shell_exit_code(self):
         for completion, expected in (
             ({'shellExecution': {'exitCode': 0}}, 0),

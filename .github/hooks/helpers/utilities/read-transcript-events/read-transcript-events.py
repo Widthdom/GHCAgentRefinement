@@ -10,9 +10,10 @@ from datetime import datetime
 #   get_turn_events：イベントをユーザーの依頼ごとに分ける。以降の関数は、分けた依頼のイベントから必要な情報を取り出す。
 # hookの差し戻しやユーザーの割り込みは `delivery: "queued"` のuser.messageとして記録されるため、依頼の区切りとしない。
 
-# ツール名の接頭辞は共通のutilityで外す。utilityのフォルダーの親がutilitiesである。
+# ツール名の接頭辞を外す処理と、編集ツールの引数の解析は、共通のutilityで行う。utilityのフォルダーの親がutilitiesである。
+_utilities_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _get_tool_name = runpy.run_path(os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'parse-tool-calls', 'parse-tool-calls.py',
+    _utilities_directory, 'parse-tool-calls', 'parse-tool-calls.py',
 ))['get_tool_name']
 
 # hook入力のtimestampとトランスクリプトのイベントの時刻は、記録する処理が異なるため前後しうる。その幅（ミリ秒）。
@@ -177,6 +178,21 @@ def get_tool_calls(events):
             calls.append((*started.pop(call_id), data))
     calls.extend((tool_name, arguments, None) for tool_name, arguments in started.values())
     return calls
+
+
+def get_started_edit_tool_changes(events):
+    # 呼び出した編集ツールの変更を、呼び出した順に返す。完了したか、成功したかは問わない。
+    # 各変更は、edit-tool-changes utilityのextract_edit_tool_changesが返すもの（削除は含まない）。
+    # 編集を見ないhookにedit-tool-changesとその依存を読み込ませないよう、呼び出したときに読み込む。
+    extract_edit_tool_changes = runpy.run_path(os.path.join(
+        _utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py',
+    ))['extract_edit_tool_changes']
+    return [
+        change
+        for event_type, data in events
+        if event_type == 'tool.execution_start' and isinstance(data.get('toolName'), str)
+        for change in extract_edit_tool_changes(data['toolName'], data.get('arguments'))
+    ]
 
 
 def get_shell_exit_code(completion):

@@ -72,18 +72,12 @@ def _load_definitions(path):
 
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・編集・本hookによる差し戻し済みかを集める。
-    # 編集ツールの引数の解析は、共通utilityで行う。
-    extract_edit_tool_changes = runpy.run_path(
-        os.path.join(_utilities_directory, 'edit-tool-changes', 'edit-tool-changes.py')
-    )['extract_edit_tool_changes']
     events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
-    changes = [
-        change
-        for event_type, data in events
-        if event_type == 'tool.execution_start' and isinstance(data.get('toolName'), str)
-        for change in extract_edit_tool_changes(data['toolName'], data.get('arguments'))
-    ]
-    return _transcript_events['get_last_assistant_message'](events), changes, already_requested
+    return (
+        _transcript_events['get_last_assistant_message'](events),
+        _transcript_events['get_started_edit_tool_changes'](events),
+        already_requested,
+    )
 
 
 def _read_file_lines(path):
