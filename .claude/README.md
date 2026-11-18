@@ -121,8 +121,8 @@ agentStopのhookは [read-transcript-events](../.github/hooks/helpers/utilities/
 - `SubagentStop`：Copilotでも、agentStopのhookはサブエージェントの停止を対象外としている。
 
 ### 前提条件
-- [.github/README.md](../.github/README.md) の前提条件と同じく、Gitのインストールを前提とし、Python 3.14以降が必要。
-- 起動スクリプト（[run-claude-hook.sh](../.github/hooks/helpers/runner/run-claude-hook.sh)）の実行に `sh` が必要。Windowsでは、Git for Windowsに含まれるGit Bashの `sh` を使う。Claude Codeは、Git Bashがあればhookのコマンドをそこで実行する。
+- Git・Pythonの前提は [.github/README.md](../.github/README.md#前提条件) のとおり。
+- 起動スクリプト（[run-claude-hook.sh](../.github/hooks/helpers/runner/run-claude-hook.sh)）の実行に `sh` が必要。Windowsでは、Git for Windowsに含まれるGit Bashの `sh` を使う。Claude Codeは、Git Bashがあればhookのコマンドをそこで実行する。リポジトリ全体でGitのインストールを前提とするのは、このため。
 - クラウドのセッションでは、環境にPython 3.14以降を `python3` として用意する。3.14より古いと、`block-commands` がすべてのシェルの実行を拒否する。
 
 ### Windows用の `.cmd` を置かない理由
