@@ -47,7 +47,7 @@ flowchart LR
 
     stopAttempt["停止を試みる"]
 
-    stopped(["停止（ユーザーの入力待ち）"])
+    stopped(["<div style='width: 128px; font-size: 12px'>停止</br>（ユーザーの入力待ち）</div>"])
 
     work[["作業"]]
 
