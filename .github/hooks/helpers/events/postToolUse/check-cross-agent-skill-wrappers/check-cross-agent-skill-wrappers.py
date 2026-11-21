@@ -90,7 +90,10 @@ def _get_problems(root, name):
     canonical_display = _get_display_path(*_CANONICAL_DIRECTORY, name, _SKILL_FILENAME)
     canonical = _read_skill_file(os.path.join(root, *_CANONICAL_DIRECTORY, name, _SKILL_FILENAME))
     wrappers = [
-        (_get_display_path(*parts, name, _SKILL_FILENAME), _read_skill_file(os.path.join(root, *parts, name, _SKILL_FILENAME)))
+        (
+            _get_display_path(*parts, name, _SKILL_FILENAME),
+            _read_skill_file(os.path.join(root, *parts, name, _SKILL_FILENAME)),
+        )
         for parts in _WRAPPER_DIRECTORIES
     ]
     if canonical is None:

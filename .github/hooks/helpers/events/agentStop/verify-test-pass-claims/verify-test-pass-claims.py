@@ -54,7 +54,10 @@ def _get_turn_summary(transcript_path, extract_edit_tool_changes):
         command = _get_shell_command(tool_name, arguments)
         if command is not None:
             # 拒否などで実行されなかった場合は終了コードが記録されないため、成功とみなさない。
-            events.append(('shell', (command, _transcript_events['get_shell_exit_code'](completion))))
+            events.append((
+                'shell',
+                (command, _transcript_events['get_shell_exit_code'](completion)),
+            ))
         elif completion is not None and completion.get('success') is True:
             changes = extract_edit_tool_changes(tool_name, arguments, include_deleted=True)
             if changes:

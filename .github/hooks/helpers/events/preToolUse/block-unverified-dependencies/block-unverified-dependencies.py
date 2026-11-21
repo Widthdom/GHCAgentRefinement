@@ -105,7 +105,11 @@ def _extract_dependencies(kind, text):
             include = _NUGET_INCLUDE_PATTERN.search(tag.group(0))
             if include:
                 version = _NUGET_VERSION_PATTERN.search(tag.group(0))
-                dependencies.append((_NUGET, include.group('name').strip(), version.group('version').strip() if version else None))
+                dependencies.append((
+                    _NUGET,
+                    include.group('name').strip(),
+                    version.group('version').strip() if version else None,
+                ))
     elif kind == 'requirements':
         for line in text.splitlines():
             line = line.split('#', 1)[0]
@@ -409,7 +413,13 @@ def main():
                 normalized = _normalize_name(state, ecosystem, name)
                 if (ecosystem, normalized, version) in existing:
                     continue
-                dependency = (ecosystem, name, version, os.path.dirname(path), (ecosystem, normalized) in existing_names)
+                dependency = (
+                    ecosystem,
+                    name,
+                    version,
+                    os.path.dirname(path),
+                    (ecosystem, normalized) in existing_names,
+                )
                 if dependency not in added:
                     added.append(dependency)
         if not added:
