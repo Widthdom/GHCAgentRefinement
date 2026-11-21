@@ -82,7 +82,8 @@ class ValueTests(unittest.TestCase):
         self.assertIsNotNone(matcher.search('a\nb'))
         with self.assertRaises(ValueError) as context:
             _build_regex_matcher(r'(', 'testFilePattern')
-        self.assertIn('invalid regular expression in testFilePattern:', str(context.exception))
+        # 場所と理由に続けて、パターンの文字列を示す。
+        self.assertRegex(str(context.exception), r"^invalid regular expression in testFilePattern: .+ \(pattern: '\('\)$")
         # 元の例外は連鎖させず、定義の読み込みエラーとして示す。
         self.assertIsNone(context.exception.__cause__)
 
@@ -93,7 +94,10 @@ class ValueTests(unittest.TestCase):
         self.assertEqual(_build_regex_matchers([], 'key'), [])
         with self.assertRaises(ValueError) as context:
             _build_regex_matchers([r'a', r'('], 'testFilePatterns')
-        self.assertIn('invalid regular expression in testFilePatterns:', str(context.exception))
+        # 場所には、リストでの添字（0始まり）を添える。
+        self.assertRegex(
+            str(context.exception), r"^invalid regular expression in testFilePatterns \(index 1\): .+ \(pattern: '\('\)$"
+        )
         # 元の例外は連鎖させず、定義の読み込みエラーとして示す。
         self.assertIsNone(context.exception.__cause__)
 
@@ -106,7 +110,7 @@ class ValueTests(unittest.TestCase):
         for key, allow_empty_list, message in (
             ('empty', False, f'empty in {_LABEL} must be a non-empty array of non-blank strings.'),
             ('missing', True, f'missing in {_LABEL} must be an array of non-blank strings.'),
-            ('invalid', False, f'invalid regular expression in invalid in {_LABEL}:'),
+            ('invalid', False, f'invalid regular expression in invalid in {_LABEL} (index 0):'),
         ):
             with self.subTest(key=key):
                 with self.assertRaises(ValueError) as context:
