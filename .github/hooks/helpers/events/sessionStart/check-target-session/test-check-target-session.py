@@ -115,8 +115,8 @@ class CheckTargetSessionTests(unittest.TestCase):
                 if case['ExpectMessage']:
                     try:
                         parsed_output = json.loads(output)
-                    except ValueError:
-                        raise AssertionError(f"Failed to parse stdout as JSON for '{case['Name']}': {output}")
+                    except ValueError as ex:
+                        raise AssertionError(f"Failed to parse stdout as JSON for '{case['Name']}': {ex}. stdout: {output}") from None
                     if parsed_output != {'systemMessage': _expected_system_message}:
                         raise AssertionError(f"Unexpected JSON output for '{case['Name']}': {parsed_output}")
                     if output.rstrip('\r\n') != json.dumps(parsed_output, ensure_ascii=False, separators=(',', ':')):
