@@ -65,13 +65,17 @@ def get_regex_matcher(definitions, key, label, flags=0):
     return build_regex_matchers([value], f'{key} in {label}', flags)[0]
 
 
+def _has_name_and_pattern(entry):
+    # entryが、`name` と `pattern` に空白だけでない文字列を持つオブジェクトかを返す。
+    return isinstance(entry, dict) and all(
+        isinstance(entry.get(key), str) and entry[key].strip() for key in ('name', 'pattern')
+    )
+
+
 def build_named_regex_matchers(entries, location, flags=0):
     # entries：`name` と `pattern` を持つオブジェクトの空でないリスト。location：entriesの場所としてエラーに示す文字列。
     # 戻り値は (名前, re.Pattern) のリスト。不正な正規表現は、名前を添えて示す。
-    if not isinstance(entries, list) or not entries or not all(
-        isinstance(entry, dict) and all(isinstance(entry.get(name), str) and entry[name].strip() for name in ('name', 'pattern'))
-        for entry in entries
-    ):
+    if not isinstance(entries, list) or not entries or not all(map(_has_name_and_pattern, entries)):
         raise ValueError(f'{location} must be a non-empty array of objects with non-blank strings for name and pattern.')
     return [
         (entry['name'], build_regex_matchers([entry['pattern']], f"{location} ({entry['name']})", flags)[0])
