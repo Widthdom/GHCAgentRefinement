@@ -8,6 +8,7 @@ _script_directory = os.path.dirname(os.path.abspath(__file__))
 _utility = runpy.run_path(os.path.join(_script_directory, 'read-definitions.py'))
 _read_definitions = _utility['read_definitions']
 _is_non_blank_string_list = _utility['is_non_blank_string_list']
+_build_regex_matcher = _utility['build_regex_matcher']
 _build_regex_matchers = _utility['build_regex_matchers']
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
@@ -74,6 +75,16 @@ class ValueTests(unittest.TestCase):
             with self.subTest(value=value):
                 self.assertIs(_is_non_blank_string_list(value), expected)
                 self.assertIs(_is_non_blank_string_list(value, allow_empty_list=True), expected_when_empty_allowed)
+
+    def test_build_regex_matcher(self):
+        matcher = _build_regex_matcher(r'^b$', 'key', re.MULTILINE)
+        self.assertEqual(matcher.pattern, r'^b$')
+        self.assertIsNotNone(matcher.search('a\nb'))
+        with self.assertRaises(ValueError) as context:
+            _build_regex_matcher(r'(', 'testFilePattern')
+        self.assertIn('invalid regular expression in testFilePattern:', str(context.exception))
+        # 元の例外は連鎖させず、定義の読み込みエラーとして示す。
+        self.assertIsNone(context.exception.__cause__)
 
     def test_build_regex_matchers(self):
         matchers = _build_regex_matchers([r'^a', r'^b$'], 'key', re.MULTILINE)

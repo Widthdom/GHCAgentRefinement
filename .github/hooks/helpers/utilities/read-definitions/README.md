@@ -7,6 +7,7 @@ hookの定義ファイル（JSON）を読み、値を検証して使える形（
 |--|--|
 |`read_definitions`|定義ファイルを読み、最上位がオブジェクト（または空でない配列）か確かめる|
 |`is_non_blank_string_list`|値が、空白以外を含む文字列だけのリストかを判定する|
+|`build_regex_matcher`|正規表現の文字列を1つコンパイルする|
 |`build_regex_matchers`|正規表現の文字列のリストをコンパイルする|
 |`get_string_list`|キーの値を、空白以外を含む文字列のリストとして取り出す|
 |`get_regex_matchers`|キーの値を、正規表現のリストとして取り出す|
