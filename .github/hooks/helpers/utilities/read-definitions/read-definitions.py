@@ -34,13 +34,21 @@ def is_non_blank_string_list(value, allow_empty_list=False):
     )
 
 
+def build_regex_matcher(pattern, location, flags=0):
+    # pattern：正規表現の文字列。location：不正な正規表現の場所としてエラーに示す文字列。
+    # 戻り値はre.Pattern。
+    try:
+        return re.compile(pattern, flags)
+    except re.PatternError as ex:
+        # re.PatternErrorはValueErrorのサブクラスではないため、定義の読み込みエラーとして扱うValueErrorに変換する。
+        # re.PatternErrorのメッセージには定義の場所が含まれないため、locationを添える。
+        raise ValueError(f'invalid regular expression in {location}: {ex}') from None
+
+
 def build_regex_matchers(patterns, location, flags=0):
     # patterns：正規表現の文字列のリスト。location：不正な正規表現の場所としてエラーに示す文字列。
     # 戻り値は、patternsと同じ順のre.Patternのリスト。
-    try:
-        return [re.compile(pattern, flags) for pattern in patterns]
-    except re.PatternError as ex:
-        raise ValueError(f'invalid regular expression in {location}: {ex}') from None
+    return [build_regex_matcher(pattern, location, flags) for pattern in patterns]
 
 
 def get_string_list(definitions, key, label, allow_empty_list=False):
@@ -62,7 +70,7 @@ def get_regex_matcher(definitions, key, label, flags=0):
     value = definitions.get(key)
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f'{key} in {label} must be a non-blank string.')
-    return build_regex_matchers([value], f'{key} in {label}', flags)[0]
+    return build_regex_matcher(value, f'{key} in {label}', flags)
 
 
 def _has_name_and_pattern(entry):
@@ -78,7 +86,10 @@ def build_named_regex_matchers(entries, location, flags=0):
     if not isinstance(entries, list) or not entries or not all(map(_has_name_and_pattern, entries)):
         raise ValueError(f'{location} must be a non-empty array of objects with non-blank strings for name and pattern.')
     return [
-        (entry['name'], build_regex_matchers([entry['pattern']], f"{location} ({entry['name']})", flags)[0])
+        (
+            entry['name'],
+            build_regex_matcher(entry['pattern'], f"{location} ({entry['name']})", flags),
+        )
         for entry in entries
     ]
 
