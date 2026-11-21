@@ -34,21 +34,26 @@ def is_non_blank_string_list(value, allow_empty_list=False):
     )
 
 
-def build_regex_matcher(pattern, location, flags=0):
-    # pattern：正規表現の文字列。location：不正な正規表現の場所としてエラーに示す文字列。
+def build_regex_matcher(pattern, pattern_location, flags=0):
+    # pattern：正規表現の文字列。pattern_location：定義の中でのpatternの場所としてエラーに示す文字列
+    #   （'filePattern in exclusion definitions' など）。
     # 戻り値はre.Pattern。
     try:
         return re.compile(pattern, flags)
     except re.PatternError as ex:
         # re.PatternErrorはValueErrorのサブクラスではないため、定義の読み込みエラーとして扱うValueErrorに変換する。
-        # re.PatternErrorのメッセージには定義の場所が含まれないため、locationを添える。
-        raise ValueError(f'invalid regular expression in {location}: {ex}') from None
+        # re.PatternErrorのメッセージには定義の場所もパターンの文字列も含まれないため、両方を添える。
+        raise ValueError(f'invalid regular expression in {pattern_location}: {ex} (pattern: {pattern!r})') from None
 
 
-def build_regex_matchers(patterns, location, flags=0):
-    # patterns：正規表現の文字列のリスト。location：不正な正規表現の場所としてエラーに示す文字列。
+def build_regex_matchers(patterns, patterns_location, flags=0):
+    # patterns：正規表現の文字列のリスト。patterns_location：定義の中でのpatternsの場所としてエラーに示す文字列。
+    #   不正な正規表現は、patterns_locationにリストでの添字（0始まり）を添えて示す。
     # 戻り値は、patternsと同じ順のre.Patternのリスト。
-    return [build_regex_matcher(pattern, location, flags) for pattern in patterns]
+    return [
+        build_regex_matcher(pattern, f'{patterns_location} (index {index})', flags)
+        for index, pattern in enumerate(patterns)
+    ]
 
 
 def get_string_list(definitions, key, label, allow_empty_list=False):
@@ -80,15 +85,15 @@ def _has_name_and_pattern(entry):
     )
 
 
-def build_named_regex_matchers(entries, location, flags=0):
-    # entries：`name` と `pattern` を持つオブジェクトの空でないリスト。location：entriesの場所としてエラーに示す文字列。
-    # 戻り値は (名前, re.Pattern) のリスト。不正な正規表現は、名前を添えて示す。
+def build_named_regex_matchers(entries, entries_location, flags=0):
+    # entries：`name` と `pattern` を持つオブジェクトの空でないリスト。entries_location：定義の中でのentriesの場所としてエラーに示す文字列。
+    # 戻り値は (名前, re.Pattern) のリスト。不正な正規表現は、entries_locationに名前を添えて示す。
     if not isinstance(entries, list) or not entries or not all(map(_has_name_and_pattern, entries)):
-        raise ValueError(f'{location} must be a non-empty array of objects with non-blank strings for name and pattern.')
+        raise ValueError(f'{entries_location} must be a non-empty array of objects with non-blank strings for name and pattern.')
     return [
         (
             entry['name'],
-            build_regex_matcher(entry['pattern'], f"{location} ({entry['name']})", flags),
+            build_regex_matcher(entry['pattern'], f"{entries_location} ({entry['name']})", flags),
         )
         for entry in entries
     ]
