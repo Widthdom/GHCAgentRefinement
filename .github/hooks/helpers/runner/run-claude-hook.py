@@ -201,7 +201,7 @@ def _convert_transcript(transcript_path, last_assistant_message, timestamp_ms):
 
 
 def main():
-    # 型定義上の `sys.stderr` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    # 型定義上の `sys.stderr` はreconfigureを持たないTextIOのため、静的型チェック向けに実体のTextIOWrapperとしてcastする。castは実行時に何もしない。
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     timestamp_ms = time.time_ns() // 1_000_000

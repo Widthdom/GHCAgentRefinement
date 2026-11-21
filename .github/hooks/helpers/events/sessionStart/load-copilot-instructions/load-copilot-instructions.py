@@ -13,7 +13,7 @@ _utilities_directory = os.path.join(
 _hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write-hook-output.py'))
 
 def main():
-    # 型定義上の `sys.stdout` はTextIOでreconfigureを持たないため、実体のTextIOWrapperとして扱う。
+    # 型定義上の `sys.stdout`・`sys.stderr` はreconfigureを持たないTextIOのため、静的型チェック向けに実体のTextIOWrapperとしてcastする。castは実行時に何もしない。
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', newline='\n')
     # backslashreplace：変換できない文字があったら、例外を出さずに \uXXXX の形式で置き換える。
     #   strict(既定)：UnicodeEncodeError を発生させる。
