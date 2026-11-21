@@ -245,7 +245,12 @@ def _find_csharp_mismatches(source, written_lines):
         missing = [name for name in actual if name not in documented]
         if stale or missing:
             name = re.search(r'([A-Za-z_]\w*)\s*(?:<[^()]*>)?\s*\(', lines[declaration])
-            mismatches.append((declaration + 1, name.group(1) if name else lines[declaration].strip(), stale, missing))
+            mismatches.append((
+                declaration + 1,
+                name.group(1) if name else lines[declaration].strip(),
+                stale,
+                missing,
+            ))
     return mismatches
 
 

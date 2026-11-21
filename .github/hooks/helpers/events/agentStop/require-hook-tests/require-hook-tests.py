@@ -45,7 +45,10 @@ def _get_turn_events(transcript_path):
         elif (_tool_calls['is_shell_tool'](tool_name) and isinstance(arguments, dict)
                 and isinstance(arguments.get('command'), str)):
             # 拒否などで実行されなかった場合は終了コードが記録されないため、成功とみなさない。
-            events.append(('shell', (arguments['command'], _transcript_events['get_shell_exit_code'](completion))))
+            events.append((
+                'shell',
+                (arguments['command'], _transcript_events['get_shell_exit_code'](completion)),
+            ))
     return events, already_requested
 
 

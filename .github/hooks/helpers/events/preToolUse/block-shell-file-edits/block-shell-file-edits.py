@@ -155,7 +155,10 @@ def _tokenize_powershell(command):
                 quote = here_string.group(1)
                 end = re.compile(r'\r?\n' + quote + '@').search(command, index + here_string.end())
                 body_end = len(command) if end is None else end.start()
-                items.append(('write' if pending_write else 'word', command[index + here_string.end():body_end]))
+                items.append((
+                    'write' if pending_write else 'word',
+                    command[index + here_string.end():body_end],
+                ))
                 pending_write = False
                 index = len(command) if end is None else end.end()
                 continue
@@ -271,7 +274,10 @@ def _get_write_targets(command, shell, cwd):
     if shell == 'powershell':
         for match in _POWERSHELL_FILE_API_PATTERN.finditer(command):
             single_quoted, double_quoted = match.groups()
-            targets.append((cwd, single_quoted.replace("''", "'") if single_quoted is not None else double_quoted))
+            targets.append((
+                cwd,
+                single_quoted.replace("''", "'") if single_quoted is not None else double_quoted,
+            ))
     return targets
 
 
