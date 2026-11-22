@@ -1,6 +1,7 @@
 import json
 import os
 import re
+from typing import Any
 
 # hookの定義ファイル（JSON）を読み、値を検証して使える形にする。定義ファイルを読むhookとutilityが共有する。
 # ファイルがなければOSError、形式や正規表現が不正ならValueErrorにし、呼び出し元のhookが定義の読み込みエラーとして扱えるようにする。
@@ -8,7 +9,9 @@ import re
 #   キーの値のエラーは `<key> in <label>` を場所として示す。
 
 
-def read_definitions(path, label, expected_type=dict):
+# expected_typeには既定値のdictとlistのどちらも渡せるよう、型注釈で明示する（注釈がないと型チェッカーが既定値から `type[dict]` と推論し、listを渡すと型エラーになる）。
+# 戻り値の形は呼び出し元が指定したexpected_typeで決まるため、Anyとして返す。
+def read_definitions(path, label, expected_type: type[dict] | type[list] = dict) -> Any:
     # UTF-8（BOMは許容する）のJSONを読み、最上位がexpected_type（dict：オブジェクト、list：空でない配列）であれば返す。
     if not os.path.isfile(path):
         raise FileNotFoundError(f'{label} path is not a file or could not be verified as a file: {path}')
