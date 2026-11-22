@@ -35,7 +35,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ```
 
 ## 前提条件
-- `git` が必要。インストール状況は [check_required_tools](../../sessionStart/check_required_tools/README.md) hookが確認する。
+- `git` が必要。Gitのインストールは前提とし、hookでは導入状況を確認しない（[.github/README.md](../../../../../README.md#前提条件) を参照）。
 
 ## 例外
 - 行を足すだけの編集（`insert` を含む）と、修正コミット由来の行を残す編集は対象外とする。

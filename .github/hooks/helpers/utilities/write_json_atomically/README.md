@@ -9,7 +9,7 @@ JSONの値を状態ファイルに保存する。保存先と同じフォルダ�
 - 書き込みや置き換えに失敗した場合は一時ファイルを消し、例外をそのまま呼び出し元に送出する。置き換える前の状態ファイルは変わらない。
 
 ## 利用するhook
-- [set_debug_mode](../../events/userPromptSubmitted/set_debug_mode/README.md)
+- [set_debug_mode](../../events/userPromptSubmitted/set_debug_mode/README.md)（[debug_mode_state.py](../debug_mode_state/debug_mode_state.py) を通して使う）
 - [set_adversarial_review_state](../../events/userPromptSubmitted/set_adversarial_review_state/README.md)
 - [request_adversarial_review](../../events/agentStop/request_adversarial_review/README.md)
 - [record_hook_change_requests](../../events/userPromptSubmitted/record_hook_change_requests/README.md)（[hook_change_request_state.py](../hook_change_request_state/hook_change_request_state.py) を通して使う）

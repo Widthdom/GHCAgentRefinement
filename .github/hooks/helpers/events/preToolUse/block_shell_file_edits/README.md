@@ -20,7 +20,7 @@ preToolUse（ツール `bash`・`powershell` の実行前）
 - 大文字小文字を区別しないファイルシステムでも照合できるよう、`git ls-files` の一覧と `os.path.normcase` で比べる。
 
 ## 前提条件
-- gitを使う。gitの導入は [check_required_tools](../../sessionStart/check_required_tools/README.md) hookが案内する。
+- gitを使う。Gitのインストールは前提とし、hookでは導入状況を確認しない（[.github/README.md](../../../../../README.md#前提条件) を参照）。
 
 ## 例外
 - 次の書き込みは許可する。
