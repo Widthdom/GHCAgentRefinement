@@ -1,8 +1,6 @@
-import io
 import os
 import sys
 from datetime import datetime, timezone
-from typing import cast
 
 
 # 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
@@ -12,21 +10,18 @@ _utilities_directory = os.path.join(
 )
 sys.path[:0] = [
     os.path.join(_utilities_directory, 'read_hook_input'),
+    os.path.join(_utilities_directory, 'write_hook_output'),
     os.path.join(_utilities_directory, 'get_state_path'),
     os.path.join(_utilities_directory, 'write_json_atomically'),
 ]
 import read_hook_input as _hook_input
+import write_hook_output as _hook_output
 from get_state_path import get_state_path as _get_state_path
 from write_json_atomically import write_json_atomically as _write_json_atomically
 
 
 def main():
-    # replace：変換できない文字があったら、例外を出さずに ? に置き換える。
-    #   strict(既定)：UnicodeEncodeError を発生させる。
-    #   ignore：その文字を捨てる。
-    # 型定義上の `sys.stdout`・`sys.stderr` はreconfigureを持たないTextIOのため、静的型チェック向けに実体のTextIOWrapperとしてcastする。castは実行時に何もしない。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
-    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    _hook_output.configure_output_streams()
 
     # userPromptSubmittedのタイミングでCopilotがPythonプロセスを起動し、
     # 標準入力パイプにイベント情報をJSON形式で書き込むので、それを読み込む。

@@ -1,8 +1,6 @@
-import io
 import os
 import re
 import sys
-from typing import cast
 
 
 # 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
@@ -171,9 +169,7 @@ def _get_targets(tool_name, tool_args, cwd):
 
 
 def main():
-    # 型定義上の `sys.stdout`・`sys.stderr` はreconfigureを持たないTextIOのため、静的型チェック向けに実体のTextIOWrapperとしてcastする。castは実行時に何もしない。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
-    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    _hook_output.configure_output_streams()
 
     try:
         # 記録側のuserPromptSubmitted hookと状態の形式・保存先を共有する。
