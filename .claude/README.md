@@ -78,7 +78,7 @@ agentStopのhookは [read_transcript_events](../.github/hooks/helpers/utilities/
 |`tool.execution_start`|ツール呼び出し（`tool_use`）。ツール名は上の表で変換する。|
 |`tool.execution_complete`|ツール結果（`tool_result`）。`success` はエラーでないこと。シェルは、成功なら終了コード0、エラーが `Exit code <終了コード>` で始まるなら成功扱いでその終了コードとする。|
 |`hook.end` と `queued` の `user.message`|Stop hookの差し戻し（`hook_blocking_error`）。`---` の行で分け、hookごとの差し戻しに戻す。これで、各hookが「自分は差し戻し済みか」を判定できる。|
-|`hook.start`|やり取りから補う（依頼の前に `userPromptSubmitted`、ツール呼び出しの前に `preToolUse`、結果の後に `postToolUse` または `postToolUseFailure`）。Claude Codeは出力のないhookの起動を記録しないため。末尾には今回の `agentStop` を加え、hookがトランスクリプトの追記を待たないようにする。|
+|`hook.start`|やり取りから補う（依頼の前に `userPromptSubmitted`、ツール呼び出しの前に `preToolUse`、結果の後に `postToolUse` または `postToolUseFailure`。hookやユーザーが拒否した呼び出し（`toolDenialKind`）の結果の後には補わない）。Claude Codeは出力のないhookの起動を記録しないため。末尾には今回の `agentStop` を加え、hookがトランスクリプトの追記を待たないようにする。|
 
 ### Copilotとの違いと制約
 - Copilotは同じイベントのhookを並列に実行するが、アダプターは定義順に1つずつ実行する。
