@@ -19,6 +19,6 @@ sessionStart（セッション開始時）
 
 ## 備考
 - hookの状態とデバッグログは、セッションごとに作られ、hook自身では削除しない。放置したチャットの分が一時フォルダーに溜まっていくため、セッション開始時に知らせる。
-- 対象の分類と保持期間は [hook-temp-files.py](./hook-temp-files.py) で定め、clean-hook-temp-files skillの削除スクリプトもこれを読み込む。数える基準と削除する基準をずらさない。
+- 対象の分類と保持期間は [hook_temp_files.py](./hook_temp_files.py) で定め、clean-hook-temp-files skillの削除スクリプトもこれを読み込む。数える基準と削除する基準をずらさない。
 - Copilot SDKはhookの出力のうち `systemMessage` を解釈せずに捨てるため、ユーザーへの案内はエージェントを介して行う。
 - sessionEndは依頼への応答が終わるたびに発火し、チャットを閉じたときに発火するイベントはないため、チャット1つにつき1回発火するsessionStartで確認する。

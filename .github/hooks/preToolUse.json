@@ -12,148 +12,148 @@
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:bash|powershell)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-commit-message-mismatch/block-commit-message-mismatch.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-commit-message-mismatch/block-commit-message-mismatch.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-commit-message-mismatch/block_commit_message_mismatch.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-commit-message-mismatch/block_commit_message_mismatch.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-elided-rewrites/block-elided-rewrites.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-elided-rewrites/block-elided-rewrites.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-elided-rewrites/block_elided_rewrites.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-elided-rewrites/block_elided_rewrites.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-error-swallowing/block-error-swallowing.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-error-swallowing/block-error-swallowing.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-error-swallowing/block_error_swallowing.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-error-swallowing/block_error_swallowing.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-exclusion-escapes/block-exclusion-escapes.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-exclusion-escapes/block-exclusion-escapes.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-exclusion-escapes/block_exclusion_escapes.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-exclusion-escapes/block_exclusion_escapes.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-generated-file-edits/block-generated-file-edits.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-generated-file-edits/block-generated-file-edits.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-generated-file-edits/block_generated_file_edits.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-generated-file-edits/block_generated_file_edits.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-goalpost-moving/block-goalpost-moving.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-goalpost-moving/block-goalpost-moving.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-goalpost-moving/block_goalpost_moving.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-goalpost-moving/block_goalpost_moving.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-hardcoding-for-tests/block-hardcoding-for-tests.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-hardcoding-for-tests/block-hardcoding-for-tests.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-hardcoding-for-tests/block_hardcoding_for_tests.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-hardcoding-for-tests/block_hardcoding_for_tests.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch|bash|powershell)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-hook-tampering/block-hook-tampering.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-hook-tampering/block-hook-tampering.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-hook-tampering/block_hook_tampering.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-hook-tampering/block_hook_tampering.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-invisible-characters/block-invisible-characters.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-invisible-characters/block-invisible-characters.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-invisible-characters/block_invisible_characters.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-invisible-characters/block_invisible_characters.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?bash",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-masked-exit-codes/block-masked-exit-codes.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-masked-exit-codes/block-masked-exit-codes.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-masked-exit-codes/block_masked_exit_codes.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-masked-exit-codes/block_masked_exit_codes.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-mojibake-writes/block-mojibake-writes.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-mojibake-writes/block-mojibake-writes.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-mojibake-writes/block_mojibake_writes.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-mojibake-writes/block_mojibake_writes.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-regression-of-past-fixes/block-regression-of-past-fixes.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-regression-of-past-fixes/block-regression-of-past-fixes.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-regression-of-past-fixes/block_regression_of_past_fixes.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-regression-of-past-fixes/block_regression_of_past_fixes.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-secret-writes/block-secret-writes.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-secret-writes/block-secret-writes.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-secret-writes/block_secret_writes.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-secret-writes/block_secret_writes.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:bash|powershell)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-shell-file-edits/block-shell-file-edits.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-shell-file-edits/block-shell-file-edits.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-shell-file-edits/block_shell_file_edits.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-shell-file-edits/block_shell_file_edits.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:bash|powershell)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-snapshot-rubber-stamp/block-snapshot-rubber-stamp.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-snapshot-rubber-stamp/block-snapshot-rubber-stamp.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-snapshot-rubber-stamp/block_snapshot_rubber_stamp.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-snapshot-rubber-stamp/block_snapshot_rubber_stamp.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-tautological-tests/block-tautological-tests.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-tautological-tests/block-tautological-tests.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-tautological-tests/block_tautological_tests.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-tautological-tests/block_tautological_tests.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-test-weakening/block-test-weakening.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-test-weakening/block-test-weakening.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-test-weakening/block_test_weakening.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-test-weakening/block_test_weakening.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-time-bomb-literals/block-time-bomb-literals.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-time-bomb-literals/block-time-bomb-literals.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-time-bomb-literals/block_time_bomb_literals.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-time-bomb-literals/block_time_bomb_literals.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-timeout-inflation/block-timeout-inflation.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-timeout-inflation/block-timeout-inflation.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-timeout-inflation/block_timeout_inflation.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-timeout-inflation/block_timeout_inflation.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-unverified-dependencies/block-unverified-dependencies.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/block-unverified-dependencies/block-unverified-dependencies.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-unverified-dependencies/block_unverified_dependencies.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/block-unverified-dependencies/block_unverified_dependencies.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/require-read-before-edit/require-read-before-edit.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/preToolUse/require-read-before-edit/require-read-before-edit.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/require-read-before-edit/require_read_before_edit.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/preToolUse/require-read-before-edit/require_read_before_edit.py",
         "timeoutSec": 10
       }
     ]

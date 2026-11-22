@@ -349,22 +349,22 @@ flowchart LR
 </table>
 
 ### hookの起動方式
-hook定義JSON（`.github/hooks/<イベント名>.json`・`.github/hooks/-repo-<イベント名>.json`）では、各hookの実行スクリプトを直接起動せず、[hook runner](./hooks/helpers/runner/README.md)（[run-hook.py](./hooks/helpers/runner/run-hook.py)）の引数に渡して起動する。
+hook定義JSON（`.github/hooks/<イベント名>.json`・`.github/hooks/-repo-<イベント名>.json`）では、各hookの実行スクリプトを直接起動せず、[hook runner](./hooks/helpers/runner/README.md)（[run_hook.py](./hooks/helpers/runner/run_hook.py)）の引数に渡して起動する。
 
 ```json
 {
   "type": "command",
-  "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-git-state/check-git-state.py",
-  "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-git-state/check-git-state.py",
+  "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check-git-state/check_git_state.py",
+  "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check-git-state/check_git_state.py",
   "timeoutSec": 10
 }
 ```
 
 - **ランナーを挟む理由**：Copilotのトランスクリプトには、`hook.start`・`hook.end` がイベント種別ごとに1組しか記録されず、どのhookが起動・出力したかを区別できない。ランナーがhookごとに起動したか・機能したかを一時フォルダーのSQLiteに記録し、[debug-add-response-footer](./hooks/helpers/events/agentStop/debug-add-response-footer/README.md) の「Hooks fired」がそれを読む。
-- **引数の制約**：実行スクリプトはリポジトリルートからの相対パスで、`helpers/events/<イベント名>/<hook名>/<hook名>.py`（共通hook）または `helpers/-repo-events/<イベント名>/<hook名>/<hook名>.py`（このリポジトリ専用hook）に限る。
+- **引数の制約**：実行スクリプトはリポジトリルートからの相対パスで、`helpers/events/<イベント名>/<hook名>/<hook_name>.py`（共通hook）または `helpers/-repo-events/<イベント名>/<hook名>/<hook_name>.py`（このリポジトリ専用hook）に限る。`<hook_name>` は、hook名のハイフンをアンダースコアに変えたもの。
 - **プロセス内で実行**：hookを子プロセスにせず、`runpy.run_path` でランナーのプロセス内で実行する。`timeoutSec` 超過でCopilotがランナーを終了させたとき、hookも一緒に止まり、副作用だけが残らないようにするため。
 - **Claude Code・Codex**：各ホストの設定にはイベントごとにアダプターを1つだけ登録し、アダプターがhook定義JSONを読んで、各hookを本ランナー経由で定義順に実行する。そのため、hookの追加・削除はhook定義JSONだけで済む。
-  - Claude Codeのhook設定は、1つのhookにコマンドを1つしか持てず、OS別にコマンドを出し分けられない。そのため、`sh`（WindowsではGit for Windowsに含まれるGit Bashの `sh`）で [run-claude-hook.sh](./hooks/helpers/runner/run-claude-hook.sh) を起動し、OSに合わせたPythonのコマンド名でアダプターを起動する。Codexの設定はOS別のコマンド（`command`・`commandWindows`）を持てるため、[run-codex-hook.py](./hooks/helpers/runner/run-codex-hook.py) を直接起動する。詳細は [.claude/README.md](../.claude/README.md#前提条件) を参照。
+  - Claude Codeのhook設定は、1つのhookにコマンドを1つしか持てず、OS別にコマンドを出し分けられない。そのため、`sh`（WindowsではGit for Windowsに含まれるGit Bashの `sh`）で [run-claude-hook.sh](./hooks/helpers/runner/run-claude-hook.sh) を起動し、OSに合わせたPythonのコマンド名でアダプターを起動する。Codexの設定はOS別のコマンド（`command`・`commandWindows`）を持てるため、[run_codex_hook.py](./hooks/helpers/runner/run_codex_hook.py) を直接起動する。詳細は [.claude/README.md](../.claude/README.md#前提条件) を参照。
 - **例外**：[check-python](./hooks/helpers/events/sessionStart/check-python/README.md) と [block-commands](./hooks/helpers/events/preToolUse/block-commands/README.md) は、Pythonがない・古い環境でも動く必要があるため、ランナーを通さずシェルスクリプトを直接起動する。この2つは記録されない。
 
 ```mermaid
@@ -379,16 +379,16 @@ flowchart TB
     subgraph adapters["アダプター"]
         direction TB
         claudeSh["<div style='width: 128px; font-size: 12px'>run-claude-hook.sh</div>"]
-        claudeAdapter["<div style='width: 128px; font-size: 12px'>run-claude-hook.py</div>"]
-        codexAdapter["<div style='width: 128px; font-size: 12px'>run-codex-hook.py</div>"]
-        runtime["<div style='width: 160px; font-size: 12px'>adapted-hook-runtime.py</div>"]
+        claudeAdapter["<div style='width: 128px; font-size: 12px'>run_claude_hook.py</div>"]
+        codexAdapter["<div style='width: 128px; font-size: 12px'>run_codex_hook.py</div>"]
+        runtime["<div style='width: 160px; font-size: 12px'>adapted_hook_runtime.py</div>"]
     end
 
     definitions[/"<b><i><u>hooks定義</u></i></b><br/><div style='text-align: left; width: 256px; font-size: 12px'>・.github/hooks/&lt;イベント名&gt;.json<br/>・.github/hooks/-repo-&lt;イベント名&gt;.json</div>"/]
     claudeSettings[/"<b><i><u>hooks定義</u></i></b><br/>.claude/settings.json"/]
     codexSettings[/"<b><i><u>hooks定義</u></i></b><br/>.codex/hooks.json"/]
-    runner["<b><i><u>ランナー</u></i></b><br/>run-hook.py"]
-    hookScript["<div style='text-align: left; width: 320px; font-size: 12px'>・.github/hooks/helpers/events/<br/>      &lt;イベント名&gt;/&lt;hook名&gt;/&lt;hook名&gt;.py<br/>・.github/hooks/helpers/-repo-events/<br/>      &lt;イベント名&gt;/&lt;hook名&gt;/&lt;hook名&gt;.py</div>"]
+    runner["<b><i><u>ランナー</u></i></b><br/>run_hook.py"]
+    hookScript["<div style='text-align: left; width: 320px; font-size: 12px'>・.github/hooks/helpers/events/<br/>      &lt;イベント名&gt;/&lt;hook名&gt;/&lt;hook_name&gt;.py<br/>・.github/hooks/helpers/-repo-events/<br/>      &lt;イベント名&gt;/&lt;hook名&gt;/&lt;hook_name&gt;.py</div>"]
     activity[("<b><i><u>hooks実行記録DB</u></i></b><div style='text-align: left; width: 176px; font-size: 12px'>&lt;一時フォルダー&gt;/<br/>  ghc-agent-refinement/<br/>    hook-states/<br/>      hook-activity/<br/>        &lt;セッションID&gt;.sqlite3</div>")]
 
     ghc -. "読込" .-> definitions

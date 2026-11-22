@@ -44,7 +44,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - [record-hook-change-requests](../../userPromptSubmitted/record-hook-change-requests/README.md) hookの記録で許可を判定する。
 
 ## 例外
-- 読み取りやテストの実行（`cat`・`grep`・`git diff`・`git log`・`python .github/hooks/tests/test-all-hooks.py > /tmp/all.log`・`… 2>&1 | tee /tmp/all.log`・`… && touch /tmp/ok`）は許可する。変更系のコマンド名が検索語などの引数にある場合（`grep -rn sc .github/hooks`）や、守るパスを含まない別の単純コマンドにある場合は変更とみなさない。読むだけの `open(path)`・`open(path, encoding='ascii')` も変更とみなさない。
+- 読み取りやテストの実行（`cat`・`grep`・`git diff`・`git log`・`python .github/hooks/tests/test_all_hooks.py > /tmp/all.log`・`… 2>&1 | tee /tmp/all.log`・`… && touch /tmp/ok`）は許可する。変更系のコマンド名が検索語などの引数にある場合（`grep -rn sc .github/hooks`）や、守るパスを含まない別の単純コマンドにある場合は変更とみなさない。読むだけの `open(path)`・`open(path, encoding='ascii')` も変更とみなさない。
 - 許可はセッション単位で、一度hookに触れた依頼があればセッションの間は続く。依頼ごとに判定すると、hookの作業中の「続けて」などで止まってしまうため。
 
 ## 制約と限界

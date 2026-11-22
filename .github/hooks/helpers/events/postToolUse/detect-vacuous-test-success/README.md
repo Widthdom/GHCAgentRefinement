@@ -51,6 +51,6 @@ postToolUse（ツール `bash`・`powershell` が成功した直後）
 
 ## 備考
 - 絞り込みの誤りでテストが1件も実行されないまま成功したり、スキップの追加やshellでの削除でテストが減ったりしたことに、実行の直後に気づかせるためのhook。[block-test-weakening](../../preToolUse/block-test-weakening/README.md) hookは編集ツールによる骨抜きしか検出できない。
-- 1回のコマンドで複数のテストを実行した場合（`test-all-hooks.py`・`cargo test`・`dotnet test` など）は、集計行の件数を合計する。go testは件数を出さないため、テストを実行したパッケージの数を件数とする。
+- 1回のコマンドで複数のテストを実行した場合（`test_all_hooks.py`・`cargo test`・`dotnet test` など）は、集計行の件数を合計する。go testは件数を出さないため、テストを実行したパッケージの数を件数とする。
 - テストの失敗はコマンドの非ゼロ終了で表され、ツール自体は成功扱いになるため、postToolUseで検査する。
 - コマンドは保存せず、照合用のSHA-256と件数だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/test-counts/<セッションID>.sqlite3` に保存する。テストコマンドでない場合と、件数を判断できない出力では状態ファイルを作らない。

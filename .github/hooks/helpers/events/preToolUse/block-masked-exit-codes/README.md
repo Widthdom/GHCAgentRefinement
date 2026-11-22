@@ -12,7 +12,7 @@ preToolUse（ツール `bash` の実行前）
 3. 該当するコマンドがあり、このセッションで同じコマンドをまだ拒否していなければ、`set -o pipefail;` を付けるか出力をファイルに書き出して別に確認するよう求める英語の理由とともに、`{"permissionDecision":"deny",...}` を標準出力して拒否する。
 
 ## テスト・ビルド・静的検査とみなすコマンド
-- 段の語に `test`・`tests`・`pytest`・`unittest`・`jest`・`vitest`・`mocha`・`rspec`・`phpunit`・`ctest`・`tox`・`pester`・`build`・`msbuild`・`make`・`tsc`・`lint`・`eslint`・`ruff`・`mypy`・`clippy` を含むもの（`dotnet test`・`npm run build`・`python3 test-all-hooks.py` など）。テストの語は、[check-test-runs](../../../utilities/check-test-runs/README.md) がテストの実行とみなす語と同じ。
+- 段の語に `test`・`tests`・`pytest`・`unittest`・`jest`・`vitest`・`mocha`・`rspec`・`phpunit`・`ctest`・`tox`・`pester`・`build`・`msbuild`・`make`・`tsc`・`lint`・`eslint`・`ruff`・`mypy`・`clippy` を含むもの（`dotnet test`・`npm run build`・`python3 test_all_hooks.py` など）。テストの語は、[check-test-runs](../../../utilities/check-test-runs/README.md) がテストの実行とみなす語と同じ。
 - 前置きの読み飛ばしと読むだけのコマンドの除外は、[check-test-runs](../../../utilities/check-test-runs/README.md) の規則を使う。先頭の環境変数の代入（`CI=1`）、`env`・`sudo`・`time`・`nohup`・`xargs`・`timeout <時間>` などのラッパーは読み飛ばし、その後のコマンドで判定する。
 - `cat`・`grep`・`rg`・`find`・`ls`・`git`・`head`・`tail` などの読むだけのコマンドは、`grep test` のように語を含んでも対象外とする。
 

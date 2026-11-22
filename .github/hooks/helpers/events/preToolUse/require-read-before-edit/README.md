@@ -14,7 +14,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 3. 該当するファイルがあれば、先に該当箇所を読んで現在の内容に基づいて編集し直すよう求める英語の理由とともに、`{"permissionDecision":"deny",...}` を標準出力して拒否する。
 
 ## 前提条件
-- [record-seen-files](../../postToolUse/record-seen-files/README.md) hookの記録で既読を判定する。状態は [known-files-state.py](../../../utilities/known-files-state/known-files-state.py) でrecord-seen-files hook・[detect-unread-speculation](../../agentStop/detect-unread-speculation/README.md) hookと共有する。
+- [record-seen-files](../../postToolUse/record-seen-files/README.md) hookの記録で既読を判定する。状態は [known_files_state.py](../../../utilities/known-files-state/known_files_state.py) でrecord-seen-files hook・[detect-unread-speculation](../../agentStop/detect-unread-speculation/README.md) hookと共有する。
 
 ## 例外
 - 次のファイルは内容を把握する必要がないため対象外とする。

@@ -11,7 +11,7 @@ agentStop（エージェントの応答終了時）
 2. トランスクリプトに本hook自身の `hook.start` が書き込まれるまで最大5秒待つ（[read-transcript-events](../../../utilities/read-transcript-events/README.md)）。
 3. ユーザーの最新の依頼以降について、最終応答と、編集系ツール（`edit`・`create`・`insert`・`str_replace_editor`・`apply_patch`）の書き込む内容と置換前の内容を集める。
    - 各ツールの引数は [edit-tool-changes](../../../utilities/edit-tool-changes/README.md) の規則で解析する。
-4. 次の種類の順に、cwdからの相対パス（`/` 区切り）が `excludedFilePatterns` に一致しないファイルについて、書き込む内容のうち種類の正規表現に一致する行を探す。前後の空白を除いて同じ行が置換前の内容にあるもの（元からあるもの）と、ファイルの現在の内容にないもの（後の編集で消えたもの）は除く。同じファイルの同じ行は、同じ種類の複数の項目に一致しても1件にまとめる。この照合は [find-introduced-lines-by-regex.py](../../../utilities/find-introduced-lines-by-regex/find-introduced-lines-by-regex.py) で行う。
+4. 次の種類の順に、cwdからの相対パス（`/` 区切り）が `excludedFilePatterns` に一致しないファイルについて、書き込む内容のうち種類の正規表現に一致する行を探す。前後の空白を除いて同じ行が置換前の内容にあるもの（元からあるもの）と、ファイルの現在の内容にないもの（後の編集で消えたもの）は除く。同じファイルの同じ行は、同じ種類の複数の項目に一致しても1件にまとめる。この照合は [find_introduced_lines_by_regex.py](../../../utilities/find-introduced-lines-by-regex/find_introduced_lines_by_regex.py) で行う。
    1. デバッグ用のコード（`debugPatterns`）
    2. 仮実装（`placeholderPatterns`）。最終応答が `placeholderDisclosurePatterns` に一致する（「未実装」「スタブ」「TODO」「not implemented」などに触れている）場合は探さない。
 5. 該当する行が最初に見つかった種類について、cwd配下のファイルはcwdからの相対パス（`/` 区切り）で最大10件を列挙し、英語の理由とともに `{"decision":"block","reason":"..."}` を標準出力して差し戻す。

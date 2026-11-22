@@ -4,7 +4,7 @@
 シェルのコマンドがテストを実行するか、その終了コードがテストの結果を表すか、応答が「テストが通った」と書いているかを判定する。テストの実行結果を扱うhookが共有し、判定の基準を1か所で管理する。
 
 ## テストの実行の判定
-- コマンドを [split-bash-lines](../split-bash-lines/split-bash-lines.py) で字句に分け、`;`・`&&`・`||`・`|`・`&`・改行・括弧で単純コマンドに区切る。PowerShellのパスの区切りの `\` は、英数字などの前にあれば `/` とみなす。
+- コマンドを [split-bash-lines](../split-bash-lines/split_bash_lines.py) で字句に分け、`;`・`&&`・`||`・`|`・`&`・改行・括弧で単純コマンドに区切る。PowerShellのパスの区切りの `\` は、英数字などの前にあれば `/` とみなす。
 - 単純コマンドごとに、環境変数の代入（`FOO=1`）と前置きのコマンド（`sudo`・`env`・`time`・`timeout <時間>`・`xargs` など）とオプションを読み飛ばし、実際に実行するコマンド以降の語を取り出す（`get_command_words`）。
 - 取り出したコマンドが読むだけのコマンド・移動するだけのコマンドなら、テストの実行とみなさない。`grep test`・`ls tests`・`cat test-x.py`・`git add test-x.py`・`cd tests` などが該当する。
   - 対象：`ag`・`awk`・`cat`・`cd`・`cut`・`diff`・`du`・`echo`・`egrep`・`fd`・`fgrep`・`file`・`find`・`git`・`grep`・`head`・`jq`・`less`・`ls`・`more`・`printf`・`pushd`・`rg`・`sed`・`sort`・`stat`・`tail`・`tr`・`tree`・`uniq`・`wc`・`which`・`yq`、PowerShellの `Get-ChildItem`・`Get-Content`・`Select-String`・`Set-Location`・`Write-Host`・`Write-Output`（大文字小文字を区別しない）

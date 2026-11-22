@@ -9,7 +9,7 @@ postToolUse（ツール `bash`・`powershell` が成功した直後）
 ## 処理詳細
 1. コマンドに `git show`・`git log`（`git -C <dir> show`・`git --no-pager log` なども含む）があるかを調べる。なければ何もしない。
 2. 出力（`toolResult.textResultForLlm`）から色付けのエスケープシーケンスを除き、既定の書式の見出し行 `commit <コミットID>` を探す。
-3. 見出し行のコミットIDを、このセッションでメッセージを読んだコミットとして [viewed-commits-state.py](../../../utilities/viewed-commits-state/viewed-commits-state.py) に記録する。
+3. 見出し行のコミットIDを、このセッションでメッセージを読んだコミットとして [viewed_commits_state.py](../../../utilities/viewed-commits-state/viewed_commits_state.py) に記録する。
 
 ## 例外
 - `git log --oneline` や `--format` で見出し行を出さない表示は、件名しか読んでいないため記録しない。

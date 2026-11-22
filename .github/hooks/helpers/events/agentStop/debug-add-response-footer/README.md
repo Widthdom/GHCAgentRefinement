@@ -25,7 +25,7 @@ agentStop（エージェントの応答終了時）
 ## ターンの区切り
 - 依頼の区切りは [read-transcript-events](../../../utilities/read-transcript-events/README.md) の規則に従い、`delivery` が `queued` でない `user.message` とする。フッター修正の依頼や他のhookの差し戻しは `queued` として記録されるため、ターンの区切りとせず、同じ依頼で使ったhook・skillを引き続き集計する。
 - 「Hooks fired」は、直近のユーザー依頼の `userPromptSubmitted` の `hook.start` 以降に起動したhookを対象とする。`userPromptSubmitted` のhookは `user.message` より前に記録されるため。
-- skillツールの引数は、JSON文字列で記録された場合も解析して読む（[parse-tool-calls.py](../../../utilities/parse-tool-calls/parse-tool-calls.py) の `unwrap_tool_args`）。
+- skillツールの引数は、JSON文字列で記録された場合も解析して読む（[parse_tool_calls.py](../../../utilities/parse-tool-calls/parse_tool_calls.py) の `unwrap_tool_args`）。
 
 ## 前提条件
 - デバッグモード（[set-debug-mode](../../userPromptSubmitted/set-debug-mode/README.md) hookで有効化）が有効なときだけ動く。

@@ -12,4 +12,4 @@ JSONの値を状態ファイルに保存する。保存先と同じフォルダ�
 - [set-debug-mode](../../events/userPromptSubmitted/set-debug-mode/README.md)
 - [set-adversarial-review-state](../../events/userPromptSubmitted/set-adversarial-review-state/README.md)
 - [request-adversarial-review](../../events/agentStop/request-adversarial-review/README.md)
-- [record-hook-change-requests](../../events/userPromptSubmitted/record-hook-change-requests/README.md)（[hook-change-request-state.py](../hook-change-request-state/hook-change-request-state.py) を通して使う）
+- [record-hook-change-requests](../../events/userPromptSubmitted/record-hook-change-requests/README.md)（[hook_change_request_state.py](../hook-change-request-state/hook_change_request_state.py) を通して使う）

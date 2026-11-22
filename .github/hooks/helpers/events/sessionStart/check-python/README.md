@@ -27,7 +27,7 @@ Python 3.14以降が使えるかを確認し、使えなければ導入方法を
 - macOS/Linuxでのインストール後に `python3` が見つからない場合は、PATHの更新を反映するため、hookを起動するアプリケーションまたはターミナルを再起動すること。
 - Windows用バッチはコメントも含めASCIIで記述する。UTF-8の日本語コメントは、cmd.exeのコードページによってコメントの一部がコマンドとして解釈されるため、使用しない。
 
-### check-python-version.pyの呼び出しを `call python "%%check_python_version_path%%"` とする理由
+### check_python_version.pyの呼び出しを `call python "%%check_python_version_path%%"` とする理由
 - Windowsでは、`python.exe` でなく `python.cmd` が使用される場合がある。
   - 後者の場合、call無しで実行すると呼び出し元に戻らないため、callで実行する必要がある。
 - callは構文解析時（1度目）と実行時（2度目）の計2回、パーセント記号（%）の変数展開を行う仕様になっている。

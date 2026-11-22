@@ -19,17 +19,17 @@ hookの実装・定義・テストなど対象のファイルを変更したの�
 ### 必要なテスト
 |変更したファイル|必要なテスト（いずれかの成功で可）|
 |--|--|
-|`helpers/events/<event>/<hook>/`・`helpers/-repo-events/<event>/<hook>/` 配下のファイル|`test-<hook>.py`、[test-all-hooks.py](../../../../tests/test-all-hooks.py)|
-|`helpers/utilities/` 配下のファイル|`test-all-hooks.py`|
-|`helpers/runner/` 配下のファイル|[test-run-hook.py](../../../runner/test-run-hook.py)、[test-all-hooks.py](../../../../tests/test-all-hooks.py)|
-|`.github/hooks/<event>.json`・`.github/hooks/-repo-<event>.json`|[test-hook-configurations.py](../../../../tests/test-hook-configurations.py)、[test-all-hooks.py](../../../../tests/test-all-hooks.py)|
-|`tests/helpers/hook-test-output.py`・`tests/helpers/test-hook-test-output.py`|[test-hook-test-output.py](../../../../tests/helpers/test-hook-test-output.py)（一括実行の探索対象外のため）|
-|`tests/helpers/` 配下のその他のファイル|`test-all-hooks.py`（個別のテストが読み込むため）|
-|`tests/test-all-hooks.py`・`tests/test-hook-configurations.py`|そのファイル自体|
+|`helpers/events/<event>/<hook>/`・`helpers/-repo-events/<event>/<hook>/` 配下のファイル|`test_<hook>.py`（`<hook>` はhook名のハイフンをアンダースコアに変えたもの）、[test_all_hooks.py](../../../../tests/test_all_hooks.py)|
+|`helpers/utilities/` 配下のファイル|`test_all_hooks.py`|
+|`helpers/runner/` 配下のファイル|[test_run_hook.py](../../../runner/test_run_hook.py)、[test_all_hooks.py](../../../../tests/test_all_hooks.py)|
+|`.github/hooks/<event>.json`・`.github/hooks/-repo-<event>.json`|[test_hook_configurations.py](../../../../tests/test_hook_configurations.py)、[test_all_hooks.py](../../../../tests/test_all_hooks.py)|
+|`tests/helpers/hook_test_output.py`・`tests/helpers/test_hook_test_output.py`|[test_hook_test_output.py](../../../../tests/helpers/test_hook_test_output.py)（一括実行の探索対象外のため）|
+|`tests/helpers/` 配下のその他のファイル|`test_all_hooks.py`（個別のテストが読み込むため）|
+|`tests/test_all_hooks.py`・`tests/test_hook_configurations.py`|そのファイル自体|
 
-- パスは [.github/hooks/](../../../../../hooks/) からの相対で示す。`test-<hook>.py` がないhookは、作成してから実行するよう求める。
+- パスは [.github/hooks/](../../../../../hooks/) からの相対で示す。`test_<hook>.py` がないhookは、作成してから実行するよう求める。
 - コマンドの単純コマンドのいずれかがテストファイル名を含めば実行とみなす。`cd` で移動してから実行した場合や、`-v` などを付けた場合も含む。
-- この表は本hookが成功とみなすテストを示す。一括実行の `test-all-hooks.py` は `test-hook-configurations.py` を実行しないため、実際の検証では [update-hook skill](../../../../../skills/update-hook/SKILL.md) に従い両方を実行する。
+- この表は本hookが成功とみなすテストを示す。一括実行の `test_all_hooks.py` は `test_hook_configurations.py` を実行しないため、実際の検証では [update-hook skill](../../../../../skills/update-hook/SKILL.md) に従い両方を実行する。
 
 ## 例外
 - `.md` ファイルの変更。ただし `helpers/utilities/` 配下では拡張子を判定せず、READMEなどの変更でも一括テストを求める。

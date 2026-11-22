@@ -6,13 +6,13 @@ hook定義JSONから各hookの実行スクリプトを起動し、hookが実際�
 Copilotのトランスクリプトには、`hook.start` と `hook.end` がイベント種別（hookType）ごとに1組しか記録されない。どのhookが起動したか、どのhookが出力したかは区別されないため、本ランナーで記録する。
 
 ## 起動方法
-JSONの `bash` には `python3 .github/hooks/helpers/runner/run-hook.py <実行スクリプト>`、`powershell` には `python .github/hooks/helpers/runner/run-hook.py <実行スクリプト>` を記述する。実行スクリプトは、リポジトリルートからの相対パスで `.github/hooks/helpers/events/<イベント名>/<hook名>/<hook名>.py` を指定する。このリポジトリ専用のhookは `.github/hooks/helpers/-repo-events/<イベント名>/<hook名>/<hook名>.py` を指定する。
+JSONの `bash` には `python3 .github/hooks/helpers/runner/run_hook.py <実行スクリプト>`、`powershell` には `python .github/hooks/helpers/runner/run_hook.py <実行スクリプト>` を記述する。実行スクリプトは、リポジトリルートからの相対パスで `.github/hooks/helpers/events/<イベント名>/<hook名>/<hook_name>.py` を指定する。このリポジトリ専用のhookは `.github/hooks/helpers/-repo-events/<イベント名>/<hook名>/<hook_name>.py` を指定する。`<hook_name>` は、hook名のハイフンをアンダースコアに変えたもの。
 
 ## 処理詳細
-1. 引数の実行スクリプトが `helpers/events/<イベント名>/<hook名>/<hook名>.py` または `helpers/-repo-events/<イベント名>/<hook名>/<hook名>.py` の形で存在するか確認する。違う場合は原因を標準エラーに出力し、終了コード2で終了する。
+1. 引数の実行スクリプトが `helpers/events/<イベント名>/<hook名>/<hook_name>.py` または `helpers/-repo-events/<イベント名>/<hook名>/<hook_name>.py` の形で存在するか確認する。違う場合は原因を標準エラーに出力し、終了コード2で終了する。
 2. 実行スクリプトを、子プロセスにせずランナーのプロセス内で `runpy.run_path(..., run_name='__main__')` により実行する（[実行方式](#実行方式)を参照）。標準入力はバイト列のまま渡し、標準出力・標準エラーは差し替えたバッファで受け取る。
 3. 受け取った標準出力・標準エラーをバイト列のまま中継し、hookの終了コードをそのまま返す。
-4. 入力の `sessionId` がUUIDとして読める場合、起動時刻・イベント名・hook名・機能したかどうかを `<一時フォルダー>/ghc-agent-refinement/hook-states/hook-activity/<セッションID>.sqlite3` に記録する。記録は [hook-activity-state.py](../utilities/hook-activity-state/hook-activity-state.py) で読み書きする。
+4. 入力の `sessionId` がUUIDとして読める場合、起動時刻・イベント名・hook名・機能したかどうかを `<一時フォルダー>/ghc-agent-refinement/hook-states/hook-activity/<セッションID>.sqlite3` に記録する。記録は [hook_activity_state.py](../utilities/hook-activity-state/hook_activity_state.py) で読み書きする。
 
 ## 実行方式
 ### プロセス内で実行する理由
@@ -56,9 +56,9 @@ Claude CodeとCodexでは、アダプターがホストの入出力をCopilot SD
 
 |アダプター|担当|
 |--|--|
-|[run-claude-hook.py](./run-claude-hook.py)|Claude Codeの入力・トランスクリプトの変換。設定、変換の規則、Claude Code固有の制約は [.claude/README.md](../../../../.claude/README.md) を参照。|
-|[run-codex-hook.py](./run-codex-hook.py)|Codexの入力・履歴の変換。設定、公式仕様への参照、Codex固有の制約は [.codex/README.md](../../../../.codex/README.md) を参照。|
-|[adapted-hook-runtime.py](./adapted-hook-runtime.py)|両アダプターに共通の、hook定義の読み込み、順次実行、出力の集約、変換した履歴の末尾の補完（最終応答と `agentStop` の `hook.start`）と書き出し。以下で説明する。|
+|[run_claude_hook.py](./run_claude_hook.py)|Claude Codeの入力・トランスクリプトの変換。設定、変換の規則、Claude Code固有の制約は [.claude/README.md](../../../../.claude/README.md) を参照。|
+|[run_codex_hook.py](./run_codex_hook.py)|Codexの入力・履歴の変換。設定、公式仕様への参照、Codex固有の制約は [.codex/README.md](../../../../.codex/README.md) を参照。|
+|[adapted_hook_runtime.py](./adapted_hook_runtime.py)|両アダプターに共通の、hook定義の読み込み、順次実行、出力の集約、変換した履歴の末尾の補完（最終応答と `agentStop` の `hook.start`）と書き出し。以下で説明する。|
 
 ### アダプターを1本にする理由
 hookごとにホスト向けのラッパーを作らず、イベントごとにアダプターを1つだけ登録する。理由は次のとおり。

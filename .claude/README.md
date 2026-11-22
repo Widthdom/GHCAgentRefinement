@@ -18,8 +18,8 @@ hookごとに互換処理を入れると、すべてのhookが2つの形式を�
 |--|--|
 |[settings.json](./settings.json)|対応するイベントごとに、起動スクリプトを1つだけ登録する。|
 |[run-claude-hook.sh](../.github/hooks/helpers/runner/run-claude-hook.sh)|起動スクリプト。OSに合わせてPythonのコマンド名（Windowsでは `python`、macOS/Linuxでは `python3`）を選び、アダプターを起動する。Claude Codeのhook設定はOS別のコマンドを持てないため。|
-|[run-claude-hook.py](../.github/hooks/helpers/runner/run-claude-hook.py)|アダプター。入力の `hook_event_name` から、実行するhookを決める。|
-|[test-run-claude-hook.py](../.github/hooks/helpers/runner/test-run-claude-hook.py)|アダプター、起動スクリプト、`settings.json` のテスト。|
+|[run_claude_hook.py](../.github/hooks/helpers/runner/run_claude_hook.py)|アダプター。入力の `hook_event_name` から、実行するhookを決める。|
+|[test_run_claude_hook.py](../.github/hooks/helpers/runner/test_run_claude_hook.py)|アダプター、起動スクリプト、`settings.json` のテスト。|
 
 ### 処理の流れ
 1. Claude Codeの入力を、Copilot SDKの入力に変換する（[入力の変換](#入力の変換)）。
@@ -69,7 +69,7 @@ hookごとに互換処理を入れると、すべてのhookが2つの形式を�
 表にないツール（MCPのツール、`NotebookEdit` など）は名前を変えない。引数は変換しない。編集ツールの引数名の違い（`file_path`・`old_string`・`new_string`・`content`）は、[edit-tool-changes](../.github/hooks/helpers/utilities/edit-tool-changes/README.md) が元から受け付ける。
 
 ### トランスクリプトの変換
-agentStopのhookは [read-transcript-events](../.github/hooks/helpers/utilities/read-transcript-events/read-transcript-events.py) でCopilotのイベント履歴を読む。Claude Codeのトランスクリプトから、hookが読むイベントを次のように組み立てる。サブエージェントのやり取り（`isSidechain`）は含めない。
+agentStopのhookは [read-transcript-events](../.github/hooks/helpers/utilities/read-transcript-events/read_transcript_events.py) でCopilotのイベント履歴を読む。Claude Codeのトランスクリプトから、hookが読むイベントを次のように組み立てる。サブエージェントのやり取り（`isSidechain`）は含めない。
 
 |Copilotのイベント|Claude Codeの記録|
 |--|--|

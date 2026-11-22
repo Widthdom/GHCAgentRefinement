@@ -5,71 +5,71 @@
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/check-cross-agent-skill-wrappers/check-cross-agent-skill-wrappers.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/check-cross-agent-skill-wrappers/check-cross-agent-skill-wrappers.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/check-cross-agent-skill-wrappers/check_cross_agent_skill_wrappers.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/check-cross-agent-skill-wrappers/check_cross_agent_skill_wrappers.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/detect-edit-oscillation/detect-edit-oscillation.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/detect-edit-oscillation/detect-edit-oscillation.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/detect-edit-oscillation/detect_edit_oscillation.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/detect-edit-oscillation/detect_edit_oscillation.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/detect-rename-leftovers/detect-rename-leftovers.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/detect-rename-leftovers/detect-rename-leftovers.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/detect-rename-leftovers/detect_rename_leftovers.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/detect-rename-leftovers/detect_rename_leftovers.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/detect-stale-parameter-docs/detect-stale-parameter-docs.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/detect-stale-parameter-docs/detect-stale-parameter-docs.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/detect-stale-parameter-docs/detect_stale_parameter_docs.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/detect-stale-parameter-docs/detect_stale_parameter_docs.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:bash|powershell)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/detect-vacuous-test-success/detect-vacuous-test-success.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/detect-vacuous-test-success/detect-vacuous-test-success.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/detect-vacuous-test-success/detect_vacuous_test_success.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/detect-vacuous-test-success/detect_vacuous_test_success.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/preserve-line-endings/preserve-line-endings.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/preserve-line-endings/preserve-line-endings.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/preserve-line-endings/preserve_line_endings.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/preserve-line-endings/preserve_line_endings.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:view|edit|create|insert|str_replace_editor|apply_patch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-seen-files/record-seen-files.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-seen-files/record-seen-files.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/record-seen-files/record_seen_files.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/record-seen-files/record_seen_files.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:bash|powershell)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-test-failure-values/record-test-failure-values.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-test-failure-values/record-test-failure-values.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/record-test-failure-values/record_test_failure_values.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/record-test-failure-values/record_test_failure_values.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:bash|powershell|web_fetch)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-verified-packages/record-verified-packages.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-verified-packages/record-verified-packages.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/record-verified-packages/record_verified_packages.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/record-verified-packages/record_verified_packages.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
         "matcher": "(?:functions\\.)?(?:bash|powershell)",
-        "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-viewed-commits/record-viewed-commits.py",
-        "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/postToolUse/record-viewed-commits/record-viewed-commits.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/record-viewed-commits/record_viewed_commits.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/postToolUse/record-viewed-commits/record_viewed_commits.py",
         "timeoutSec": 10
       }
     ]

@@ -1,0 +1,91 @@
+import ast
+import io
+import os
+import runpy
+import sys
+import warnings
+from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
+_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
+_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
+_simulate_edit_tool_changes = runpy.run_path(os.path.join(
+    _utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py',
+))['simulate_edit_tool_changes']
+
+
+# 判定の基準とするPythonのバージョン。これより新しい文法も、古い文法（Python 2の構文など）も拒否する。
+_TARGET_VERSION = (3, 14)
+# Pythonのソースとして扱う拡張子。
+_PYTHON_EXTENSIONS = {'.py', '.pyi', '.pyw'}
+_MAX_FINDINGS = 3
+_FINDING = '{file} line {line}: {message}'
+_DENY_REASON = (
+    'Edit denied: the resulting Python source would not compile on Python 3.14 ({findings}). This repository '
+    'targets Python 3.14, so do not use syntax that 3.14 rejects, such as syntax added in later versions or '
+    'removed Python 2 syntax. Fix the code so the whole file compiles on Python 3.14 and retry.'
+)
+
+
+def _is_python_path(path):
+    return os.path.splitext(path)[1].lower() in _PYTHON_EXTENSIONS
+
+
+def _get_syntax_error(source, path):
+    # 構文解析に加え、コンパイルで検出される誤り（関数外のreturnなど）も対象とする。警告は対象外。
+    try:
+        with warnings.catch_warnings(action='ignore'):
+            tree = ast.parse(source, path, feature_version=_TARGET_VERSION)
+            compile(tree, path, 'exec', dont_inherit=True)
+    except SyntaxError as ex:
+        return ex
+    return None
+
+
+def main():
+    # 型定義上の `sys.stdout`・`sys.stderr` はreconfigureを持たないTextIOのため、静的型チェック向けに実体のTextIOWrapperとしてcastする。castは実行時に何もしない。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+
+    try:
+        hook_input = _hook_input['read_hook_input']()
+        cwd = _hook_input['get_cwd'](hook_input)
+        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+
+        findings = []
+        cwd = os.path.abspath(cwd)
+        for path, before, after in _simulate_edit_tool_changes(tool_name, tool_args, cwd):
+            if not _is_python_path(path):
+                continue
+            # 実行中のPythonが基準より古いと、基準の文法を誤って拒否するため判定しない。
+            if sys.version_info < _TARGET_VERSION:
+                raise ValueError(f'Python {_TARGET_VERSION[0]}.{_TARGET_VERSION[1]} or later is required.')
+            error = _get_syntax_error(after, path)
+            if error is None:
+                continue
+            # 既にコンパイルできないファイルの編集は、修正途中の場合もあるため拒否しない。
+            if before is not None and _get_syntax_error(before, path) is not None:
+                continue
+            findings.append(_FINDING.format(
+                file=_get_display_path(path, cwd), line=error.lineno, message=error.msg,
+            ))
+    except (OSError, UnicodeError, ValueError) as ex:
+        print(f'Failed to check Python 3.14 syntax: {ex}', file=sys.stderr)
+        return 2
+
+    if findings:
+        reason = _DENY_REASON.format(findings='; '.join(findings[:_MAX_FINDINGS]))
+        print(reason, file=sys.stderr)
+        # 正常な拒否なので終了コードは0。
+        _hook_output['write_deny_decision'](reason)
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

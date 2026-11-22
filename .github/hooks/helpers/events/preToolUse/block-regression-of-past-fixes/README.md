@@ -15,7 +15,7 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
    - `apply_patch`：削除行（`-`）と同じ内容の、現在のファイルのすべての行。
 4. 求めた行に `git blame --porcelain -L` を実行し、行を入れたコミットを特定する。まだコミットしていない行は除く。
 5. 特定したコミットのメッセージ全体（件名と本文）を `git show -s` で読み、`fixCommitPatterns` のいずれかに一致するものを修正コミットとする。
-6. 修正コミットのうち、このセッションでまだ読んでいないものを残す。読んだコミットは [record-viewed-commits](../../postToolUse/record-viewed-commits/README.md) hookが `git show`・`git log` の出力から記録したものを、[viewed-commits-state.py](../../../utilities/viewed-commits-state/viewed-commits-state.py) で読み出す。
+6. 修正コミットのうち、このセッションでまだ読んでいないものを残す。読んだコミットは [record-viewed-commits](../../postToolUse/record-viewed-commits/README.md) hookが `git show`・`git log` の出力から記録したものを、[viewed_commits_state.py](../../../utilities/viewed-commits-state/viewed_commits_state.py) で読み出す。
 7. 読んでいない修正コミット由来の行があれば拒否する。その際、ファイル・行番号・コミットID・件名・実行すべき `git show <コミットID>`（1ファイルにつき3コミットまで）と、コミットを読んで修正の意図を保つよう求める英語の理由を標準エラーに出力し、`{"permissionDecision":"deny",...}` を標準出力する。
 
 ## 検出する内容

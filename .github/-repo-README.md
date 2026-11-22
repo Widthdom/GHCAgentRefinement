@@ -5,7 +5,7 @@
 ## hookについて
 ### 配置
 - hook定義は `.github/hooks/-repo-<event-name>.json`、hookのファイルは [.github/hooks/helpers/-repo-events/](./hooks/helpers/-repo-events/) 配下に置く。
-- 起動は共通のhookと同じく [hookランナー](./hooks/helpers/runner/README.md) を通す。テストは [test-all-hooks.py](./hooks/tests/test-all-hooks.py) の一括実行に含まれる。
+- 起動は共通のhookと同じく [hookランナー](./hooks/helpers/runner/README.md) を通す。テストは [test_all_hooks.py](./hooks/tests/test_all_hooks.py) の一括実行に含まれる。
 - 作成・更新の規約は [hookの共通規約](./skills/create-hook/references/hook-conventions.md) を参照。
 
 ### 発動フロー

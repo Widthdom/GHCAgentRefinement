@@ -16,7 +16,7 @@ agentStop（エージェントの応答終了時）
 5. 読んでいないファイルを最大10件まで列挙し、`{"decision":"block","reason":"..."}` を標準出力して差し戻す。ファイルを読んで記述を訂正するか、未確認である旨を明記するよう求める。
 
 ## 前提条件
-- [record-seen-files](../../postToolUse/record-seen-files/README.md) hookの記録を使う。状態は [known-files-state.py](../../../utilities/known-files-state/known-files-state.py) でrecord-seen-files hook・[require-read-before-edit](../../preToolUse/require-read-before-edit/README.md) hookと共有し、読み取りだけを行う。
+- [record-seen-files](../../postToolUse/record-seen-files/README.md) hookの記録を使う。状態は [known_files_state.py](../../../utilities/known-files-state/known_files_state.py) でrecord-seen-files hook・[require-read-before-edit](../../preToolUse/require-read-before-edit/README.md) hookと共有し、読み取りだけを行う。
 
 ## 例外
 - 推測の表現と同じ文にあるパスだけを対象にする。断定で語った場合は、正当な言及（存在や操作の報告など）と区別できないため対象外とする。
