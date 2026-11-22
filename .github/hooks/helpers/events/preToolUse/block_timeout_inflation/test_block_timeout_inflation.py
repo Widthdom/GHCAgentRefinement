@@ -22,7 +22,7 @@ def _edit(path, old, new):
 
 class BlockTimeoutInflationTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-timeout-inflation-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_timeout_inflation_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

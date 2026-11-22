@@ -21,7 +21,7 @@ def _change(path, written, removed=''):
 
 class FindIntroducedLinesByRegexTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-find-introduced-lines-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_find_introduced_lines_test_')
         self.addCleanup(temporary.cleanup)
         self.__cwd = os.path.realpath(temporary.name)
 
@@ -65,7 +65,7 @@ class FindIntroducedLinesByRegexTests(unittest.TestCase):
 
     def test_paths_outside_cwd(self):
         # cwdの外のファイルは、`/` 区切りの絶対パスで示す。
-        outside = tempfile.TemporaryDirectory(prefix='ghc-find-introduced-lines-outside-')
+        outside = tempfile.TemporaryDirectory(prefix='ghc_find_introduced_lines_outside_')
         self.addCleanup(outside.cleanup)
         path = os.path.join(os.path.realpath(outside.name), 'a.py')
         with open(path, 'w', encoding='utf-8', newline='\n') as file:

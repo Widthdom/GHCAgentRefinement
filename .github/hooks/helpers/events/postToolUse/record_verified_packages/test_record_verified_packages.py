@@ -21,7 +21,7 @@ import verified_packages_state as _state
 
 class RecordVerifiedPackagesTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-record-verified-packages-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_record_verified_packages_test_')
         self.addCleanup(temporary.cleanup)
         # 確認の記録を実際の一時フォルダーに残さないよう、hookとテストの両方で一時フォルダーを差し替える。
         self.__environment = dict(os.environ, TMPDIR=temporary.name, TEMP=temporary.name, TMP=temporary.name)

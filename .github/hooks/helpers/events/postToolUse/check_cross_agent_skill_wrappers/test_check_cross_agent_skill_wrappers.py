@@ -28,7 +28,7 @@ _CLAUDE_WRAPPER = '.claude/skills/sample/SKILL.md'
 
 class CheckCrossAgentSkillWrappersTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-check-cross-agent-skill-wrappers-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_check_cross_agent_skill_wrappers_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

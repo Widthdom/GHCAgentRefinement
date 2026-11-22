@@ -27,7 +27,7 @@ def _assistant(content):
 
 class DetectPhantomReferencesTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-phantom-references-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_phantom_references_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__repository = os.path.join(self.__root, 'repository')

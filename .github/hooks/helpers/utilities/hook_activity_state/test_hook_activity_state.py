@@ -16,7 +16,7 @@ from hook_test_output import run_tests as _run_tests
 
 class HookActivityStateTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-hook-activity-state-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_hook_activity_state_test_')
         self.addCleanup(temporary.cleanup)
         tempdir = patch.object(tempfile, 'tempdir', temporary.name)
         tempdir.start()

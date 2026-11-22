@@ -30,7 +30,7 @@ def _value_key(value):
 
 class RecordTestFailureValuesTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-record-test-failure-values-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_record_test_failure_values_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

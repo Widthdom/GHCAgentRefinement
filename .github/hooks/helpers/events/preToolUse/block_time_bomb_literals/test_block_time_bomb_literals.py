@@ -21,7 +21,7 @@ _TODAY = '2026-11-03'
 
 class BlockTimeBombLiteralsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-time-bomb-literals-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_time_bomb_literals_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

@@ -45,7 +45,7 @@ def _agent_stop_start():
 
 class RequireHookTestsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-require-hook-tests-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_require_hook_tests_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__repository = os.path.join(self.__root, 'repository')

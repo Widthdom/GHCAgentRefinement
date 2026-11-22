@@ -53,7 +53,7 @@ def _agent_stop_start():
 @unittest.skipUnless(shutil.which('git'), 'git is required to compare with HEAD.')
 class DetectLockfileDriftTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-lockfile-drift-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_lockfile_drift_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__workspace = os.path.join(self.__root, 'workspace')

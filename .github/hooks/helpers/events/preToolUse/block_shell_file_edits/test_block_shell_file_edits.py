@@ -17,7 +17,7 @@ from hook_entry import get_hook_entry as _get_hook_entry
 
 class BlockShellFileEditsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-shell-file-edits-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_shell_file_edits_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__workspace = os.path.join(self.__root, 'workspace')

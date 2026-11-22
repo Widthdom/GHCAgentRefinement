@@ -28,7 +28,7 @@ _ORIGINAL = (
 
 class BlockGoalpostMovingTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-goalpost-moving-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_goalpost_moving_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

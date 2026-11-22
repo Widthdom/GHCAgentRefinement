@@ -31,7 +31,7 @@ _FRESH_SECONDS = 48 * 60 * 60 - 60
 
 class CheckHookTempFilesTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-check-hook-temp-files-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_check_hook_temp_files_test_')
         self.addCleanup(temporary.cleanup)
         self.__temp = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

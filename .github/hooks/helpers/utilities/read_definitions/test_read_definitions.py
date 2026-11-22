@@ -21,7 +21,7 @@ _LABEL = 'sample definitions'
 
 class ReadDefinitionsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-read-definitions-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_read_definitions_test_')
         self.addCleanup(temporary.cleanup)
         self.__directory = temporary.name
         self.__path = os.path.join(temporary.name, 'definitions.json')

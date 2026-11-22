@@ -107,7 +107,7 @@ for line in sys.stdin.buffer:
 
 class SetupCodexHooksTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-codex-setup-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_codex_setup_test_')
         self.addCleanup(temporary.cleanup)
         self.__temporary = os.path.realpath(temporary.name)
         environment = patch.dict(os.environ, TMPDIR=self.__temporary, TEMP=self.__temporary, TMP=self.__temporary)

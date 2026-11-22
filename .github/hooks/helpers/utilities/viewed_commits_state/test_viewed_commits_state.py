@@ -19,7 +19,7 @@ _COMMIT_B = 'B' * 40
 
 class ViewedCommitsStateTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-viewed-commits-state-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_viewed_commits_state_test_')
         self.addCleanup(temporary.cleanup)
         tempdir = patch.object(tempfile, 'tempdir', temporary.name)
         tempdir.start()

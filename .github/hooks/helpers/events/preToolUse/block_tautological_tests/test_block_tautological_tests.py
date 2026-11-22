@@ -21,7 +21,7 @@ _ORIGINAL = (
 
 class BlockTautologicalTestsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-tautological-tests-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_tautological_tests_test_')
         self.addCleanup(temporary.cleanup)
         root = os.path.realpath(temporary.name)
         # hookの状態を実際の一時フォルダーに残さないよう、一時フォルダーを差し替える。

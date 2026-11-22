@@ -26,7 +26,7 @@ _ORIGINAL = (
 
 class BlockErrorSwallowingTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-error-swallowing-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_error_swallowing_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

@@ -42,7 +42,7 @@ def _change(path, written='', removed='', **values):
 
 class _TemporaryCwdTestCase(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-edit-tool-changes-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_edit_tool_changes_test_')
         self.addCleanup(temporary.cleanup)
         self.cwd = temporary.name
         self.write('a.txt', 'one\ntwo\n')

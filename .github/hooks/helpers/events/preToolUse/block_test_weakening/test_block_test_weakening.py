@@ -25,7 +25,7 @@ _ORIGINAL = (
 
 class BlockTestWeakeningTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-test-weakening-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_test_weakening_test_')
         self.addCleanup(temporary.cleanup)
         root = os.path.realpath(temporary.name)
         # hookの状態を実際の一時フォルダーに残さないよう、一時フォルダーを差し替える。

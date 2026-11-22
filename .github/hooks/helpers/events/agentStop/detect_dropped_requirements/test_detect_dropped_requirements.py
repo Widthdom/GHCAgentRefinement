@@ -36,7 +36,7 @@ def _agent_stop_start():
 
 class DetectDroppedRequirementsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-dropped-requirements-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_dropped_requirements_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = temporary.name
         self.__transcript_path = os.path.join(self.__root, 'events.jsonl')

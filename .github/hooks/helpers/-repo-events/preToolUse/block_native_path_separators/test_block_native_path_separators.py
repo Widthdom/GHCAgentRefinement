@@ -25,7 +25,7 @@ _ORIGINAL = (
 
 class BlockNativePathSeparatorsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-native-path-separators-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_native_path_separators_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

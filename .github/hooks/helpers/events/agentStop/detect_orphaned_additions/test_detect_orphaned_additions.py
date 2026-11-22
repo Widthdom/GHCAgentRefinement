@@ -35,7 +35,7 @@ def _agent_stop_start():
 
 class DetectOrphanedAdditionsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-orphaned-additions-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_orphaned_additions_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__workspace = os.path.join(self.__root, 'workspace')

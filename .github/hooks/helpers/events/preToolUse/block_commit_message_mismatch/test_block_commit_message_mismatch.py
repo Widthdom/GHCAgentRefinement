@@ -19,7 +19,7 @@ _DENY_REASON_PREFIX = 'Commit denied: the commit message describes changes that 
 
 class BlockCommitMessageMismatchTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-commit-message-mismatch-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_commit_message_mismatch_test_')
         self.addCleanup(temporary.cleanup)
         # hookの状態を実際の一時フォルダーに残さないよう、一時フォルダーを差し替える。
         self.__environment = dict(os.environ, TMPDIR=temporary.name, TEMP=temporary.name, TMP=temporary.name)
@@ -179,7 +179,7 @@ class BlockCommitMessageMismatchTests(unittest.TestCase):
         self.__stage('src/app.py', 'x = 1\n')
         self.__assert_allowed(self.__invoke("git commit -m '`render`'", tool_name='edit'))
         self.__assert_allowed(self.__invoke(None))
-        outside = tempfile.TemporaryDirectory(prefix='ghc-commit-message-mismatch-outside-')
+        outside = tempfile.TemporaryDirectory(prefix='ghc_commit_message_mismatch_outside_')
         self.addCleanup(outside.cleanup)
         self.__assert_allowed(self.__invoke("git commit -m '`render`'", cwd=outside.name))
         self.__assert_allowed(self.__invoke("cd missing && git commit -m '`render`'"))

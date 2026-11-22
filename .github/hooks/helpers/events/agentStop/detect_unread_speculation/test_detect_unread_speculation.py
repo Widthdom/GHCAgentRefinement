@@ -43,7 +43,7 @@ def _agent_stop_start():
 
 class DetectUnreadSpeculationTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-unread-speculation-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_unread_speculation_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

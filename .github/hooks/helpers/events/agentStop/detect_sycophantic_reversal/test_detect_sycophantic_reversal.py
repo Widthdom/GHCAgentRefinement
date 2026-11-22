@@ -43,7 +43,7 @@ def _pushback_turn(pushback='それ違くない？', response='ご指摘の通�
 
 class DetectSycophanticReversalTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-sycophantic-reversal-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_sycophantic_reversal_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = temporary.name
         self.__transcript_path = os.path.join(self.__root, 'events.jsonl')

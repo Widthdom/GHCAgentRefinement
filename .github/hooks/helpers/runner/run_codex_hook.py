@@ -214,7 +214,7 @@ def main():
         event, hook_input = _convert_hook_input(payload, timestamp_ms)
         entries = _runtime.load_hook_entries(event)
         host_event = payload['hook_event_name']
-        with tempfile.TemporaryDirectory(prefix='ghc-codex-hook-') as temporary:
+        with tempfile.TemporaryDirectory(prefix='ghc_codex_hook_') as temporary:
             if event == 'agentStop':
                 path = payload.get('transcript_path')
                 if not isinstance(path, str) or not path:

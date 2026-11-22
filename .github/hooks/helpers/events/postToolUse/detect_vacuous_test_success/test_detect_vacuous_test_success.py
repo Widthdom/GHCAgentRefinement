@@ -20,7 +20,7 @@ from hook_entry import get_hook_entry as _get_hook_entry
 
 class DetectVacuousTestSuccessTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-vacuous-test-success-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_vacuous_test_success_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

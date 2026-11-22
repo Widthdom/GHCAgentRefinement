@@ -18,7 +18,7 @@ from hook_entry import get_hook_entry as _get_hook_entry
 
 class BlockMaskedExitCodesTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-masked-exit-codes-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_masked_exit_codes_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = temporary.name
         self.__session_id = '00000000-0000-4000-8000-000000000000'

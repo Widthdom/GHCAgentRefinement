@@ -18,7 +18,7 @@ _ORIGINAL = ''.join(f'line {number}\n' for number in range(1, 41))
 
 class BlockElidedRewritesTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-elided-rewrites-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_elided_rewrites_test_')
         self.addCleanup(temporary.cleanup)
         root = os.path.realpath(temporary.name)
         # hookの状態を実際の一時フォルダーに残さないよう、一時フォルダーを差し替える。

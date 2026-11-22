@@ -40,7 +40,7 @@ _INCOMPATIBLE_SOURCES = [
 @unittest.skipIf(sys.version_info < (3, 14), 'Python 3.14 or later is required to judge Python 3.14 syntax.')
 class BlockPy314IncompatibleSyntaxTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-py314-incompatible-syntax-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_py314_incompatible_syntax_test_')
         self.addCleanup(temporary.cleanup)
         self.__directory = os.path.realpath(temporary.name)
         self.__write_file('app.py', _ORIGINAL)

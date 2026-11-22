@@ -30,7 +30,7 @@ _CSPROJ = (
 
 class BlockUnverifiedDependenciesTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-unverified-dependencies-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_unverified_dependencies_test_')
         self.addCleanup(temporary.cleanup)
         root = os.path.realpath(temporary.name)
         # 確認の記録を実際の一時フォルダーに残さないよう、hookとテストの両方で一時フォルダーを差し替える。

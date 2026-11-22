@@ -16,7 +16,7 @@ from hook_test_output import run_tests as _run_tests
 
 class RecordHookChangeRequestsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-hook-change-requests-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_hook_change_requests_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

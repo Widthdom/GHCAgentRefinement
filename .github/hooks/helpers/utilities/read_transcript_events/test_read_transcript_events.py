@@ -37,7 +37,7 @@ def _hook_start(hook_type, timestamp):
 
 class _TranscriptTestCase(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-read-transcript-events-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_read_transcript_events_test_')
         self.addCleanup(temporary.cleanup)
         self.path = os.path.join(temporary.name, 'events.jsonl')
 

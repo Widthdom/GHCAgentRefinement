@@ -50,7 +50,7 @@ from hook_test_output import run_tests as _run_tests
 
 class SetDebugModeTests(unittest.TestCase):
     def setUp(self):
-        self.__temporary = tempfile.TemporaryDirectory(prefix='ghc-agent-refinement-set-debug-test-')
+        self.__temporary = tempfile.TemporaryDirectory(prefix='ghc_agent_refinement_set_debug_test_')
         self.addCleanup(self.__temporary.cleanup)
         self.test_temp_directory = self.__temporary.name
         self.__state_directory = os.path.join(self.test_temp_directory, 'ghc_agent_refinement', 'hook_states', 'debug_mode')

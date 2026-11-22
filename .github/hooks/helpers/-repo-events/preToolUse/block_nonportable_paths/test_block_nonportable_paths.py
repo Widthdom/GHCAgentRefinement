@@ -21,7 +21,7 @@ from hook_entry import get_hook_entry as _get_hook_entry
 
 class BlockNonportablePathsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-portable-paths-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_portable_paths_test_')
         self.addCleanup(temporary.cleanup)
         self.__directory = os.path.realpath(temporary.name)
 

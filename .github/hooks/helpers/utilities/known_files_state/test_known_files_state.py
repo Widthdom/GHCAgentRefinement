@@ -18,7 +18,7 @@ from hook_test_output import run_tests as _run_tests
 
 class KnownFilesStateTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-known-files-state-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_known_files_state_test_')
         self.addCleanup(temporary.cleanup)
         tempdir = patch.object(tempfile, 'tempdir', temporary.name)
         tempdir.start()

@@ -51,7 +51,7 @@ if os.path.isfile(exit_code_path):
 
 class RunClaudeHookTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-run-claude-hook-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_run_claude_hook_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         # アダプターは自身の位置からリポジトリルートとhook定義を決めるため、同じ構成を一時領域に作る。

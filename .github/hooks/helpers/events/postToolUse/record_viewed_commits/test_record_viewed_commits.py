@@ -29,7 +29,7 @@ _SHOW_OUTPUT = (
 
 class RecordViewedCommitsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-record-viewed-commits-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_record_viewed_commits_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

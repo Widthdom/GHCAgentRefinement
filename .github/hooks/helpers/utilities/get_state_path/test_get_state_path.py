@@ -17,7 +17,7 @@ from hook_test_output import run_tests as _run_tests
 
 class GetStatePathTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-get-state-path-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_get_state_path_test_')
         self.addCleanup(temporary.cleanup)
         tempdir = patch.object(tempfile, 'tempdir', temporary.name)
         tempdir.start()
@@ -62,7 +62,7 @@ class GetStatePathTests(unittest.TestCase):
 
 class StateDatabaseTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-state-database-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_state_database_test_')
         self.addCleanup(temporary.cleanup)
         # 保存先のフォルダーはまだない。
         self.__state_path = os.path.join(temporary.name, 'states', 'state.sqlite3')

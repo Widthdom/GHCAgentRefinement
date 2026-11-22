@@ -25,7 +25,7 @@ _SPECIAL_CASE = 'def add(a, b):\n    if a == 1 and b == 2:\n        return 4\n  
 
 class BlockHardcodingForTestsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-hardcoding-for-tests-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_hardcoding_for_tests_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

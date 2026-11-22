@@ -38,7 +38,7 @@ from hook_test_output import run_tests as _run_tests
 
 class DebugResponseFooterTests(unittest.TestCase):
     def setUp(self):
-        self.__temporary = tempfile.TemporaryDirectory(prefix='ghc-agent-refinement-footer-test-')
+        self.__temporary = tempfile.TemporaryDirectory(prefix='ghc_agent_refinement_footer_test_')
         self.addCleanup(self.__temporary.cleanup)
         self.__temp_dir = self.__temporary.name
         self.__debug_state_dir = os.path.join(self.__temp_dir, 'ghc_agent_refinement', 'hook_states', 'debug_mode')

@@ -19,7 +19,7 @@ from hook_entry import get_hook_entry as _get_hook_entry
 
 class BlockSnapshotRubberStampTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-snapshot-rubber-stamp-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_snapshot_rubber_stamp_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

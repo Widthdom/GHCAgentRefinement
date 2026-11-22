@@ -216,7 +216,7 @@ def main():
         return 1
     claude_event = claude_input['hook_event_name']
 
-    with tempfile.TemporaryDirectory(prefix='ghc-claude-hook-') as temporary_directory:
+    with tempfile.TemporaryDirectory(prefix='ghc_claude_hook_') as temporary_directory:
         if claude_event == 'Stop':
             try:
                 events = _convert_transcript(

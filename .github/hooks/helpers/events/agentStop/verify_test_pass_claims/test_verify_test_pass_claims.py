@@ -56,7 +56,7 @@ def _agent_stop_start():
 
 class VerifyTestPassClaimsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-test-pass-claims-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_test_pass_claims_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = temporary.name
         self.__transcript_path = os.path.join(self.__root, 'events.jsonl')

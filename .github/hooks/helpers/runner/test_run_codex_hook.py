@@ -32,7 +32,7 @@ sys.exit(EXIT_CODE)
 
 class RunCodexHookTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-codex-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_codex_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.join(os.path.realpath(temporary.name), 'repo with spaces')
         self.__hooks = os.path.join(self.__root, '.github', 'hooks')

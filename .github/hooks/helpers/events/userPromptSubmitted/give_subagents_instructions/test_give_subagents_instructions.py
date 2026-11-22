@@ -33,7 +33,7 @@ class GiveSubagentsInstructionsTests(unittest.TestCase):
 
     def __new_sandbox(self):
         # 指示ファイルを差し替えるため、.githubからの相対位置を保ってスクリプトと読み込むutilityを一時ディレクトリへ複製する。
-        root = tempfile.mkdtemp(prefix='ghc-give-subagents-instructions-test-')
+        root = tempfile.mkdtemp(prefix='ghc_give_subagents_instructions_test_')
         self.addCleanup(shutil.rmtree, root)
         helpers_directory = os.path.join(root, '.github', 'hooks', 'helpers')
         directory = os.path.join(helpers_directory, 'events', 'userPromptSubmitted', _hook_name)

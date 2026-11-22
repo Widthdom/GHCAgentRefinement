@@ -26,7 +26,7 @@ _IDEOGRAPHIC_SPACE = chr(0x3000)  # 全角スペース
 
 class BlockInvisibleCharactersTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-invisible-characters-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_invisible_characters_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

@@ -24,7 +24,7 @@ def _invoke_hook(script_path, cwd=None, env=None):
 class LoadCopilotInstructionsTests(unittest.TestCase):
     def __new_sandbox(self, suffix=''):
         # hookは自身の位置から指示ファイルを探すため、同じ構成を一時領域に作り、読み込むutilityも複製する。
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-load-copilot-instructions-test-', suffix=suffix)
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_load_copilot_instructions_test_', suffix=suffix)
         self.addCleanup(temporary.cleanup)
         helpers_directory = os.path.join(temporary.name, '.github', 'hooks', 'helpers')
         hook_directory = os.path.join(helpers_directory, 'events', 'sessionStart', 'load_copilot_instructions')

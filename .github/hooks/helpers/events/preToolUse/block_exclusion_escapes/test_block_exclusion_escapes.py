@@ -36,7 +36,7 @@ _TRACKED_FILES = {
 @unittest.skipUnless(shutil.which('git'), 'git is required to list tracked files.')
 class BlockExclusionEscapesTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-exclusion-escapes-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_exclusion_escapes_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

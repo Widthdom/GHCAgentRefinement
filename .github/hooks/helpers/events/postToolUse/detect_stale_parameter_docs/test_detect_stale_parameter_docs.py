@@ -64,7 +64,7 @@ _CSHARP_SOURCE = '''public static class Calculator
 
 class DetectStaleParameterDocsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-stale-parameter-docs-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_stale_parameter_docs_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = temporary.name
 

@@ -16,7 +16,7 @@ from hook_test_output import run_tests as _run_tests
 
 class RunGitTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-run-git-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_run_git_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__repository = os.path.join(self.__root, 'repository')

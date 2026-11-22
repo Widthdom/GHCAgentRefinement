@@ -56,7 +56,7 @@ sys.exit(int(os.environ.get('FAKE_EXIT', '0')))
 
 class RunHookTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-run-hook-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_run_hook_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         # ランナーは自身の位置からリポジトリルートとhookの配置を決めるため、同じ構成を一時領域に作る。

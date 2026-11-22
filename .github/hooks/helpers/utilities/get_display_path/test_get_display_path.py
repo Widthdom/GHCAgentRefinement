@@ -14,7 +14,7 @@ from hook_test_output import run_tests as _run_tests
 
 class GetDisplayPathTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-get-display-path-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_get_display_path_test_')
         self.addCleanup(temporary.cleanup)
         self.__cwd = os.path.join(temporary.name, 'repo')
 

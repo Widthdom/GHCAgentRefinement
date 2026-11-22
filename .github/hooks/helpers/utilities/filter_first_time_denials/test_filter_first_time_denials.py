@@ -17,7 +17,7 @@ from hook_test_output import run_tests as _run_tests
 
 class FilterFirstTimeDenialsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-filter-first-time-denials-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_filter_first_time_denials_test_')
         self.addCleanup(temporary.cleanup)
         # 親ディレクトリがなくても作る。
         self.__state_path = os.path.join(temporary.name, 'hook_states', 'hook', 'session.sqlite3')

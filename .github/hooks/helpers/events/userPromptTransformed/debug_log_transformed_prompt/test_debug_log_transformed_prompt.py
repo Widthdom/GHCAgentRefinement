@@ -18,7 +18,7 @@ from hook_test_output import run_tests as _run_tests
 
 class DebugLogTransformedPromptTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc prompt-log 日本語 ')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc prompt_log 日本語 ')
         self.addCleanup(temporary.cleanup)
         self.__root = temporary.name
         self.__environment = os.environ.copy()

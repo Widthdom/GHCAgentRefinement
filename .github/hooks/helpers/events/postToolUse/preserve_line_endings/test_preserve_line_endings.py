@@ -23,7 +23,7 @@ class PreserveLineEndingsTests(unittest.TestCase):
     def setUp(self):
         if shutil.which('git') is None:
             self.skipTest('git is not installed.')
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-preserve-line-endings-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_preserve_line_endings_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

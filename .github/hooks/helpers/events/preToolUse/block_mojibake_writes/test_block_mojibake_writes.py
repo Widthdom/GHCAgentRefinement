@@ -28,7 +28,7 @@ _NO_BREAK_SPACE = chr(0x00A0)  # ノーブレークスペース
 
 class BlockMojibakeWritesTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-mojibake-writes-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_mojibake_writes_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

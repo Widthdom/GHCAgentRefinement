@@ -17,7 +17,7 @@ from hook_test_output import run_tests as _run_tests
 
 class WriteJsonAtomicallyTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-write-json-atomically-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_write_json_atomically_test_')
         self.addCleanup(temporary.cleanup)
         self.__directory = os.path.join(temporary.name, 'states')
         self.__path = os.path.join(self.__directory, 'state.json')

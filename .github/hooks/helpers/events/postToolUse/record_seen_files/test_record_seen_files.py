@@ -21,7 +21,7 @@ from hook_entry import get_hook_entry as _get_hook_entry
 
 class RecordSeenFilesTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-record-seen-files-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_record_seen_files_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

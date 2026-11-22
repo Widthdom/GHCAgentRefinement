@@ -39,7 +39,7 @@ def _agent_stop_start():
 
 class DetectEmptyPromisesTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-empty-promises-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_empty_promises_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = temporary.name
         self.__transcript_path = os.path.join(self.__root, 'events.jsonl')

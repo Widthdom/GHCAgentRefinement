@@ -18,7 +18,7 @@ from hook_entry import get_hook_entry as _get_hook_entry
 
 class BlockHookTamperingTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-hook-tampering-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_hook_tampering_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

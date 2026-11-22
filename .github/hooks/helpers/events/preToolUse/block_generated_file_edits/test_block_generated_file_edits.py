@@ -17,7 +17,7 @@ from hook_test_output import run_tests as _run_tests
 
 class BlockGeneratedFileEditsTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-generated-file-edits-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_generated_file_edits_test_')
         self.addCleanup(temporary.cleanup)
         root = os.path.realpath(temporary.name)
         # hookの状態を実際の一時フォルダーに残さないよう、一時フォルダーを差し替える。

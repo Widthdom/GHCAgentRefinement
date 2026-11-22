@@ -43,7 +43,7 @@ def _agent_stop_start():
 
 class DetectTemporaryCodeTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-temporary-code-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_temporary_code_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__workspace = os.path.join(self.__root, 'workspace')

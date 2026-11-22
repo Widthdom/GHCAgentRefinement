@@ -32,7 +32,7 @@ _FIX_GUARD = "    if b == 0:\n        raise ZeroDivisionError('b must not be zer
 
 class BlockRegressionOfPastFixesTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-block-regression-of-past-fixes-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_regression_of_past_fixes_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()

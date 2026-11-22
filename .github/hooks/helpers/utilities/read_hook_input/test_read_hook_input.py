@@ -71,7 +71,7 @@ class ReadHookInputTests(unittest.TestCase):
                 self.assertEqual(str(context.exception), message)
 
     def test_get_transcript_path(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-read-hook-input-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_read_hook_input_test_')
         self.addCleanup(temporary.cleanup)
         transcript_path = os.path.join(temporary.name, 'events.jsonl')
         with open(transcript_path, 'w', encoding='utf-8', newline='\n'):

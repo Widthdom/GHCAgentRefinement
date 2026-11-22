@@ -20,7 +20,7 @@ from hook_test_output import run_tests as _run_tests
 
 class DetectRepeatedFailuresTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-repeated-failures-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_repeated_failures_test_')
         self.addCleanup(temporary.cleanup)
         self.__root = temporary.name
         self.__environment = os.environ.copy()

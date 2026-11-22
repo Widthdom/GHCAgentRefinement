@@ -14,7 +14,7 @@ from hook_test_output import run_tests as _run_tests
 
 class ReadStoredFileContentForWriteComparisonTests(unittest.TestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc-read-stored-file-content-for-write-comparison-test-')
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_read_stored_file_content_for_write_comparison_test_')
         self.addCleanup(temporary.cleanup)
         self.__directory = temporary.name
         self.__path = os.path.join(temporary.name, 'a.txt')
