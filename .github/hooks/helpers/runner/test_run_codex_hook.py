@@ -40,10 +40,10 @@ class RunCodexHookTests(unittest.TestCase):
         os.makedirs(self.__runner)
         for name in ('run_hook.py', 'adapted_hook_runtime.py', 'run_codex_hook.py'):
             shutil.copy(os.path.join(_script_directory, name), self.__runner)
-        for name in ('get-state-path', 'hook-activity-state', 'collect-json-string-values'):
+        for name in ('get_state_path', 'hook_activity_state', 'collect_json_string_values'):
             target = os.path.join(self.__hooks, 'helpers', 'utilities', name)
             os.makedirs(target)
-            shutil.copy(os.path.join(_helpers_directory, 'utilities', name, name.replace('-', '_') + '.py'), target)
+            shutil.copy(os.path.join(_helpers_directory, 'utilities', name, name + '.py'), target)
         self.__env = dict(os.environ, TMPDIR=temporary.name, TEMP=temporary.name, TMP=temporary.name)
         self.__session = str(uuid.uuid4())
 
@@ -51,7 +51,7 @@ class RunCodexHookTests(unittest.TestCase):
         category = '-repo-events' if repo else 'events'
         directory = os.path.join(self.__hooks, 'helpers', category, event, name)
         os.makedirs(directory)
-        script_name = name.replace('-', '_') + '.py'
+        script_name = name + '.py'
         with open(os.path.join(directory, script_name), 'w', encoding='utf-8', newline='\n') as file:
             file.write('OUTPUT = ' + repr(output or {}) + '\nEXIT_CODE = ' + str(exit_code) + '\n' + _FAKE_HOOK)
         path = os.path.join(self.__hooks, ('-repo-' if repo else '') + event + '.json')
@@ -218,7 +218,7 @@ class RunCodexHookTests(unittest.TestCase):
                 ])
 
     def test_stop_test_requirement_observes_nested_test_exit_code(self):
-        sys.path.insert(0, os.path.join(_helpers_directory, 'events', 'agentStop', 'require-hook-tests'))
+        sys.path.insert(0, os.path.join(_helpers_directory, 'events', 'agentStop', 'require_hook_tests'))
         import require_hook_tests as requirement
         for exit_code, expected in ((0, []), (1, ['failed with exit code 1']), (None, ['not run'])):
             with self.subTest(exit_code=exit_code):

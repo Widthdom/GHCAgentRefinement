@@ -15,8 +15,8 @@ from typing import cast
 _runner_directory = os.path.dirname(os.path.abspath(__file__))
 _utilities_directory = os.path.join(os.path.dirname(_runner_directory), 'utilities')
 sys.path[:0] = [
-    os.path.join(_utilities_directory, 'collect-json-string-values'),
-    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'collect_json_string_values'),
+    os.path.join(_utilities_directory, 'parse_tool_calls'),
 ]
 from collect_json_string_values import collect_json_string_values as _collect_json_string_values
 from parse_tool_calls import SHELL_TOOL_NAMES as _SHELL_TOOL_NAMES

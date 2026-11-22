@@ -6,13 +6,13 @@ hook定義JSONから各hookの実行スクリプトを起動し、hookが実際�
 Copilotのトランスクリプトには、`hook.start` と `hook.end` がイベント種別（hookType）ごとに1組しか記録されない。どのhookが起動したか、どのhookが出力したかは区別されないため、本ランナーで記録する。
 
 ## 起動方法
-JSONの `bash` には `python3 .github/hooks/helpers/runner/run_hook.py <実行スクリプト>`、`powershell` には `python .github/hooks/helpers/runner/run_hook.py <実行スクリプト>` を記述する。実行スクリプトは、リポジトリルートからの相対パスで `.github/hooks/helpers/events/<イベント名>/<hook名>/<hook_name>.py` を指定する。このリポジトリ専用のhookは `.github/hooks/helpers/-repo-events/<イベント名>/<hook名>/<hook_name>.py` を指定する。`<hook_name>` は、hook名のハイフンをアンダースコアに変えたもの。
+JSONの `bash` には `python3 .github/hooks/helpers/runner/run_hook.py <実行スクリプト>`、`powershell` には `python .github/hooks/helpers/runner/run_hook.py <実行スクリプト>` を記述する。実行スクリプトは、リポジトリルートからの相対パスで `.github/hooks/helpers/events/<イベント名>/<hook名>/<hook名>.py` を指定する。このリポジトリ専用のhookは `.github/hooks/helpers/-repo-events/<イベント名>/<hook名>/<hook名>.py` を指定する。
 
 ## 処理詳細
-1. 引数の実行スクリプトが `helpers/events/<イベント名>/<hook名>/<hook_name>.py` または `helpers/-repo-events/<イベント名>/<hook名>/<hook_name>.py` の形で存在するか確認する。違う場合は原因を標準エラーに出力し、終了コード2で終了する。
+1. 引数の実行スクリプトが `helpers/events/<イベント名>/<hook名>/<hook名>.py` または `helpers/-repo-events/<イベント名>/<hook名>/<hook名>.py` の形で存在するか確認する。違う場合は原因を標準エラーに出力し、終了コード2で終了する。
 2. 実行スクリプトを、子プロセスにせずランナーのプロセス内で `runpy.run_path(..., run_name='__main__')` により実行する（[実行方式](#実行方式)を参照）。標準入力はバイト列のまま渡し、標準出力・標準エラーは差し替えたバッファで受け取る。
 3. 受け取った標準出力・標準エラーをバイト列のまま中継し、hookの終了コードをそのまま返す。
-4. 入力の `sessionId` がUUIDとして読める場合、起動時刻・イベント名・hook名・機能したかどうかを `<一時フォルダー>/ghc-agent-refinement/hook-states/hook-activity/<セッションID>.sqlite3` に記録する。記録は [hook_activity_state.py](../utilities/hook-activity-state/hook_activity_state.py) で読み書きする。
+4. 入力の `sessionId` がUUIDとして読める場合、起動時刻・イベント名・hook名・機能したかどうかを `<一時フォルダー>/ghc-agent-refinement/hook-states/hook-activity/<セッションID>.sqlite3` に記録する。記録は [hook_activity_state.py](../utilities/hook_activity_state/hook_activity_state.py) で読み書きする。
 
 ## 実行方式
 ### プロセス内で実行する理由
@@ -40,7 +40,7 @@ Copilotは `timeoutSec` を超えたhookのプロセスを終了させる。hook
 
 ## 例外
 - `sessionId` を読めない入力（UUIDとして解析できない値を含む）のときは、記録だけを行わない。入力の検証は起動したhook自身が行う。
-- [check-python](../events/sessionStart/check-python/README.md) と [block-commands](../events/preToolUse/block-commands/README.md) は本ランナーを通さない。Pythonが無い環境や古い環境でも、Pythonの不足を報告したりコマンドを拒否したりする必要があるため。この2つは起動も機能も記録されない。
+- [check_python](../events/sessionStart/check_python/README.md) と [block_commands](../events/preToolUse/block_commands/README.md) は本ランナーを通さない。Pythonが無い環境や古い環境でも、Pythonの不足を報告したりコマンドを拒否したりする必要があるため。この2つは起動も機能も記録されない。
 
 ## 制約と限界
 ### プロセス内で実行する場合の制約
@@ -70,7 +70,7 @@ hookごとにホスト向けのラッパーを作らず、イベントごとに�
 1. 対応するイベントのhook定義を、このリポジトリ専用の定義（`-repo-<event-name>.json`）、共通の定義（`<event-name>.json`）の順に読む。`matcher` があるhookは、変換後のツール名の全体に一致するものだけを対象にする。
 2. 対象のhookを定義順に1つずつ実行する。拒否や差し戻しを出力したhookがあっても、残りのhookを実行する。
    - 本ランナーを通すhookは、アダプターのプロセス内で本ランナーを呼び出して実行する。hookごとにPythonを起動しないため。
-   - 本ランナーを通さないhook（`check-python`・`block-commands`）は、hook定義のコマンド（Windowsでは `powershell`、それ以外では `bash`）のまま、リポジトリルートで子プロセスとして実行する。
+   - 本ランナーを通さないhook（`check_python`・`block_commands`）は、hook定義のコマンド（Windowsでは `powershell`、それ以外では `bash`）のまま、リポジトリルートで子プロセスとして実行する。
 3. 各hookの出力を、ホストの形式の1つの出力にまとめる（[出力の集約](#出力の集約)）。
 
 ### 出力の集約
@@ -85,12 +85,12 @@ hookごとにホスト向けのラッパーを作らず、イベントごとに�
 
 - 出力があれば、出力して0で終える。
 - 出力がなく、異常終了したhookがあれば、1で終える。Claude CodeでもCodexでも終了コード2が「ブロック」を意味し、hookの異常終了（入力の不正など）でツールの実行や応答の終了が止まるため、非ブロックのエラーである1にする。原因はhookが標準エラーに出力する。
-- 異常終了したhookでも、判定のJSONを出力していれば判定を採用する。Pythonが古いときに [block-commands](../events/preToolUse/block-commands/README.md) がシェルの実行を拒否できるようにするため。
+- 異常終了したhookでも、判定のJSONを出力していれば判定を採用する。Pythonが古いときに [block_commands](../events/preToolUse/block_commands/README.md) がシェルの実行を拒否できるようにするため。
 
 ### 共通の制約
 - hook定義の `timeoutSec` は、本ランナーを通さないhookにだけ適用する。プロセス内で実行するhookは個別に止められず、全体がホストのhookのタイムアウトに従う。
-- アダプター自体がPythonで動くため、Pythonがない環境ではアダプターが起動できず、[check-python](../events/sessionStart/check-python/README.md) の案内も `block-commands` の拒否も働かない。
+- アダプター自体がPythonで動くため、Pythonがない環境ではアダプターが起動できず、[check_python](../events/sessionStart/check_python/README.md) の案内も `block_commands` の拒否も働かない。
 
 ## 備考
 - 記録に失敗しても、hookの出力と終了コードは変えない。失敗の原因は標準エラーに出力する。
-- 記録を読むのは [debug-add-response-footer](../events/agentStop/debug-add-response-footer/README.md) のみ。
+- 記録を読むのは [debug_add_response_footer](../events/agentStop/debug_add_response_footer/README.md) のみ。

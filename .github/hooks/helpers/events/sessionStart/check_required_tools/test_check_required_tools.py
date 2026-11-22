@@ -1,0 +1,172 @@
+import contextlib
+import io
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+from unittest.mock import Mock, patch
+
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'check_required_tools.py')
+_definitions_path = os.path.join(_script_directory, 'required_tool_definitions.json')
+sys.path.insert(0, _script_directory)
+import check_required_tools as _hook
+
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
+
+_COMMANDS = ('ast-grep', 'jq', 'rg')
+_SATISFIED = {'ast-grep': 'ast-grep 0.39.5\n', 'jq': 'jq-1.7.1\n', 'rg': 'ripgrep 14.1.1\n'}
+# 条件を満たさない場合の、コマンドごとの案内。
+_REQUIREMENTS = {
+    'ast-grep': 'ast-grep is required, and it must be available as the ast-grep command.',
+    'jq': 'jq 1.6 or later is required, and it must be available as the jq command.',
+    'rg': 'ripgrep 13.0.0 or later is required, and it must be available as the rg command.',
+}
+_INSTALL_MESSAGES = {
+    'win32': {
+        'ast-grep': 'Install it with: winget install --id ast-grep.ast-grep --exact --source winget',
+        'jq': 'Install it with: winget install --id jqlang.jq --exact --source winget',
+        'rg': 'Install it with: winget install --id BurntSushi.ripgrep.MSVC --exact --source winget',
+    },
+    'darwin': {
+        'ast-grep': 'Install it with: brew install ast-grep',
+        'jq': 'Install it with: brew install jq',
+        'rg': 'Install it with: brew install ripgrep',
+    },
+    'linux': {
+        'ast-grep': 'Installation guide: https://github.com/ast-grep/ast-grep#installation',
+        'jq': 'Installation guide: https://github.com/jqlang/jq#installation',
+        'rg': 'Installation guide: https://github.com/BurntSushi/ripgrep#installation',
+    },
+}
+_RESTART = 'After installation, restart the application or terminal running this hook to refresh PATH.'
+
+
+def _run_main(platform='linux', results=None, arguments=()):
+    # resultsはコマンドごとの `--version` の標準出力、または起動時に送出する例外。指定のないコマンドは条件を満たす。
+    results = {**_SATISFIED, **(results or {})}
+
+    def fake_run(command, **_):
+        result = results[command[0]]
+        if isinstance(result, BaseException):
+            raise result
+        return Mock(stdout=result)
+
+    run = Mock(side_effect=fake_run)
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    with (
+        patch.object(_hook.subprocess, 'run', run),
+        patch.object(_hook.sys, 'platform', platform),
+        patch.object(stdout, 'reconfigure', create=True),
+        patch.object(stderr, 'reconfigure', create=True),
+        contextlib.redirect_stdout(stdout),
+        contextlib.redirect_stderr(stderr),
+    ):
+        exit_code = _hook.main(list(arguments))
+    return exit_code, stderr.getvalue(), stdout.getvalue(), run
+
+
+def _expected_message(platform, commands):
+    lines = [line for command in commands for line in (_REQUIREMENTS[command], _INSTALL_MESSAGES[platform][command])]
+    return '\n'.join([*lines, _RESTART])
+
+
+class CheckRequiredToolsTests(unittest.TestCase):
+    def __assert_notified(self, result, platform, commands):
+        # 案内を標準エラーに出し、同じ案内をadditionalContextでエージェントに渡して正常終了すること。
+        exit_code, stderr, stdout, _ = result
+        expected = _expected_message(platform, commands)
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(stderr, f'{expected}\n')
+        self.assertEqual(json.loads(stdout), {'additionalContext': _hook._ADDITIONAL_CONTEXT.format(message=expected)})
+
+    def test_all_satisfied(self):
+        exit_code, stderr, stdout, run = _run_main()
+        self.assertEqual((exit_code, stderr, stdout), (0, '', ''))
+        self.assertEqual(
+            [call.args[0] for call in run.call_args_list], [[command, '--version'] for command in _COMMANDS],
+        )
+        run.assert_called_with(['rg', '--version'], capture_output=True, text=True, errors='replace', check=True)
+
+    def test_supported_versions(self):
+        for command, outputs in {
+            'ast-grep': ['ast-grep 0.1.0\n', 'ast-grep 1.0.0\n'],
+            # jqはパッチ番号を省略する版があるため、省略時は0とみなす。
+            'jq': ['jq-1.6\n', 'jq-1.8.0-dirty\n', 'jq-2.0\n'],
+            'rg': ['ripgrep 13.0.0\n-SIMD -AVX (compiled)\n', 'ripgrep 14.1.1 (rev 4649aa9700)\n\nfeatures:+pcre2\n',
+                   'ripgrep 15.0.0 (rev 3a612f88b8)\n'],
+        }.items():
+            for output in outputs:
+                with self.subTest(command=command, output=output):
+                    self.assertEqual(_run_main(results={command: output})[:3], (0, '', ''))
+
+    def test_unsatisfied_cases(self):
+        for command, output in (
+            ('jq', 'jq-1.5-1-a5b5cbe\n'), ('rg', 'ripgrep 12.1.1\n'),
+            ('ast-grep', 'unknown\n'), ('ast-grep', ''), ('jq', 'unknown\n'),
+            ('jq', FileNotFoundError()), ('rg', subprocess.CalledProcessError(1, ['rg', '--version'])),
+        ):
+            with self.subTest(command=command, output=output):
+                self.__assert_notified(_run_main(results={command: output}), 'linux', [command])
+
+    def test_installation_messages(self):
+        # 足りないツールの案内は定義の順に1つにまとめ、再起動の案内は最後に1回だけ付ける。
+        missing = {command: FileNotFoundError() for command in _COMMANDS}
+        for platform in _INSTALL_MESSAGES:
+            with self.subTest(platform=platform):
+                self.__assert_notified(_run_main(platform, missing), platform, _COMMANDS)
+        self.__assert_notified(_run_main(results={'ast-grep': FileNotFoundError(), 'rg': 'old\n'}), 'linux', ['ast-grep', 'rg'])
+
+    def test_invalid_definitions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, 'definitions.json')
+            with open(_definitions_path, encoding='utf-8') as file:
+                valid_tool = json.load(file)['tools'][0]
+            for name, content in (
+                ('broken json', '{'),
+                ('not an object', '[]'),
+                ('empty tools', '{"tools":[]}'),
+                ('missing command', json.dumps({'tools': [{**valid_tool, 'command': ''}]})),
+                ('invalid pattern', json.dumps({'tools': [{**valid_tool, 'versionPattern': '('}]})),
+                ('invalid minimum version', json.dumps({'tools': [{**valid_tool, 'minimumVersion': '1.x'}]})),
+                ('missing platform', json.dumps({'tools': [{**valid_tool, 'install': {'win32': 'a', 'darwin': 'b'}}]})),
+            ):
+                with self.subTest(name=name):
+                    with open(path, 'w', encoding='utf-8', newline='\n') as file:
+                        file.write(content)
+                    exit_code, stderr, stdout, run = _run_main(arguments=('--definitions-path', path))
+                    self.assertEqual((exit_code, stdout), (2, ''))
+                    self.assertIn('Failed to load required tool definitions', stderr)
+                    run.assert_not_called()
+
+    def test_missing_command_process(self):
+        with tempfile.TemporaryDirectory() as empty_directory:
+            environment = {**os.environ, 'PATH': empty_directory}
+            # WindowsはPATHのほかにSystem32なども探すため、そこにあるツールは見つからない状態を作れない。
+            missing = []
+            for command in _COMMANDS:
+                try:
+                    subprocess.run([command, '--version'], capture_output=True, cwd=empty_directory, env=environment, timeout=30)
+                except OSError:
+                    missing.append(command)
+            if not missing:
+                self.skipTest('All tools are found outside PATH, for example in System32.')
+            result = subprocess.run(
+                [sys.executable, _hook_path], input=b'{"sessionId":"test"}', capture_output=True,
+                cwd=empty_directory, env=environment, timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            for name, output in (('stdout', result.stdout), ('stderr', result.stderr)):
+                self.assertFalse(output.startswith(b'\xef\xbb\xbf'), name)
+                for command in missing:
+                    self.assertIn(_REQUIREMENTS[command].encode('utf-8'), output, name)
+            self.assertIn('additionalContext', json.loads(result.stdout.decode('utf-8')))
+
+
+if __name__ == '__main__':
+    _run_tests()

@@ -1,0 +1,219 @@
+import argparse
+import io
+import os
+import re
+import sqlite3
+import sys
+from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read_hook_input'),
+    os.path.join(_utilities_directory, 'write_hook_output'),
+    os.path.join(_utilities_directory, 'truncate_text'),
+    os.path.join(_utilities_directory, 'get_sha256_digest'),
+    os.path.join(_utilities_directory, 'read_definitions'),
+    os.path.join(_utilities_directory, 'get_state_path'),
+    os.path.join(_utilities_directory, 'filter_first_time_denials'),
+    os.path.join(_utilities_directory, 'get_display_path'),
+    os.path.join(_utilities_directory, 'read_stored_file_content_for_write_comparison'),
+    os.path.join(_utilities_directory, 'get_stripped_lines'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from truncate_text import truncate_text as _truncate_text
+from get_sha256_digest import get_path_sha256_digest as _get_path_sha256_digest
+import read_definitions as _definitions
+from get_state_path import get_state_path as _get_state_path
+from filter_first_time_denials import filter_first_time_denials as _filter_first_time_denials
+from get_display_path import get_display_path as _get_display_path
+from read_stored_file_content_for_write_comparison import read_stored_file_content_for_write_comparison as _read_stored_file_content_for_write_comparison
+import get_stripped_lines as _stripped_lines
+
+
+_INCLUDED_FILE_PATTERNS_KEY = 'includedFilePatterns'
+_TRANSLATING_CALLS_KEY = 'translatingCalls'
+_TEXT_WRITE_MODE_PATTERN_KEY = 'textWriteModePattern'
+_PINNED_NEWLINE_PATTERN_KEY = 'pinnedNewlinePattern'
+# 文字列リテラル。三重引用符を先に照合し、`"""` を空の文字列と次の文字列に分けて読まないようにする。
+# group(2)は中身。接頭辞（`r`・`b`・`f` など）の後の引用符の位置から照合する。
+_STRING_LITERAL_PATTERN = re.compile(
+    r'''("""|\'\'\'|"|')((?:\\.|(?!\1).)*)\1''',
+    re.DOTALL,
+)
+_MAX_SNIPPETS = 3
+_MAX_SNIPPET_LENGTH = 80
+_FINDING = '{file} would get {kinds} without newline=\'\\n\' ({snippets})'
+_DENY_REASON = (
+    'Edit denied: {findings}. Text streams translate "\\n" to the OS line separator when writing, which is "\\r\\n" '
+    'on Windows, so output and files that match on Linux and macOS differ on Windows and the tests fail there. '
+    'Pass newline=\'\\n\' to the call (for example `reconfigure(encoding=\'utf-8\', errors=\'replace\', '
+    'newline=\'\\n\')` or `open(path, \'w\', encoding=\'utf-8\', newline=\'\\n\')`), or write bytes instead. '
+    'If the call never writes text or passes newline on purpose in another way, retry the same edit; this check '
+    'denies it only once per file.'
+)
+
+
+def _load_definitions(path):
+    # 戻り値は (対象のファイルの正規表現のリスト, (名前, 呼び出しの正規表現, 書き込みのモードを要するか) のリスト,
+    # 書き込みのモードの正規表現, newlineの指定の正規表現)。
+    label = 'newline definitions'
+    definitions = _definitions.read_definitions(path, label)
+    included = _definitions.get_regex_matchers(definitions, _INCLUDED_FILE_PATTERNS_KEY, label)
+    calls = _definitions.get_named_regex_matchers(definitions, _TRANSLATING_CALLS_KEY, label)
+    text_write_modes = [call.get('requiresTextWriteMode') for call in definitions[_TRANSLATING_CALLS_KEY]]
+    if not all(isinstance(mode, bool) for mode in text_write_modes):
+        raise ValueError(f'each item of {_TRANSLATING_CALLS_KEY} in {label} requires a boolean requiresTextWriteMode.')
+    return (
+        included,
+        [(name, pattern, mode) for (name, pattern), mode in zip(calls, text_write_modes)],
+        _definitions.get_regex_matcher(definitions, _TEXT_WRITE_MODE_PATTERN_KEY, label),
+        _definitions.get_regex_matcher(definitions, _PINNED_NEWLINE_PATTERN_KEY, label),
+    )
+
+
+def _get_arguments(text, open_index):
+    # `(` の位置から対応する `)` までの引数の文字列を返す。文字列の中の括弧は数えない。
+    # 書き込む内容が呼び出しの途中で終わる場合は、終わりまでを返す。
+    depth = 0
+    index = open_index
+    while index < len(text):
+        character = text[index]
+        if character in '"\'':
+            literal = _STRING_LITERAL_PATTERN.match(text, index)
+            if literal:
+                index = literal.end()
+                continue
+        elif character == '#':
+            end = text.find('\n', index)
+            index = len(text) if end < 0 else end
+            continue
+        elif character in '([{':
+            depth += 1
+        elif character in ')]}':
+            depth -= 1
+            if depth == 0:
+                return text[open_index + 1:index]
+        index += 1
+    return text[open_index + 1:]
+
+
+def _get_code_ranges(text):
+    # 文字列リテラルとコメントの外側（コード）の範囲を (開始, 終了) のリストで返す。
+    # テストの入力などとして文字列に書いた呼び出しを、呼び出しとみなさないために使う。
+    ranges = []
+    start = 0
+    index = 0
+    while index < len(text):
+        character = text[index]
+        if character in '"\'':
+            literal = _STRING_LITERAL_PATTERN.match(text, index)
+            end = literal.end() if literal else len(text)
+        elif character == '#':
+            newline = text.find('\n', index)
+            end = len(text) if newline < 0 else newline
+        else:
+            index += 1
+            continue
+        ranges.append((start, index))
+        start = index = end
+    ranges.append((start, len(text)))
+    return ranges
+
+
+def _find_unpinned_calls(definitions, written, existing):
+    # 戻り値は (種類の名前のリスト, 呼び出しの先頭の行のリスト)。
+    # newlineを指定した呼び出しと、既存の内容に同じ行がある呼び出し（元からあるもの）は除く。
+    _, calls, text_write_mode, pinned_newline = definitions
+    existing_lines = _stripped_lines.get_stripped_lines(existing)
+    code_ranges = _get_code_ranges(written)
+    kinds = []
+    snippets = []
+    for name, pattern, requires_text_write_mode in calls:
+        for match in pattern.finditer(written):
+            if not any(start <= match.start() < end for start, end in code_ranges):
+                continue
+            line = _stripped_lines.get_stripped_line_at(written, match.start())
+            if line in existing_lines:
+                continue
+            arguments = _get_arguments(written, match.end() - 1)
+            if pinned_newline.search(arguments):
+                continue
+            if requires_text_write_mode and not any(
+                text_write_mode.match(literal.group(2)) for literal in _STRING_LITERAL_PATTERN.finditer(arguments)
+            ):
+                continue
+            if line not in snippets:
+                snippets.append(line)
+            if name not in kinds:
+                kinds.append(name)
+    return kinds, snippets
+
+
+def _format_snippet(snippet):
+    return f'"{_truncate_text(snippet, _MAX_SNIPPET_LENGTH)}"'
+
+
+def main(arguments=None):
+    # 型定義上の `sys.stdout`・`sys.stderr` はreconfigureを持たないTextIOのため、静的型チェック向けに実体のTextIOWrapperとしてcastする。castは実行時に何もしない。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+
+    # テスト用に定義ファイルを差し替えられるようにする。
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--definitions-path',
+        default=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'newline_definitions.json'),
+    )
+    parsed_arguments = parser.parse_args(arguments)
+
+    try:
+        definitions = _load_definitions(parsed_arguments.definitions_path)
+        sys.path.insert(0, os.path.join(_utilities_directory, 'edit_tool_changes'))
+        from edit_tool_changes import extract_edit_tool_changes
+
+        hook_input = _hook_input.read_hook_input()
+        state_path = _get_state_path('block_native_newlines', hook_input.get('sessionId'))
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
+
+        real_cwd = os.path.realpath(cwd)
+        candidates = []
+        for change in extract_edit_tool_changes(tool_name, tool_args):
+            path = os.path.realpath(os.path.join(cwd, change['path']))
+            display_path = _get_display_path(path, real_cwd)
+            if not any(pattern.search(display_path) for pattern in definitions[0]):
+                continue
+            current = (_read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None) or ''
+            written = change['full_content'] if change['full_content'] is not None else change['written']
+            kinds, snippets = _find_unpinned_calls(definitions, written, '\n'.join([change['removed'], current]))
+            if snippets:
+                # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
+                file_key = _get_path_sha256_digest(path)
+                candidates.append((file_key, _FINDING.format(
+                    file=display_path, kinds=', '.join(kinds),
+                    snippets=', '.join(_format_snippet(snippet) for snippet in snippets[:_MAX_SNIPPETS]),
+                )))
+
+        reasons = []
+        if candidates:
+            reasons = _filter_first_time_denials(state_path, candidates)
+    except (OSError, UnicodeError, ValueError, ImportError, sqlite3.Error) as ex:
+        print(f'Failed to check native newlines: {ex}', file=sys.stderr)
+        return 2
+
+    if reasons:
+        reason = _DENY_REASON.format(findings='; '.join(reasons))
+        print(reason, file=sys.stderr)
+        # 正常な拒否なので終了コードは0。
+        _hook_output.write_deny_decision(reason)
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

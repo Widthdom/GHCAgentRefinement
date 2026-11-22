@@ -13,7 +13,7 @@ _hooks_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _repository_root = os.path.dirname(os.path.dirname(_hooks_directory))
 _RUNNER = '.github/hooks/helpers/runner/run_hook.py'
 # Pythonが無い環境でも動く必要があるため、ランナーを通さず .sh・.cmd から起動するhook。
-_DIRECT_HOOKS = ('block-commands', 'check-python')
+_DIRECT_HOOKS = ('block_commands', 'check_python')
 
 
 def _load_configurations():
@@ -71,13 +71,11 @@ class HookConfigurationTests(unittest.TestCase):
                     hook_name = script_path.split('/')[-2]
                     hook_directory = f'.github/hooks/helpers/{events_name}/{event_name}/{hook_name}'
                     with self.subTest(filename=filename, hook_name=hook_name):
+                        hook_path = f'{hook_directory}/{hook_name}'
                         if hook_name in _DIRECT_HOOKS:
-                            hook_path = f'{hook_directory}/{hook_name}'
                             expected = (f'bash {hook_path}.sh', f'& ./{hook_path}.cmd')
                         else:
-                            # 実行スクリプトのファイル名は、hook名のハイフンをアンダースコアに変えたもの。
-                            hook_path = f"{hook_directory}/{hook_name.replace('-', '_')}.py"
-                            expected = (f'python3 {_RUNNER} {hook_path}', f'python {_RUNNER} {hook_path}')
+                            expected = (f'python3 {_RUNNER} {hook_path}.py', f'python {_RUNNER} {hook_path}.py')
                         self.assertEqual((entry['bash'], entry['powershell']), expected)
                         if 'matcher' in entry:
                             re.compile(entry['matcher'])

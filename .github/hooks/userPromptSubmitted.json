@@ -4,23 +4,23 @@
     "userPromptSubmitted": [
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/give-subagents-instructions/give_subagents_instructions.py",
-        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/give-subagents-instructions/give_subagents_instructions.py"
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/give_subagents_instructions/give_subagents_instructions.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/give_subagents_instructions/give_subagents_instructions.py"
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/record-hook-change-requests/record_hook_change_requests.py",
-        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/record-hook-change-requests/record_hook_change_requests.py"
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/record_hook_change_requests/record_hook_change_requests.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/record_hook_change_requests/record_hook_change_requests.py"
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/set-adversarial-review-state/set_adversarial_review_state.py",
-        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/set-adversarial-review-state/set_adversarial_review_state.py"
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/set_adversarial_review_state/set_adversarial_review_state.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/set_adversarial_review_state/set_adversarial_review_state.py"
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/set-debug-mode/set_debug_mode.py",
-        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/set-debug-mode/set_debug_mode.py"
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/set_debug_mode/set_debug_mode.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/userPromptSubmitted/set_debug_mode/set_debug_mode.py"
       }
     ]
   }

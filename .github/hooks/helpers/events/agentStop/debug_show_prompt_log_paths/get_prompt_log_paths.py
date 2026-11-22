@@ -1,0 +1,60 @@
+import glob
+import os
+import sys
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'get_state_path'),
+    os.path.join(_utilities_directory, 'debug_mode_state'),
+    os.path.join(_utilities_directory, 'read_transcript_events'),
+]
+from get_state_path import parse_session_id as _parse_session_id
+from debug_mode_state import get_debug_log_directory as _get_debug_log_directory
+from read_transcript_events import read_transcript_events as _read_transcript_events
+
+
+def get_prompt_log_paths(transcript_path, session_id):
+    session_id = _parse_session_id(str(session_id))
+    timestamps = set()
+    response_started = False
+    for event in _read_transcript_events(transcript_path):
+        if event.get('type') != 'hook.start':
+            continue
+        data = event['data']
+        hook_input = data.get('input')
+        if not isinstance(hook_input, dict) or hook_input.get('agentId'):
+            continue
+        try:
+            event_session = _parse_session_id(hook_input.get('sessionId'))
+        except ValueError:
+            continue
+        if event_session != session_id:
+            continue
+
+        hook_type = data.get('hookType')
+        if hook_type == 'userPromptSubmitted':
+            timestamps.clear()
+            response_started = False
+        elif hook_type == 'agentStop':
+            # 応答継続による内部的なプロンプト変換は除外し、
+            # ユーザーの依頼に対して最初の応答終了までに作られたログに固定する。
+            response_started = True
+        elif hook_type == 'userPromptTransformed' and not response_started:
+            timestamp = hook_input.get('timestamp')
+            if type(timestamp) is int and timestamp >= 0:
+                timestamps.add(timestamp)
+
+    log_directory = _get_debug_log_directory('prompt-transformations', str(session_id))
+    paths = []
+    for timestamp in sorted(timestamps):
+        # 現在の依頼で実際に発動したイベントと照合し、過去のログを表示しない。
+        paths.extend(sorted(
+            path for path in glob.glob(os.path.join(glob.escape(log_directory), f'{timestamp}-*.md'))
+            if os.path.isfile(path)
+        ))
+    return paths

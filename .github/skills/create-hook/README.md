@@ -10,11 +10,11 @@ VS CodeのSession Targetが `Copilot` の場合はCLIと同じSDK hook実装を�
 hookの実行スクリプトをPythonに統一すると、Windows、macOS、Linuxで同じスクリプトを起動でき、OSごとにシェルスクリプトを書き分ける必要がなくなる。JSON・正規表現・パス操作・一時ディレクトリなど、hookで必要な処理は標準ライブラリだけで扱える。
 
 ## Pythonなしで動くhookの起動
-`check-python` と `block-commands` は、Pythonがない環境でも案内や拒否ができる必要があるため、hookランナーを通さず、hook定義の `bash` からは `.sh` を、`powershell` からは `.cmd` を起動する。
+`check_python` と `block_commands` は、Pythonがない環境でも案内や拒否ができる必要があるため、hookランナーを通さず、hook定義の `bash` からは `.sh` を、`powershell` からは `.cmd` を起動する。
 
 ### Copilot・Claude Code・Codexでの起動のされ方
 - Copilotは、Windowsではhook定義の `powershell` のコマンドをPowerShellで実行し、macOS・Linuxでは `bash` のコマンドを実行する。
-- Claude Codeのhook設定（[.claude/settings.json](../../../.claude/settings.json)）は、1つのhookにコマンドを1つしか持てず、OSで出し分けられない。そのため、どのOSでも `sh` で起動スクリプト [run-claude-hook.sh](../../hooks/helpers/runner/run-claude-hook.sh) を実行し、アダプターがhook定義を読んで各hookを実行する。Windowsでは、Claude CodeがGit for Windowsに含まれるGit Bashを探してhookのコマンドを実行する。
+- Claude Codeのhook設定（[.claude/settings.json](../../../.claude/settings.json)）は、1つのhookにコマンドを1つしか持てず、OSで出し分けられない。そのため、どのOSでも `sh` で起動スクリプト [run_claude_hook.sh](../../hooks/helpers/runner/run_claude_hook.sh) を実行し、アダプターがhook定義を読んで各hookを実行する。Windowsでは、Claude CodeがGit for Windowsに含まれるGit Bashを探してhookのコマンドを実行する。
 - アダプターは、ランナーを通さないこの2つのhookを、Windowsでは定義の `powershell` のコマンドのまま子プロセスで実行する。そのため、Claude Codeでも、Windowsでは `.cmd` が、それ以外では `.sh` が実行される。
 - アダプター自体がPythonで動くため、Claude CodeではPythonがない環境でこの2つのhookは働かない（[.claude/README.md](../../../.claude/README.md) を参照）。
 - Codexの [hooks.json](../../../.codex/hooks.json) はOS別の `commandWindows` を持てるため、WindowsではPowerShellから `python`、macOS/Linuxでは `python3` で直接アダプターを起動する。Git Bashを探す起動スクリプトは使わない。アダプター内の実行方式とPythonがない場合の制約はClaude Codeと同じ。

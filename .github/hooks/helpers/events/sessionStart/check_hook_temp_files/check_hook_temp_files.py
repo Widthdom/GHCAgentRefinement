@@ -1,0 +1,43 @@
+import io
+import os
+import sys
+import time
+from typing import cast
+
+
+# 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
+# hookのフォルダー → イベントのフォルダー → events → helpers の直下にutilitiesがある。
+_utilities_directory = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
+)
+sys.path.insert(0, os.path.join(_utilities_directory, 'write_hook_output'))
+import write_hook_output as _hook_output
+
+_WARNING_THRESHOLD = 500
+_WARNING_MESSAGE = (
+    '{count} temporary files under {root} (hook states and debug logs) have not been updated for more than '
+    '48 hours. At the start of your first response, tell the user about this in the language you respond in and '
+    'suggest running /clean-hook-temp-files to delete them. Do not delete them yourself.'
+)
+
+
+def main():
+    # 型定義上の `sys.stdout`・`sys.stderr` はreconfigureを持たないTextIOのため、静的型チェック向けに実体のTextIOWrapperとしてcastする。castは実行時に何もしない。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+
+    # 削除用のclean-hook-temp-files skillと、対象の分類と保持期間を共有する。
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import hook_temp_files as temp_files
+    root = temp_files.get_temp_root()
+    count = len(temp_files.find_stale_files(root, time.time()))
+    if count < _WARNING_THRESHOLD:
+        return 0
+
+    # Copilot SDKはhookの出力のうちsystemMessageを解釈しないため、エージェントに渡してユーザーへ伝えさせる。
+    _hook_output.write_additional_context(_WARNING_MESSAGE.format(count=count, root=root))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

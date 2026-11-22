@@ -18,8 +18,8 @@ sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests as _run_tests
 
 _runner_path = os.path.join(_script_directory, 'run_hook.py')
-_state_helper_path = os.path.join(_helpers_directory, 'utilities', 'hook-activity-state', 'hook_activity_state.py')
-_COPIED_UTILITIES = ('hook-activity-state', 'get-state-path')
+_state_helper_path = os.path.join(_helpers_directory, 'utilities', 'hook_activity_state', 'hook_activity_state.py')
+_COPIED_UTILITIES = ('hook_activity_state', 'get_state_path')
 
 # 標準入力をそのまま返し、引数代わりの環境変数で動作を切り替える偽のhook。
 _FAKE_HOOK = '''import os
@@ -67,12 +67,11 @@ class RunHookTests(unittest.TestCase):
         # 記録の読み書きに使うutilityと、それが読み込むutilityを複製する。
         for utility in _COPIED_UTILITIES:
             os.makedirs(os.path.join(self.__helpers, 'utilities', utility))
-            filename = f"{utility.replace('-', '_')}.py"
             shutil.copy(
-                os.path.join(_helpers_directory, 'utilities', utility, filename),
-                os.path.join(self.__helpers, 'utilities', utility, filename),
+                os.path.join(_helpers_directory, 'utilities', utility, f'{utility}.py'),
+                os.path.join(self.__helpers, 'utilities', utility, f'{utility}.py'),
             )
-        self.__fake_hook = '.github/hooks/helpers/events/preToolUse/fake-hook/fake_hook.py'
+        self.__fake_hook = '.github/hooks/helpers/events/preToolUse/fake_hook/fake_hook.py'
         self.__write_file(self.__fake_hook, _FAKE_HOOK)
         self.__temp_directory = os.path.join(self.__root, 'temp')
         os.makedirs(self.__temp_directory)
@@ -129,15 +128,15 @@ class RunHookTests(unittest.TestCase):
                 self.assertEqual(result.returncode, exit_code)
                 self.assertEqual(result.stdout, b'')
                 self.assertIn(error, result.stderr)
-                self.assertEqual(self.__recorded_runs()[-1], ('preToolUse', 'fake-hook', 1 if exit_code else 0))
+                self.assertEqual(self.__recorded_runs()[-1], ('preToolUse', 'fake_hook', 1 if exit_code else 0))
 
     def test_runs_repository_specific_hook(self):
-        repository_hook = '.github/hooks/helpers/-repo-events/preToolUse/repo-hook/repo_hook.py'
+        repository_hook = '.github/hooks/helpers/-repo-events/preToolUse/repo_hook/repo_hook.py'
         self.__write_file(repository_hook, _FAKE_HOOK)
         stdin = self.__payload()
         result = self.__run_hook(stdin, repository_hook)
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, stdin, b''))
-        self.assertEqual(self.__recorded_runs(), [('preToolUse', 'repo-hook', 1)])
+        self.assertEqual(self.__recorded_runs(), [('preToolUse', 'repo_hook', 1)])
 
     def test_text_output_matches_direct_run(self):
         result = self.__run_hook(self.__payload(), FAKE_MODE='text')
@@ -145,7 +144,7 @@ class RunHookTests(unittest.TestCase):
         self.assertEqual(result.stdout, f'日本語{os.linesep}'.encode('utf-8'))
 
     def test_runs_hook_in_runner_process(self):
-        self.__write_file('.github/hooks/helpers/events/preToolUse/fake-hook/fake_sibling.py', "VALUE = 'sibling'\n")
+        self.__write_file('.github/hooks/helpers/events/preToolUse/fake_hook/fake_sibling.py', "VALUE = 'sibling'\n")
         process = subprocess.Popen(
             [sys.executable, os.path.join(self.__helpers, 'runner', 'run_hook.py'), self.__fake_hook],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -187,7 +186,7 @@ class RunHookTests(unittest.TestCase):
         for stdout, exit_code, fired in cases:
             with self.subTest(stdout=stdout, exit_code=exit_code):
                 self.__run_hook(self.__payload(), FAKE_STDOUT=stdout or ' ', FAKE_EXIT=exit_code)
-                self.assertEqual(self.__recorded_runs()[-1], ('preToolUse', 'fake-hook', 1 if fired else 0))
+                self.assertEqual(self.__recorded_runs()[-1], ('preToolUse', 'fake_hook', 1 if fired else 0))
 
     def test_skips_recording_without_session_id(self):
         for stdin in (
@@ -211,21 +210,18 @@ class RunHookTests(unittest.TestCase):
         result = self.__run_hook(self.__payload(), FAKE_STDOUT='{"decision":"block"}')
         self.assertEqual(result.returncode, 0)
         self.assertEqual(result.stdout, b'{"decision":"block"}')
-        self.assertIn(b'Failed to record hook run for fake-hook:', result.stderr)
+        self.assertIn(b'Failed to record hook run for fake_hook:', result.stderr)
 
     def test_rejects_invalid_arguments(self):
-        self.__write_file('.github/hooks/helpers/events/preToolUse/fake-hook/other.py', _FAKE_HOOK)
-        self.__write_file('.github/hooks/helpers/events/preToolUse/fake-hook/fake-hook.py', _FAKE_HOOK)
-        self.__write_file('.github/hooks/helpers/other/fake-hook/fake_hook.py', _FAKE_HOOK)
-        self.__write_file('.github/hooks/-repo-events/preToolUse/fake-hook/fake_hook.py', _FAKE_HOOK)
+        self.__write_file('.github/hooks/helpers/events/preToolUse/fake_hook/other.py', _FAKE_HOOK)
+        self.__write_file('.github/hooks/helpers/other/fake_hook/fake_hook.py', _FAKE_HOOK)
+        self.__write_file('.github/hooks/-repo-events/preToolUse/fake_hook/fake_hook.py', _FAKE_HOOK)
         cases = (
-            (('.github/hooks/-repo-events/preToolUse/fake-hook/fake_hook.py',), 'Failed to resolve hook script'),
+            (('.github/hooks/-repo-events/preToolUse/fake_hook/fake_hook.py',), 'Failed to resolve hook script'),
             ((), 'Usage: run_hook.py'),
             ((self.__fake_hook, 'extra'), 'Usage: run_hook.py'),
-            (('.github/hooks/helpers/events/preToolUse/fake-hook/other.py',), 'Failed to resolve hook script'),
-            # 実行スクリプトのファイル名は、hook名のハイフンをアンダースコアに変えたものに限る。
-            (('.github/hooks/helpers/events/preToolUse/fake-hook/fake-hook.py',), 'Failed to resolve hook script'),
-            (('.github/hooks/helpers/other/fake-hook/fake_hook.py',), 'Failed to resolve hook script'),
+            (('.github/hooks/helpers/events/preToolUse/fake_hook/other.py',), 'Failed to resolve hook script'),
+            (('.github/hooks/helpers/other/fake_hook/fake_hook.py',), 'Failed to resolve hook script'),
             (('.github/hooks/helpers/events/preToolUse/missing/missing.py',), 'Hook script not found'),
         )
         for arguments, expected_error in cases:

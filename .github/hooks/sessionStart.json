@@ -4,38 +4,38 @@
     "sessionStart": [
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check-git-state/check_git_state.py",
-        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check-git-state/check_git_state.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check_git_state/check_git_state.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check_git_state/check_git_state.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check-hook-temp-files/check_hook_temp_files.py",
-        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check-hook-temp-files/check_hook_temp_files.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check_hook_temp_files/check_hook_temp_files.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check_hook_temp_files/check_hook_temp_files.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
-        "bash": "bash .github/hooks/helpers/events/sessionStart/check-python/check-python.sh",
-        "powershell": "& ./.github/hooks/helpers/events/sessionStart/check-python/check-python.cmd",
+        "bash": "bash .github/hooks/helpers/events/sessionStart/check_python/check_python.sh",
+        "powershell": "& ./.github/hooks/helpers/events/sessionStart/check_python/check_python.cmd",
         "timeoutSec": 10
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check-required-tools/check_required_tools.py",
-        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check-required-tools/check_required_tools.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check_required_tools/check_required_tools.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check_required_tools/check_required_tools.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check-target-session/check_target_session.py",
-        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check-target-session/check_target_session.py",
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check_target_session/check_target_session.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check_target_session/check_target_session.py",
         "timeoutSec": 10
       },
       {
         "type": "command",
-        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/load-copilot-instructions/load_copilot_instructions.py",
-        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/load-copilot-instructions/load_copilot_instructions.py"
+        "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/load_copilot_instructions/load_copilot_instructions.py",
+        "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/load_copilot_instructions/load_copilot_instructions.py"
       }
     ]
   }

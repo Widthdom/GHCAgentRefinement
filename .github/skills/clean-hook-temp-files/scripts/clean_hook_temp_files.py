@@ -25,10 +25,10 @@ def main(arguments=None):
     parser.add_argument('--dry-run', action='store_true', help='list the files to delete without deleting them')
     parsed_arguments = parser.parse_args(arguments)
 
-    # 判定基準の持ち主である警告用のcheck-hook-temp-files hookから、対象の分類と保持期間を借りる。
+    # 判定基準の持ち主である警告用のcheck_hook_temp_files hookから、対象の分類と保持期間を借りる。
     # 4階層上：.github ディレクトリ（scripts → clean-hook-temp-files → skills → .github）
     github_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-    sys.path.insert(0, os.path.join(github_directory, 'hooks', 'helpers', 'events', 'sessionStart', 'check-hook-temp-files'))
+    sys.path.insert(0, os.path.join(github_directory, 'hooks', 'helpers', 'events', 'sessionStart', 'check_hook_temp_files'))
     import hook_temp_files as temp_files
     root = temp_files.get_temp_root()
     now = time.time()

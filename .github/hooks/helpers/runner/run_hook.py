@@ -23,8 +23,7 @@ _STANDARD_STREAM_NEWLINE = None if os.name == 'nt' else '\n'
 
 
 def _resolve_hook_script(argument):
-    # 実行スクリプトは helpers/events または helpers/-repo-events の <イベント名>/<hook名>/<hook_name>.py に限る。
-    # 実行スクリプトのファイル名は、hook名のハイフンをアンダースコアに変えたものにする（read_hook_input.py など）。
+    # 実行スクリプトは helpers/events または helpers/-repo-events の <イベント名>/<hook名>/<hook名>.py に限る。
     script_path = os.path.normpath(os.path.join(_repository_root, argument))
     hook_directory = os.path.dirname(script_path)
     event_directory = os.path.dirname(hook_directory)
@@ -33,11 +32,11 @@ def _resolve_hook_script(argument):
         os.path.normcase(os.path.dirname(event_directory)) not in {
             os.path.normcase(directory) for directory in _events_directories
         }
-        or os.path.basename(script_path) != f"{hook_name.replace('-', '_')}.py"
+        or os.path.basename(script_path) != f'{hook_name}.py'
     ):
         raise ValueError(
-            f'Hook script must be helpers/events/<event-name>/<hook-name>/<hook_name>.py or '
-            f'helpers/-repo-events/<event-name>/<hook-name>/<hook_name>.py: {argument}'
+            f'Hook script must be helpers/events/<event-name>/<hook_name>/<hook_name>.py or '
+            f'helpers/-repo-events/<event-name>/<hook_name>/<hook_name>.py: {argument}'
         )
     if not os.path.isfile(script_path):
         raise FileNotFoundError(f'Hook script not found: {argument}')
@@ -54,7 +53,7 @@ def _get_session_id(hook_input_bytes):
     if not isinstance(hook_input, dict):
         return None
     session_id = hook_input.get('sessionId')
-    sys.path.insert(0, os.path.join(_helpers_directory, 'utilities', 'get-state-path'))
+    sys.path.insert(0, os.path.join(_helpers_directory, 'utilities', 'get_state_path'))
     from get_state_path import parse_session_id
     try:
         parse_session_id(session_id)
@@ -160,7 +159,7 @@ def main():
     try:
         session_id = _get_session_id(hook_input_bytes)
         if session_id is not None:
-            sys.path.insert(0, os.path.join(_helpers_directory, 'utilities', 'hook-activity-state'))
+            sys.path.insert(0, os.path.join(_helpers_directory, 'utilities', 'hook_activity_state'))
             from hook_activity_state import record_hook_run
             record_hook_run(session_id, event_name, hook_name, started_at_ms, _is_fired(exit_code, output_bytes))
     # 記録に使うutilityを読み込めない場合（ImportError）も、記録の失敗として扱う。

@@ -15,11 +15,11 @@ _repository_root = os.path.dirname(os.path.dirname(_hooks_directory))
 sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests as _run_tests
 
-_RUNNER_FILES = ('run_hook.py', 'run_claude_hook.py', 'run-claude-hook.sh', 'adapted_hook_runtime.py')
+_RUNNER_FILES = ('run_hook.py', 'run_claude_hook.py', 'run_claude_hook.sh', 'adapted_hook_runtime.py')
 _COPIED_UTILITIES = (
-    'collect-json-string-values', 'get-state-path', 'hook-activity-state', 'parse-tool-calls', 'read-transcript-events',
+    'collect_json_string_values', 'get_state_path', 'hook_activity_state', 'parse_tool_calls', 'read_transcript_events',
 )
-_LAUNCHER_COMMAND = 'sh "$CLAUDE_PROJECT_DIR/.github/hooks/helpers/runner/run-claude-hook.sh"'
+_LAUNCHER_COMMAND = 'sh "$CLAUDE_PROJECT_DIR/.github/hooks/helpers/runner/run_claude_hook.sh"'
 _CLAUDE_EVENTS = (
     'PostToolUse', 'PostToolUseFailure', 'PreToolUse', 'SessionStart', 'Stop', 'SubagentStart', 'UserPromptSubmit',
 )
@@ -62,10 +62,9 @@ class RunClaudeHookTests(unittest.TestCase):
             shutil.copy(os.path.join(_script_directory, filename), os.path.join(self.__hooks, 'helpers', 'runner', filename))
         for utility in _COPIED_UTILITIES:
             os.makedirs(os.path.join(self.__hooks, 'helpers', 'utilities', utility))
-            filename = f"{utility.replace('-', '_')}.py"
             shutil.copy(
-                os.path.join(_helpers_directory, 'utilities', utility, filename),
-                os.path.join(self.__hooks, 'helpers', 'utilities', utility, filename),
+                os.path.join(_helpers_directory, 'utilities', utility, f'{utility}.py'),
+                os.path.join(self.__hooks, 'helpers', 'utilities', utility, f'{utility}.py'),
             )
         self.__adapter_path = os.path.join(self.__hooks, 'helpers', 'runner', 'run_claude_hook.py')
         self.__temp_directory = os.path.join(self.__root, 'temp')
@@ -79,7 +78,7 @@ class RunClaudeHookTests(unittest.TestCase):
         # 偽のhookを作り、イベントのhook定義に加える。
         directory = self.__hook_directory(event, hook_name, events_name)
         os.makedirs(directory)
-        script_name = f"{hook_name.replace('-', '_')}.py"
+        script_name = f'{hook_name}.py'
         with open(os.path.join(directory, script_name), 'w', encoding='utf-8', newline='\n') as file:
             file.write(_FAKE_HOOK)
         if output is not None:
@@ -347,7 +346,7 @@ class RunClaudeHookTests(unittest.TestCase):
         ])
 
         # 変換したトランスクリプトを、hookが使うutilityで読める。
-        sys.path.insert(0, os.path.join(_helpers_directory, 'utilities', 'read-transcript-events'))
+        sys.path.insert(0, os.path.join(_helpers_directory, 'utilities', 'read_transcript_events'))
         import read_transcript_events as transcript_events
         converted_path = os.path.join(self.__root, 'converted.jsonl')
         with open(converted_path, 'w', encoding='utf-8', newline='\n') as file:
@@ -399,13 +398,13 @@ class RunClaudeHookTests(unittest.TestCase):
 
     def test_runs_command_hook_without_runner(self):
         # hookランナーを通さないhookは、hook定義のコマンドのまま、リポジトリルートで実行する。
-        directory = self.__hook_directory('preToolUse', 'direct-hook')
+        directory = self.__hook_directory('preToolUse', 'direct_hook')
         os.makedirs(directory)
         with open(os.path.join(directory, 'direct_hook.py'), 'w', encoding='utf-8', newline='\n') as file:
             file.write(_FAKE_HOOK)
         with open(os.path.join(directory, 'output.json'), 'w', encoding='utf-8', newline='\n') as file:
             json.dump({'permissionDecision': 'deny', 'permissionDecisionReason': 'direct'}, file)
-        script = '.github/hooks/helpers/events/preToolUse/direct-hook/direct_hook.py'
+        script = '.github/hooks/helpers/events/preToolUse/direct_hook/direct_hook.py'
         self.__add_entry('preToolUse', {
             'type': 'command', 'matcher': 'bash', 'timeoutSec': 30,
             'bash': f'"{sys.executable}" {script}', 'powershell': f'& "{sys.executable}" {script}',
@@ -413,7 +412,7 @@ class RunClaudeHookTests(unittest.TestCase):
         result, output = self.__run_adapter('PreToolUse', tool_name='Bash', tool_input={'command': 'ls'})
         self.assertEqual(result.returncode, 0)
         self.assertEqual(output['hookSpecificOutput']['permissionDecisionReason'], 'direct')
-        self.assertEqual(self.__inputs('preToolUse', 'direct-hook')[0]['toolName'], 'bash')
+        self.assertEqual(self.__inputs('preToolUse', 'direct_hook')[0]['toolName'], 'bash')
 
     def test_rejects_invalid_input(self):
         self.__add_hook('preToolUse', 'a-hook')
@@ -439,7 +438,7 @@ class RunClaudeHookTests(unittest.TestCase):
         self.__add_hook('sessionStart', 'a-hook', output={'additionalContext': 'context'})
         payload = {'session_id': self.__session_id, 'cwd': self.__repository, 'hook_event_name': 'SessionStart'}
         result = self.__run(
-            ['sh', os.path.join(self.__hooks, 'helpers', 'runner', 'run-claude-hook.sh')], json.dumps(payload).encode('utf-8'),
+            ['sh', os.path.join(self.__hooks, 'helpers', 'runner', 'run_claude_hook.sh')], json.dumps(payload).encode('utf-8'),
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout.decode('utf-8'))['hookSpecificOutput']['additionalContext'], 'context')
