@@ -97,7 +97,6 @@ def main():
         )
         fingerprint = _get_text_sha256_digest(identity)
 
-        # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
         # 期限切れレコードは次回失敗時に削除する。DBファイル自体は自動削除しない。
         should_notify = _record_failure(state_path, fingerprint)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:

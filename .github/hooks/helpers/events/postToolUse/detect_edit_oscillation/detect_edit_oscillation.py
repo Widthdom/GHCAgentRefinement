@@ -129,7 +129,6 @@ def main():
             for normalized_path, path in sorted(paths.items())
         ]
 
-        # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
         # 期限切れレコードは次回編集時に削除する。DBファイル自体は自動削除しない。
         oscillated_paths = _record_edits(state_path, edits)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:

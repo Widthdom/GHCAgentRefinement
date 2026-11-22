@@ -23,7 +23,6 @@ _PYTHON_MODULE = 'python-module'
 
 
 def get_state_path(session_id):
-    # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
     return _state_path_utility.get_state_path('verified_packages', session_id)
 
 
