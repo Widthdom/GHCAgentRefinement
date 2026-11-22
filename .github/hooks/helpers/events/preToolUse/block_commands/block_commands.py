@@ -3,7 +3,7 @@ import io
 import os
 import re
 import sys
-from typing import cast
+from typing import TypeGuard, cast
 
 
 # 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
@@ -23,7 +23,10 @@ import read_definitions as _definitions
 import parse_tool_calls as _tool_calls
 
 
-def _is_non_blank_string(value):
+# 戻り値の型を `TypeGuard[str]` にして、Trueを返した後の呼び出し元でvalueをstrとして扱えるようにする（型チェッカー向け）。
+# 空白のみの文字列でもFalseを返すため、False側でstrを除外する `TypeIs` ではなく `TypeGuard` を使う。
+# boolのままでは、dict.getで取り出した値がNoneの可能性を残したままとなり、re.searchなどに渡すと型エラーになる。
+def _is_non_blank_string(value: object) -> TypeGuard[str]:
     # `isinstance` は Pythonの組み込み関数であり、C#の `is` に相当する。
     # `strip` は文字列型strのメソッドであり、文字列の両端から空白文字を削除する。空白のみの文字列は空文字列に変換される。C#の `Trim` に相当する。
     # bool は Pythonの組み込み関数である。
