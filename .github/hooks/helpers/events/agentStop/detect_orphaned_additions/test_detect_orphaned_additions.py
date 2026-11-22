@@ -1,0 +1,261 @@
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+
+
+_script_directory = os.path.dirname(os.path.abspath(__file__))
+_hook_path = os.path.join(_script_directory, 'detect_orphaned_additions.py')
+_hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
+
+
+_HOOK_TIMESTAMP = 1777777777000
+_REASON_PREFIX = 'The changes in this request add definitions that nothing uses'
+
+
+def _user(content, delivery='idle'):
+    return {'type': 'user.message', 'data': {'content': content, 'delivery': delivery}}
+
+
+def _assistant(content):
+    return {'type': 'assistant.message', 'data': {'content': content}}
+
+
+def _tool(name, arguments, call_id='c1'):
+    return {'type': 'tool.execution_start', 'data': {'toolCallId': call_id, 'toolName': name, 'arguments': arguments}}
+
+
+def _agent_stop_start():
+    return {'type': 'hook.start', 'data': {'hookType': 'agentStop', 'input': {'timestamp': _HOOK_TIMESTAMP}}}
+
+
+class DetectOrphanedAdditionsTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix='ghc_orphaned_additions_test_')
+        self.addCleanup(temporary.cleanup)
+        self.__root = os.path.realpath(temporary.name)
+        self.__workspace = os.path.join(self.__root, 'workspace')
+        os.makedirs(self.__workspace)
+        subprocess.run(['git', 'init', '-q', self.__workspace], check=True, timeout=30)
+        self.__transcript_path = os.path.join(self.__root, 'events.jsonl')
+        self.__payload = {
+            'sessionId': '00000000-0000-4000-8000-000000000000',
+            'timestamp': _HOOK_TIMESTAMP,
+            'cwd': self.__workspace,
+            'transcriptPath': self.__transcript_path,
+        }
+
+    def __write_file(self, path, content, base=None):
+        full_path = os.path.join(base or self.__workspace, path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+        with open(full_path, 'w', encoding='utf-8', newline='\n') as file:
+            file.write(content)
+
+    def __invoke(self, events=None, payload=None, raw=None, arguments=()):
+        if events is not None:
+            with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
+                for event in [*events, _agent_stop_start()]:
+                    file.write(json.dumps(event, ensure_ascii=False) + '\n')
+        if raw is None:
+            raw = json.dumps(self.__payload if payload is None else payload, ensure_ascii=False).encode('utf-8')
+        return subprocess.run(
+            [sys.executable, _hook_path, *arguments], input=raw,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
+        )
+
+    def __created(self, path, content, response='追加した。'):
+        # ファイルを作成した依頼のトランスクリプト。
+        self.__write_file(path, content)
+        return [_user('追加して'), _tool('create', {'path': path, 'file_text': content}), _assistant(response)]
+
+    def __assert_silent(self, result):
+        self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
+
+    def __assert_block(self, result, *fragments):
+        self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
+        self.assertEqual(result.stderr, b'')
+        self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
+        output = json.loads(result.stdout.decode('utf-8'))
+        self.assertEqual(output['decision'], 'block')
+        self.assertTrue(output['reason'].startswith(_REASON_PREFIX))
+        for fragment in fragments:
+            self.assertIn(fragment, output['reason'])
+        return output['reason']
+
+    def test_blocks_unreferenced_definitions(self):
+        for path, content, name, line_number in [
+            ('src/Calc.cs', 'class Calc\n{\n    public static int Twice(int x) => x * 2;\n}\n', 'Twice', 3),
+            ('src/Calc.cs', 'namespace A;\n\npublic sealed record Point(int X, int Y);\n', 'Point', 3),
+            ('src/Calc.cs', 'class C\n{\n    private async Task<List<int>> LoadAsync(int id)\n    {\n    }\n}\n',
+             'LoadAsync', 3),
+            ('src/Calc.java', 'class C {\n    public static List<String> names(int x) {\n    }\n}\n', 'names', 2),
+            ('src/calc.py', 'import os\n\n\ndef helper(x):\n    return x\n', 'helper', 4),
+            ('src/calc.py', 'class Parser:\n    pass\n', 'Parser', 1),
+            ('src/calc.ts', 'export function formatDate(d: Date) {\n}\n', 'formatDate', 1),
+            ('src/calc.ts', 'export const toSlug = (s: string): string => s;\n', 'toSlug', 1),
+            ('src/calc.ts', 'export interface Options {\n}\n', 'Options', 1),
+            ('src/calc.go', 'package calc\n\nfunc (c *Calc) Reset() {\n}\n', 'Reset', 3),
+        ]:
+            with self.subTest(name=name):
+                result = self.__invoke(self.__created(path, content))
+                self.__assert_block(result, f'- {path}:{line_number}: {name} (no references)')
+
+    def test_allows_referenced_definitions(self):
+        # 別ファイル（未追跡を含む）や同じファイルの別の行からの参照があれば対象外。
+        self.__write_file('src/app.py', 'from calc import helper\n\nprint(helper(1))\n')
+        self.__assert_silent(self.__invoke(self.__created('src/calc.py', 'def helper(x):\n    return x\n')))
+        content = 'def _inner(x):\n    return x\n\n\ndef run():\n    return _inner(1)\n'
+        self.__write_file('src/app.py', 'from calc import run\n')
+        self.__assert_silent(self.__invoke(self.__created('src/calc.py', content)))
+
+    def test_reports_definitions_referenced_only_from_tests(self):
+        self.__write_file('tests/test_calc.py', 'from calc import helper\n\nassert helper(1) == 1\n')
+        self.__write_file('docs/usage.md', 'Call `helper` from your code.\n')
+        result = self.__invoke(self.__created('src/calc.py', 'def helper(x):\n    return x\n'))
+        self.__assert_block(result, '- src/calc.py:1: helper (referenced only from tests)')
+
+    def test_ignores_references_in_documents(self):
+        self.__write_file('README.md', 'Use helper(x).\n')
+        result = self.__invoke(self.__created('src/calc.py', 'def helper(x):\n    return x\n'))
+        self.__assert_block(result, '- src/calc.py:1: helper (no references)')
+
+    def test_skips_entry_points_and_framework_callbacks(self):
+        for path, content in [
+            # 除外する名前。
+            ('src/Program.cs', 'class A\n{\n    public static void Main(string[] args) { }\n}\n'),
+            ('src/A.cs', 'sealed class A : IDisposable\n{\n    public void Dispose() { }\n}\n'),
+            ('src/calc.py', 'def main():\n    pass\n'),
+            ('src/calc.go', 'package calc\n\nfunc init() {\n}\n'),
+            # overrideや属性・デコレーター付きの定義は基底クラスやフレームワークから呼ばれる。
+            ('src/A.cs', 'class A : B\n{\n    public override string Describe() => "";\n}\n'),
+            ('src/A.cs', 'class A : ControllerBase\n{\n    [HttpGet]\n    public IActionResult Get() => Ok();\n}\n'),
+            ('src/A.java', 'class A extends B {\n    @Override\n    public String describe() {\n    }\n}\n'),
+            ('src/app.py', 'app = Flask(__name__)\n\n\n@app.route("/")\n\ndef index():\n    pass\n'),
+            # テストファイル内の定義はテストフレームワークが呼ぶ。
+            ('tests/test_calc.py', 'def test_helper():\n    pass\n'),
+            ('src/CalcTests.cs', 'class CalcTests\n{\n    public void Adds() { }\n}\n'),
+            # 対象言語でないファイル、コンストラクターやフィールドの宣言。
+            ('notes.md', 'def helper(x):\n'),
+            ('src/A.cs', 'partial class A : B\n{\n    public A(int x) : base(x) { }\n    private readonly int _x = Compute(1);\n}\n'),
+        ]:
+            with self.subTest(path=path, content=content):
+                # 型名そのものは対象にしないよう、別ファイルから参照しておく。
+                self.__write_file('src/Usage.cs', 'var a = new A(1);\n')
+                self.__assert_silent(self.__invoke(self.__created(path, content)))
+
+    def test_edit_and_patch_arguments(self):
+        self.__write_file('src/calc.py', 'def existing():\n    pass\n\n\ndef added(x):\n    return x\n')
+        self.__write_file('src/calc.ts', 'export function fresh() {\n}\n')
+        self.__write_file('src/main.py', 'from calc import existing\n')
+        patch = '*** Begin Patch\n*** Add File: src/calc.ts\n+export function fresh() {\n+}\n*** End Patch'
+        events = [
+            _user('追加して'),
+            _tool('functions.edit', json.dumps({
+                'path': 'src/calc.py', 'old_str': '    pass\n', 'new_str': '    pass\n\n\ndef added(x):\n    return x\n',
+            })),
+            _tool('apply_patch', patch, call_id='c2'),
+            _assistant('Done.'),
+        ]
+        self.__assert_block(
+            self.__invoke(events), '- src/calc.py:5: added (no references)', '- src/calc.ts:1: fresh (no references)',
+        )
+
+    def test_ignores_existing_removed_and_unrelated_writes(self):
+        self.__write_file('src/kept.py', 'def kept():\n    pass\n')
+        self.__write_file('src/gone.py', 'x = 1\n')
+        events = [
+            _user('直して'),
+            # 置換前の内容にもある定義は、元からあるものとみなす。
+            _tool('edit', {'path': 'src/kept.py', 'old_str': 'def kept():\n    return 1', 'new_str': 'def kept():\n    pass'}),
+            # 後の編集でファイルから消えた定義は対象外。
+            _tool('create', {'path': 'src/gone.py', 'file_text': 'def gone():\n    pass\n'}, 'c2'),
+            # 閲覧、削除されたファイルへの書き込み、シェルは対象外。
+            _tool('str_replace_editor', {'command': 'view', 'path': 'src/kept.py', 'new_str': 'def viewed():'}, 'c3'),
+            _tool('create', {'path': 'src/deleted.py', 'file_text': 'def deleted():\n    pass\n'}, 'c4'),
+            _tool('bash', {'command': 'echo "def shell():" > src/shell.py'}, 'c5'),
+            _assistant('直した。'),
+        ]
+        self.__assert_silent(self.__invoke(events))
+
+    def test_skips_files_outside_repository_and_without_git(self):
+        outside = os.path.join(self.__root, 'outside')
+        self.__write_file('calc.py', 'def helper(x):\n    return x\n', base=outside)
+        events = [_user('追加して'), _tool('create', {'path': os.path.join(outside, 'calc.py')}), _assistant('追加した。')]
+        self.__assert_silent(self.__invoke(events))
+        self.__assert_silent(self.__invoke(events, payload={**self.__payload, 'cwd': outside}))
+
+    def test_only_latest_request_is_checked(self):
+        events = [*self.__created('src/calc.py', 'def helper(x):\n    return x\n'), _user('READMEを直して'), _assistant('直した。')]
+        self.__assert_silent(self.__invoke(events))
+
+    def test_blocks_only_once_per_request(self):
+        events = self.__created('src/calc.py', 'def helper(x):\n    return x\n')
+        reason = self.__assert_block(self.__invoke(events))
+        self.__assert_silent(self.__invoke([*events, _user(reason, delivery='queued'), _assistant('公開APIとして残す。')]))
+        # 割り込みのメッセージは依頼の区切りにならない。
+        self.__assert_block(self.__invoke([*events, _user('急いで', delivery='queued'), _assistant('追加した。')]))
+
+    def test_skips_subagents_and_turns_without_response(self):
+        events = self.__created('src/calc.py', 'def helper(x):\n    return x\n')
+        self.__assert_silent(self.__invoke(events, payload={**self.__payload, 'agentId': 'sub'}))
+        self.__assert_silent(self.__invoke(events[:2]))
+
+    def test_reports_each_definition_once_and_limits_findings(self):
+        reason = self.__assert_block(self.__invoke(self.__created('src/calc.py', 'def helper(x):\n    return x\n')))
+        self.assertEqual(reason.count('helper'), 1)
+        content = ''.join(f'def item_{index:02}():\n    pass\n' for index in range(12))
+        reason = self.__assert_block(self.__invoke(self.__created('src/calc.py', content)), 'item_09')
+        self.assertNotIn('item_10', reason)
+
+    def test_invalid_input(self):
+        for name, raw in [
+            ('empty', b''),
+            ('broken json', b'{'),
+            ('invalid utf-8', b'\xff'),
+            ('not object', b'[]'),
+            ('missing cwd', json.dumps({'transcriptPath': self.__transcript_path}).encode('utf-8')),
+            ('relative cwd', json.dumps({'cwd': 'x', 'transcriptPath': self.__transcript_path}).encode('utf-8')),
+            ('missing transcript', json.dumps({'cwd': self.__workspace}).encode('utf-8')),
+            ('transcript not file', json.dumps({'cwd': self.__workspace, 'transcriptPath': self.__workspace}).encode('utf-8')),
+        ]:
+            with self.subTest(name=name):
+                result = self.__invoke(raw=raw)
+                self.assertEqual((result.returncode, result.stdout), (2, b''), name)
+                self.assertIn(b'Failed to detect orphaned additions:', result.stderr)
+        with open(self.__transcript_path, 'w', encoding='utf-8', newline='\n') as file:
+            file.write('{broken\n')
+        result = self.__invoke()
+        self.assertEqual((result.returncode, result.stdout), (2, b''))
+
+    def test_invalid_definitions(self):
+        language = {'name': 'Python', 'filePattern': r'\.py$', 'definitionPatterns': [r'^def (?P<name>\w+)']}
+        valid = {'ignoredReferenceFilePatterns': [], 'excludedNamePatterns': [], 'languages': [language]}
+        for name, content in [
+            ('not object', '[]'),
+            ('broken json', '{'),
+            ('missing excluded names', json.dumps({**valid, 'excludedNamePatterns': None})),
+            ('empty languages', json.dumps({**valid, 'languages': []})),
+            ('language without name', json.dumps({**valid, 'languages': [{**language, 'name': ''}]})),
+            ('empty definition patterns', json.dumps({**valid, 'languages': [{**language, 'definitionPatterns': []}]})),
+            ('pattern without name group', json.dumps({**valid, 'languages': [{**language, 'definitionPatterns': ['^def']}]})),
+            ('empty annotation', json.dumps({**valid, 'languages': [{**language, 'annotationPattern': ''}]})),
+            ('invalid regex', json.dumps({**valid, 'excludedNamePatterns': ['(']})),
+        ]:
+            with self.subTest(name=name):
+                definitions_path = os.path.join(self.__root, 'definitions.json')
+                with open(definitions_path, 'w', encoding='utf-8', newline='\n') as file:
+                    file.write(content)
+                result = self.__invoke(
+                    self.__created('src/calc.py', 'def helper():\n    pass\n'),
+                    arguments=('--definitions-path', definitions_path),
+                )
+                self.assertEqual((result.returncode, result.stdout), (2, b''), name)
+                self.assertIn(b'Failed to detect orphaned additions:', result.stderr)
+
+
+if __name__ == '__main__':
+    _run_tests()

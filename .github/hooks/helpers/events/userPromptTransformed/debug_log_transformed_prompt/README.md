@@ -1,0 +1,20 @@
+# debug_log_transformed_prompt hook README
+
+## 発動条件
+userPromptTransformed（モデルへ渡すプロンプトの変換直後）
+
+## 処理概要
+デバッグモードのとき、ユーザー入力と変換後のプロンプトの全文と差分をMarkdownファイルに保存する。
+
+## 処理詳細
+1. セッションのデバッグモードを確認し、無効なら終了する。
+2. 差分を先頭に、ユーザー入力（`prompt`）と変換後の文章（`transformedPrompt`）の全文をMarkdownファイルに保存する。
+3. プロンプト自体は変更せず、保存先は独立した[応答終了時のhook](../../agentStop/debug_show_prompt_log_paths/README.md)で表示する。
+
+## 前提条件
+- デバッグモード（[set_debug_mode](../../userPromptSubmitted/set_debug_mode/README.md) hookで有効化）が有効なときだけ動く。
+
+## 備考
+- 保存先は一時フォルダー配下の `ghc_agent_refinement/debug_logs/prompt_transformations/<session-uuid>/`。イベントごとにファイルを作成する。
+- プロンプト全文を保存する。差分がない場合も記録する。
+- 差分は `diff` コードブロックで表示する（`+` が追加行、`-` が削除行）。

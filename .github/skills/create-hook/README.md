@@ -10,11 +10,11 @@ VS CodeのSession Targetが `Copilot` の場合はCLIと同じSDK hook実装を�
 hookの実行スクリプトをPythonに統一すると、Windows、macOS、Linuxで同じスクリプトを起動でき、OSごとにシェルスクリプトを書き分ける必要がなくなる。JSON・正規表現・パス操作・一時ディレクトリなど、hookで必要な処理は標準ライブラリだけで扱える。
 
 ## Pythonなしで動くhookの起動
-`check-python` と `block-commands` は、Pythonがない環境でも案内や拒否ができる必要があるため、hookランナーを通さず、hook定義の `bash` からは `.sh` を、`powershell` からは `.cmd` を起動する。
+`check_python` と `block_commands` は、Pythonがない環境でも案内や拒否ができる必要があるため、hookランナーを通さず、hook定義の `bash` からは `.sh` を、`powershell` からは `.cmd` を起動する。
 
 ### Copilot・Claude Code・Codexでの起動のされ方
 - Copilotは、Windowsではhook定義の `powershell` のコマンドをPowerShellで実行し、macOS・Linuxでは `bash` のコマンドを実行する。
-- Claude Codeのhook設定（[.claude/settings.json](../../../.claude/settings.json)）は、1つのhookにコマンドを1つしか持てず、OSで出し分けられない。そのため、どのOSでも `sh` で起動スクリプト [run-claude-hook.sh](../../hooks/helpers/runner/run-claude-hook.sh) を実行し、アダプターがhook定義を読んで各hookを実行する。Windowsでは、Claude CodeがGit for Windowsに含まれるGit Bashを探してhookのコマンドを実行する。
+- Claude Codeのhook設定（[.claude/settings.json](../../../.claude/settings.json)）は、1つのhookにコマンドを1つしか持てず、OSで出し分けられない。そのため、どのOSでも `sh` で起動スクリプト [run_claude_hook.sh](../../hooks/helpers/runner/run_claude_hook.sh) を実行し、アダプターがhook定義を読んで各hookを実行する。Windowsでは、Claude CodeがGit for Windowsに含まれるGit Bashを探してhookのコマンドを実行する。
 - アダプターは、ランナーを通さないこの2つのhookを、Windowsでは定義の `powershell` のコマンドのまま子プロセスで実行する。そのため、Claude Codeでも、Windowsでは `.cmd` が、それ以外では `.sh` が実行される。
 - アダプター自体がPythonで動くため、Claude CodeではPythonがない環境でこの2つのhookは働かない（[.claude/README.md](../../../.claude/README.md) を参照）。
 - Codexの [hooks.json](../../../.codex/hooks.json) はOS別の `commandWindows` を持てるため、WindowsではPowerShellから `python`、macOS/Linuxでは `python3` で直接アダプターを起動する。Git Bashを探す起動スクリプトは使わない。アダプター内の実行方式とPythonがない場合の制約はClaude Codeと同じ。
@@ -42,7 +42,7 @@ Gitのインストールを前提とし、WindowsではGit for Windows（Git Bas
 `os.path.join` などの標準パスAPIはOSに合わせた区切りでパスを返すため、ファイルを開くだけなら問題ないが、その文字列を表示・保存・比較すると、Windowsでは `\`、macOS・Linuxでは `/` の区切りになる。たとえば `os.path.relpath` の結果を `/` 区切りの除外パターンで照合すると、Windowsでだけ一致しない。逆に、Windowsで作ったテストの期待値に `\` を書くと、macOS・Linuxで失敗する。どちらも開発したOSではテストが通るため、気付きにくい。表示・保存・照合に使うパスは `/` 区切りに揃え、定義とテストの期待値も `/` 区切りで書くことで、OSによらず同じ結果にする。
 
 ## 名前の公開範囲
-hookやutilityのスクリプトは `runpy.run_path` で読み込まれるため、モジュールの最上位にある名前はすべて他のスクリプトから参照できる。外から参照しない名前を `_` で始めると、他のスクリプトが依存してよい名前とそうでない名前が区別でき、内部の名前を変更するときに影響範囲を調べる必要がなくなる。
+hookやutilityのスクリプトは他のスクリプトから `import` されるため、モジュールの最上位にある名前（`import` で付けた名前を含む）はすべて他のスクリプトから参照できる。外から参照しない名前を `_` で始めると、他のスクリプトが依存してよい名前とそうでない名前が区別でき、内部の名前を変更するときに影響範囲を調べる必要がなくなる。
 
 クラスの内部だけで使うメンバーは `__` で始めると、Pythonが `_クラス名__名前` に変換（名前マングリング）するため、クラスの外からの参照や、サブクラスで同じ名前を定義したときの衝突を防げる。
 

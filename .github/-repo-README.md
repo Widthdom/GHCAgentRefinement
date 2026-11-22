@@ -5,7 +5,7 @@
 ## hookについて
 ### 配置
 - hook定義は `.github/hooks/-repo-<event-name>.json`、hookのファイルは [.github/hooks/helpers/-repo-events/](./hooks/helpers/-repo-events/) 配下に置く。
-- 起動は共通のhookと同じく [hookランナー](./hooks/helpers/runner/README.md) を通す。テストは [test-all-hooks.py](./hooks/tests/test-all-hooks.py) の一括実行に含まれる。
+- 起動は共通のhookと同じく [hookランナー](./hooks/helpers/runner/README.md) を通す。テストは [test_all_hooks.py](./hooks/tests/test_all_hooks.py) の一括実行に含まれる。
 - 作成・更新の規約は [hookの共通規約](./skills/create-hook/references/hook-conventions.md) を参照。
 
 ### 発動フロー
@@ -37,19 +37,19 @@ flowchart LR
       <td rowspan="4">preToolUse</td>
       <td rowspan="4"></td>
       <td>OS依存の改行変換抑止</td>
-      <td><a href="./hooks/helpers/-repo-events/preToolUse/block-native-newlines/README.md">block-native-newlines</a></td>
+      <td><a href="./hooks/helpers/-repo-events/preToolUse/block_native_newlines/README.md">block_native_newlines</a></td>
     </tr>
     <tr>
       <td>OS依存のパス区切り抑止</td>
-      <td><a href="./hooks/helpers/-repo-events/preToolUse/block-native-path-separators/README.md">block-native-path-separators</a></td>
+      <td><a href="./hooks/helpers/-repo-events/preToolUse/block_native_path_separators/README.md">block_native_path_separators</a></td>
     </tr>
     <tr>
       <td>OS非互換のファイル名抑止</td>
-      <td><a href="./hooks/helpers/-repo-events/preToolUse/block-nonportable-paths/README.md">block-nonportable-paths</a></td>
+      <td><a href="./hooks/helpers/-repo-events/preToolUse/block_nonportable_paths/README.md">block_nonportable_paths</a></td>
     </tr>
     <tr>
       <td>Py3.14非対応構文抑止</td>
-      <td><a href="./hooks/helpers/-repo-events/preToolUse/block-py314-incompatible-syntax/README.md">block-py314-incompatible-syntax</a></td>
+      <td><a href="./hooks/helpers/-repo-events/preToolUse/block_py314_incompatible_syntax/README.md">block_py314_incompatible_syntax</a></td>
     </tr>
   </tbody>
 </table>

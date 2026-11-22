@@ -83,289 +83,289 @@ flowchart LR
       <td rowspan="6"></td>
       <td rowspan="6"></td>
       <td>copilot-instructions.md読込</td>
-      <td><a href="./hooks/helpers/events/sessionStart/load-copilot-instructions/README.md">load-copilot-instructions</a></td>
+      <td><a href="./hooks/helpers/events/sessionStart/load_copilot_instructions/README.md">load_copilot_instructions</a></td>
     </tr>
     <tr>
       <td>ターゲットセッション確認</td>
-      <td><a href="./hooks/helpers/events/sessionStart/check-target-session/README.md">check-target-session</a></td>
+      <td><a href="./hooks/helpers/events/sessionStart/check_target_session/README.md">check_target_session</a></td>
     </tr>
     <tr>
       <td rowspan="2">各種ツール導入状況確認</td>
-      <td><a href="./hooks/helpers/events/sessionStart/check-python/README.md">check-python</a></td>
+      <td><a href="./hooks/helpers/events/sessionStart/check_python/README.md">check_python</a></td>
     </tr>
-    <tr><td><a href="./hooks/helpers/events/sessionStart/check-required-tools/README.md">check-required-tools</a></td></tr>
+    <tr><td><a href="./hooks/helpers/events/sessionStart/check_required_tools/README.md">check_required_tools</a></td></tr>
     <tr>
       <td>一時ファイル蓄積状況確認</td>
-      <td><a href="./hooks/helpers/events/sessionStart/check-hook-temp-files/README.md">check-hook-temp-files</a></td>
+      <td><a href="./hooks/helpers/events/sessionStart/check_hook_temp_files/README.md">check_hook_temp_files</a></td>
     </tr>
     <tr>
       <td>gitの途中操作確認</td>
-      <td><a href="./hooks/helpers/events/sessionStart/check-git-state/README.md">check-git-state</a></td>
+      <td><a href="./hooks/helpers/events/sessionStart/check_git_state/README.md">check_git_state</a></td>
     </tr>
     <tr>
       <td rowspan="4">userPromptSubmitted</td>
       <td rowspan="3">メインエージェントへの依頼時</td>
       <td rowspan="3"></td>
       <td>デバッグモード設定</td>
-      <td><a href="./hooks/helpers/events/userPromptSubmitted/set-debug-mode/README.md">set-debug-mode</a></td>
+      <td><a href="./hooks/helpers/events/userPromptSubmitted/set_debug_mode/README.md">set_debug_mode</a></td>
     </tr>
     <tr>
       <td>敵対的レビューモード設定</td>
-      <td><a href="./hooks/helpers/events/userPromptSubmitted/set-adversarial-review-state/README.md">set-adversarial-review-state</a></td>
+      <td><a href="./hooks/helpers/events/userPromptSubmitted/set_adversarial_review_state/README.md">set_adversarial_review_state</a></td>
     </tr>
     <tr>
       <td>hook変更依頼の記録</td>
-      <td><a href="./hooks/helpers/events/userPromptSubmitted/record-hook-change-requests/README.md">record-hook-change-requests</a></td>
+      <td><a href="./hooks/helpers/events/userPromptSubmitted/record_hook_change_requests/README.md">record_hook_change_requests</a></td>
     </tr>
     <tr>
       <td>サブエージェントへの依頼時</td>
       <td></td>
       <td>copilot-instructions.md連携</td>
-      <td><a href="./hooks/helpers/events/userPromptSubmitted/give-subagents-instructions/README.md">give-subagents-instructions</a></td>
+      <td><a href="./hooks/helpers/events/userPromptSubmitted/give_subagents_instructions/README.md">give_subagents_instructions</a></td>
     </tr>
     <tr>
       <td>userPromptTransformed</td>
       <td>デバッグモード有効時</td>
       <td></td>
       <td>プロンプト変換ログ保存</td>
-      <td><a href="./hooks/helpers/events/userPromptTransformed/debug-log-transformed-prompt/README.md">debug-log-transformed-prompt</a></td>
+      <td><a href="./hooks/helpers/events/userPromptTransformed/debug_log_transformed_prompt/README.md">debug_log_transformed_prompt</a></td>
     </tr>
     <tr>
       <td rowspan="22">preToolUse</td>
       <td rowspan="22"></td>
       <td rowspan="7">危険な操作の抑止</td>
       <td>危険コマンド実行抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-commands/README.md">block-commands</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_commands/README.md">block_commands</a></td>
     </tr>
     <tr>
       <td>shellによるファイル編集抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-shell-file-edits/README.md">block-shell-file-edits</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_shell_file_edits/README.md">block_shell_file_edits</a></td>
     </tr>
     <tr>
       <td>未読ファイル編集抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/require-read-before-edit/README.md">require-read-before-edit</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/require_read_before_edit/README.md">require_read_before_edit</a></td>
     </tr>
     <tr>
       <td>生成ファイル直接編集抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-generated-file-edits/README.md">block-generated-file-edits</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_generated_file_edits/README.md">block_generated_file_edits</a></td>
     </tr>
     <tr>
       <td>省略記号による内容消失抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-elided-rewrites/README.md">block-elided-rewrites</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_elided_rewrites/README.md">block_elided_rewrites</a></td>
     </tr>
     <tr>
       <td>依頼のないhook改変抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-hook-tampering/README.md">block-hook-tampering</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_hook_tampering/README.md">block_hook_tampering</a></td>
     </tr>
     <tr>
       <td>過去のバグ修正の巻き戻し抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-regression-of-past-fixes/README.md">block-regression-of-past-fixes</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_regression_of_past_fixes/README.md">block_regression_of_past_fixes</a></td>
     </tr>
     <tr>
       <td rowspan="5">不正な内容の書き込み抑止</td>
       <td>秘密情報書き込み抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-secret-writes/README.md">block-secret-writes</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_secret_writes/README.md">block_secret_writes</a></td>
     </tr>
     <tr>
       <td>不可視文字の書き込み抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-invisible-characters/README.md">block-invisible-characters</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_invisible_characters/README.md">block_invisible_characters</a></td>
     </tr>
     <tr>
       <td>文字化けの書き込み抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-mojibake-writes/README.md">block-mojibake-writes</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_mojibake_writes/README.md">block_mojibake_writes</a></td>
     </tr>
     <tr>
       <td>未確認の依存追加抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-unverified-dependencies/README.md">block-unverified-dependencies</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_unverified_dependencies/README.md">block_unverified_dependencies</a></td>
     </tr>
     <tr>
       <td>内容と食い違うコミット抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-commit-message-mismatch/README.md">block-commit-message-mismatch</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_commit_message_mismatch/README.md">block_commit_message_mismatch</a></td>
     </tr>
     <tr>
       <td rowspan="4">失敗の隠蔽抑止</td>
       <td>エラーの握りつぶし抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-error-swallowing/README.md">block-error-swallowing</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_error_swallowing/README.md">block_error_swallowing</a></td>
     </tr>
     <tr>
       <td>除外設定による隠蔽抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-exclusion-escapes/README.md">block-exclusion-escapes</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_exclusion_escapes/README.md">block_exclusion_escapes</a></td>
     </tr>
     <tr>
       <td>パイプでの終了コード隠蔽抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-masked-exit-codes/README.md">block-masked-exit-codes</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_masked_exit_codes/README.md">block_masked_exit_codes</a></td>
     </tr>
     <tr>
       <td>待ち時間の水増し抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-timeout-inflation/README.md">block-timeout-inflation</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_timeout_inflation/README.md">block_timeout_inflation</a></td>
     </tr>
     <tr>
       <td rowspan="6">テストの不正抑止</td>
       <td>テストの骨抜き抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-test-weakening/README.md">block-test-weakening</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_test_weakening/README.md">block_test_weakening</a></td>
     </tr>
     <tr>
       <td>自己比較テスト抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-tautological-tests/README.md">block-tautological-tests</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_tautological_tests/README.md">block_tautological_tests</a></td>
     </tr>
     <tr>
       <td>テスト期待値の後付け抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-goalpost-moving/README.md">block-goalpost-moving</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_goalpost_moving/README.md">block_goalpost_moving</a></td>
     </tr>
     <tr>
       <td>スナップショット一括承認抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-snapshot-rubber-stamp/README.md">block-snapshot-rubber-stamp</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_snapshot_rubber_stamp/README.md">block_snapshot_rubber_stamp</a></td>
     </tr>
     <tr>
       <td>テスト通過用ハードコード抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-hardcoding-for-tests/README.md">block-hardcoding-for-tests</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_hardcoding_for_tests/README.md">block_hardcoding_for_tests</a></td>
     </tr>
     <tr>
       <td>日付の時限爆弾テスト抑止</td>
-      <td><a href="./hooks/helpers/events/preToolUse/block-time-bomb-literals/README.md">block-time-bomb-literals</a></td>
+      <td><a href="./hooks/helpers/events/preToolUse/block_time_bomb_literals/README.md">block_time_bomb_literals</a></td>
     </tr>
     <tr>
       <td rowspan="10">postToolUse</td>
       <td rowspan="10"></td>
       <td rowspan="4">他hook向けの記録</td>
       <td>既読ファイルの記録</td>
-      <td><a href="./hooks/helpers/events/postToolUse/record-seen-files/README.md">record-seen-files</a></td>
+      <td><a href="./hooks/helpers/events/postToolUse/record_seen_files/README.md">record_seen_files</a></td>
     </tr>
     <tr>
       <td>テスト失敗値の記録</td>
-      <td><a href="./hooks/helpers/events/postToolUse/record-test-failure-values/README.md">record-test-failure-values</a></td>
+      <td><a href="./hooks/helpers/events/postToolUse/record_test_failure_values/README.md">record_test_failure_values</a></td>
     </tr>
     <tr>
       <td>確認済み依存の記録</td>
-      <td><a href="./hooks/helpers/events/postToolUse/record-verified-packages/README.md">record-verified-packages</a></td>
+      <td><a href="./hooks/helpers/events/postToolUse/record_verified_packages/README.md">record_verified_packages</a></td>
     </tr>
     <tr>
       <td>確認済みコミットの記録</td>
-      <td><a href="./hooks/helpers/events/postToolUse/record-viewed-commits/README.md">record-viewed-commits</a></td>
+      <td><a href="./hooks/helpers/events/postToolUse/record_viewed_commits/README.md">record_viewed_commits</a></td>
     </tr>
     <tr>
       <td rowspan="2">作業の空回り検知</td>
       <td>テスト件数の空振り・減少検知</td>
-      <td><a href="./hooks/helpers/events/postToolUse/detect-vacuous-test-success/README.md">detect-vacuous-test-success</a></td>
+      <td><a href="./hooks/helpers/events/postToolUse/detect_vacuous_test_success/README.md">detect_vacuous_test_success</a></td>
     </tr>
     <tr>
       <td>振り子編集検知</td>
-      <td><a href="./hooks/helpers/events/postToolUse/detect-edit-oscillation/README.md">detect-edit-oscillation</a></td>
+      <td><a href="./hooks/helpers/events/postToolUse/detect_edit_oscillation/README.md">detect_edit_oscillation</a></td>
     </tr>
     <tr>
       <td rowspan="4">変更の不整合検知</td>
       <td>改行コード不変確認</td>
-      <td><a href="./hooks/helpers/events/postToolUse/preserve-line-endings/README.md">preserve-line-endings</a></td>
+      <td><a href="./hooks/helpers/events/postToolUse/preserve_line_endings/README.md">preserve_line_endings</a></td>
     </tr>
     <tr>
       <td>名前変更の取り残し検知</td>
-      <td><a href="./hooks/helpers/events/postToolUse/detect-rename-leftovers/README.md">detect-rename-leftovers</a></td>
+      <td><a href="./hooks/helpers/events/postToolUse/detect_rename_leftovers/README.md">detect_rename_leftovers</a></td>
     </tr>
     <tr>
       <td>引数の説明の更新漏れ検知</td>
-      <td><a href="./hooks/helpers/events/postToolUse/detect-stale-parameter-docs/README.md">detect-stale-parameter-docs</a></td>
+      <td><a href="./hooks/helpers/events/postToolUse/detect_stale_parameter_docs/README.md">detect_stale_parameter_docs</a></td>
     </tr>
     <tr>
       <td>skillのcross agent対応確認</td>
-      <td><a href="./hooks/helpers/events/postToolUse/check-cross-agent-skill-wrappers/README.md">check-cross-agent-skill-wrappers</a></td>
+      <td><a href="./hooks/helpers/events/postToolUse/check_cross_agent_skill_wrappers/README.md">check_cross_agent_skill_wrappers</a></td>
     </tr>
     <tr>
       <td>postToolUseFailure</td>
       <td></td>
       <td></td>
       <td>失敗の繰り返し検知</td>
-      <td><a href="./hooks/helpers/events/postToolUseFailure/detect-repeated-failures/README.md">detect-repeated-failures</a></td>
+      <td><a href="./hooks/helpers/events/postToolUseFailure/detect_repeated_failures/README.md">detect_repeated_failures</a></td>
     </tr>
     <tr>
       <td rowspan="15">agentStop</td>
       <td rowspan="12"></td>
       <td rowspan="5">根拠のない主張の検知</td>
       <td>存在しないファイル参照検知</td>
-      <td><a href="./hooks/helpers/events/agentStop/detect-phantom-references/README.md">detect-phantom-references</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/detect_phantom_references/README.md">detect_phantom_references</a></td>
     </tr>
     <tr>
       <td>未読ファイルに対する推測検知</td>
-      <td><a href="./hooks/helpers/events/agentStop/detect-unread-speculation/README.md">detect-unread-speculation</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/detect_unread_speculation/README.md">detect_unread_speculation</a></td>
     </tr>
     <tr>
       <td>テスト通過の主張の真偽判定</td>
-      <td><a href="./hooks/helpers/events/agentStop/verify-test-pass-claims/README.md">verify-test-pass-claims</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/verify_test_pass_claims/README.md">verify_test_pass_claims</a></td>
     </tr>
     <tr>
       <td>未計測の性能改善主張検知</td>
-      <td><a href="./hooks/helpers/events/agentStop/detect-unmeasured-performance-claims/README.md">detect-unmeasured-performance-claims</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/detect_unmeasured_performance_claims/README.md">detect_unmeasured_performance_claims</a></td>
     </tr>
     <tr>
       <td>ユーザーへの迎合検知</td>
-      <td><a href="./hooks/helpers/events/agentStop/detect-sycophantic-reversal/README.md">detect-sycophantic-reversal</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/detect_sycophantic_reversal/README.md">detect_sycophantic_reversal</a></td>
     </tr>
     <tr>
       <td rowspan="3">依頼との食い違いの検知</td>
       <td>依頼項目の取りこぼし検知</td>
-      <td><a href="./hooks/helpers/events/agentStop/detect-dropped-requirements/README.md">detect-dropped-requirements</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/detect_dropped_requirements/README.md">detect_dropped_requirements</a></td>
     </tr>
     <tr>
       <td>果たせない後回しの約束検知</td>
-      <td><a href="./hooks/helpers/events/agentStop/detect-empty-promises/README.md">detect-empty-promises</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/detect_empty_promises/README.md">detect_empty_promises</a></td>
     </tr>
     <tr>
       <td>依頼外の変更検知</td>
-      <td><a href="./hooks/helpers/events/agentStop/detect-unrequested-changes/README.md">detect-unrequested-changes</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/detect_unrequested_changes/README.md">detect_unrequested_changes</a></td>
     </tr>
     <tr>
       <td rowspan="4">仕上げ漏れの検知</td>
       <td>hookのテスト実行催促</td>
-      <td><a href="./hooks/helpers/events/agentStop/require-hook-tests/README.md">require-hook-tests</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/require_hook_tests/README.md">require_hook_tests</a></td>
     </tr>
     <tr>
       <td>作業途中のコードの残置検知</td>
-      <td><a href="./hooks/helpers/events/agentStop/detect-temporary-code/README.md">detect-temporary-code</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/detect_temporary_code/README.md">detect_temporary_code</a></td>
     </tr>
     <tr>
       <td>ロックファイル更新漏れ検知</td>
-      <td><a href="./hooks/helpers/events/agentStop/detect-lockfile-drift/README.md">detect-lockfile-drift</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/detect_lockfile_drift/README.md">detect_lockfile_drift</a></td>
     </tr>
     <tr>
       <td>未使用の追加定義検知</td>
-      <td><a href="./hooks/helpers/events/agentStop/detect-orphaned-additions/README.md">detect-orphaned-additions</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/detect_orphaned_additions/README.md">detect_orphaned_additions</a></td>
     </tr>
     <tr>
       <td rowspan="2">デバッグモード有効時</td>
       <td rowspan="2"></td>
       <td>プロンプト変換ログ保存先表示</td>
-      <td><a href="./hooks/helpers/events/agentStop/debug-show-prompt-log-paths/README.md">debug-show-prompt-log-paths</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/debug_show_prompt_log_paths/README.md">debug_show_prompt_log_paths</a></td>
     </tr>
     <tr>
       <td>回答にデバッグ情報を付与</td>
-      <td><a href="./hooks/helpers/events/agentStop/debug-add-response-footer/README.md">debug-add-response-footer</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/debug_add_response_footer/README.md">debug_add_response_footer</a></td>
     </tr>
     <tr>
       <td>敵対的レビューモード有効時</td>
       <td></td>
       <td>敵対的レビュー要請</td>
-      <td><a href="./hooks/helpers/events/agentStop/request-adversarial-review/README.md">request-adversarial-review</a></td>
+      <td><a href="./hooks/helpers/events/agentStop/request_adversarial_review/README.md">request_adversarial_review</a></td>
     </tr>
   </tbody>
 </table>
 
 ### hookの起動方式
-hook定義JSON（`.github/hooks/<イベント名>.json`・`.github/hooks/-repo-<イベント名>.json`）では、各hookの実行スクリプトを直接起動せず、[hook runner](./hooks/helpers/runner/README.md)（[run-hook.py](./hooks/helpers/runner/run-hook.py)）の引数に渡して起動する。
+hook定義JSON（`.github/hooks/<イベント名>.json`・`.github/hooks/-repo-<イベント名>.json`）では、各hookの実行スクリプトを直接起動せず、[hook runner](./hooks/helpers/runner/README.md)（[run_hook.py](./hooks/helpers/runner/run_hook.py)）の引数に渡して起動する。
 
 ```json
 {
   "type": "command",
-  "bash": "python3 .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-git-state/check-git-state.py",
-  "powershell": "python .github/hooks/helpers/runner/run-hook.py .github/hooks/helpers/events/sessionStart/check-git-state/check-git-state.py",
+  "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check_git_state/check_git_state.py",
+  "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check_git_state/check_git_state.py",
   "timeoutSec": 10
 }
 ```
 
-- **ランナーを挟む理由**：Copilotのトランスクリプトには、`hook.start`・`hook.end` がイベント種別ごとに1組しか記録されず、どのhookが起動・出力したかを区別できない。ランナーがhookごとに起動したか・機能したかを一時フォルダーのSQLiteに記録し、[debug-add-response-footer](./hooks/helpers/events/agentStop/debug-add-response-footer/README.md) の「Hooks fired」がそれを読む。
+- **ランナーを挟む理由**：Copilotのトランスクリプトには、`hook.start`・`hook.end` がイベント種別ごとに1組しか記録されず、どのhookが起動・出力したかを区別できない。ランナーがhookごとに起動したか・機能したかを一時フォルダーのSQLiteに記録し、[debug_add_response_footer](./hooks/helpers/events/agentStop/debug_add_response_footer/README.md) の「Hooks fired」がそれを読む。
 - **引数の制約**：実行スクリプトはリポジトリルートからの相対パスで、`helpers/events/<イベント名>/<hook名>/<hook名>.py`（共通hook）または `helpers/-repo-events/<イベント名>/<hook名>/<hook名>.py`（このリポジトリ専用hook）に限る。
 - **プロセス内で実行**：hookを子プロセスにせず、`runpy.run_path` でランナーのプロセス内で実行する。`timeoutSec` 超過でCopilotがランナーを終了させたとき、hookも一緒に止まり、副作用だけが残らないようにするため。
 - **Claude Code・Codex**：各ホストの設定にはイベントごとにアダプターを1つだけ登録し、アダプターがhook定義JSONを読んで、各hookを本ランナー経由で定義順に実行する。そのため、hookの追加・削除はhook定義JSONだけで済む。
-  - Claude Codeのhook設定は、1つのhookにコマンドを1つしか持てず、OS別にコマンドを出し分けられない。そのため、`sh`（WindowsではGit for Windowsに含まれるGit Bashの `sh`）で [run-claude-hook.sh](./hooks/helpers/runner/run-claude-hook.sh) を起動し、OSに合わせたPythonのコマンド名でアダプターを起動する。Codexの設定はOS別のコマンド（`command`・`commandWindows`）を持てるため、[run-codex-hook.py](./hooks/helpers/runner/run-codex-hook.py) を直接起動する。詳細は [.claude/README.md](../.claude/README.md#前提条件) を参照。
-- **例外**：[check-python](./hooks/helpers/events/sessionStart/check-python/README.md) と [block-commands](./hooks/helpers/events/preToolUse/block-commands/README.md) は、Pythonがない・古い環境でも動く必要があるため、ランナーを通さずシェルスクリプトを直接起動する。この2つは記録されない。
+  - Claude Codeのhook設定は、1つのhookにコマンドを1つしか持てず、OS別にコマンドを出し分けられない。そのため、`sh`（WindowsではGit for Windowsに含まれるGit Bashの `sh`）で [run_claude_hook.sh](./hooks/helpers/runner/run_claude_hook.sh) を起動し、OSに合わせたPythonのコマンド名でアダプターを起動する。Codexの設定はOS別のコマンド（`command`・`commandWindows`）を持てるため、[run_codex_hook.py](./hooks/helpers/runner/run_codex_hook.py) を直接起動する。詳細は [.claude/README.md](../.claude/README.md#前提条件) を参照。
+- **例外**：[check_python](./hooks/helpers/events/sessionStart/check_python/README.md) と [block_commands](./hooks/helpers/events/preToolUse/block_commands/README.md) は、Pythonがない・古い環境でも動く必要があるため、ランナーを通さずシェルスクリプトを直接起動する。この2つは記録されない。
 
 ```mermaid
 flowchart TB
@@ -378,18 +378,18 @@ flowchart TB
 
     subgraph adapters["アダプター"]
         direction TB
-        claudeSh["<div style='width: 128px; font-size: 12px'>run-claude-hook.sh</div>"]
-        claudeAdapter["<div style='width: 128px; font-size: 12px'>run-claude-hook.py</div>"]
-        codexAdapter["<div style='width: 128px; font-size: 12px'>run-codex-hook.py</div>"]
-        runtime["<div style='width: 160px; font-size: 12px'>adapted-hook-runtime.py</div>"]
+        claudeSh["<div style='width: 128px; font-size: 12px'>run_claude_hook.sh</div>"]
+        claudeAdapter["<div style='width: 128px; font-size: 12px'>run_claude_hook.py</div>"]
+        codexAdapter["<div style='width: 128px; font-size: 12px'>run_codex_hook.py</div>"]
+        runtime["<div style='width: 160px; font-size: 12px'>adapted_hook_runtime.py</div>"]
     end
 
     definitions[/"<b><i><u>hooks定義</u></i></b><br/><div style='text-align: left; width: 256px; font-size: 12px'>・.github/hooks/&lt;イベント名&gt;.json<br/>・.github/hooks/-repo-&lt;イベント名&gt;.json</div>"/]
     claudeSettings[/"<b><i><u>hooks定義</u></i></b><br/>.claude/settings.json"/]
     codexSettings[/"<b><i><u>hooks定義</u></i></b><br/>.codex/hooks.json"/]
-    runner["<b><i><u>ランナー</u></i></b><br/>run-hook.py"]
+    runner["<b><i><u>ランナー</u></i></b><br/>run_hook.py"]
     hookScript["<div style='text-align: left; width: 320px; font-size: 12px'>・.github/hooks/helpers/events/<br/>      &lt;イベント名&gt;/&lt;hook名&gt;/&lt;hook名&gt;.py<br/>・.github/hooks/helpers/-repo-events/<br/>      &lt;イベント名&gt;/&lt;hook名&gt;/&lt;hook名&gt;.py</div>"]
-    activity[("<b><i><u>hooks実行記録DB</u></i></b><div style='text-align: left; width: 176px; font-size: 12px'>&lt;一時フォルダー&gt;/<br/>  ghc-agent-refinement/<br/>    hook-states/<br/>      hook-activity/<br/>        &lt;セッションID&gt;.sqlite3</div>")]
+    activity[("<b><i><u>hooks実行記録DB</u></i></b><div style='text-align: left; width: 176px; font-size: 12px'>&lt;一時フォルダー&gt;/<br/>  ghc_agent_refinement/<br/>    hook_states/<br/>      hook_activity/<br/>        &lt;セッションID&gt;.sqlite3</div>")]
 
     ghc -. "読込" .-> definitions
     ghc -- "bash / powershell" --> runner
@@ -398,11 +398,11 @@ flowchart TB
     codex -. "読込" .-> codexSettings
     claude -- "command" --> claudeSh
     claudeSh -- "exec" --> claudeAdapter
-    claudeAdapter -- "プロセス内で実行<br/>（runpy.run_path）" --> runtime
+    claudeAdapter -- "プロセス内で呼出<br/>（import）" --> runtime
     codex -- "command / commandWindows" --> codexAdapter
-    codexAdapter -- "プロセス内で実行<br/>（runpy.run_path）" --> runtime
+    codexAdapter -- "プロセス内で呼出<br/>（import）" --> runtime
     runtime -. "読込" .-> definitions
-    runtime -- "プロセス内で実行<br/>（runpy.run_path）" --> runner
+    runtime -- "プロセス内で呼出<br/>（import）" --> runner
 
     runner -- "プロセス内で実行<br/>（runpy.run_path）" --> hookScript
     runner -- "起動・機能を記録" --> activity
@@ -411,28 +411,29 @@ flowchart TB
 詳細は [hook runner README](./hooks/helpers/runner/README.md) を参照。
 
 ### デバッグモード
-先頭 `??` のプロンプトを入力するとデバッグモードになり、 `debug-` 接頭辞付きのhookのデバッグ処理が有効になる。詳細は[set-debug-mode hook README](./hooks/helpers/events/userPromptSubmitted/set-debug-mode/README.md)を参照。
+先頭 `??` のプロンプトを入力するとデバッグモードになり、 `debug_` 接頭辞付きのhookのデバッグ処理が有効になる。詳細は[set_debug_mode hook README](./hooks/helpers/events/userPromptSubmitted/set_debug_mode/README.md)を参照。
 
 ### 敵対的レビューモード
-末尾 `;;` のプロンプトを入力すると、変更差分のレビューを[敵対的レビューエージェント](./agents/adversarial-review.agent.md)に依頼する。詳細は[request-adversarial-review hook README](./hooks/helpers/events/agentStop/request-adversarial-review/README.md)を参照。
+末尾 `;;` のプロンプトを入力すると、変更差分のレビューを[敵対的レビューエージェント](./agents/adversarial-review.agent.md)に依頼する。詳細は[request_adversarial_review hook README](./hooks/helpers/events/agentStop/request_adversarial_review/README.md)を参照。
 
 ### 一時ファイル
 - hookは状態ファイルとデバッグログを、一時フォルダー配下に出力する。
 - 上記が一定の条件を満たすと、セッション開始時に[削除用skill](./skills/clean-hook-temp-files/SKILL.md)の実行を推奨する。
-- 詳細は[check-hook-temp-files hook README](./hooks/helpers/events/sessionStart/check-hook-temp-files/README.md)を参照。
+- 詳細は[check_hook_temp_files hook README](./hooks/helpers/events/sessionStart/check_hook_temp_files/README.md)を参照。
 
 ### テスト
 #### Pylanceの設定
 - hookはWindows・macOS・Linuxのすべてを対象にし、`os.name == 'nt'` などでOSごとに分岐するため、リポジトリ直下の [pyrightconfig.json](../pyrightconfig.json) で `pythonPlatform` を `All` にして、実行中のOS以外向けの分岐も解析させる。
+- hookやutilityは、他のフォルダーのモジュールを、そのフォルダーを実行時に `sys.path` に加えてから `import` する。Pylanceは実行時の `sys.path` の変更を解析しないため、同じフォルダーを `extraPaths` に記載し、`import` したモジュールの解決と定義への移動ができるようにする。他から読み込まれるモジュールを新しいフォルダーに置いた場合は、`extraPaths` にも加える。
 - このファイルがあると、Pylanceは `python.analysis.*` の設定（`typeCheckingMode` など）よりこのファイルを優先するため、ユーザー設定で変えている項目はこのファイルにも記載する。
 
 ### トラブルシューティング
 #### デバッグフッターにsessionStartのhookが載らない
-デバッグモードで回答に付与される（[debug-add-response-footer](./hooks/helpers/events/agentStop/debug-add-response-footer/README.md)）フッターに `check-python` や `load-copilot-instructions` などsessionStartのhookが載らないのは仕様。
+デバッグモードで回答に付与される（[debug_add_response_footer](./hooks/helpers/events/agentStop/debug_add_response_footer/README.md)）フッターに `check_python` や `load_copilot_instructions` などsessionStartのhookが載らないのは仕様。
 - 「Hooks used」は、直近のユーザー発言以降にトランスクリプトへ記録された `hook.start` のイベント種別から推定するため、最初のユーザー発言より前に動くsessionStartのhookは表示範囲外になる。
 - 「Hooks fired」は、直近のユーザー依頼の `userPromptSubmitted` の `hook.start` 以降に起動したhookが対象のため、ターンの区切りより前に動くsessionStartのhookは対象外になる。
 
 #### デバッグフッターの「Hooks used」にhookが並ぶのに「Hooks fired」がnoneになる
 「Hooks used」はイベント種別からの推定であり、各hookが実際に出力したことを示すものではない。一方「Hooks fired」は実際に機能したhookだけを表示し、agentStopのhookは除外する。そのため、ツールを呼び出さないターンでは「Hooks used」にagentStopのhookが並んでも、「Hooks fired」が `none` になることがある。フッターに載らないことや `none` だけでは、hookが起動しなかったとは判断できない。
 
-各項目の対象と、hookランナーを通さないため「Hooks fired」に載らない `block-commands`・`check-python` については、[debug-add-response-footer](./hooks/helpers/events/agentStop/debug-add-response-footer/README.md) を参照。
+各項目の対象と、hookランナーを通さないため「Hooks fired」に載らない `block_commands`・`check_python` については、[debug_add_response_footer](./hooks/helpers/events/agentStop/debug_add_response_footer/README.md) を参照。

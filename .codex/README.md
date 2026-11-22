@@ -14,13 +14,13 @@ Codex CLIの `codex`、Git、Python 3.14以降をPATHから実行できる状態
 リポジトリルートで、macOS/Linuxは次を実行する。
 
 ```sh
-python3 .codex/setup-codex-hooks.py
+python3 .codex/setup_codex_hooks.py
 ```
 
 Windowsは次を実行する。
 
 ```powershell
-python .codex/setup-codex-hooks.py
+python .codex/setup_codex_hooks.py
 ```
 
 `OK: 6 hooks are enabled and trusted ...` が表示されたら、新しいCodexセッションを開始する。セットアップは実行したスクリプトの場所からclone先を求めるため、ユーザー名や絶対パスの編集は不要。別の場所からスクリプトのパスを指定して実行してもよい。
@@ -28,7 +28,7 @@ python .codex/setup-codex-hooks.py
 設定を変更せず、保存済みの信頼状態だけを確認するには次を使う。Windowsでは `python3` を `python` に置き換える。
 
 ```sh
-python3 .codex/setup-codex-hooks.py --check
+python3 .codex/setup_codex_hooks.py --check
 ```
 
 ### 保存する内容と再実行
@@ -57,11 +57,11 @@ hookの信頼は、上の初回セットアップの代わりにCLIの `/hooks` 
 |ファイル|役割|
 |--|--|
 |[hooks.json](./hooks.json)|イベントごとにアダプターを1つ登録する。|
-|[setup-codex-hooks.py](./setup-codex-hooks.py)|clone先のプロジェクトとhookの信頼をユーザー設定に保存し、別プロセスで確認する。|
-|[test-setup-codex-hooks.py](../.github/hooks/helpers/runner/test-setup-codex-hooks.py)|セットアップの設定保持、再実行、読み取り確認、異常系を検証する。|
-|[run-codex-hook.py](../.github/hooks/helpers/runner/run-codex-hook.py)|Codexの入力と履歴をCopilot SDK形式に変換する。|
-|[adapted-hook-runtime.py](../.github/hooks/helpers/runner/adapted-hook-runtime.py)|Claude Codeと共通の定義読込・順次実行・出力集約・履歴の末尾の補完と書き出し。|
-|[test-run-codex-hook.py](../.github/hooks/helpers/runner/test-run-codex-hook.py)|形式変換、拒否、停止、起動設定のテスト。Windowsの起動テストはCodexと同じく、内部の引用符を保持したコマンド文字列をCOMSPECの `/c` に渡す。|
+|[setup_codex_hooks.py](./setup_codex_hooks.py)|clone先のプロジェクトとhookの信頼をユーザー設定に保存し、別プロセスで確認する。|
+|[test_setup_codex_hooks.py](../.github/hooks/helpers/runner/test_setup_codex_hooks.py)|セットアップの設定保持、再実行、読み取り確認、異常系を検証する。|
+|[run_codex_hook.py](../.github/hooks/helpers/runner/run_codex_hook.py)|Codexの入力と履歴をCopilot SDK形式に変換する。|
+|[adapted_hook_runtime.py](../.github/hooks/helpers/runner/adapted_hook_runtime.py)|Claude Codeと共通の定義読込・順次実行・出力集約・履歴の末尾の補完と書き出し。|
+|[test_run_codex_hook.py](../.github/hooks/helpers/runner/test_run_codex_hook.py)|形式変換、拒否、停止、起動設定のテスト。Windowsの起動テストはCodexと同じく、内部の引用符を保持したコマンド文字列をCOMSPECの `/c` に渡す。|
 
 イベントごとにアダプターを1つだけ登録する理由と、Claude Codeのアダプターと共通の実行・出力の集約は [hookランナーのREADME](../.github/hooks/helpers/runner/README.md#アダプターからの起動) を参照。ここではCodex固有の事項を記載する。
 
@@ -121,7 +121,7 @@ hookの信頼は、上の初回セットアップの代わりにCLIの `/hooks` 
 1. 公式ガイドでイベント・入出力・起動方法を確認し、履歴を扱う場合は公開ソースの保存形式も確認する。
 2. Codex固有の変換はアダプターに加える。共通hookにはCodex専用の分岐を加えない。
 3. イベントを増減した場合は `hooks.json` と上表を合わせる。
-4. `python3 .github/hooks/helpers/runner/test-run-codex-hook.py`、`python3 .github/hooks/helpers/runner/test-setup-codex-hooks.py`、`python3 .github/hooks/tests/test-all-hooks.py`、`python3 .github/hooks/tests/test-hook-configurations.py` を実行する。Windowsでは `python` を使う。
+4. `python3 .github/hooks/helpers/runner/test_run_codex_hook.py`、`python3 .github/hooks/helpers/runner/test_setup_codex_hooks.py`、`python3 .github/hooks/tests/test_all_hooks.py`、`python3 .github/hooks/tests/test_hook_configurations.py` を実行する。Windowsでは `python` を使う。
 
 ## 確認した公式情報
 - [Hooksガイド](https://learn.chatgpt.com/docs/hooks)：イベント、設定探索、信頼、OS別コマンド、入出力、履歴の非安定性。
