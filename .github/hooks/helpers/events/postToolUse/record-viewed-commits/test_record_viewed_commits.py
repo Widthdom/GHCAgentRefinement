@@ -1,6 +1,5 @@
 import json
 import os
-import runpy
 import subprocess
 import sys
 import tempfile
@@ -12,11 +11,13 @@ _hook_path = os.path.join(_script_directory, 'record_viewed_commits.py')
 
 _helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
 _hooks_directory = os.path.dirname(_helpers_directory)
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
-_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_entry.py'))['get_hook_entry']
+from hook_entry import get_hook_entry as _get_hook_entry
 
-_state = runpy.run_path(os.path.join(_helpers_directory, 'utilities', 'viewed-commits-state', 'viewed_commits_state.py'))
+sys.path.insert(0, os.path.join(_helpers_directory, 'utilities', 'viewed-commits-state'))
+import viewed_commits_state as _state
 
 _COMMIT_A = '0123456789abcdef0123456789abcdef01234567'
 _COMMIT_B = 'fedcba9876543210fedcba9876543210fedcba98'
@@ -73,7 +74,7 @@ class RecordViewedCommitsTests(unittest.TestCase):
                     os.remove(self.__state_path)
                 self.__run_call(tool_name, args, output)
                 expected = {_COMMIT_A, _COMMIT_B} if 'log' in name else {_COMMIT_A}
-                self.assertEqual(_state['get_viewed'](self.__state_path), expected, name)
+                self.assertEqual(_state.get_viewed(self.__state_path), expected, name)
 
     def test_other_calls_are_not_recorded(self):
         cases = [

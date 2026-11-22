@@ -1,14 +1,16 @@
 import os
 import re
-import runpy
+import sys
 import tempfile
 import unittest
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_find = runpy.run_path(os.path.join(_script_directory, 'find_introduced_lines_by_regex.py'))['find_introduced_lines_by_regex']
+sys.path.insert(0, _script_directory)
+from find_introduced_lines_by_regex import find_introduced_lines_by_regex as _find
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 _REGEXES = [('todo', re.compile(r'TODO')), ('print', re.compile(r'print\('))]
 

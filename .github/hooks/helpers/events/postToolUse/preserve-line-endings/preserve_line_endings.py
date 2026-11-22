@@ -1,6 +1,5 @@
 import io
 import os
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -11,25 +10,32 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
-_get_path_sha256_digest = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-sha256-digest', 'get_sha256_digest.py',
-))['get_path_sha256_digest']
-_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))['get_state_path']
-_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run_git.py'))
-_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py'))['get_edited_paths']
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
-_filter_new_notifications = runpy.run_path(os.path.join(
-    _utilities_directory, 'filter-new-notifications', 'filter_new_notifications.py',
-))['filter_new_notifications']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'get-sha256-digest'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'run-git'),
+    os.path.join(_utilities_directory, 'edit-tool-changes'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+    os.path.join(_utilities_directory, 'filter-new-notifications'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import parse_tool_calls as _tool_calls
+from get_sha256_digest import get_path_sha256_digest as _get_path_sha256_digest
+from get_state_path import get_state_path as _get_state_path
+import run_git as _git
+from edit_tool_changes import get_edited_paths as _get_edited_paths
+from get_display_path import get_display_path as _get_display_path
+from filter_new_notifications import filter_new_notifications as _filter_new_notifications
 
 
 _UTF8_BOM = b'\xef\xbb\xbf'
 _GIT_TIMEOUT_SECONDS = 5
 # gitの実行全体の期限。ファイルが多くても、hookの `timeoutSec`（10秒）より前に打ち切り、比べられない分は対象外とする。
-_GIT_DEADLINE = _git['create_deadline'](7)
+_GIT_DEADLINE = _git.create_deadline(7)
 _FORMAT_CONTEXT = (
     'The following edited files no longer match the file format of their committed version: {changes}. '
     'Editing tools can silently rewrite line endings, the byte order mark, or the final newline when '
@@ -43,7 +49,7 @@ def _get_committed_content(path):
     # HEADのファイルを、チェックアウト時と同じ変換（core.autocrlfや.gitattributesのeol）を通して取得する。
     # 変換前の内容と比べると、WindowsのautocrlfでCRLFになった作業ツリーを誤って変更扱いしてしまう。
     # gitがない、リポジトリ外、HEADにないファイル（新規・管理外）は比較できないためNoneを返す。
-    result = _git['run_git'](
+    result = _git.run_git(
         os.path.dirname(path), ['cat-file', '--filters', f'HEAD:./{os.path.basename(path)}'],
         _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE,
     )
@@ -93,14 +99,14 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
 
         state_path = _get_state_path('preserve-line-endings', hook_input.get('sessionId'))
 
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
-        if not _tool_calls['is_edit_tool'](tool_name):
+        if not _tool_calls.is_edit_tool(tool_name):
             return 0
         # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。
         # gitは大文字小文字を区別するため、問い合わせ・読み込み・表示には正規化前のパスを使い、normcaseは照合だけに使う。
@@ -140,7 +146,7 @@ def main():
             f'{_get_display_path(path, cwd)} ({", ".join(file_changes)})' for path, file_changes in notifications
         )
         # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
-        _hook_output['write_additional_context'](_FORMAT_CONTEXT.format(changes=changes))
+        _hook_output.write_additional_context(_FORMAT_CONTEXT.format(changes=changes))
     return 0
 
 

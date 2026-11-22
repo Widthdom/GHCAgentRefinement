@@ -1,7 +1,6 @@
 import io
 import json
 import os
-import runpy
 import sys
 from typing import cast
 
@@ -11,7 +10,8 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
+sys.path.insert(0, os.path.join(_utilities_directory, 'read-hook-input'))
+import read_hook_input as _hook_input
 
 
 def main():
@@ -27,7 +27,7 @@ def main():
     # このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
     #   空、JSONとして解析できない、JSONオブジェクト（最外側が{}）でない入力は異常終了。
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to parse sessionStart hook input: {ex}', file=sys.stderr)
         return 2

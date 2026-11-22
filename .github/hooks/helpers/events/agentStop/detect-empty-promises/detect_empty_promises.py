@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -11,10 +10,16 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate_text.py'))['truncate_text']
-_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read_transcript_events.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'truncate-text'),
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from truncate_text import truncate_text as _truncate_text
+import read_transcript_events as _transcript_events
 
 
 # 作業を後回しにすると約束する表現。エージェントには応答の後に作業する機会がないため、果たされない。
@@ -52,13 +57,13 @@ _MAX_PROMISE_LENGTH = 200
 
 def _get_turn(transcript_path, extract_edit_tool_changes):
     # ユーザーの最新の依頼以降の最終応答と、FIXMEコメントを書き込んだかを返す。本hookによる差し戻し済みかも返す。
-    events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
+    events, already_requested = _transcript_events.get_latest_turn(transcript_path, _REASON_PREFIX)
     wrote_fixme = any(
         completion is not None and completion.get('success') is True
         and any(_FIXME_PATTERN.search(change['written']) for change in extract_edit_tool_changes(tool_name, arguments))
-        for tool_name, arguments, completion in _transcript_events['get_tool_calls'](events)
+        for tool_name, arguments, completion in _transcript_events.get_tool_calls(events)
     )
-    return _transcript_events['get_last_assistant_message'](events), wrote_fixme, already_requested
+    return _transcript_events.get_last_assistant_message(events), wrote_fixme, already_requested
 
 
 def _find_promises(response):
@@ -97,21 +102,20 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
         if hook_input.get('agentId'):
             return 0
-        transcript_path = _hook_input['get_transcript_path'](hook_input)
+        transcript_path = _hook_input.get_transcript_path(hook_input)
 
         # 編集ツールの引数の解析は、共通utilityで行う。
-        extract_edit_tool_changes = runpy.run_path(
-            os.path.join(_utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py')
-        )['extract_edit_tool_changes']
+        sys.path.insert(0, os.path.join(_utilities_directory, 'edit-tool-changes'))
+        from edit_tool_changes import extract_edit_tool_changes
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答を書き込み済みにする。
-        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events.wait_for_agent_stop_event(transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, wrote_fixme, already_requested = _get_turn(transcript_path, extract_edit_tool_changes)
-    except (OSError, UnicodeError, ValueError) as ex:
+    except (OSError, UnicodeError, ValueError, ImportError) as ex:
         print(f'Failed to inspect deferred promises: {ex}', file=sys.stderr)
         return 2
 
@@ -122,7 +126,7 @@ def main():
 
     promises = _find_promises(last_assistant_msg)
     if promises:
-        _hook_output['write_block_decision'](_get_block_reason(promises))
+        _hook_output.write_block_decision(_get_block_reason(promises))
     return 0
 
 

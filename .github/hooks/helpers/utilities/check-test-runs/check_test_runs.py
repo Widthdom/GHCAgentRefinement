@@ -1,15 +1,14 @@
 import os
 import re
-import runpy
+import sys
 
 # コマンドがテストの実行か、応答が「テストが通った」と書いているかを判定する。
 # テストの実行結果を扱うhook（verify-test-pass-claims・require-hook-tests・record-test-failure-values・detect-vacuous-test-success）と、
 # テストを含む検証コマンドの終了コードを隠させないhook（block-masked-exit-codes）が共有する。
 
 # コマンドの分割は共通のutilityで行う。utilityのフォルダーの親がutilitiesである。
-_split_bash_lines = runpy.run_path(os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'split-bash-lines', 'split_bash_lines.py',
-))['split_bash_lines']
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'split-bash-lines'))
+from split_bash_lines import split_bash_lines as _split_bash_lines
 
 # テストの実行とみなすコマンドの語（正規表現）。`test_all_hooks.py`・`npm test`・`pytest` などを含む。
 TEST_COMMAND_WORDS = ('tests?', 'pytest', 'unittest', 'jest', 'vitest', 'mocha', 'rspec', 'phpunit', 'ctest', 'tox', 'pester')

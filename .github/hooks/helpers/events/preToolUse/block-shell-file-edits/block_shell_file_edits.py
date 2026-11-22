@@ -2,7 +2,6 @@ import glob
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -12,12 +11,20 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
-_split_bash_lines = runpy.run_path(os.path.join(_utilities_directory, 'split-bash-lines', 'split_bash_lines.py'))['split_bash_lines']
-_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run_git.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'split-bash-lines'),
+    os.path.join(_utilities_directory, 'run-git'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from get_display_path import get_display_path as _get_display_path
+import parse_tool_calls as _tool_calls
+from split_bash_lines import split_bash_lines as _split_bash_lines
+import run_git as _git
 
 
 _GIT_TIMEOUT_SECONDS = 5
@@ -302,7 +309,7 @@ def _get_tracked_files(paths):
             by_directory.setdefault(os.path.dirname(path), set()).add(path)
     tracked = set()
     for directory, files in by_directory.items():
-        output = _git['get_git_output'](directory, ['ls-files', '-z'], _GIT_TIMEOUT_SECONDS)
+        output = _git.get_git_output(directory, ['ls-files', '-z'], _GIT_TIMEOUT_SECONDS)
         # gitがない場合は判定できないため許可する。gitの導入はcheck-required-tools hookが案内する。
         if output is None:
             continue
@@ -317,15 +324,15 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
 
-        cwd = _hook_input['get_cwd'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
         cwd = os.path.normpath(cwd)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
         paths = set()
         match = _SHELL_TOOL_PATTERN.match(tool_name)
-        tool_args = _tool_calls['unwrap_tool_args'](tool_args) if match else None
+        tool_args = _tool_calls.unwrap_tool_args(tool_args) if match else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         if match and isinstance(command, str):
             for base, text in _get_write_targets(command, match.group(1).lower(), cwd):
@@ -340,7 +347,7 @@ def main():
         display_paths = {os.path.normcase(path): _get_display_path(path, cwd) for path in sorted(tracked)}
         files = ', '.join(sorted(display_paths.values()))
         # 正常な拒否なので終了コードは0。
-        _hook_output['write_deny_decision'](_DENY_REASON.format(files=files))
+        _hook_output.write_deny_decision(_DENY_REASON.format(files=files))
     return 0
 
 

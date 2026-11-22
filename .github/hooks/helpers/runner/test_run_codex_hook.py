@@ -1,6 +1,5 @@
 import json
 import os
-import runpy
 import shutil
 import subprocess
 import sys
@@ -13,8 +12,12 @@ _script_directory = os.path.dirname(os.path.abspath(__file__))
 _helpers_directory = os.path.dirname(_script_directory)
 _hooks_directory = os.path.dirname(_helpers_directory)
 _repository_root = os.path.dirname(os.path.dirname(_hooks_directory))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
-_adapter = runpy.run_path(os.path.join(_script_directory, 'run_codex_hook.py'))
+sys.path[:0] = [
+    os.path.join(_hooks_directory, 'tests', 'helpers'),
+    _script_directory,
+]
+from hook_test_output import run_tests as _run_tests
+import run_codex_hook as _adapter
 _FAKE_HOOK = '''import json, os, sys
 data = json.loads(sys.stdin.buffer.read().decode('utf-8'))
 if 'transcriptPath' in data:
@@ -160,7 +163,7 @@ class RunCodexHookTests(unittest.TestCase):
             ('event_msg', {'type': 'item_completed', 'item': {'type': 'HookPrompt', 'fragments': [{'text': 'A\n\n---\n\nB'}]}}),
             ('event_msg', {'type': 'item_completed', 'item': {'type': 'AgentMessage', 'content': [{'type': 'Text', 'text': '応答'}]}}),
         )
-        events = _adapter['_convert_transcript'](transcript, '応答', 123)
+        events = _adapter._convert_transcript(transcript, '応答', 123)
         self.assertEqual([e['data']['content'] for e in events if e['type'] == 'user.message'], ['依頼', 'A', 'B'])
         self.assertEqual(sum(e['type'] == 'assistant.message' for e in events), 1)
         complete = [e['data'] for e in events if e['type'] == 'tool.execution_complete']
@@ -209,15 +212,14 @@ class RunCodexHookTests(unittest.TestCase):
                 transcript = self.__transcript(*records, ('response_item', {
                     'type': 'function_call_output', 'call_id': 't', 'output': '{"exit_code":0}',
                 }))
-                events = _adapter['_convert_transcript'](transcript, None, 123)
+                events = _adapter._convert_transcript(transcript, None, 123)
                 self.assertEqual([e['type'] for e in events], [
                     'tool.execution_start', 'tool.execution_complete', 'hook.start',
                 ])
 
     def test_stop_test_requirement_observes_nested_test_exit_code(self):
-        requirement = runpy.run_path(os.path.join(
-            _helpers_directory, 'events', 'agentStop', 'require-hook-tests', 'require_hook_tests.py',
-        ))
+        sys.path.insert(0, os.path.join(_helpers_directory, 'events', 'agentStop', 'require-hook-tests'))
+        import require_hook_tests as requirement
         for exit_code, expected in ((0, []), (1, ['failed with exit code 1']), (None, ['not run'])):
             with self.subTest(exit_code=exit_code):
                 transcript = self.__transcript(
@@ -231,12 +233,12 @@ class RunCodexHookTests(unittest.TestCase):
                         'exit_code': exit_code,
                     }}),
                 )
-                events = _adapter['_convert_transcript'](transcript, None, 123)
+                events = _adapter._convert_transcript(transcript, None, 123)
                 with open(transcript, 'w', encoding='utf-8', newline='\n') as file:
                     for event in events:
                         file.write(json.dumps(event) + '\n')
-                turn, _ = requirement['_get_turn_events'](transcript)
-                unverified, _ = requirement['_get_unverified'](turn, _repository_root)
+                turn, _ = requirement._get_turn_events(transcript)
+                unverified, _ = requirement._get_unverified(turn, _repository_root)
                 self.assertEqual([status for _, status in unverified], expected)
 
     def test_shell_items_do_not_invent_success_or_execution(self):
@@ -254,7 +256,7 @@ class RunCodexHookTests(unittest.TestCase):
                     'type': 'CommandExecution', 'id': 'nested', 'source': source,
                     'command': command, 'exit_code': exit_code,
                 }}))
-                events = _adapter['_convert_transcript'](transcript, None, 123)
+                events = _adapter._convert_transcript(transcript, None, 123)
                 self.assertEqual(sum(e['type'] == 'tool.execution_start' for e in events), int(started))
                 self.assertEqual(sum(e['type'] == 'tool.execution_complete' for e in events), int(completed))
                 if completed:
@@ -293,7 +295,7 @@ class RunCodexHookTests(unittest.TestCase):
 
     def test_configuration_launches_from_subdirectory(self):
         config = self.__read(os.path.join(_repository_root, '.codex', 'hooks.json'))['hooks']
-        self.assertEqual(set(config), set(_adapter['_EVENT_NAMES']))
+        self.assertEqual(set(config), set(_adapter._EVENT_NAMES))
         handlers = [group[0]['hooks'][0] for group in config.values()]
         self.assertTrue(all(handler == handlers[0] for handler in handlers))
         self.assertEqual(handlers[0]['type'], 'command')

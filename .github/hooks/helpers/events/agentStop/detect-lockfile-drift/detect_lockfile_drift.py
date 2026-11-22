@@ -2,7 +2,6 @@ import argparse
 import io
 import json
 import os
-import runpy
 import sys
 import tomllib
 from typing import cast
@@ -13,11 +12,18 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read_transcript_events.py'))
-_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run_git.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+    os.path.join(_utilities_directory, 'run-git'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import read_definitions as _definitions
+import read_transcript_events as _transcript_events
+import run_git as _git
 
 
 _FORMATS = {'json', 'toml', 'lines'}
@@ -35,7 +41,7 @@ _BLOCK_REASON = (
 
 def _load_definitions(path):
     # 戻り値は [{name, file, format, keys, lines, locks}]。正規表現はコンパイル済み。
-    definitions = _definitions['read_definitions'](path, 'lockfile drift definitions')
+    definitions = _definitions.read_definitions(path, 'lockfile drift definitions')
     manifests = definitions.get('manifests')
     if not isinstance(manifests, list) or not manifests:
         raise ValueError('lockfile drift definitions require a non-empty array for manifests.')
@@ -57,10 +63,10 @@ def _load_definitions(path):
         is_lines = manifest['format'] == 'lines'
         loaded.append({
             'name': name,
-            'file': _definitions['get_regex_matcher'](manifest, 'filePattern', label),
+            'file': _definitions.get_regex_matcher(manifest, 'filePattern', label),
             'format': manifest['format'],
-            'keys': [] if is_lines else _definitions['get_string_list'](manifest, 'dependencyKeys', label),
-            'lines': _definitions['get_regex_matchers'](manifest, 'linePatterns', label) if is_lines else [],
+            'keys': [] if is_lines else _definitions.get_string_list(manifest, 'dependencyKeys', label),
+            'lines': _definitions.get_regex_matchers(manifest, 'linePatterns', label) if is_lines else [],
             'locks': locks,
         })
     return loaded
@@ -68,13 +74,13 @@ def _load_definitions(path):
 
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・書き込んだファイル・本hookによる差し戻し済みかを集める。
-    events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
+    events, already_requested = _transcript_events.get_latest_turn(transcript_path, _REASON_PREFIX)
     # 書き込むファイルと移動先を集める。削除するファイルは対象外とする。
     paths = [
-        path for change in _transcript_events['get_started_edit_tool_changes'](events)
+        path for change in _transcript_events.get_started_edit_tool_changes(events)
         for path in (change['path'], change['moved_to']) if path
     ]
-    return _transcript_events['get_last_assistant_message'](events), paths, already_requested
+    return _transcript_events.get_last_assistant_message(events), paths, already_requested
 
 
 def _resolve_keys(value, parts):
@@ -127,7 +133,7 @@ def _find_drifts(manifests, paths, cwd, repository_root):
             continue
         relative_path = os.path.relpath(path, repository_root).replace(os.sep, '/')
         # 編集前の内容はHEADのものとする。HEADにないマニフェスト（新規作成）は比べる対象がないため判定しない。
-        head = _git['run_git'](repository_root, ['show', f'HEAD:{relative_path}'], _GIT_TIMEOUT_SECONDS)
+        head = _git.run_git(repository_root, ['show', f'HEAD:{relative_path}'], _GIT_TIMEOUT_SECONDS)
         if head is None or head.returncode != 0:
             continue
         with open(path, encoding='utf-8-sig', errors='replace') as file:
@@ -146,8 +152,8 @@ def _find_drifts(manifests, paths, cwd, repository_root):
             continue
         for lock_relative_path, _ in locks:
             # git管理下でないロックファイルは新たに作ったものとみなし、HEADから変わったものとあわせて更新済みとする。
-            tracked = _git['run_git'](repository_root, ['ls-files', '--', lock_relative_path], _GIT_TIMEOUT_SECONDS)
-            changed = _git['run_git'](repository_root, ['diff', '--quiet', 'HEAD', '--', lock_relative_path], _GIT_TIMEOUT_SECONDS)
+            tracked = _git.run_git(repository_root, ['ls-files', '--', lock_relative_path], _GIT_TIMEOUT_SECONDS)
+            changed = _git.run_git(repository_root, ['diff', '--quiet', 'HEAD', '--', lock_relative_path], _GIT_TIMEOUT_SECONDS)
             if tracked is None or not tracked.stdout.strip() or changed is None or changed.returncode != 0:
                 break
         else:
@@ -170,24 +176,24 @@ def main(arguments=None):
 
     try:
         manifests = _load_definitions(parsed_arguments.definitions_path)
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
 
         # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
         if hook_input.get('agentId'):
             return 0
 
-        cwd = _hook_input['get_cwd'](hook_input)
-        transcript_path = _hook_input['get_transcript_path'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
+        transcript_path = _hook_input.get_transcript_path(hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
-        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events.wait_for_agent_stop_event(transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, paths, already_requested = _get_turn_summary(transcript_path)
         # 同じ依頼で差し戻すのは1回だけにし、意図して残す場合に停止できなくなるのを防ぐ。
         if last_assistant_msg is None or already_requested or not paths:
             return 0
         # HEADと比べるため、gitがない、またはリポジトリ外の場合は検査しない。
-        repository_root = _git['get_repository_root'](cwd, _GIT_TIMEOUT_SECONDS)
+        repository_root = _git.get_repository_root(cwd, _GIT_TIMEOUT_SECONDS)
         if repository_root is None:
             return 0
         drifts = _find_drifts(manifests, paths, cwd, os.path.realpath(repository_root))
@@ -200,7 +206,7 @@ def main(arguments=None):
             f'- {manifest}: {", ".join(lock for lock, _ in locks)} unchanged; run `{locks[0][1]}`'
             for manifest, locks in drifts[:_MAX_FINDINGS]
         )
-        _hook_output['write_block_decision'](_BLOCK_REASON.format(findings=findings))
+        _hook_output.write_block_decision(_BLOCK_REASON.format(findings=findings))
     return 0
 
 

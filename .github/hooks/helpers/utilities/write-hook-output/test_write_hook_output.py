@@ -1,20 +1,22 @@
 import contextlib
 import io
 import os
-import runpy
+import sys
 import unittest
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_utility = runpy.run_path(os.path.join(_script_directory, 'write_hook_output.py'))
+sys.path.insert(0, _script_directory)
+import write_hook_output as _utility
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 def _capture(name, text):
     stdout = io.StringIO()
     with contextlib.redirect_stdout(stdout):
-        _utility[name](text)
+        getattr(_utility, name)(text)
     return stdout.getvalue()
 
 

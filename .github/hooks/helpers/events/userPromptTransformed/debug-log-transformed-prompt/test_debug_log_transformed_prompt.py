@@ -1,7 +1,6 @@
 import glob
 import json
 import os
-import runpy
 import subprocess
 import sys
 import tempfile
@@ -13,7 +12,8 @@ from unittest.mock import patch
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'debug_log_transformed_prompt.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class DebugLogTransformedPromptTests(unittest.TestCase):
@@ -218,7 +218,8 @@ class DebugLogTransformedPromptTests(unittest.TestCase):
         self.assertIn(b'Failed to log transformed prompt:', result.stderr)
 
     def test_failed_finalization_removes_temporary_log(self):
-        save_log = runpy.run_path(_hook_path)['_save_log']
+        sys.path.insert(0, _script_directory)
+        from debug_log_transformed_prompt import _save_log as save_log
         with (
             patch('tempfile.gettempdir', return_value=self.__root),
             patch('os.replace', side_effect=OSError('test finalization failure')),

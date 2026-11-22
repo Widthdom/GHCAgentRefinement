@@ -2,7 +2,6 @@ import argparse
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -12,15 +11,22 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read_transcript_events.py'))
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check_test_files.py'))
-_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run_git.py'))
-_get_stripped_lines = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-stripped-lines', 'get_stripped_lines.py',
-))['get_stripped_lines']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'check-test-files'),
+    os.path.join(_utilities_directory, 'run-git'),
+    os.path.join(_utilities_directory, 'get-stripped-lines'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import read_transcript_events as _transcript_events
+import read_definitions as _definitions
+import check_test_files as _check_test_files
+import run_git as _git
+from get_stripped_lines import get_stripped_lines as _get_stripped_lines
 
 
 _IGNORED_REFERENCE_FILE_PATTERNS_KEY = 'ignoredReferenceFilePatterns'
@@ -46,36 +52,36 @@ def _load_language(definition):
         raise ValueError(f'each item of {_LANGUAGES_KEY} requires a non-blank string for name.')
     label = f'{_LANGUAGES_KEY}[{definition["name"]}]'
     # 定義は行頭から照合するため、行頭は各行に一致させる。
-    compiled = _definitions['get_regex_matchers'](definition, 'definitionPatterns', label, flags=re.MULTILINE)
+    compiled = _definitions.get_regex_matchers(definition, 'definitionPatterns', label, flags=re.MULTILINE)
     if any('name' not in pattern.groupindex for pattern in compiled):
         raise ValueError(f'each definitionPattern in {label} requires a named group "name".')
     return (
-        _definitions['get_regex_matcher'](definition, 'filePattern', label),
+        _definitions.get_regex_matcher(definition, 'filePattern', label),
         None if definition.get('annotationPattern') is None
-        else _definitions['get_regex_matcher'](definition, 'annotationPattern', label),
+        else _definitions.get_regex_matcher(definition, 'annotationPattern', label),
         compiled,
     )
 
 
 def _load_definitions(path):
     label = 'orphaned addition definitions'
-    definitions = _definitions['read_definitions'](path, label)
+    definitions = _definitions.read_definitions(path, label)
     languages = definitions.get(_LANGUAGES_KEY)
     if not isinstance(languages, list) or not languages:
         raise ValueError(f'{_LANGUAGES_KEY} in {label} must be a non-empty array.')
     return (
-        _definitions['get_regex_matchers'](definitions, _IGNORED_REFERENCE_FILE_PATTERNS_KEY, label, allow_empty_list=True),
-        _definitions['get_regex_matchers'](definitions, _EXCLUDED_NAME_PATTERNS_KEY, label, allow_empty_list=True),
+        _definitions.get_regex_matchers(definitions, _IGNORED_REFERENCE_FILE_PATTERNS_KEY, label, allow_empty_list=True),
+        _definitions.get_regex_matchers(definitions, _EXCLUDED_NAME_PATTERNS_KEY, label, allow_empty_list=True),
         [_load_language(language) for language in languages],
     )
 
 
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・編集・本hookによる差し戻し済みかを集める。
-    events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
+    events, already_requested = _transcript_events.get_latest_turn(transcript_path, _REASON_PREFIX)
     return (
-        _transcript_events['get_last_assistant_message'](events),
-        _transcript_events['get_started_edit_tool_changes'](events),
+        _transcript_events.get_last_assistant_message(events),
+        _transcript_events.get_started_edit_tool_changes(events),
         already_requested,
     )
 
@@ -132,7 +138,7 @@ def _find_candidates(changes, cwd, repository_root, excluded_name_patterns, lang
         # パターンの照合と理由での表示は、OSによらず `/` 区切りのパスで行う。
         relative_path = os.path.relpath(full_path, repository_root).replace(os.sep, '/')
         language = _get_language(languages, relative_path)
-        if language is None or _check_test_files['is_test_file'](test_file_patterns, relative_path):
+        if language is None or _check_test_files.is_test_file(test_file_patterns, relative_path):
             continue
         removed_lines = _get_stripped_lines(removed)
         for pattern in language[2]:
@@ -164,7 +170,7 @@ def _find_orphans(candidates, repository_root, ignored_reference_file_patterns, 
     for name in names:
         arguments.extend(['-e', name])
     # 一致がない場合、git grepは終了コード1を返す。gitがない、または検索に失敗した場合は、参照を数えられないだけなので異常終了にはしない。
-    result = _git['run_git'](repository_root, arguments, _GIT_TIMEOUT_SECONDS)
+    result = _git.run_git(repository_root, arguments, _GIT_TIMEOUT_SECONDS)
     if result is None or result.returncode not in (0, 1):
         return None
     output = result.stdout.decode('utf-8', errors='replace')
@@ -177,7 +183,7 @@ def _find_orphans(candidates, repository_root, ignored_reference_file_patterns, 
         path, line_number, content = parts[0], int(parts[1]), parts[2]
         if any(pattern.search(path) for pattern in ignored_reference_file_patterns):
             continue
-        is_test = _check_test_files['is_test_file'](test_file_patterns, path)
+        is_test = _check_test_files.is_test_file(test_file_patterns, path)
         for name, pattern in name_patterns.items():
             if pattern.search(content):
                 references[name].add((path, line_number, is_test))
@@ -209,25 +215,25 @@ def main(arguments=None):
         ignored_reference_file_patterns, excluded_name_patterns, languages = _load_definitions(
             parsed_arguments.definitions_path
         )
-        test_file_patterns = _check_test_files['load_test_file_patterns']()
-        hook_input = _hook_input['read_hook_input']()
+        test_file_patterns = _check_test_files.load_test_file_patterns()
+        hook_input = _hook_input.read_hook_input()
 
         # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
         if hook_input.get('agentId'):
             return 0
 
-        cwd = _hook_input['get_cwd'](hook_input)
-        transcript_path = _hook_input['get_transcript_path'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
+        transcript_path = _hook_input.get_transcript_path(hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
-        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events.wait_for_agent_stop_event(transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, changes, already_requested = _get_turn_summary(transcript_path)
         # 同じ依頼で差し戻すのは1回だけにし、意図して残す場合に停止できなくなるのを防ぐ。
         if last_assistant_msg is None or already_requested or not changes:
             return 0
         # 参照はリポジトリ全体から探すため、gitがない、またはリポジトリ外の場合は検査しない。
-        repository_root = _git['get_repository_root'](cwd, _GIT_TIMEOUT_SECONDS)
+        repository_root = _git.get_repository_root(cwd, _GIT_TIMEOUT_SECONDS)
         if repository_root is None:
             return 0
         repository_root = os.path.realpath(repository_root)
@@ -245,7 +251,7 @@ def main(arguments=None):
         findings = '\n'.join(
             f'- {path}:{line_number}: {name} ({kind})' for path, line_number, name, kind in orphans[:_MAX_FINDINGS]
         )
-        _hook_output['write_block_decision'](_BLOCK_REASON.format(findings=findings))
+        _hook_output.write_block_decision(_BLOCK_REASON.format(findings=findings))
     return 0
 
 

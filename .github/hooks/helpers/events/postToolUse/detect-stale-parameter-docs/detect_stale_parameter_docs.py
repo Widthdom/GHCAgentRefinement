@@ -2,7 +2,6 @@ import ast
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -12,9 +11,14 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from get_display_path import get_display_path as _get_display_path
 
 
 _PYTHON_EXTENSIONS = ('.py', '.pyi')
@@ -269,13 +273,12 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
-        extract_edit_tool_changes = runpy.run_path(
-            os.path.join(_utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py')
-        )['extract_edit_tool_changes']
-    except (OSError, UnicodeError, ValueError) as ex:
+        hook_input = _hook_input.read_hook_input()
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
+        sys.path.insert(0, os.path.join(_utilities_directory, 'edit-tool-changes'))
+        from edit_tool_changes import extract_edit_tool_changes
+    except (OSError, UnicodeError, ValueError, ImportError) as ex:
         print(f'Failed to detect stale parameter docs: {ex}', file=sys.stderr)
         return 2
     cwd = os.path.normpath(cwd)
@@ -313,7 +316,7 @@ def main():
         shown.append(f'- ... and {len(reports) - _MAX_REPORTS} more')
     count = 'a function' if len(reports) == 1 else f'{len(reports)} functions'
     # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
-    _hook_output['write_additional_context'](_STALE_CONTEXT.format(count=count, reports='\n'.join(shown)))
+    _hook_output.write_additional_context(_STALE_CONTEXT.format(count=count, reports='\n'.join(shown)))
     return 0
 
 

@@ -1,7 +1,6 @@
 import io
 import json
 import os
-import runpy
 import subprocess
 import sys
 import tempfile
@@ -12,13 +11,19 @@ from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'check_hook_temp_files.py')
-_helper_path = os.path.join(_script_directory, 'hook_temp_files.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
 # 判定基準を借りる削除スクリプトも検証し、hookの移動・改名による参照切れを検出する。
 _clean_script_path = os.path.join(
     os.path.dirname(_hooks_directory), 'skills', 'clean-hook-temp-files', 'scripts', 'clean_hook_temp_files.py',
 )
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path[:0] = [
+    _script_directory,
+    os.path.dirname(_clean_script_path),
+    os.path.join(_hooks_directory, 'tests', 'helpers'),
+]
+import hook_temp_files as _helper
+import clean_hook_temp_files as _clean_script
+from hook_test_output import run_tests as _run_tests
 
 _STALE_SECONDS = 48 * 60 * 60 + 60
 _FRESH_SECONDS = 48 * 60 * 60 - 60
@@ -32,7 +37,6 @@ class CheckHookTempFilesTests(unittest.TestCase):
         self.__environment = os.environ.copy()
         self.__environment.update({'TMPDIR': self.__temp, 'TEMP': self.__temp, 'TMP': self.__temp})
         self.__root = os.path.join(self.__temp, 'ghc-agent-refinement')
-        self.__helper = runpy.run_path(_helper_path)
         self.__sequence = 0
 
     @staticmethod
@@ -129,7 +133,7 @@ class CheckHookTempFilesTests(unittest.TestCase):
 
     def test_find_stale_files(self):
         stale, _ = self.__create_layout()
-        found = self.__helper['find_stale_files'](self.__root, time.time())
+        found = _helper.find_stale_files(self.__root, time.time())
         self.assertEqual(sorted(path for _, path, _ in found), sorted(stale))
         # 分類は、OSによらず `/` 区切りで示される。
         self.assertEqual({group for group, _, _ in found}, {
@@ -138,11 +142,11 @@ class CheckHookTempFilesTests(unittest.TestCase):
             'debug-logs/prompt-transformations/session',
         })
         self.assertTrue(all(size == 10 for _, _, size in found))
-        self.assertEqual(self.__helper['find_stale_files'](os.path.join(self.__temp, 'missing'), time.time()), [])
+        self.assertEqual(_helper.find_stale_files(os.path.join(self.__temp, 'missing'), time.time()), [])
 
     def test_temp_root_uses_temp_directory(self):
         with patch('tempfile.gettempdir', return_value=self.__temp):
-            self.assertEqual(self.__helper['get_temp_root'](), self.__root)
+            self.assertEqual(_helper.get_temp_root(), self.__root)
 
     def test_delete_failure_is_reported(self):
         stale, _ = self.__create_layout()
@@ -154,7 +158,7 @@ class CheckHookTempFilesTests(unittest.TestCase):
             original_remove(path)
 
         with patch('os.remove', side_effect=remove):
-            deleted_files, deleted_bytes, _, failures = self.__helper['delete_stale_files'](self.__root, time.time())
+            deleted_files, deleted_bytes, _, failures = _helper.delete_stale_files(self.__root, time.time())
         self.assertEqual((deleted_files, deleted_bytes), (2, 20))
         self.assertEqual(failures, [(stale[0], 'Permission denied')])
         self.assertTrue(os.path.exists(stale[0]))
@@ -216,7 +220,7 @@ class CheckHookTempFilesTests(unittest.TestCase):
 
         stdout = io.TextIOWrapper(io.BytesIO(), encoding='utf-8', newline='\n')
         stderr = io.TextIOWrapper(io.BytesIO(), encoding='utf-8', newline='\n')
-        main = runpy.run_path(_clean_script_path)['main']
+        main = _clean_script.main
         with (
             patch('tempfile.gettempdir', return_value=self.__temp), patch('os.remove', side_effect=remove),
             patch('sys.stdout', stdout), patch('sys.stderr', stderr),
@@ -233,7 +237,7 @@ class CheckHookTempFilesTests(unittest.TestCase):
         self.assertTrue(os.path.exists(stale[0]))
 
     def test_size_format(self):
-        format_size = runpy.run_path(_clean_script_path)['format_size']
+        format_size = _clean_script.format_size
         for size, expected in ((0, '0 B'), (1023, '1023 B'), (1024, '1.0 KB'), (1536, '1.5 KB'),
                                (1024 * 1024, '1.0 MB'), (5 * 1024 ** 3, '5120.0 MB')):
             with self.subTest(size=size):

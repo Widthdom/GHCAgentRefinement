@@ -1,14 +1,14 @@
 import os
-import runpy
+import sys
 
 
 # 状態の保存先と照合用のダイジェストは共通のutilityで作る。utilityのフォルダーの親がutilitiesである。
 _utilities_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_state_path_utility = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))
+sys.path.insert(0, os.path.join(_utilities_directory, 'get-state-path'))
+import get_state_path as _state_path_utility
 # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
-get_file_key = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-sha256-digest', 'get_sha256_digest.py',
-))['get_path_sha256_digest']
+sys.path.insert(0, os.path.join(_utilities_directory, 'get-sha256-digest'))
+from get_sha256_digest import get_path_sha256_digest as get_file_key
 
 
 # エージェントが内容を把握したファイル（known files）の状態。
@@ -23,7 +23,7 @@ DENIED = 'denied'
 
 def get_state_path(session_id):
     # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
-    return _state_path_utility['get_state_path']('known-files', session_id)
+    return _state_path_utility.get_state_path('known-files', session_id)
 
 
 def normalize_path(cwd, path):
@@ -33,7 +33,7 @@ def normalize_path(cwd, path):
 
 def open_state(state_path):
     # 書き込みのトランザクションを始めた状態の接続を返す。
-    return _state_path_utility['open_state_database'](
+    return _state_path_utility.open_state_database(
         state_path,
         f"CREATE TABLE IF NOT EXISTS files (file TEXT PRIMARY KEY, state TEXT NOT NULL CHECK (state IN ('{SEEN}', '{DENIED}')))",
     )

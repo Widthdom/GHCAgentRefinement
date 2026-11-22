@@ -3,7 +3,6 @@ import io
 import json
 import os
 import re
-import runpy
 import sys
 import tempfile
 from typing import cast
@@ -14,9 +13,14 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))['parse_session_id']
-_debug_mode_state = runpy.run_path(os.path.join(_utilities_directory, 'debug-mode-state', 'debug_mode_state.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'debug-mode-state'),
+]
+import read_hook_input as _hook_input
+from get_state_path import parse_session_id as _parse_session_id
+import debug_mode_state as _debug_mode_state
 
 
 def _code_block(content, language):
@@ -57,7 +61,7 @@ def _format_log(hook_input, session_id):
 
 
 def _save_log(content, session_id, timestamp):
-    log_directory = _debug_mode_state['get_debug_log_directory']('prompt-transformations', str(session_id))
+    log_directory = _debug_mode_state.get_debug_log_directory('prompt-transformations', str(session_id))
     os.makedirs(log_directory, exist_ok=True)
     temporary_path = None
     try:
@@ -84,14 +88,14 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
 
         parsed_session_id = _parse_session_id(hook_input.get('sessionId'))
 
         if hook_input.get('agentId'):
             return 0
 
-        if not _debug_mode_state['get_debug_mode'](parsed_session_id):
+        if not _debug_mode_state.get_debug_mode(parsed_session_id):
             return 0
 
         # モデルへ渡る文字列を観察するため、stripなどで本文を変えない。
@@ -99,7 +103,7 @@ def main():
             if not isinstance(hook_input.get(field), str):
                 raise ValueError(f'{field} must be a string.')
         # cwdはログに記録するため、形式だけを確かめる。
-        _hook_input['get_cwd'](hook_input)
+        _hook_input.get_cwd(hook_input)
         timestamp = hook_input.get('timestamp')
         if type(timestamp) is not int or timestamp < 0:
             raise ValueError('timestamp must be a non-negative Unix millisecond integer.')

@@ -1,17 +1,19 @@
 import json
 import os
-import runpy
+import sys
 import tempfile
 import unittest
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_utility = runpy.run_path(os.path.join(_script_directory, 'edit_tool_changes.py'))
-_get_edited_paths = _utility['get_edited_paths']
-_extract = _utility['extract_edit_tool_changes']
-_simulate = _utility['simulate_edit_tool_changes']
+sys.path.insert(0, _script_directory)
+import edit_tool_changes as _utility
+_get_edited_paths = _utility.get_edited_paths
+_extract = _utility.extract_edit_tool_changes
+_simulate = _utility.simulate_edit_tool_changes
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 # 追加・移動を伴う更新・削除を含むパッチ。更新は a.txt の内容（`one\ntwo\n`）に適用できる。
 _PATCH = '\n'.join([
@@ -67,7 +69,7 @@ class ToolCallParsingTests(_TemporaryCwdTestCase):
 
     def test_path_argument(self):
         # `create` はパスを `file_path` で渡す。`path` があればそちらを優先し、空白だけの値は無視する。
-        get_path_argument = _utility['get_path_argument']
+        get_path_argument = _utility.get_path_argument
         self.assertEqual(get_path_argument({'path': 'a.txt', 'file_path': 'b.txt'}), 'a.txt')
         self.assertEqual(get_path_argument({'path': ' ', 'file_path': 'b.txt'}), 'b.txt')
         for tool_args in ({'file_path': ' '}, {'path': 1}, {}, 'a.txt'):

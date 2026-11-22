@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -11,10 +10,16 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read_transcript_events.py'))
-_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run_git.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+    os.path.join(_utilities_directory, 'run-git'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import read_transcript_events as _transcript_events
+import run_git as _git
 
 
 _FENCED_CODE_PATTERN = re.compile(r'^(```|~~~).*?^\1', re.MULTILINE | re.DOTALL)
@@ -107,13 +112,13 @@ def _get_known_paths(repository_root):
     if repository_root is None:
         return current, historical
     # gitの出力を得られない場合は、履歴で判断できないだけなので異常終了にはしない。
-    listed = _git['get_git_output'](
+    listed = _git.get_git_output(
         repository_root, ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], _GIT_TIMEOUT_SECONDS,
     )
     for path in (listed or '').split('\0'):
         if path:
             _add_path_suffixes(current, path)
-    logged = _git['get_git_output'](repository_root, ['log', '--all', '--name-only', '--format=', '-z'], _GIT_TIMEOUT_SECONDS)
+    logged = _git.get_git_output(repository_root, ['log', '--all', '--name-only', '--format=', '-z'], _GIT_TIMEOUT_SECONDS)
     for path in re.split(r'[\0\n]', logged or ''):
         if path:
             _add_path_suffixes(historical, path)
@@ -161,7 +166,7 @@ def _is_marked_as_planned(response, candidate):
 
 
 def _get_phantom_references(response, user_request, cwd):
-    repository_root = _git['get_repository_root'](cwd, _GIT_TIMEOUT_SECONDS)
+    repository_root = _git.get_repository_root(cwd, _GIT_TIMEOUT_SECONDS)
     known_paths = []
 
     def get_index():
@@ -197,25 +202,25 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
         if hook_input.get('agentId'):
             return 0
-        transcript_path = _hook_input['get_transcript_path'](hook_input)
-        cwd = _hook_input['get_cwd'](hook_input)
+        transcript_path = _hook_input.get_transcript_path(hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
         if not os.path.isdir(cwd):
             raise ValueError('cwd must be an existing directory.')
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答を書き込み済みにする。
-        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events.wait_for_agent_stop_event(transcript_path, hook_input.get('timestamp'))
 
         # ユーザーの最新の依頼文、それ以降の最終応答、本hookによる差し戻し済みかを集める。
-        events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
-        last_assistant_msg = _transcript_events['get_last_assistant_message'](events)
+        events, already_requested = _transcript_events.get_latest_turn(transcript_path, _REASON_PREFIX)
+        last_assistant_msg = _transcript_events.get_last_assistant_message(events)
         # 同じ依頼で差し戻すのは1回だけにし、参照を直せない場合に停止できなくなるのを防ぐ。
         if last_assistant_msg is None or already_requested:
             return 0
-        phantoms = _get_phantom_references(last_assistant_msg, _transcript_events['get_request'](events) or '', cwd)
+        phantoms = _get_phantom_references(last_assistant_msg, _transcript_events.get_request(events) or '', cwd)
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to inspect path references: {ex}', file=sys.stderr)
         return 2
@@ -228,7 +233,7 @@ def main():
             'If a path intentionally refers to a file that does not exist yet, such as a proposal or plan, '
             'append the marker (planned) right after the path. Keep the rest of the response unchanged.'
         )
-        _hook_output['write_block_decision'](reason)
+        _hook_output.write_block_decision(reason)
     return 0
 
 

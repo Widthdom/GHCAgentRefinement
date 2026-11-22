@@ -1,6 +1,6 @@
 import json
 import os
-import runpy
+import sys
 
 
 # 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
@@ -8,9 +8,8 @@ import runpy
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_get_turn_events = runpy.run_path(os.path.join(
-    _utilities_directory, 'read-transcript-events', 'read_transcript_events.py',
-))['get_turn_events']
+sys.path.insert(0, os.path.join(_utilities_directory, 'read-transcript-events'))
+from read_transcript_events import get_turn_events as _get_turn_events
 
 
 def get_used_hooks(transcript_path, hooks_path):

@@ -2,7 +2,6 @@ import io
 import json
 import os
 import re
-import runpy
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -138,7 +137,9 @@ def write_transcript_events(directory, events):
 def run_hook_entries(entries, hook_input):
     # (出力のリスト, 異常終了があったか) を返す。
     os.chdir(_repository_root)
-    run_hook = runpy.run_path(_runner_path)['main']
+    # ランナーはモジュール直下に状態を持たないため、読み込んだものを使い回してよい。
+    sys.path.insert(0, _runner_directory)
+    from run_hook import main as run_hook
     hook_input_bytes = json.dumps(hook_input, ensure_ascii=False).encode('utf-8')
     outputs = []
     failed = False

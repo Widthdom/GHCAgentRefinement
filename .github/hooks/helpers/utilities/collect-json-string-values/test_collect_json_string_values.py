@@ -1,12 +1,14 @@
 import os
-import runpy
+import sys
 import unittest
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_collect_json_string_values = runpy.run_path(os.path.join(_script_directory, 'collect_json_string_values.py'))['collect_json_string_values']
+sys.path.insert(0, _script_directory)
+from collect_json_string_values import collect_json_string_values as _collect_json_string_values
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class CollectJsonStringValuesTests(unittest.TestCase):

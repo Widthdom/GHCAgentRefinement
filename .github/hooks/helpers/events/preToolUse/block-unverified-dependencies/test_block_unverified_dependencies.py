@@ -1,6 +1,5 @@
 import json
 import os
-import runpy
 import shutil
 import subprocess
 import sys
@@ -14,9 +13,11 @@ _hook_path = os.path.join(_script_directory, 'block_unverified_dependencies.py')
 
 _helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
 _hooks_directory = os.path.dirname(_helpers_directory)
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
-_state = runpy.run_path(os.path.join(_helpers_directory, 'utilities', 'verified-packages-state', 'verified_packages_state.py'))
+sys.path.insert(0, os.path.join(_helpers_directory, 'utilities', 'verified-packages-state'))
+import verified_packages_state as _state
 
 _CSPROJ = (
     '<Project Sdk="Microsoft.NET.Sdk">\n'
@@ -52,7 +53,7 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
     def __new_session(self):
         # テストごとに別セッションとし、確認の記録を持ち越さない。
         self.__session_id = str(uuid.uuid4())
-        self.__state_path = _state['get_state_path'](self.__session_id)
+        self.__state_path = _state.get_state_path(self.__session_id)
 
     def __write_file(self, path, content):
         full_path = os.path.join(self.__directory, path)
@@ -132,7 +133,7 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
     def test_verified_package_is_allowed(self):
         self.__assert_denied(self.__add_reference('Contoso.Missing'), ['Contoso.Missing'], 'before verification')
         self.__assert_denied(self.__add_reference('Contoso.Missing'), ['Contoso.Missing'], 'denied again')
-        _state['record_verified'](self.__state_path, [('nuget', 'contoso.missing')])
+        _state.record_verified(self.__state_path, [('nuget', 'contoso.missing')])
         self.__assert_allowed(self.__add_reference('Contoso.Missing', '9.9.9'), 'after verification')
 
     def test_requirements_are_checked(self):
@@ -187,7 +188,7 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
             ['Python module `jsonx` (did you mean `json`?)', 'Python module `zz_missing_module`', 'python -c "import <name>"'],
             'unknown modules',
         )
-        _state['record_verified'](self.__state_path, [('python-module', 'jsonx'), ('python-module', 'zz_missing_module')])
+        _state.record_verified(self.__state_path, [('python-module', 'jsonx'), ('python-module', 'zz_missing_module')])
         self.__assert_allowed(self.__create('pkg/main.py', 'import jsonx\nfrom zz_missing_module.sub import x\n'), 'verified modules')
 
     def test_python_module_in_venv_is_allowed(self):

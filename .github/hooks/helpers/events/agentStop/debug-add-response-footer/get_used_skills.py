@@ -1,5 +1,5 @@
 import os
-import runpy
+import sys
 
 
 # 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
@@ -7,10 +7,12 @@ import runpy
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_get_turn_events = runpy.run_path(os.path.join(
-    _utilities_directory, 'read-transcript-events', 'read_transcript_events.py',
-))['get_turn_events']
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+]
+from read_transcript_events import get_turn_events as _get_turn_events
+import parse_tool_calls as _tool_calls
 
 
 def get_used_skills(transcript_path):
@@ -21,7 +23,7 @@ def get_used_skills(transcript_path):
             continue
 
         # 引数はJSON文字列で記録される場合もある。オブジェクトでない引数はskill名がないものとして読み飛ばす。
-        arguments = _tool_calls['unwrap_tool_args'](data.get('arguments'))
+        arguments = _tool_calls.unwrap_tool_args(data.get('arguments'))
         skill_name = arguments.get('skill') if isinstance(arguments, dict) else None
         if isinstance(skill_name, str) and skill_name.strip() and skill_name not in used_skills:
             used_skills.append(skill_name)

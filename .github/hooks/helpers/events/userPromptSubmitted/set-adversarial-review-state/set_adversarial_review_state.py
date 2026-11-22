@@ -1,6 +1,5 @@
 import io
 import os
-import runpy
 import sys
 from datetime import datetime, timezone
 from typing import cast
@@ -11,11 +10,14 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))['get_state_path']
-_write_json_atomically = runpy.run_path(os.path.join(
-    _utilities_directory, 'write-json-atomically', 'write_json_atomically.py',
-))['write_json_atomically']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'write-json-atomically'),
+]
+import read_hook_input as _hook_input
+from get_state_path import get_state_path as _get_state_path
+from write_json_atomically import write_json_atomically as _write_json_atomically
 
 
 def main():
@@ -31,7 +33,7 @@ def main():
     # このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
     # 状態ファイルの保存先は、状態を読むagentStop hookと共有する。
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         # getはキーが無くてもNoneを返す。
         prompt = hook_input.get('prompt')
         if not isinstance(prompt, str):

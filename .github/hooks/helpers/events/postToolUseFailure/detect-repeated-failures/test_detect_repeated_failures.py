@@ -1,6 +1,5 @@
 import json
 import os
-import runpy
 import sqlite3
 import subprocess
 import sys
@@ -15,7 +14,8 @@ from unittest.mock import patch
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'detect_repeated_failures.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class DetectRepeatedFailuresTests(unittest.TestCase):
@@ -124,8 +124,8 @@ class DetectRepeatedFailuresTests(unittest.TestCase):
         self.__assert_notification(self.__invoke())
 
     def test_window_and_clock_rollback_reset_counts(self):
-        module = runpy.run_path(_hook_path)
-        record = module['_record_failure']
+        sys.path.insert(0, _script_directory)
+        from detect_repeated_failures import _record_failure as record
         os.makedirs(self.__state_directory)
         # テスト時だけ時計を差し替え、5分ちょうどと期限超過を待たずに確認する。
         for first_seen, current, expected in ((1000, 1300, True), (2000, 2301, False), (3000, 2999, False)):

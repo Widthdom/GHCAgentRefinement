@@ -1,6 +1,5 @@
 import io
 import os
-import runpy
 import sys
 from typing import cast
 
@@ -10,14 +9,19 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run_git.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'run-git'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import run_git as _git
 
 
 _GIT_TIMEOUT_SECONDS = 5
 # gitの実行全体の期限。hookの `timeoutSec`（10秒）より前に打ち切り、確かめられない状態は知らせない。
-_GIT_DEADLINE = _git['create_deadline'](7)
+_GIT_DEADLINE = _git.create_deadline(7)
 # gitディレクトリ内の目印と、それが示す途中の操作。worktreeごとのgitディレクトリに置かれる。
 # rebase-applyは `git am` でも使われるため、`applying` の有無で区別する。
 _OPERATION_MARKERS = [
@@ -47,7 +51,7 @@ def _get_in_progress_operations(git_directory):
 
 
 def _get_git_state_messages(cwd):
-    git_directory = (_git['get_git_output'](
+    git_directory = (_git.get_git_output(
         cwd, ['rev-parse', '--absolute-git-dir'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE,
     ) or '').strip()
     # gitがない、またはリポジトリ外の場合は何も知らせない。
@@ -60,7 +64,7 @@ def _get_git_state_messages(cwd):
         messages.append(f'{" and ".join(operations).capitalize()} is in progress.')
 
     # 未解決の衝突は `git ls-files -u` にステージ番号付きで現れる。1ファイルにつき最大3行あるため、パスで数える。
-    unmerged = _git['get_git_output'](
+    unmerged = _git.get_git_output(
         cwd, ['-c', 'core.quotePath=false', 'ls-files', '--unmerged'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE,
     )
     if unmerged is not None:
@@ -71,9 +75,9 @@ def _get_git_state_messages(cwd):
 
     # rebaseやbisectの途中はHEADが切り離されるのが通常のため、途中の操作がないときだけ知らせる。
     if not operations:
-        symbolic = _git['run_git'](cwd, ['symbolic-ref', '--quiet', 'HEAD'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE)
+        symbolic = _git.run_git(cwd, ['symbolic-ref', '--quiet', 'HEAD'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE)
         if symbolic is not None and symbolic.returncode == 1:
-            head = _git['get_git_output'](cwd, ['rev-parse', '--short', 'HEAD'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE)
+            head = _git.get_git_output(cwd, ['rev-parse', '--short', 'HEAD'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE)
             commit = head.strip() if head is not None else 'unknown'
             messages.append(
                 f'HEAD is detached at {commit}. New commits will not belong to any branch.'
@@ -87,8 +91,8 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
-        cwd = _hook_input['get_cwd'](hook_input)
+        hook_input = _hook_input.read_hook_input()
+        cwd = _hook_input.get_cwd(hook_input)
         if not os.path.isdir(cwd):
             raise ValueError('cwd must be an existing directory.')
     except (OSError, UnicodeError, ValueError) as ex:
@@ -102,7 +106,7 @@ def main():
     print(message, file=sys.stderr)
     # 標準エラーはユーザーに表示されないことがある。sessionStartで解釈される出力はadditionalContextだけのため、
     # エージェントに渡してユーザーへ伝えさせ、正常終了する。
-    _hook_output['write_additional_context'](_ADDITIONAL_CONTEXT.format(message=message))
+    _hook_output.write_additional_context(_ADDITIONAL_CONTEXT.format(message=message))
     return 0
 
 

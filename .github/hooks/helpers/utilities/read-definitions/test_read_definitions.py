@@ -1,18 +1,20 @@
 import os
 import re
-import runpy
+import sys
 import tempfile
 import unittest
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_utility = runpy.run_path(os.path.join(_script_directory, 'read_definitions.py'))
-_read_definitions = _utility['read_definitions']
-_is_non_blank_string_list = _utility['is_non_blank_string_list']
-_build_regex_matcher = _utility['build_regex_matcher']
-_build_regex_matchers = _utility['build_regex_matchers']
+sys.path.insert(0, _script_directory)
+import read_definitions as _utility
+_read_definitions = _utility.read_definitions
+_is_non_blank_string_list = _utility.is_non_blank_string_list
+_build_regex_matcher = _utility.build_regex_matcher
+_build_regex_matchers = _utility.build_regex_matchers
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 _LABEL = 'sample definitions'
 
@@ -103,9 +105,9 @@ class ValueTests(unittest.TestCase):
 
     def test_get_string_list_and_regex_matchers(self):
         definitions = {'words': ['a', 'b'], 'empty': [], 'patterns': [r'^x$'], 'invalid': ['(']}
-        self.assertEqual(_utility['get_string_list'](definitions, 'words', _LABEL), ['a', 'b'])
-        self.assertEqual(_utility['get_string_list'](definitions, 'empty', _LABEL, allow_empty_list=True), [])
-        patterns = _utility['get_regex_matchers'](definitions, 'patterns', _LABEL, flags=re.MULTILINE)
+        self.assertEqual(_utility.get_string_list(definitions, 'words', _LABEL), ['a', 'b'])
+        self.assertEqual(_utility.get_string_list(definitions, 'empty', _LABEL, allow_empty_list=True), [])
+        patterns = _utility.get_regex_matchers(definitions, 'patterns', _LABEL, flags=re.MULTILINE)
         self.assertIsNotNone(patterns[0].search('y\nx'))
         for key, allow_empty_list, message in (
             ('empty', False, f'empty in {_LABEL} must be a non-empty array of non-blank strings.'),
@@ -114,11 +116,11 @@ class ValueTests(unittest.TestCase):
         ):
             with self.subTest(key=key):
                 with self.assertRaises(ValueError) as context:
-                    _utility['get_regex_matchers'](definitions, key, _LABEL, allow_empty_list)
+                    _utility.get_regex_matchers(definitions, key, _LABEL, allow_empty_list)
                 self.assertIn(message, str(context.exception))
 
     def test_get_regex_matcher(self):
-        self.assertEqual(_utility['get_regex_matcher']({'pattern': r'\d'}, 'pattern', _LABEL).pattern, r'\d')
+        self.assertEqual(_utility.get_regex_matcher({'pattern': r'\d'}, 'pattern', _LABEL).pattern, r'\d')
         for value, message in (
             (None, f'pattern in {_LABEL} must be a non-blank string.'),
             (' ', f'pattern in {_LABEL} must be a non-blank string.'),
@@ -127,12 +129,12 @@ class ValueTests(unittest.TestCase):
         ):
             with self.subTest(value=value):
                 with self.assertRaises(ValueError) as context:
-                    _utility['get_regex_matcher']({'pattern': value}, 'pattern', _LABEL)
+                    _utility.get_regex_matcher({'pattern': value}, 'pattern', _LABEL)
                 self.assertIn(message, str(context.exception))
 
     def test_named_regex_matchers(self):
         entries = [{'name': 'digit', 'pattern': r'^\d$', 'extra': True}, {'name': 'word', 'pattern': r'\w'}]
-        named = _utility['get_named_regex_matchers']({'entries': entries}, 'entries', _LABEL, flags=re.MULTILINE)
+        named = _utility.get_named_regex_matchers({'entries': entries}, 'entries', _LABEL, flags=re.MULTILINE)
         self.assertEqual([(name, pattern.pattern) for name, pattern in named], [('digit', r'^\d$'), ('word', r'\w')])
         self.assertIsNotNone(named[0][1].search('a\n1'))
         location = f'entries in {_LABEL}'
@@ -147,10 +149,10 @@ class ValueTests(unittest.TestCase):
         ):
             with self.subTest(value=value):
                 with self.assertRaises(ValueError) as context:
-                    _utility['get_named_regex_matchers']({'entries': value}, 'entries', _LABEL)
+                    _utility.get_named_regex_matchers({'entries': value}, 'entries', _LABEL)
                 self.assertIn(message, str(context.exception))
         # 最上位の配列は、build_named_regex_matchersに場所を示して渡す。
-        self.assertEqual(_utility['build_named_regex_matchers'](entries[:1], _LABEL)[0][0], 'digit')
+        self.assertEqual(_utility.build_named_regex_matchers(entries[:1], _LABEL)[0][0], 'digit')
 
 
 if __name__ == '__main__':

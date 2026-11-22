@@ -2,7 +2,6 @@ import io
 import json
 import os
 import re
-import runpy
 import subprocess
 import sys
 import tempfile
@@ -45,7 +44,8 @@ def _read_text(path):
 
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class SetDebugModeTests(unittest.TestCase):
@@ -236,7 +236,8 @@ class SetDebugModeTests(unittest.TestCase):
 
     def test_input_read_failure(self):
         state_before = _read_text(self.__state_path)
-        hook_module = runpy.run_path(_hook_path)
+        sys.path.insert(0, _script_directory)
+        import set_debug_mode as hook_module
 
         with (
             patch.object(sys, 'stdin') as stdin,
@@ -245,7 +246,7 @@ class SetDebugModeTests(unittest.TestCase):
             patch.object(sys, 'stderr', stderr),
         ):
             stdin.buffer.read.side_effect = OSError('test read failure')
-            exit_code = hook_module['main']()
+            exit_code = hook_module.main()
             stderr.flush()
             error = stderr.buffer.getvalue().decode('utf-8')
             if exit_code != 2 or error != 'Failed to parse userPromptSubmitted hook input: test read failure\n':

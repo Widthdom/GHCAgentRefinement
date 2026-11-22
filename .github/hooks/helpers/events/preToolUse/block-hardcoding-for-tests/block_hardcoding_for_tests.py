@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -12,17 +11,22 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate_text.py'))['truncate_text']
-_check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check_test_files.py'))
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
-_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
-    _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read_stored_file_content_for_write_comparison.py',
-))['read_stored_file_content_for_write_comparison']
-_get_stripped_lines = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-stripped-lines', 'get_stripped_lines.py',
-))['get_stripped_lines']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'truncate-text'),
+    os.path.join(_utilities_directory, 'check-test-files'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+    os.path.join(_utilities_directory, 'read-stored-file-content-for-write-comparison'),
+    os.path.join(_utilities_directory, 'get-stripped-lines'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from truncate_text import truncate_text as _truncate_text
+import check_test_files as _check_test_files
+from get_display_path import get_display_path as _get_display_path
+from read_stored_file_content_for_write_comparison import read_stored_file_content_for_write_comparison as _read_stored_file_content_for_write_comparison
+from get_stripped_lines import get_stripped_lines as _get_stripped_lines
 
 
 # コードではなく文章のファイル。説明用のコード例を書く編集は拒否しない。
@@ -80,8 +84,8 @@ def _find_hardcoding(state, expected_keys, lines, added):
     # 追加する条件分岐のうち、条件がリテラルとの比較で、処理が期待値のリテラルを返すものを探す。
     # 戻り値は最初に見つけた (条件のリテラル, 期待値のリテラル)。見つからなければNone。
     def is_expected(literal):
-        value = state['normalize_value'](literal)
-        return value is not None and state['get_value_key'](value) in expected_keys
+        value = state.normalize_value(literal)
+        return value is not None and state.get_value_key(value) in expected_keys
 
     for index, line in enumerate(lines):
         if index not in added:
@@ -109,22 +113,20 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        test_file_patterns = _check_test_files['load_test_file_patterns']()
+        test_file_patterns = _check_test_files.load_test_file_patterns()
         # 記録側のpostToolUse hookと状態の形式・保存先を共有する。
-        state = runpy.run_path(os.path.join(
-            _utilities_directory, 'assertion-failure-values-state', 'assertion_failure_values_state.py',
-        ))
+        sys.path.insert(0, os.path.join(_utilities_directory, 'assertion-failure-values-state'))
+        import assertion_failure_values_state as state
 
-        hook_input = _hook_input['read_hook_input']()
-        state_path = state['get_state_path'](hook_input.get('sessionId'))
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        hook_input = _hook_input.read_hook_input()
+        state_path = state.get_state_path(hook_input.get('sessionId'))
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
         real_cwd = os.path.realpath(cwd)
         # 編集ツールの引数の解析は、共通utilityで行う。
-        extract_edit_tool_changes = runpy.run_path(os.path.join(
-            _utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py',
-        ))['extract_edit_tool_changes']
+        sys.path.insert(0, os.path.join(_utilities_directory, 'edit-tool-changes'))
+        from edit_tool_changes import extract_edit_tool_changes
         changes = extract_edit_tool_changes(tool_name, tool_args)
 
         # テストの失敗を記録していなければ、状態ファイルを作らずに許可する。
@@ -132,7 +134,7 @@ def main():
             return 0
 
         findings = []
-        with state['open_state'](state_path) as connection:
+        with state.open_state(state_path) as connection:
             expected_keys = {row[0] for row in connection.execute('SELECT value FROM expected_values')}
             if not expected_keys:
                 return 0
@@ -140,7 +142,7 @@ def main():
                 path = os.path.realpath(os.path.join(cwd, change['path']))
                 # テストファイルの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
                 display_path = _get_display_path(path, real_cwd)
-                if _check_test_files['is_test_file'](test_file_patterns, display_path) or (
+                if _check_test_files.is_test_file(test_file_patterns, display_path) or (
                     os.path.splitext(path)[1].lower() in _DOCUMENT_EXTENSIONS
                 ):
                     continue
@@ -160,14 +162,14 @@ def main():
                 hardcoding = _find_hardcoding(state, expected_keys, lines, added)
                 # 同じファイルの拒否は1回だけにし、意図した編集なら再実行で通す。
                 if hardcoding and connection.execute(
-                    'INSERT OR IGNORE INTO hardcoding_denials (file) VALUES (?)', (state['get_file_key'](path),),
+                    'INSERT OR IGNORE INTO hardcoding_denials (file) VALUES (?)', (state.get_file_key(path),),
                 ).rowcount:
                     findings.append(_FINDING.format(
                         file=display_path,
                         condition=_truncate_text(hardcoding[0], _MAX_DISPLAY_LENGTH),
                         value=_truncate_text(hardcoding[1], _MAX_DISPLAY_LENGTH),
                     ))
-    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
+    except (OSError, UnicodeError, ValueError, ImportError, sqlite3.Error) as ex:
         print(f'Failed to check hardcoding for tests: {ex}', file=sys.stderr)
         return 2
 
@@ -175,7 +177,7 @@ def main():
         reason = _DENY_REASON.format(findings='; '.join(findings))
         print(reason, file=sys.stderr)
         # 正常な拒否なので終了コードは0。
-        _hook_output['write_deny_decision'](reason)
+        _hook_output.write_deny_decision(reason)
     return 0
 
 

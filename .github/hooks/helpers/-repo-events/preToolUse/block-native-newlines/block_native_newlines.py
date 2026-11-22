@@ -2,7 +2,6 @@ import argparse
 import io
 import os
 import re
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -13,22 +12,28 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate_text.py'))['truncate_text']
-_get_path_sha256_digest = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-sha256-digest', 'get_sha256_digest.py',
-))['get_path_sha256_digest']
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))['get_state_path']
-_filter_first_time_denials = runpy.run_path(os.path.join(
-    _utilities_directory, 'filter-first-time-denials', 'filter_first_time_denials.py',
-))['filter_first_time_denials']
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
-_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
-    _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read_stored_file_content_for_write_comparison.py',
-))['read_stored_file_content_for_write_comparison']
-_stripped_lines = runpy.run_path(os.path.join(_utilities_directory, 'get-stripped-lines', 'get_stripped_lines.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'truncate-text'),
+    os.path.join(_utilities_directory, 'get-sha256-digest'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'filter-first-time-denials'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+    os.path.join(_utilities_directory, 'read-stored-file-content-for-write-comparison'),
+    os.path.join(_utilities_directory, 'get-stripped-lines'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from truncate_text import truncate_text as _truncate_text
+from get_sha256_digest import get_path_sha256_digest as _get_path_sha256_digest
+import read_definitions as _definitions
+from get_state_path import get_state_path as _get_state_path
+from filter_first_time_denials import filter_first_time_denials as _filter_first_time_denials
+from get_display_path import get_display_path as _get_display_path
+from read_stored_file_content_for_write_comparison import read_stored_file_content_for_write_comparison as _read_stored_file_content_for_write_comparison
+import get_stripped_lines as _stripped_lines
 
 
 _INCLUDED_FILE_PATTERNS_KEY = 'includedFilePatterns'
@@ -58,17 +63,17 @@ def _load_definitions(path):
     # 戻り値は (対象のファイルの正規表現のリスト, (名前, 呼び出しの正規表現, 書き込みのモードを要するか) のリスト,
     # 書き込みのモードの正規表現, newlineの指定の正規表現)。
     label = 'newline definitions'
-    definitions = _definitions['read_definitions'](path, label)
-    included = _definitions['get_regex_matchers'](definitions, _INCLUDED_FILE_PATTERNS_KEY, label)
-    calls = _definitions['get_named_regex_matchers'](definitions, _TRANSLATING_CALLS_KEY, label)
+    definitions = _definitions.read_definitions(path, label)
+    included = _definitions.get_regex_matchers(definitions, _INCLUDED_FILE_PATTERNS_KEY, label)
+    calls = _definitions.get_named_regex_matchers(definitions, _TRANSLATING_CALLS_KEY, label)
     text_write_modes = [call.get('requiresTextWriteMode') for call in definitions[_TRANSLATING_CALLS_KEY]]
     if not all(isinstance(mode, bool) for mode in text_write_modes):
         raise ValueError(f'each item of {_TRANSLATING_CALLS_KEY} in {label} requires a boolean requiresTextWriteMode.')
     return (
         included,
         [(name, pattern, mode) for (name, pattern), mode in zip(calls, text_write_modes)],
-        _definitions['get_regex_matcher'](definitions, _TEXT_WRITE_MODE_PATTERN_KEY, label),
-        _definitions['get_regex_matcher'](definitions, _PINNED_NEWLINE_PATTERN_KEY, label),
+        _definitions.get_regex_matcher(definitions, _TEXT_WRITE_MODE_PATTERN_KEY, label),
+        _definitions.get_regex_matcher(definitions, _PINNED_NEWLINE_PATTERN_KEY, label),
     )
 
 
@@ -125,7 +130,7 @@ def _find_unpinned_calls(definitions, written, existing):
     # 戻り値は (種類の名前のリスト, 呼び出しの先頭の行のリスト)。
     # newlineを指定した呼び出しと、既存の内容に同じ行がある呼び出し（元からあるもの）は除く。
     _, calls, text_write_mode, pinned_newline = definitions
-    existing_lines = _stripped_lines['get_stripped_lines'](existing)
+    existing_lines = _stripped_lines.get_stripped_lines(existing)
     code_ranges = _get_code_ranges(written)
     kinds = []
     snippets = []
@@ -133,7 +138,7 @@ def _find_unpinned_calls(definitions, written, existing):
         for match in pattern.finditer(written):
             if not any(start <= match.start() < end for start, end in code_ranges):
                 continue
-            line = _stripped_lines['get_stripped_line_at'](written, match.start())
+            line = _stripped_lines.get_stripped_line_at(written, match.start())
             if line in existing_lines:
                 continue
             arguments = _get_arguments(written, match.end() - 1)
@@ -169,14 +174,13 @@ def main(arguments=None):
 
     try:
         definitions = _load_definitions(parsed_arguments.definitions_path)
-        extract_edit_tool_changes = runpy.run_path(
-            os.path.join(_utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py')
-        )['extract_edit_tool_changes']
+        sys.path.insert(0, os.path.join(_utilities_directory, 'edit-tool-changes'))
+        from edit_tool_changes import extract_edit_tool_changes
 
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         state_path = _get_state_path('block-native-newlines', hook_input.get('sessionId'))
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
         real_cwd = os.path.realpath(cwd)
         candidates = []
@@ -199,7 +203,7 @@ def main(arguments=None):
         reasons = []
         if candidates:
             reasons = _filter_first_time_denials(state_path, candidates)
-    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
+    except (OSError, UnicodeError, ValueError, ImportError, sqlite3.Error) as ex:
         print(f'Failed to check native newlines: {ex}', file=sys.stderr)
         return 2
 
@@ -207,7 +211,7 @@ def main(arguments=None):
         reason = _DENY_REASON.format(findings='; '.join(reasons))
         print(reason, file=sys.stderr)
         # 正常な拒否なので終了コードは0。
-        _hook_output['write_deny_decision'](reason)
+        _hook_output.write_deny_decision(reason)
     return 0
 
 

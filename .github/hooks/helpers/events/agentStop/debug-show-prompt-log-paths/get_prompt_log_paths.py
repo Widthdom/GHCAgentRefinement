@@ -1,6 +1,6 @@
 import glob
 import os
-import runpy
+import sys
 
 
 # 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
@@ -8,13 +8,14 @@ import runpy
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))['parse_session_id']
-_get_debug_log_directory = runpy.run_path(os.path.join(
-    _utilities_directory, 'debug-mode-state', 'debug_mode_state.py',
-))['get_debug_log_directory']
-_read_transcript_events = runpy.run_path(os.path.join(
-    _utilities_directory, 'read-transcript-events', 'read_transcript_events.py',
-))['read_transcript_events']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'debug-mode-state'),
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+]
+from get_state_path import parse_session_id as _parse_session_id
+from debug_mode_state import get_debug_log_directory as _get_debug_log_directory
+from read_transcript_events import read_transcript_events as _read_transcript_events
 
 
 def get_prompt_log_paths(transcript_path, session_id):

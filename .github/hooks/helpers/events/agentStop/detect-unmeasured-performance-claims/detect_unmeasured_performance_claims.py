@@ -2,7 +2,6 @@ import argparse
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -12,12 +11,20 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate_text.py'))['truncate_text']
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read_transcript_events.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'truncate-text'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from truncate_text import truncate_text as _truncate_text
+import parse_tool_calls as _tool_calls
+import read_definitions as _definitions
+import read_transcript_events as _transcript_events
 
 
 _DEFINITION_KEYS = ('claimPatterns', 'hedgePatterns', 'measurementCommandPatterns')
@@ -39,23 +46,23 @@ _BLOCK_REASON = (
 def _load_definitions(path):
     # 戻り値は {キー: [コンパイル済みの正規表現]}。
     label = 'performance claim definitions'
-    definitions = _definitions['read_definitions'](path, label)
-    return {key: _definitions['get_regex_matchers'](definitions, key, label) for key in _DEFINITION_KEYS}
+    definitions = _definitions.read_definitions(path, label)
+    return {key: _definitions.get_regex_matchers(definitions, key, label) for key in _DEFINITION_KEYS}
 
 
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、最終応答・シェル実行・本hookによる差し戻し済みかを集める。
-    events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
+    events, already_requested = _transcript_events.get_latest_turn(transcript_path, _REASON_PREFIX)
     # 拒否などで実行されなかった場合は終了コードが記録されないため、計測とみなさない。
     # 引数はJSON文字列で記録される場合もあるため、包みを外してから読む。
     succeeded_commands = []
-    for tool_name, arguments, completion in _transcript_events['get_tool_calls'](events):
-        arguments = _tool_calls['unwrap_tool_args'](arguments)
+    for tool_name, arguments, completion in _transcript_events.get_tool_calls(events):
+        arguments = _tool_calls.unwrap_tool_args(arguments)
         command = arguments.get('command') if isinstance(arguments, dict) else None
-        if (_tool_calls['is_shell_tool'](tool_name) and isinstance(command, str)
-                and _transcript_events['get_shell_exit_code'](completion) == 0):
+        if (_tool_calls.is_shell_tool(tool_name) and isinstance(command, str)
+                and _transcript_events.get_shell_exit_code(completion) == 0):
             succeeded_commands.append(command)
-    return _transcript_events['get_last_assistant_message'](events), succeeded_commands, already_requested
+    return _transcript_events.get_last_assistant_message(events), succeeded_commands, already_requested
 
 
 def _find_claim(definitions, response):
@@ -87,16 +94,16 @@ def main(arguments=None):
 
     try:
         definitions = _load_definitions(parsed_arguments.definitions_path)
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
 
         # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
         if hook_input.get('agentId'):
             return 0
 
-        transcript_path = _hook_input['get_transcript_path'](hook_input)
+        transcript_path = _hook_input.get_transcript_path(hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答とシェル実行の結果を書き込み済みにする。
-        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events.wait_for_agent_stop_event(transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, succeeded_commands, already_requested = _get_turn_summary(transcript_path)
     except (OSError, UnicodeError, ValueError) as ex:
@@ -111,7 +118,7 @@ def main(arguments=None):
         return 0
     if any(pattern.search(command) for command in succeeded_commands for pattern in definitions['measurementCommandPatterns']):
         return 0
-    _hook_output['write_block_decision'](_BLOCK_REASON.format(claim=_truncate_text(claim, _MAX_CLAIM_LENGTH)))
+    _hook_output.write_block_decision(_BLOCK_REASON.format(claim=_truncate_text(claim, _MAX_CLAIM_LENGTH)))
     return 0
 
 

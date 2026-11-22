@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -12,18 +11,24 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate_text.py'))['truncate_text']
-_get_text_sha256_digest = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-sha256-digest', 'get_sha256_digest.py',
-))['get_text_sha256_digest']
-_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))['get_state_path']
-_filter_first_time_denials = runpy.run_path(os.path.join(
-    _utilities_directory, 'filter-first-time-denials', 'filter_first_time_denials.py',
-))['filter_first_time_denials']
-_split_bash_lines = runpy.run_path(os.path.join(_utilities_directory, 'split-bash-lines', 'split_bash_lines.py'))['split_bash_lines']
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'truncate-text'),
+    os.path.join(_utilities_directory, 'get-sha256-digest'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'filter-first-time-denials'),
+    os.path.join(_utilities_directory, 'split-bash-lines'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from truncate_text import truncate_text as _truncate_text
+from get_sha256_digest import get_text_sha256_digest as _get_text_sha256_digest
+from get_state_path import get_state_path as _get_state_path
+from filter_first_time_denials import filter_first_time_denials as _filter_first_time_denials
+from split_bash_lines import split_bash_lines as _split_bash_lines
+import parse_tool_calls as _tool_calls
 
 
 # powershellはパイプラインの終了コードの扱いが異なるため、bashだけを対象にする。
@@ -99,26 +104,25 @@ def main():
 
     try:
         # 終了コードが成否を表すコマンド（テスト・ビルド・静的検査）。`latest` などの語中は除く。
-        check_test_runs = runpy.run_path(os.path.join(
-            _utilities_directory, 'check-test-runs', 'check_test_runs.py',
-        ))
-        checked_command_pattern = check_test_runs['compile_command_pattern'](
-            (*check_test_runs['TEST_COMMAND_WORDS'], *_BUILD_AND_LINT_COMMAND_WORDS)
+        sys.path.insert(0, os.path.join(_utilities_directory, 'check-test-runs'))
+        import check_test_runs
+        checked_command_pattern = check_test_runs.compile_command_pattern(
+            (*check_test_runs.TEST_COMMAND_WORDS, *_BUILD_AND_LINT_COMMAND_WORDS)
         )
 
         def runs_checked_command(words):
-            return check_test_runs['runs_command'](words, checked_command_pattern)
+            return check_test_runs.runs_command(words, checked_command_pattern)
 
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         state_path = _get_state_path('block-masked-exit-codes', hook_input.get('sessionId'))
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
         masked = []
         command_keys = []
-        tool_args = _tool_calls['unwrap_tool_args'](tool_args) if _SHELL_TOOL_PATTERN.match(tool_name) else None
+        tool_args = _tool_calls.unwrap_tool_args(tool_args) if _SHELL_TOOL_PATTERN.match(tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         commands = _get_masked_commands(
-            command, runs_checked_command, check_test_runs['update_pipefail'],
+            command, runs_checked_command, check_test_runs.update_pipefail,
         ) if isinstance(command, str) else []
         if commands:
             masked.extend(commands)
@@ -130,14 +134,14 @@ def main():
             # 同じコマンドの拒否は1回だけにし、意図した実行なら再実行で通す。
             # 前のツール呼び出しで `set -o pipefail` を済ませた場合など、hookから見えない事情で作業を止めないため。
             denied = bool(_filter_first_time_denials(state_path, [(key, key) for key in command_keys]))
-    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
+    except (OSError, UnicodeError, ValueError, ImportError, sqlite3.Error) as ex:
         print(f'Failed to check masked exit codes: {ex}', file=sys.stderr)
         return 2
 
     if denied:
         commands = ', '.join(_format_command(command) for command in dict.fromkeys(masked))
         # 正常な拒否なので終了コードは0。
-        _hook_output['write_deny_decision'](_DENY_REASON.format(commands=commands))
+        _hook_output.write_deny_decision(_DENY_REASON.format(commands=commands))
     return 0
 
 

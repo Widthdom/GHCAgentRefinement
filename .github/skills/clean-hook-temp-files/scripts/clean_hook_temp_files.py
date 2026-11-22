@@ -2,7 +2,6 @@ import argparse
 import collections
 import io
 import os
-import runpy
 import sys
 import time
 from typing import cast
@@ -29,15 +28,14 @@ def main(arguments=None):
     # 判定基準の持ち主である警告用のcheck-hook-temp-files hookから、対象の分類と保持期間を借りる。
     # 4階層上：.github ディレクトリ（scripts → clean-hook-temp-files → skills → .github）
     github_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-    temp_files = runpy.run_path(os.path.join(
-        github_directory, 'hooks', 'helpers', 'events', 'sessionStart', 'check-hook-temp-files', 'hook_temp_files.py',
-    ))
-    root = temp_files['get_temp_root']()
+    sys.path.insert(0, os.path.join(github_directory, 'hooks', 'helpers', 'events', 'sessionStart', 'check-hook-temp-files'))
+    import hook_temp_files as temp_files
+    root = temp_files.get_temp_root()
     now = time.time()
 
     print(f'Temporary directory: {root}')
     if parsed_arguments.dry_run:
-        stale_files = temp_files['find_stale_files'](root, now)
+        stale_files = temp_files.find_stale_files(root, now)
         print(
             f'Files not updated for more than 48 hours: {len(stale_files)} '
             f'({format_size(sum(size for _, _, size in stale_files))})'
@@ -48,7 +46,7 @@ def main(arguments=None):
             print(f'  {group}: {count}')
         return 0
 
-    deleted_files, deleted_bytes, deleted_directories, failures = temp_files['delete_stale_files'](root, now)
+    deleted_files, deleted_bytes, deleted_directories, failures = temp_files.delete_stale_files(root, now)
     print(
         f'Deleted {deleted_files} files ({format_size(deleted_bytes)}) '
         f'and {deleted_directories} empty directories.'

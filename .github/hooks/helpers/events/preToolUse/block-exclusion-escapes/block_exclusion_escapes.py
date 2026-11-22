@@ -3,7 +3,6 @@ import fnmatch
 import io
 import os
 import re
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -14,18 +13,24 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))['get_state_path']
-_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run_git.py'))
-_is_first_time_file_denial = runpy.run_path(os.path.join(
-    _utilities_directory, 'filter-first-time-denials', 'filter_first_time_denials.py',
-))['is_first_time_file_denial']
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
-_simulate_edit_tool_changes = runpy.run_path(os.path.join(
-    _utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py',
-))['simulate_edit_tool_changes']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'run-git'),
+    os.path.join(_utilities_directory, 'filter-first-time-denials'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+    os.path.join(_utilities_directory, 'edit-tool-changes'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import read_definitions as _definitions
+from get_state_path import get_state_path as _get_state_path
+import run_git as _git
+from filter_first_time_denials import is_first_time_file_denial as _is_first_time_file_denial
+from get_display_path import get_display_path as _get_display_path
+from edit_tool_changes import simulate_edit_tool_changes as _simulate_edit_tool_changes
 
 
 # キーワードの直後が値の代入（`exclude = [...]`・`"exclude": [...]`・`omit:`）である場合だけ値を読む。
@@ -38,7 +43,7 @@ _ESCAPED_CHARACTER_PATTERN = re.compile(r'\\([./\-_])')
 _MAX_FINDINGS = 3
 _GIT_TIMEOUT_SECONDS = 5
 # gitの実行全体の期限。ディレクトリが多くても、hookの `timeoutSec`（10秒）より前に打ち切り、検査できない分は通す。
-_GIT_DEADLINE = _git['create_deadline'](7)
+_GIT_DEADLINE = _git.create_deadline(7)
 _FINDING = '{file} adds the exclusion "{entry}", which matches the tracked file {matched}'
 _DENY_REASON = (
     'Edit denied: {findings}. Adding existing code or tests to an ignore or exclusion list hides it from the '
@@ -53,8 +58,8 @@ _DENY_REASON = (
 def _load_definitions(path):
     # 戻り値は {ignore_files: [正規表現], config_files: [{name, file, values, keywords}]}。
     label = 'exclusion definitions'
-    definitions = _definitions['read_definitions'](path, label)
-    ignore_files = _definitions['get_regex_matchers'](definitions, 'ignoreFiles', label, allow_empty_list=True)
+    definitions = _definitions.read_definitions(path, label)
+    ignore_files = _definitions.get_regex_matchers(definitions, 'ignoreFiles', label, allow_empty_list=True)
     entries = definitions.get('configFiles')
     if not isinstance(entries, list) or not entries:
         raise ValueError(f'configFiles in {label} must be a non-empty array.')
@@ -63,15 +68,15 @@ def _load_definitions(path):
         if not isinstance(entry, dict) or not isinstance(entry.get('name'), str) or not entry['name'].strip():
             raise ValueError('each configFiles entry requires a non-empty name.')
         entry_label = f'configFiles entry {entry["name"]}'
-        values = _definitions['get_regex_matchers'](entry, 'valuePatterns', entry_label, allow_empty_list=True)
+        values = _definitions.get_regex_matchers(entry, 'valuePatterns', entry_label, allow_empty_list=True)
         if any(pattern.groups != 1 for pattern in values):
             raise ValueError(f'each valuePatterns in {entry_label} requires exactly one capturing group.')
-        keywords = _definitions['get_regex_matchers'](entry, 'keywordPatterns', entry_label, allow_empty_list=True)
+        keywords = _definitions.get_regex_matchers(entry, 'keywordPatterns', entry_label, allow_empty_list=True)
         if not values and not keywords:
             raise ValueError(f'{entry_label} requires valuePatterns or keywordPatterns.')
         config_files.append({
             'name': entry['name'],
-            'file': _definitions['get_regex_matcher'](entry, 'filePattern', entry_label),
+            'file': _definitions.get_regex_matcher(entry, 'filePattern', entry_label),
             'values': values,
             'keywords': keywords,
         })
@@ -171,7 +176,7 @@ def _get_config(definitions, path):
 def _get_tracked_files(directory):
     # 戻り値は、directory配下のgit管理下のファイルの、directoryからの `/` 区切りの相対パス。
     # gitがない、またはgit管理下でなければNoneを返して検査しない。
-    output = _git['get_git_output'](directory, ['ls-files', '-z'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE)
+    output = _git.get_git_output(directory, ['ls-files', '-z'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE)
     if output is None:
         return None
     return [path for path in output.split('\0') if path]
@@ -208,10 +213,10 @@ def main(arguments=None):
     try:
         definitions = _load_definitions(parsed_arguments.definitions_path)
 
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         state_path = _get_state_path('block-exclusion-escapes', hook_input.get('sessionId'))
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
         candidates = []
         tracked_files_by_directory = {}
@@ -256,7 +261,7 @@ def main(arguments=None):
         reason = _DENY_REASON.format(findings='; '.join(shown))
         print(reason, file=sys.stderr)
         # 正常な拒否なので終了コードは0。
-        _hook_output['write_deny_decision'](reason)
+        _hook_output.write_deny_decision(reason)
     return 0
 
 

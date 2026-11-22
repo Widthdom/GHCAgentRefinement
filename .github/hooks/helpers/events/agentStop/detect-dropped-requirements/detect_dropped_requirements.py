@@ -2,7 +2,6 @@ import argparse
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -12,11 +11,18 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate_text.py'))['truncate_text']
-_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read_transcript_events.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'truncate-text'),
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+]
+import read_hook_input as _hook_input
+import read_definitions as _definitions
+import write_hook_output as _hook_output
+from truncate_text import truncate_text as _truncate_text
+import read_transcript_events as _transcript_events
 
 
 # 定義ファイルのキー。stopWordsは、どの項目にも現れやすく項目を見分けられないため、キーワードにしない語。
@@ -48,8 +54,8 @@ _REASON = (
 
 def _load_stop_words(definitions_path):
     label = 'dropped requirement definitions'
-    definitions = _definitions['read_definitions'](definitions_path, label)
-    return {word.strip().casefold() for word in _definitions['get_string_list'](definitions, _STOP_WORDS_KEY, label)}
+    definitions = _definitions.read_definitions(definitions_path, label)
+    return {word.strip().casefold() for word in _definitions.get_string_list(definitions, _STOP_WORDS_KEY, label)}
 
 
 def _get_items(request):
@@ -106,19 +112,19 @@ def main():
         return 2
 
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         # サブエージェントの停止は対象外。ユーザーの依頼に最終応答を返すのは親のため。
         if hook_input.get('agentId'):
             return 0
-        transcript_path = _hook_input['get_transcript_path'](hook_input)
+        transcript_path = _hook_input.get_transcript_path(hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答を書き込み済みにする。
-        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events.wait_for_agent_stop_event(transcript_path, hook_input.get('timestamp'))
 
         # ユーザーの最新の依頼、以降の最終応答、本hookによる差し戻し済みかを集める。
-        events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
-        latest_request = _transcript_events['get_request'](events)
-        last_assistant_msg = _transcript_events['get_last_assistant_message'](events)
+        events, already_requested = _transcript_events.get_latest_turn(transcript_path, _REASON_PREFIX)
+        latest_request = _transcript_events.get_request(events)
+        last_assistant_msg = _transcript_events.get_last_assistant_message(events)
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to inspect dropped requirements: {ex}', file=sys.stderr)
         return 2
@@ -135,7 +141,7 @@ def main():
         if len(dropped) > _MAX_LISTED_ITEMS:
             items += f'; and {len(dropped) - _MAX_LISTED_ITEMS} more'
         reason = _REASON.format(count=len(dropped), total=total, items=items)
-        _hook_output['write_block_decision'](reason)
+        _hook_output.write_block_decision(reason)
     return 0
 
 

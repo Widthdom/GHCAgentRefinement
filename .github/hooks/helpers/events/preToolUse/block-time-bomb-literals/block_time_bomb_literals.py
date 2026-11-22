@@ -3,7 +3,6 @@ import datetime
 import io
 import os
 import re
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -14,21 +13,26 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check_test_files.py'))
-_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))['get_state_path']
-_is_first_time_file_denial = runpy.run_path(os.path.join(
-    _utilities_directory, 'filter-first-time-denials', 'filter_first_time_denials.py',
-))['is_first_time_file_denial']
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
-_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
-    _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read_stored_file_content_for_write_comparison.py',
-))['read_stored_file_content_for_write_comparison']
-_get_stripped_lines = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-stripped-lines', 'get_stripped_lines.py',
-))['get_stripped_lines']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'check-test-files'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'filter-first-time-denials'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+    os.path.join(_utilities_directory, 'read-stored-file-content-for-write-comparison'),
+    os.path.join(_utilities_directory, 'get-stripped-lines'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import read_definitions as _definitions
+import check_test_files as _check_test_files
+from get_state_path import get_state_path as _get_state_path
+from filter_first_time_denials import is_first_time_file_denial as _is_first_time_file_denial
+from get_display_path import get_display_path as _get_display_path
+from read_stored_file_content_for_write_comparison import read_stored_file_content_for_write_comparison as _read_stored_file_content_for_write_comparison
+from get_stripped_lines import get_stripped_lines as _get_stripped_lines
 
 
 # 文字列の中の日付（`2026-11-03`・`2026/11/03`）。バージョン番号（`1.2026-...`）の一部は除く。
@@ -66,7 +70,7 @@ _DENY_REASON = (
 def _load_definitions(path):
     # 戻り値は {pastDays, futureDays, clockPatterns, frozenClockPatterns}。正規表現はコンパイル済み。
     label = 'time bomb definitions'
-    definitions = _definitions['read_definitions'](path, label)
+    definitions = _definitions.read_definitions(path, label)
     loaded = {}
     for key in ('pastDays', 'futureDays'):
         value = definitions.get(key)
@@ -74,7 +78,7 @@ def _load_definitions(path):
             raise ValueError(f'{key} in {label} must be a non-negative integer.')
         loaded[key] = value
     for key in ('clockPatterns', 'frozenClockPatterns'):
-        loaded[key] = _definitions['get_regex_matchers'](definitions, key, label)
+        loaded[key] = _definitions.get_regex_matchers(definitions, key, label)
     return loaded
 
 
@@ -147,17 +151,16 @@ def main(arguments=None):
 
     try:
         definitions = _load_definitions(parsed_arguments.definitions_path)
-        test_file_patterns = _check_test_files['load_test_file_patterns']()
+        test_file_patterns = _check_test_files.load_test_file_patterns()
 
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         state_path = _get_state_path('block-time-bomb-literals', hook_input.get('sessionId'))
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
         # 編集ツールの引数の解析は、共通utilityで行う。
-        extract_edit_tool_changes = runpy.run_path(os.path.join(
-            _utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py',
-        ))['extract_edit_tool_changes']
+        sys.path.insert(0, os.path.join(_utilities_directory, 'edit-tool-changes'))
+        from edit_tool_changes import extract_edit_tool_changes
         changes = extract_edit_tool_changes(tool_name, tool_args)
 
         real_cwd = os.path.realpath(cwd)
@@ -166,7 +169,7 @@ def main(arguments=None):
             path = os.path.realpath(os.path.join(cwd, change['path']))
             display_path = _get_display_path(path, real_cwd)
             # テストファイルのパターンはOSによらず `/` 区切りのパスに対して照合する。
-            if not _check_test_files['is_test_file'](test_file_patterns, display_path):
+            if not _check_test_files.is_test_file(test_file_patterns, display_path):
                 continue
             current = (_read_stored_file_content_for_write_comparison(path) if os.path.isfile(path) else None) or ''
             # 上書きではファイル全体と現在の内容、それ以外では書き込む内容と置換前の内容を比べる。
@@ -187,7 +190,7 @@ def main(arguments=None):
                 # 同じファイルの拒否はセッションで1回だけにする。
                 if _is_first_time_file_denial(state_path, path):
                     findings.append(_FINDING.format(file=display_path, literal=literal, date=date.isoformat(), clock=clock))
-    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
+    except (OSError, UnicodeError, ValueError, ImportError, sqlite3.Error) as ex:
         print(f'Failed to check time bomb literals: {ex}', file=sys.stderr)
         return 2
 
@@ -195,7 +198,7 @@ def main(arguments=None):
         reason = _DENY_REASON.format(findings='; '.join(findings), today=today.isoformat())
         print(reason, file=sys.stderr)
         # 正常な拒否なので終了コードは0。
-        _hook_output['write_deny_decision'](reason)
+        _hook_output.write_deny_decision(reason)
     return 0
 
 

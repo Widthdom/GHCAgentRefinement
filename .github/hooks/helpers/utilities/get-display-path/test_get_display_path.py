@@ -1,13 +1,15 @@
 import os
-import runpy
+import sys
 import tempfile
 import unittest
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_get_display_path = runpy.run_path(os.path.join(_script_directory, 'get_display_path.py'))['get_display_path']
+sys.path.insert(0, _script_directory)
+from get_display_path import get_display_path as _get_display_path
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class GetDisplayPathTests(unittest.TestCase):

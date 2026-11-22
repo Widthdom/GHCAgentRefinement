@@ -2,7 +2,6 @@ import io
 import json
 import os
 import re
-import runpy
 import shlex
 import sys
 import tempfile
@@ -13,11 +12,11 @@ from typing import cast
 # Codexの公開hook入力をCopilot SDK形式に変換する。対応範囲は .codex/README.md を参照。
 _runner_directory = os.path.dirname(os.path.abspath(__file__))
 _utilities_directory = os.path.join(os.path.dirname(_runner_directory), 'utilities')
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect_json_string_values.py',
-))['collect_json_string_values']
+sys.path.insert(0, os.path.join(_utilities_directory, 'collect-json-string-values'))
+from collect_json_string_values import collect_json_string_values as _collect_json_string_values
 
-_runtime = runpy.run_path(os.path.join(_runner_directory, 'adapted_hook_runtime.py'))
+sys.path.insert(0, _runner_directory)
+import adapted_hook_runtime as _runtime
 _EVENT_NAMES = {
     'SessionStart': 'sessionStart',
     'UserPromptSubmit': 'userPromptSubmitted',
@@ -168,7 +167,7 @@ def _convert_transcript(path, last_message, timestamp_ms):
                         for fragment in item.get('fragments', []):
                             if not isinstance(fragment, dict) or not isinstance(fragment.get('text'), str):
                                 continue
-                            for reason in fragment['text'].split(_runtime['BLOCK_REASON_SEPARATOR']):
+                            for reason in fragment['text'].split(_runtime.BLOCK_REASON_SEPARATOR):
                                 add('hook.end', {'hookType': 'agentStop', 'output': {
                                     'decision': 'block', 'reason': reason,
                                 }}, timestamp)
@@ -201,7 +200,7 @@ def _convert_transcript(path, last_message, timestamp_ms):
                         complete(call_id, exit_code, timestamp)
     if not recognized:
         raise ValueError('unsupported or empty Codex transcript format.')
-    return _runtime['complete_transcript_events'](events, last_message, timestamp_ms)
+    return _runtime.complete_transcript_events(events, last_message, timestamp_ms)
 
 
 def main():
@@ -213,7 +212,7 @@ def main():
         if not isinstance(payload, dict):
             raise ValueError('hook input must be a JSON object.')
         event, hook_input = _convert_hook_input(payload, timestamp_ms)
-        entries = _runtime['load_hook_entries'](event)
+        entries = _runtime.load_hook_entries(event)
         host_event = payload['hook_event_name']
         with tempfile.TemporaryDirectory(prefix='ghc-codex-hook-') as temporary:
             if event == 'agentStop':
@@ -221,13 +220,13 @@ def main():
                 if not isinstance(path, str) or not path:
                     raise ValueError('Stop requires a readable transcript path.')
                 events = _convert_transcript(os.path.expanduser(path), payload.get('last_assistant_message'), timestamp_ms)
-                hook_input['transcriptPath'] = _runtime['write_transcript_events'](temporary, events)
-            outputs, failed = _runtime['run_hook_entries'](entries, hook_input)
+                hook_input['transcriptPath'] = _runtime.write_transcript_events(temporary, events)
+            outputs, failed = _runtime.run_hook_entries(entries, hook_input)
         # 形式が異なる旧履歴でも差し戻しを繰り返さないよう、続行後のStopでは再ブロックしない。
         if event == 'agentStop' and payload.get('stop_hook_active') is True:
             outputs = [{key: value for key, value in output.items() if key not in ('decision', 'reason')}
                        for output in outputs]
-        merged = _runtime['merge_hook_outputs'](host_event, outputs)
+        merged = _runtime.merge_hook_outputs(host_event, outputs)
         if merged:
             sys.stdout.buffer.write(json.dumps(merged, ensure_ascii=False).encode('utf-8') + b'\n')
             return 0

@@ -2,7 +2,6 @@ import argparse
 import io
 import os
 import re
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -13,24 +12,30 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate_text.py'))['truncate_text']
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
-_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run_git.py'))
-_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
-    _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read_stored_file_content_for_write_comparison.py',
-))['read_stored_file_content_for_write_comparison']
-_get_stripped_lines = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-stripped-lines', 'get_stripped_lines.py',
-))['get_stripped_lines']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'truncate-text'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+    os.path.join(_utilities_directory, 'run-git'),
+    os.path.join(_utilities_directory, 'read-stored-file-content-for-write-comparison'),
+    os.path.join(_utilities_directory, 'get-stripped-lines'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from truncate_text import truncate_text as _truncate_text
+import read_definitions as _definitions
+from get_display_path import get_display_path as _get_display_path
+import run_git as _git
+from read_stored_file_content_for_write_comparison import read_stored_file_content_for_write_comparison as _read_stored_file_content_for_write_comparison
+from get_stripped_lines import get_stripped_lines as _get_stripped_lines
 
 
 _FIX_COMMIT_PATTERNS_KEY = 'fixCommitPatterns'
 _GIT_TIMEOUT_SECONDS = 4
 # gitの実行全体の期限。ファイルが多くても、hookの `timeoutSec`（10秒）より前に打ち切り、検査できない分は通す。
-_GIT_DEADLINE = _git['create_deadline'](7)
+_GIT_DEADLINE = _git.create_deadline(7)
 # `git blame --porcelain` の各行の見出し（コミットID、元の行番号、現在の行番号、[まとまりの行数]）。
 # SHA-1とSHA-256のリポジトリの両方を扱う。
 _BLAME_HEADER_PATTERN = re.compile(r'^([0-9a-f]{40}|[0-9a-f]{64}) \d+ (\d+)(?: \d+)?$')
@@ -50,7 +55,7 @@ _DENY_REASON = (
 def _load_definitions(path):
     # 戻り値は、修正コミットのメッセージに一致する正規表現（コンパイル済み）のリスト。
     label = 'past fix definitions'
-    return _definitions['get_regex_matchers'](_definitions['read_definitions'](path, label), _FIX_COMMIT_PATTERNS_KEY, label)
+    return _definitions.get_regex_matchers(_definitions.read_definitions(path, label), _FIX_COMMIT_PATTERNS_KEY, label)
 
 
 def _is_significant(line):
@@ -97,7 +102,7 @@ def _blame(path, line_numbers):
     for start, end in _to_ranges(line_numbers):
         arguments += ['-L', f'{start},{end}']
     # gitがない、git管理下でない、失敗した場合は検査しない。
-    output = _git['get_git_output'](
+    output = _git.get_git_output(
         os.path.dirname(path), [*arguments, '--', os.path.basename(path)], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE,
     )
     if output is None:
@@ -112,7 +117,7 @@ def _blame(path, line_numbers):
 
 def _get_messages(directory, commit_ids):
     # 戻り値は {コミットID: メッセージ全体}。区切りには本文に現れない制御文字（US・RS）を使う。
-    output = _git['get_git_output'](
+    output = _git.get_git_output(
         directory, ['show', '-s', '--no-color', '--format=%H%x1f%B%x1e', *commit_ids], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE,
     )
     if output is None:
@@ -159,19 +164,17 @@ def main(arguments=None):
     try:
         patterns = _load_definitions(parsed_arguments.definitions_path)
 
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         # 読んだコミットは、記録側のpostToolUse hookと状態の形式・保存先を共有する。
-        state = runpy.run_path(os.path.join(
-            _utilities_directory, 'viewed-commits-state', 'viewed_commits_state.py',
-        ))
-        state_path = state['get_state_path'](hook_input.get('sessionId'))
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        sys.path.insert(0, os.path.join(_utilities_directory, 'viewed-commits-state'))
+        import viewed_commits_state as state
+        state_path = state.get_state_path(hook_input.get('sessionId'))
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
         # 編集ツールの引数の解析は、共通utilityで行う。
-        extract_edit_tool_changes = runpy.run_path(os.path.join(
-            _utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py',
-        ))['extract_edit_tool_changes']
+        sys.path.insert(0, os.path.join(_utilities_directory, 'edit-tool-changes'))
+        from edit_tool_changes import extract_edit_tool_changes
         changes = extract_edit_tool_changes(tool_name, tool_args)
 
         real_cwd = os.path.realpath(cwd)
@@ -186,10 +189,10 @@ def main(arguments=None):
             if not line_numbers:
                 continue
             if viewed is None:
-                viewed = state['get_viewed'](state_path)
+                viewed = state.get_viewed(state_path)
             display_path = _get_display_path(path, real_cwd)
             findings.extend(_find_past_fixes(patterns, viewed, path, display_path, line_numbers))
-    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
+    except (OSError, UnicodeError, ValueError, ImportError, sqlite3.Error) as ex:
         print(f'Failed to check regression of past fixes: {ex}', file=sys.stderr)
         return 2
 
@@ -197,7 +200,7 @@ def main(arguments=None):
         reason = _DENY_REASON.format(findings='; '.join(findings))
         print(reason, file=sys.stderr)
         # 正常な拒否なので終了コードは0。
-        _hook_output['write_deny_decision'](reason)
+        _hook_output.write_deny_decision(reason)
     return 0
 
 

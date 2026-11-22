@@ -1,16 +1,18 @@
 import os
-import runpy
 import sqlite3
+import sys
 import tempfile
 import unittest
 import uuid
 from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_utility = runpy.run_path(os.path.join(_script_directory, 'get_state_path.py'))
+sys.path.insert(0, _script_directory)
+import get_state_path as _utility
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class GetStatePathTests(unittest.TestCase):
@@ -25,16 +27,16 @@ class GetStatePathTests(unittest.TestCase):
     def test_normalizes_session_id(self):
         # 前後の空白と大文字小文字が違っても、同じセッションは同じ保存先になる。
         session_id = uuid.uuid4()
-        self.assertEqual(_utility['parse_session_id'](f' {str(session_id).upper()} '), session_id)
+        self.assertEqual(_utility.parse_session_id(f' {str(session_id).upper()} '), session_id)
         self.assertEqual(
-            _utility['get_state_path']('known-files', f' {str(session_id).upper()} '),
+            _utility.get_state_path('known-files', f' {str(session_id).upper()} '),
             os.path.join(self.__states_directory, 'known-files', f'{session_id}.sqlite3'),
         )
 
     def test_extension(self):
         session_id = str(uuid.uuid4())
         self.assertEqual(
-            _utility['get_state_path']('debug-mode', session_id, '.json'),
+            _utility.get_state_path('debug-mode', session_id, '.json'),
             os.path.join(self.__states_directory, 'debug-mode', f'{session_id}.json'),
         )
 
@@ -50,8 +52,8 @@ class GetStatePathTests(unittest.TestCase):
         ):
             with self.subTest(session_id=session_id):
                 for call in (
-                    lambda: _utility['parse_session_id'](session_id),
-                    lambda: _utility['get_state_path']('known-files', session_id),
+                    lambda: _utility.parse_session_id(session_id),
+                    lambda: _utility.get_state_path('known-files', session_id),
                 ):
                     with self.assertRaises(ValueError) as context:
                         call()
@@ -66,14 +68,14 @@ class StateDatabaseTests(unittest.TestCase):
         self.__state_path = os.path.join(temporary.name, 'states', 'state.sqlite3')
 
     def __open(self):
-        return _utility['open_state_database'](
+        return _utility.open_state_database(
             self.__state_path,
             'CREATE TABLE IF NOT EXISTS items (key TEXT PRIMARY KEY)',
             'CREATE TABLE IF NOT EXISTS others (value TEXT)',
         )
 
     def __read(self, query='SELECT key FROM items ORDER BY key'):
-        return _utility['read_state_database'](self.__state_path, query)
+        return _utility.read_state_database(self.__state_path, query)
 
     def test_creates_folder_and_tables_and_commits(self):
         with self.__open() as connection:

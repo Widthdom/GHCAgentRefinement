@@ -2,7 +2,6 @@ import argparse
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -12,17 +11,22 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_extract_edit_tool_changes = runpy.run_path(os.path.join(
-    _utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py',
-))['extract_edit_tool_changes']
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
-_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
-    _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read_stored_file_content_for_write_comparison.py',
-))['read_stored_file_content_for_write_comparison']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'edit-tool-changes'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+    os.path.join(_utilities_directory, 'read-stored-file-content-for-write-comparison'),
+]
+import read_hook_input as _hook_input
+import parse_tool_calls as _tool_calls
+import write_hook_output as _hook_output
+import read_definitions as _definitions
+from edit_tool_changes import extract_edit_tool_changes as _extract_edit_tool_changes
+from get_display_path import get_display_path as _get_display_path
+from read_stored_file_content_for_write_comparison import read_stored_file_content_for_write_comparison as _read_stored_file_content_for_write_comparison
 
 
 # `.env` と `.env.local` などは対象とし、値を含まないひな形は対象外とする。
@@ -41,7 +45,7 @@ _DENY_REASON = (
 def _load_definitions(path):
     # 戻り値は (名前, コンパイル済みの正規表現) のリスト。
     label = 'secret definitions'
-    return _definitions['build_named_regex_matchers'](_definitions['read_definitions'](path, label, list), label)
+    return _definitions.build_named_regex_matchers(_definitions.read_definitions(path, label, list), label)
 
 
 def _is_env_file(path):
@@ -80,9 +84,9 @@ def main(arguments=None):
     try:
         definitions = _load_definitions(parsed_arguments.definitions_path)
 
-        hook_input = _hook_input['read_hook_input']()
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        hook_input = _hook_input.read_hook_input()
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
         real_cwd = os.path.realpath(cwd)
         findings = []
@@ -98,7 +102,7 @@ def main(arguments=None):
                 real_path = os.path.realpath(os.path.join(cwd, path))
                 resolved.setdefault(os.path.normcase(real_path), real_path)
             resolved_paths = [resolved[key] for key in sorted(resolved)]
-            display_paths = ', '.join(_get_display_path(path, real_cwd) for path in resolved_paths) or _tool_calls['get_tool_name'](tool_name)
+            display_paths = ', '.join(_get_display_path(path, real_cwd) for path in resolved_paths) or _tool_calls.get_tool_name(tool_name)
 
             env_paths = [path for path in resolved_paths if _is_env_file(path)]
             if env_paths:
@@ -120,7 +124,7 @@ def main(arguments=None):
         reason = _DENY_REASON.format(findings='; '.join(findings))
         print(reason, file=sys.stderr)
         # 正常な拒否なので終了コードは0。
-        _hook_output['write_deny_decision'](reason)
+        _hook_output.write_deny_decision(reason)
     return 0
 
 

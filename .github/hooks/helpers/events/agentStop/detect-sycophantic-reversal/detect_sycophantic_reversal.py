@@ -2,7 +2,6 @@ import argparse
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -12,11 +11,18 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read_transcript_events.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+]
+import read_hook_input as _hook_input
+import parse_tool_calls as _tool_calls
+import write_hook_output as _hook_output
+import read_definitions as _definitions
+import read_transcript_events as _transcript_events
 
 
 # 定義ファイルのキー。evidenceToolNamesは根拠の確認とみなすツール名、pushbackPatternsはユーザーの反論・疑問、
@@ -40,27 +46,27 @@ def _strip_code(text):
 
 def _load_definitions(definitions_path):
     label = 'sycophantic reversal definitions'
-    definitions = _definitions['read_definitions'](definitions_path, label)
-    evidence_tool_names = set(_definitions['get_string_list'](definitions, _EVIDENCE_TOOL_NAMES_KEY, label))
-    pushback_patterns, reversal_patterns = (tuple(_definitions['get_regex_matchers'](definitions, key, label)) for key in _PATTERN_KEYS)
+    definitions = _definitions.read_definitions(definitions_path, label)
+    evidence_tool_names = set(_definitions.get_string_list(definitions, _EVIDENCE_TOOL_NAMES_KEY, label))
+    pushback_patterns, reversal_patterns = (tuple(_definitions.get_regex_matchers(definitions, key, label)) for key in _PATTERN_KEYS)
     return evidence_tool_names, pushback_patterns, reversal_patterns
 
 
 def _get_turn_summary(transcript_path, evidence_tool_names):
     # ユーザーの最新の依頼、その前の応答の有無、以降の最終応答・根拠確認ツールの使用・本hookによる差し戻し済みかを集める。
-    turns = _transcript_events['get_turn_events'](transcript_path)
+    turns = _transcript_events.get_turn_events(transcript_path)
     events = turns[-1]
     used_evidence_tool = any(
         event_type == 'tool.execution_start' and isinstance(data.get('toolName'), str)
-        and _tool_calls['get_tool_name'](data['toolName']) in evidence_tool_names
+        and _tool_calls.get_tool_name(data['toolName']) in evidence_tool_names
         for event_type, data in events
     )
     return (
-        _transcript_events['get_request'](events),
-        len(turns) > 1 and _transcript_events['get_last_assistant_message'](turns[-2]) is not None,
-        _transcript_events['get_last_assistant_message'](events),
+        _transcript_events.get_request(events),
+        len(turns) > 1 and _transcript_events.get_last_assistant_message(turns[-2]) is not None,
+        _transcript_events.get_last_assistant_message(events),
         used_evidence_tool,
-        _transcript_events['is_already_requested'](events, _REASON_PREFIX),
+        _transcript_events.is_already_requested(events, _REASON_PREFIX),
     )
 
 
@@ -96,14 +102,14 @@ def main():
         return 2
 
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         # サブエージェントの停止は対象外。ユーザーの反論に応答するのは親のため。
         if hook_input.get('agentId'):
             return 0
-        transcript_path = _hook_input['get_transcript_path'](hook_input)
+        transcript_path = _hook_input.get_transcript_path(hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答とツール実行を書き込み済みにする。
-        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events.wait_for_agent_stop_event(transcript_path, hook_input.get('timestamp'))
 
         summary = _get_turn_summary(transcript_path, evidence_tool_names)
     except (OSError, UnicodeError, ValueError) as ex:
@@ -116,7 +122,7 @@ def main():
         return 0
 
     if _is_unverified_reversal(summary, pushback_patterns, reversal_patterns):
-        _hook_output['write_block_decision'](_REASON)
+        _hook_output.write_block_decision(_REASON)
     return 0
 
 

@@ -1,7 +1,6 @@
 import json
 import os
 import re
-import runpy
 import subprocess
 import sys
 import tempfile
@@ -11,10 +10,13 @@ from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'block_nonportable_paths.py')
+sys.path.insert(0, _script_directory)
+import block_nonportable_paths as _hook
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
-_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_entry.py'))['get_hook_entry']
+from hook_entry import get_hook_entry as _get_hook_entry
 
 
 class BlockNonportablePathsTests(unittest.TestCase):
@@ -82,8 +84,7 @@ class BlockNonportablePathsTests(unittest.TestCase):
                 self.__assert_denied(self.__run_call('create', {'path': name}), 'nonportable destination')
 
     def test_backslash_is_forbidden_inside_a_name(self):
-        helpers = runpy.run_path(_hook_path)
-        self.assertIn('forbidden on Windows', helpers['_invalid_name_reason']('bad\\name.txt'))
+        self.assertIn('forbidden on Windows', _hook._invalid_name_reason('bad\\name.txt'))
 
     def test_portable_names(self):
         for path in ('normal.txt', 'nested/space inside.txt', '.config', 'COM0.txt', 'COM10.txt', 'LPT10', 'console.py'):
@@ -180,10 +181,9 @@ class BlockNonportablePathsTests(unittest.TestCase):
         self.__assert_allowed(self.__run_call('bash', {'command': 'echo untouched'}))
 
     def test_existing_invalid_name_is_not_rechecked(self):
-        helpers = runpy.run_path(_hook_path)
         # Simulate a legacy name without creating a Windows-incompatible fixture.
-        with patch.object(helpers['os'], 'listdir', return_value=['NUL.txt']):
-            self.assertEqual(helpers['_check_paths'](self.__directory, ['NUL.txt'], set()), [])
+        with patch.object(_hook.os, 'listdir', return_value=['NUL.txt']):
+            self.assertEqual(_hook._check_paths(self.__directory, ['NUL.txt'], set()), [])
 
     def test_tool_formats(self):
         for tool in ('edit', 'functions.create', 'insert', 'str_replace_editor'):
@@ -241,10 +241,9 @@ class BlockNonportablePathsTests(unittest.TestCase):
                 self.assertIn(b'Failed to check portable paths:', result.stderr)
 
     def test_filesystem_errors_are_reported(self):
-        helpers = runpy.run_path(_hook_path)
-        with patch.object(helpers['os'], 'listdir', side_effect=PermissionError('not readable')):
+        with patch.object(_hook.os, 'listdir', side_effect=PermissionError('not readable')):
             with self.assertRaises(PermissionError):
-                helpers['_check_paths'](self.__directory, ['new.txt'], set())
+                _hook._check_paths(self.__directory, ['new.txt'], set())
 
     def test_repeated_invalid_operation_is_still_denied(self):
         for _ in range(2):

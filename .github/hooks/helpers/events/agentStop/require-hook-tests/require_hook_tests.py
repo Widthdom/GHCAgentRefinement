@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -11,13 +10,22 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
-_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read_transcript_events.py'))
-_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py'))['get_edited_paths']
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
-_check_test_runs = runpy.run_path(os.path.join(_utilities_directory, 'check-test-runs', 'check_test_runs.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+    os.path.join(_utilities_directory, 'edit-tool-changes'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+    os.path.join(_utilities_directory, 'check-test-runs'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import parse_tool_calls as _tool_calls
+import read_transcript_events as _transcript_events
+from edit_tool_changes import get_edited_paths as _get_edited_paths
+from get_display_path import get_display_path as _get_display_path
+import check_test_runs as _check_test_runs
 
 
 # リポジトリ内のhook関連ファイル。グループ1はリポジトリルート、グループ2は `.github/hooks/` からの相対パス。
@@ -34,20 +42,20 @@ _PYTHON_COMMAND = 'python' if sys.platform == 'win32' else 'python3'
 def _get_turn_events(transcript_path):
     # ユーザーの最新の依頼以降の、編集ツールで変更したファイルとシェル実行を、完了した順に集める。
     # 戻り値は (('edit', パス) または ('shell', (コマンド, 終了コード)) のリスト, 本hookによる差し戻し済みか)。
-    turn_events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
+    turn_events, already_requested = _transcript_events.get_latest_turn(transcript_path, _REASON_PREFIX)
     events = []
-    for tool_name, arguments, completion in _transcript_events['get_tool_calls'](turn_events):
+    for tool_name, arguments, completion in _transcript_events.get_tool_calls(turn_events):
         if completion is None:
             continue
-        arguments = _tool_calls['unwrap_tool_args'](arguments)
-        if _tool_calls['is_edit_tool'](tool_name) and completion.get('success') is True:
+        arguments = _tool_calls.unwrap_tool_args(arguments)
+        if _tool_calls.is_edit_tool(tool_name) and completion.get('success') is True:
             events.extend(('edit', path) for path in _get_edited_paths(tool_name, arguments))
-        elif (_tool_calls['is_shell_tool'](tool_name) and isinstance(arguments, dict)
+        elif (_tool_calls.is_shell_tool(tool_name) and isinstance(arguments, dict)
                 and isinstance(arguments.get('command'), str)):
             # 拒否などで実行されなかった場合は終了コードが記録されないため、成功とみなさない。
             events.append((
                 'shell',
-                (arguments['command'], _transcript_events['get_shell_exit_code'](completion)),
+                (arguments['command'], _transcript_events.get_shell_exit_code(completion)),
             ))
     return events, already_requested
 
@@ -141,13 +149,13 @@ def _get_test_status(command, exit_code, accepted):
     # テストファイルを実行していなければNone。`cat`・`git add` などの読むだけのコマンドは実行とみなさない。
     # 後に `;`・`||` で別のコマンドが続くなど、終了コードがテストの結果を表さない場合は成功とみなさない。
     pattern = _get_test_pattern(accepted)
-    if not _check_test_runs['is_test_command'](command, pattern):
+    if not _check_test_runs.is_test_command(command, pattern):
         return None
     if exit_code is None:
         return 'did not complete'
     if exit_code != 0:
         return f'failed with exit code {exit_code}'
-    if not _check_test_runs['is_test_result_reported'](command, pattern):
+    if not _check_test_runs.is_test_result_reported(command, pattern):
         return 'exit status hidden by a following ";", "||" or "&", or a pipe without pipefail'
     return 'passed'
 
@@ -212,15 +220,15 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         # サブエージェントの停止は対象外。依頼の完了を報告するのは親のため。
         if hook_input.get('agentId'):
             return 0
-        cwd = os.path.normpath(_hook_input['get_cwd'](hook_input))
-        transcript_path = _hook_input['get_transcript_path'](hook_input)
+        cwd = os.path.normpath(_hook_input.get_cwd(hook_input))
+        transcript_path = _hook_input.get_transcript_path(hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最後のツール実行の結果を書き込み済みにする。
-        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events.wait_for_agent_stop_event(transcript_path, hook_input.get('timestamp'))
 
         events, already_requested = _get_turn_events(transcript_path)
     except (OSError, UnicodeError, ValueError) as ex:
@@ -233,7 +241,7 @@ def main():
 
     unverified, unchanged_readmes = _get_unverified(events, cwd)
     if unverified:
-        _hook_output['write_block_decision'](_get_block_reason(unverified, unchanged_readmes, cwd))
+        _hook_output.write_block_decision(_get_block_reason(unverified, unchanged_readmes, cwd))
     return 0
 
 

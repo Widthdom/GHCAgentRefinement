@@ -2,7 +2,6 @@ import builtins
 import io
 import os
 import re
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -13,23 +12,26 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_get_path_sha256_digest = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-sha256-digest', 'get_sha256_digest.py',
-))['get_path_sha256_digest']
-_check_test_files = runpy.run_path(os.path.join(_utilities_directory, 'check-test-files', 'check_test_files.py'))
-_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))['get_state_path']
-_filter_first_time_denials = runpy.run_path(os.path.join(
-    _utilities_directory, 'filter-first-time-denials', 'filter_first_time_denials.py',
-))['filter_first_time_denials']
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
-_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
-    _utilities_directory, 'read-stored-file-content-for-write-comparison', 'read_stored_file_content_for_write_comparison.py',
-))['read_stored_file_content_for_write_comparison']
-_get_stripped_lines = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-stripped-lines', 'get_stripped_lines.py',
-))['get_stripped_lines']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'get-sha256-digest'),
+    os.path.join(_utilities_directory, 'check-test-files'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'filter-first-time-denials'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+    os.path.join(_utilities_directory, 'read-stored-file-content-for-write-comparison'),
+    os.path.join(_utilities_directory, 'get-stripped-lines'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from get_sha256_digest import get_path_sha256_digest as _get_path_sha256_digest
+import check_test_files as _check_test_files
+from get_state_path import get_state_path as _get_state_path
+from filter_first_time_denials import filter_first_time_denials as _filter_first_time_denials
+from get_display_path import get_display_path as _get_display_path
+from read_stored_file_content_for_write_comparison import read_stored_file_content_for_write_comparison as _read_stored_file_content_for_write_comparison
+from get_stripped_lines import get_stripped_lines as _get_stripped_lines
 
 
 # 2つの値を比べるアサーションの呼び出し。最初の2引数を比べる。
@@ -301,25 +303,24 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        test_file_patterns = _check_test_files['load_test_file_patterns']()
+        test_file_patterns = _check_test_files.load_test_file_patterns()
 
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         state_path = _get_state_path('block-tautological-tests', hook_input.get('sessionId'))
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
         real_cwd = os.path.realpath(cwd)
         # (拒否のキー, 理由) のリスト。同じファイルでも種類の異なる拒否は、それぞれ1回ずつ行う。
         candidates = []
         # 編集ツールの引数の解析は、共通utilityで行う。
-        extract_edit_tool_changes = runpy.run_path(os.path.join(
-            _utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py',
-        ))['extract_edit_tool_changes']
+        sys.path.insert(0, os.path.join(_utilities_directory, 'edit-tool-changes'))
+        from edit_tool_changes import extract_edit_tool_changes
         for change in extract_edit_tool_changes(tool_name, tool_args):
             path = os.path.realpath(os.path.join(cwd, change['path']))
             # テストファイルの判定は、Windowsのnormcaseで小文字にする前のパスで行い、大文字小文字を区別できるようにする。
             display_path = _get_display_path(path, real_cwd)
-            if not _check_test_files['is_test_file'](test_file_patterns, display_path):
+            if not _check_test_files.is_test_file(test_file_patterns, display_path):
                 continue
             # 状態にはパスを保存せず、照合用のSHA-256だけを保存する。
             file_key = _get_path_sha256_digest(path)
@@ -340,7 +341,7 @@ def main():
         reasons = []
         if candidates:
             reasons = _filter_first_time_denials(state_path, candidates)
-    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
+    except (OSError, UnicodeError, ValueError, ImportError, sqlite3.Error) as ex:
         print(f'Failed to check tautological tests: {ex}', file=sys.stderr)
         return 2
 
@@ -348,7 +349,7 @@ def main():
         reason = _DENY_REASON.format(findings=' '.join(reasons))
         print(reason, file=sys.stderr)
         # 正常な拒否なので終了コードは0。
-        _hook_output['write_deny_decision'](reason)
+        _hook_output.write_deny_decision(reason)
     return 0
 
 

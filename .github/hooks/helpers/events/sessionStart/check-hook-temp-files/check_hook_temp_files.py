@@ -1,6 +1,5 @@
 import io
 import os
-import runpy
 import sys
 import time
 from typing import cast
@@ -11,7 +10,8 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
+sys.path.insert(0, os.path.join(_utilities_directory, 'write-hook-output'))
+import write_hook_output as _hook_output
 
 _WARNING_THRESHOLD = 500
 _WARNING_MESSAGE = (
@@ -27,14 +27,15 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     # 削除用のclean-hook-temp-files skillと、対象の分類と保持期間を共有する。
-    temp_files = runpy.run_path(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hook_temp_files.py'))
-    root = temp_files['get_temp_root']()
-    count = len(temp_files['find_stale_files'](root, time.time()))
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import hook_temp_files as temp_files
+    root = temp_files.get_temp_root()
+    count = len(temp_files.find_stale_files(root, time.time()))
     if count < _WARNING_THRESHOLD:
         return 0
 
     # Copilot SDKはhookの出力のうちsystemMessageを解釈しないため、エージェントに渡してユーザーへ伝えさせる。
-    _hook_output['write_additional_context'](_WARNING_MESSAGE.format(count=count, root=root))
+    _hook_output.write_additional_context(_WARNING_MESSAGE.format(count=count, root=root))
     return 0
 
 

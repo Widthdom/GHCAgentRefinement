@@ -1,6 +1,6 @@
 import os
 import re
-import runpy
+import sys
 
 # 編集ツールの呼び出し1件を解釈する。編集したファイルを検査・記録するpreToolUse hook、postToolUse hook、
 # 依頼中の編集を振り返るagentStop hookが共有する。
@@ -11,10 +11,12 @@ import runpy
 
 # 他のutilityの処理は、スクリプトから読み込む。utilityのフォルダーの親がutilitiesである。
 _utilities_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect_json_string_values.py',
-))['collect_json_string_values']
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'collect-json-string-values'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+]
+from collect_json_string_values import collect_json_string_values as _collect_json_string_values
+import parse_tool_calls as _tool_calls
 
 # 対象のファイルのパスを表す引数名。`edit`・`view` は `path`、`create` は `file_path` で渡される。
 PATH_KEYS = ('path', 'file_path')
@@ -45,9 +47,9 @@ def _get_first_string(tool_args, keys):
 
 def _parse_tool_call(tool_name, raw_tool_args):
     # 編集ツールなら `functions.` 接頭辞を外したツール名と、包みを外した引数を返す。それ以外は (None, None)。
-    if not _tool_calls['is_edit_tool'](tool_name):
+    if not _tool_calls.is_edit_tool(tool_name):
         return None, None
-    return _tool_calls['parse_tool_call'](tool_name, raw_tool_args)
+    return _tool_calls.parse_tool_call(tool_name, raw_tool_args)
 
 
 def _get_command(tool_name, tool_args):

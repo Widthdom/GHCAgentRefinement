@@ -2,7 +2,6 @@ import argparse
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -12,11 +11,18 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read_transcript_events.py'))
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import read_definitions as _definitions
+import read_transcript_events as _transcript_events
+from get_display_path import get_display_path as _get_display_path
 
 
 _WHITESPACE_PATTERN = re.compile(r'\s+')
@@ -41,11 +47,11 @@ _BLOCK_REASON = (
 
 def _load_definitions(path):
     label = 'unrequested change definitions'
-    definitions = _definitions['read_definitions'](path, label)
+    definitions = _definitions.read_definitions(path, label)
     return (
-        _definitions['get_regex_matchers'](definitions, _EXCLUDED_FILE_PATTERNS_KEY, label, allow_empty_list=True),
-        _definitions['get_regex_matchers'](definitions, _FORMATTING_REQUEST_PATTERNS_KEY, label),
-        _definitions['get_regex_matchers'](definitions, _REMOVAL_REQUEST_PATTERNS_KEY, label),
+        _definitions.get_regex_matchers(definitions, _EXCLUDED_FILE_PATTERNS_KEY, label, allow_empty_list=True),
+        _definitions.get_regex_matchers(definitions, _FORMATTING_REQUEST_PATTERNS_KEY, label),
+        _definitions.get_regex_matchers(definitions, _REMOVAL_REQUEST_PATTERNS_KEY, label),
     )
 
 
@@ -66,11 +72,10 @@ def _get_turn_summary(transcript_path):
     # 割り込みで追加された指示も依頼に含め、hookの差し戻しは含めない。
     # 変更は {path, deleted, moved_to（移動先またはNone）, whitespace_only} のリスト。
     # 編集ツールの引数の解析は、共通utilityで行う。
-    extract_edit_tool_changes = runpy.run_path(
-        os.path.join(_utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py')
-    )['extract_edit_tool_changes']
-    events, already_requested = _transcript_events['get_latest_turn'](transcript_path, _REASON_PREFIX)
-    request_texts = _transcript_events['get_request_texts'](events)
+    sys.path.insert(0, os.path.join(_utilities_directory, 'edit-tool-changes'))
+    from edit_tool_changes import extract_edit_tool_changes
+    events, already_requested = _transcript_events.get_latest_turn(transcript_path, _REASON_PREFIX)
+    request_texts = _transcript_events.get_request_texts(events)
     response_texts = []
     for event_type, data in events:
         content = data.get('content')
@@ -83,7 +88,7 @@ def _get_turn_summary(transcript_path):
             'moved_to': change['moved_to'],
             'whitespace_only': _is_whitespace_only_change(change),
         }
-        for tool_name, arguments, completion in _transcript_events['get_tool_calls'](events)
+        for tool_name, arguments, completion in _transcript_events.get_tool_calls(events)
         if completion is not None and completion.get('success') is True
         for change in extract_edit_tool_changes(tool_name, arguments, include_deleted=True)
     ]
@@ -148,17 +153,17 @@ def main(arguments=None):
 
     try:
         definitions = _load_definitions(parsed_arguments.definitions_path)
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
 
         # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
         if hook_input.get('agentId'):
             return 0
 
-        cwd = _hook_input['get_cwd'](hook_input)
-        transcript_path = _hook_input['get_transcript_path'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
+        transcript_path = _hook_input.get_transcript_path(hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
-        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events.wait_for_agent_stop_event(transcript_path, hook_input.get('timestamp'))
 
         request_text, response_text, changes, already_requested = _get_turn_summary(transcript_path)
         # 同じ依頼で差し戻すのは1回だけにし、必要な変更を応答で説明した後に停止できなくなるのを防ぐ。
@@ -173,7 +178,7 @@ def main(arguments=None):
         reason = _BLOCK_REASON.format(findings='\n'.join(
             f'- {display_path}: {"; ".join(reasons)}' for display_path, reasons in findings[:_MAX_FINDINGS]
         ))
-        _hook_output['write_block_decision'](reason)
+        _hook_output.write_block_decision(reason)
     return 0
 
 

@@ -1,7 +1,6 @@
 import io
 import json
 import os
-import runpy
 import sqlite3
 import sys
 import time
@@ -13,13 +12,17 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_get_text_sha256_digest = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-sha256-digest', 'get_sha256_digest.py',
-))['get_text_sha256_digest']
-_state_path_utility = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))
-_get_state_path = _state_path_utility['get_state_path']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'get-sha256-digest'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from get_sha256_digest import get_text_sha256_digest as _get_text_sha256_digest
+import get_state_path as _state_path_utility
+_get_state_path = _state_path_utility.get_state_path
 
 
 _FAILURE_THRESHOLD = 3
@@ -37,7 +40,7 @@ _RECOVERY_CONTEXT = (
 
 def _record_failure(state_path, fingerprint):
     # SQLiteのトランザクションで、並列に失敗しても回数の更新を取りこぼさない。
-    with _state_path_utility['open_state_database'](
+    with _state_path_utility.open_state_database(
         state_path,
         'CREATE TABLE IF NOT EXISTS failures ('
         'fingerprint TEXT PRIMARY KEY, '
@@ -75,7 +78,7 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
 
         state_path = _get_state_path('repeated-failures', hook_input.get('sessionId'))
 
@@ -83,8 +86,8 @@ def main():
         if hook_input.get('agentId'):
             return 0
 
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
         error = hook_input.get('error')
         if not isinstance(error, str) or not error.strip():
             raise ValueError('error must be a non-blank string.')
@@ -109,7 +112,7 @@ def main():
         # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
         # 終了コード2による助言も公式には記載があるが、ここでは
         # VS Code 1.143.1同梱SDKのhook processorで反映を確認した形式を使う。
-        _hook_output['write_additional_context'](_RECOVERY_CONTEXT)
+        _hook_output.write_additional_context(_RECOVERY_CONTEXT)
     return 0
 
 

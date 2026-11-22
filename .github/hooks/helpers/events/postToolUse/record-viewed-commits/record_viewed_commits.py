@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -12,8 +11,12 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+]
+import read_hook_input as _hook_input
+import parse_tool_calls as _tool_calls
 
 
 # コミットのメッセージと差分を表示するgitのコマンド。`git -C <dir> show`・`git --no-pager log` なども含む。
@@ -30,18 +33,17 @@ def main():
 
     try:
         # 拒否側のpreToolUse hookと状態の形式・保存先を共有する。
-        state = runpy.run_path(os.path.join(
-            _utilities_directory, 'viewed-commits-state', 'viewed_commits_state.py',
-        ))
+        sys.path.insert(0, os.path.join(_utilities_directory, 'viewed-commits-state'))
+        import viewed_commits_state as state
 
-        hook_input = _hook_input['read_hook_input']()
-        state_path = state['get_state_path'](hook_input.get('sessionId'))
+        hook_input = _hook_input.read_hook_input()
+        state_path = state.get_state_path(hook_input.get('sessionId'))
         # postToolUseには、呼び出したツール1件の名前（toolName）と引数（toolArgs）、結果（toolResult）が渡される。
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
-        if not _tool_calls['is_shell_tool'](tool_name):
+        if not _tool_calls.is_shell_tool(tool_name):
             return 0
-        tool_args = _tool_calls['unwrap_tool_args'](tool_args)
+        tool_args = _tool_calls.unwrap_tool_args(tool_args)
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         if not isinstance(command, str) or not _VIEW_COMMAND_PATTERN.search(command):
             return 0
@@ -53,8 +55,8 @@ def main():
         # 見出し行のあるコミットだけを、メッセージを読んだものとして記録する。`--oneline` などの一覧は対象外。
         commit_ids = set(_COMMIT_HEADER_PATTERN.findall(_ANSI_ESCAPE_PATTERN.sub('', output)))
         if commit_ids:
-            state['record_viewed'](state_path, sorted(commit_ids))
-    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
+            state.record_viewed(state_path, sorted(commit_ids))
+    except (OSError, UnicodeError, ValueError, ImportError, sqlite3.Error) as ex:
         print(f'Failed to record viewed commits: {ex}', file=sys.stderr)
         return 2
     return 0

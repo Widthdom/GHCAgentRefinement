@@ -6,7 +6,6 @@ import io
 import json
 import os
 import re
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -17,9 +16,14 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run_git.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'run-git'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import run_git as _git
 
 
 # 依存を書くファイルの種類。ファイル名（`/` 区切りのパスの末尾）で判定する。
@@ -160,7 +164,7 @@ def _extract_dependencies(kind, text):
 def _normalize_name(state, ecosystem, name):
     if ecosystem == _PYTHON_MODULE:
         return name
-    return state['normalize_name'](ecosystem, name)
+    return state.normalize_name(ecosystem, name)
 
 
 class _Environment:
@@ -181,7 +185,7 @@ class _Environment:
         return self.__cache('files', self.__list_files_uncached)
 
     def __list_files_uncached(self):
-        output = None if self.__root is None else _git['get_git_output'](
+        output = None if self.__root is None else _git.get_git_output(
             self.__root, ['ls-files', '-co', '--exclude-standard', '-z'], _GIT_TIMEOUT_SECONDS,
         )
         if output is not None:
@@ -263,12 +267,12 @@ class _Environment:
 
     def __installed_distributions(self):
         def load():
-            names = {self.state['normalize_name'](_PYPI, distribution.metadata['Name'] or '')
+            names = {self.state.normalize_name(_PYPI, distribution.metadata['Name'] or '')
                      for distribution in importlib.metadata.distributions()}
             for directory in self.__site_packages_directories():
                 for entry in os.listdir(directory):
                     if entry.endswith(('.dist-info', '.egg-info')):
-                        names.add(self.state['normalize_name'](_PYPI, entry.rsplit('.', 1)[0].split('-')[0]))
+                        names.add(self.state.normalize_name(_PYPI, entry.rsplit('.', 1)[0].split('-')[0]))
             names.discard('')
             return names
         return self.__cache('distributions', load)
@@ -279,7 +283,7 @@ class _Environment:
             for path in self.__list_files():
                 if os.path.basename(path) in ('uv.lock', 'poetry.lock', 'pdm.lock', 'Pipfile.lock'):
                     text = _read_text(os.path.join(self.__base(), path))
-                    names.update(self.state['normalize_name'](_PYPI, name) for name in re.findall(
+                    names.update(self.state.normalize_name(_PYPI, name) for name in re.findall(
                         r'(?m)^\s*"?name"?\s*[=:]\s*"([^"]+)"', text,
                     ))
             return names
@@ -384,18 +388,16 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
-        state = runpy.run_path(os.path.join(
-            _utilities_directory, 'verified-packages-state', 'verified_packages_state.py',
-        ))
-        state_path = state['get_state_path'](hook_input.get('sessionId'))
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        hook_input = _hook_input.read_hook_input()
+        sys.path.insert(0, os.path.join(_utilities_directory, 'verified-packages-state'))
+        import verified_packages_state as state
+        state_path = state.get_state_path(hook_input.get('sessionId'))
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
         # 編集ツールの引数の解析は、共通utilityで行う。
-        extract_edit_tool_changes = runpy.run_path(os.path.join(
-            _utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py',
-        ))['extract_edit_tool_changes']
+        sys.path.insert(0, os.path.join(_utilities_directory, 'edit-tool-changes'))
+        from edit_tool_changes import extract_edit_tool_changes
         real_cwd = os.path.realpath(cwd)
         added = []
         for change in extract_edit_tool_changes(tool_name, tool_args):
@@ -425,8 +427,8 @@ def main():
         if not added:
             return 0
 
-        verified = state['get_verified'](state_path)
-        repository_root = _git['get_repository_root'](real_cwd, _GIT_TIMEOUT_SECONDS)
+        verified = state.get_verified(state_path)
+        repository_root = _git.get_repository_root(real_cwd, _GIT_TIMEOUT_SECONDS)
         if repository_root is not None:
             repository_root = os.path.realpath(repository_root)
         environment = _Environment(real_cwd, repository_root, state)
@@ -442,7 +444,7 @@ def main():
                 and not environment.nuget_version_exists(name, version)
             ):
                 findings.append(_format_finding(environment, ecosystem, name, version, manifest_directory, True))
-    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
+    except (OSError, UnicodeError, ValueError, ImportError, sqlite3.Error) as ex:
         print(f'Failed to check unverified dependencies: {ex}', file=sys.stderr)
         return 2
 
@@ -453,7 +455,7 @@ def main():
         reason = _DENY_REASON.format(findings=shown)
         print(reason, file=sys.stderr)
         # 正常な拒否なので終了コードは0。
-        _hook_output['write_deny_decision'](reason)
+        _hook_output.write_deny_decision(reason)
     return 0
 
 

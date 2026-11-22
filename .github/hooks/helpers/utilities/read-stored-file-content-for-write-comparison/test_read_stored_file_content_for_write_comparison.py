@@ -1,15 +1,15 @@
 import os
-import runpy
+import sys
 import tempfile
 import unittest
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_read_stored_file_content_for_write_comparison = runpy.run_path(os.path.join(
-    _script_directory, 'read_stored_file_content_for_write_comparison.py',
-))['read_stored_file_content_for_write_comparison']
+sys.path.insert(0, _script_directory)
+from read_stored_file_content_for_write_comparison import read_stored_file_content_for_write_comparison as _read_stored_file_content_for_write_comparison
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class ReadStoredFileContentForWriteComparisonTests(unittest.TestCase):

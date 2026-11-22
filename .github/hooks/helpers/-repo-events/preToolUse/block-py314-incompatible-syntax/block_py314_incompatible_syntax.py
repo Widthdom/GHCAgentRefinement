@@ -1,7 +1,6 @@
 import ast
 import io
 import os
-import runpy
 import sys
 import warnings
 from typing import cast
@@ -12,12 +11,16 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
-_simulate_edit_tool_changes = runpy.run_path(os.path.join(
-    _utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py',
-))['simulate_edit_tool_changes']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+    os.path.join(_utilities_directory, 'edit-tool-changes'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from get_display_path import get_display_path as _get_display_path
+from edit_tool_changes import simulate_edit_tool_changes as _simulate_edit_tool_changes
 
 
 # 判定の基準とするPythonのバージョン。これより新しい文法も、古い文法（Python 2の構文など）も拒否する。
@@ -54,9 +57,9 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        hook_input = _hook_input.read_hook_input()
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
         findings = []
         cwd = os.path.abspath(cwd)
@@ -83,7 +86,7 @@ def main():
         reason = _DENY_REASON.format(findings='; '.join(findings[:_MAX_FINDINGS]))
         print(reason, file=sys.stderr)
         # 正常な拒否なので終了コードは0。
-        _hook_output['write_deny_decision'](reason)
+        _hook_output.write_deny_decision(reason)
     return 0
 
 

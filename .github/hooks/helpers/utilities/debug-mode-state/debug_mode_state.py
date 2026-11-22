@@ -1,6 +1,6 @@
 import json
 import os
-import runpy
+import sys
 import tempfile
 import uuid
 from datetime import datetime, timezone
@@ -10,17 +10,19 @@ from datetime import datetime, timezone
 
 # 状態の保存先とセッションIDの検証、状態ファイルの書き込みは共通のutilityで行う。utilityのフォルダーの親がutilitiesである。
 _utilities_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_state_path_utility = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))
-_write_json_atomically = runpy.run_path(os.path.join(
-    _utilities_directory, 'write-json-atomically', 'write_json_atomically.py',
-))['write_json_atomically']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'write-json-atomically'),
+]
+import get_state_path as _state_path_utility
+from write_json_atomically import write_json_atomically as _write_json_atomically
 
 
 def get_debug_mode_path(session_id):
     # session_id：sessionIdの値、または解析済みのUUID。不正なセッションIDはValueErrorにする。
     if isinstance(session_id, uuid.UUID):
         session_id = str(session_id)
-    return _state_path_utility['get_state_path']('debug-mode', session_id, '.json')
+    return _state_path_utility.get_state_path('debug-mode', session_id, '.json')
 
 
 def save_debug_mode(state_path, enabled):
@@ -46,5 +48,5 @@ def get_debug_log_directory(log_name, session_id):
     # デバッグ専用hookのログは、セッションUUID別のフォルダーに保存する。フォルダーは作らず、ログ自体も自動削除しない。
     return os.path.join(
         tempfile.gettempdir(), 'ghc-agent-refinement', 'debug-logs', log_name,
-        str(_state_path_utility['parse_session_id'](session_id)),
+        str(_state_path_utility.parse_session_id(session_id)),
     )

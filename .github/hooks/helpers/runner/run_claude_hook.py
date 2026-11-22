@@ -2,7 +2,6 @@ import io
 import json
 import os
 import re
-import runpy
 import sys
 import tempfile
 import time
@@ -15,14 +14,15 @@ from typing import cast
 
 _runner_directory = os.path.dirname(os.path.abspath(__file__))
 _utilities_directory = os.path.join(os.path.dirname(_runner_directory), 'utilities')
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect_json_string_values.py',
-))['collect_json_string_values']
-_SHELL_TOOL_NAMES = runpy.run_path(
-    os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'),
-)['SHELL_TOOL_NAMES']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'collect-json-string-values'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+]
+from collect_json_string_values import collect_json_string_values as _collect_json_string_values
+from parse_tool_calls import SHELL_TOOL_NAMES as _SHELL_TOOL_NAMES
 
-_runtime = runpy.run_path(os.path.join(_runner_directory, 'adapted_hook_runtime.py'))
+sys.path.insert(0, _runner_directory)
+import adapted_hook_runtime as _runtime
 # Claude Codeのイベント名と、対応するCopilot SDKのイベント名。
 # サブエージェントへの依頼は、Copilotでは `agentId` 付きのuserPromptSubmittedとして発火する。
 _EVENT_NAMES = {
@@ -151,7 +151,7 @@ def _convert_transcript(transcript_path, last_assistant_message, timestamp_ms):
                 reason = blocking_error.get('blockingError') if isinstance(blocking_error, dict) else None
                 if attachment.get('hookEvent') != 'Stop' or not isinstance(reason, str):
                     continue
-                for part in reason.split(_runtime['BLOCK_REASON_SEPARATOR']):
+                for part in reason.split(_runtime.BLOCK_REASON_SEPARATOR):
                     add('hook.end', {'hookType': 'agentStop', 'output': {'decision': 'block', 'reason': part}}, timestamp)
                     add('user.message', {'content': part, 'delivery': 'queued'}, timestamp)
             elif entry_type == 'assistant' and isinstance(content, list):
@@ -197,7 +197,7 @@ def _convert_transcript(transcript_path, last_assistant_message, timestamp_ms):
                     add_hook_start('userPromptSubmitted', timestamp)
                     add('user.message', {'content': text}, timestamp)
 
-    return _runtime['complete_transcript_events'](events, last_assistant_message, timestamp_ms)
+    return _runtime.complete_transcript_events(events, last_assistant_message, timestamp_ms)
 
 
 def main():
@@ -210,7 +210,7 @@ def main():
         if not isinstance(claude_input, dict):
             raise ValueError('hook input must be a JSON object.')
         event, hook_input = _convert_hook_input(claude_input, timestamp_ms)
-        entries = _runtime['load_hook_entries'](event)
+        entries = _runtime.load_hook_entries(event)
     except (OSError, ValueError, KeyError) as ex:
         print(f'Failed to prepare Claude Code hook: {ex}', file=sys.stderr)
         return 1
@@ -223,13 +223,13 @@ def main():
                     os.path.expanduser(claude_input.get('transcript_path') or ''),
                     claude_input.get('last_assistant_message'), timestamp_ms,
                 )
-                hook_input['transcriptPath'] = _runtime['write_transcript_events'](temporary_directory, events)
+                hook_input['transcriptPath'] = _runtime.write_transcript_events(temporary_directory, events)
             except OSError as ex:
                 print(f'Failed to convert Claude Code transcript: {ex}', file=sys.stderr)
                 return 1
-        outputs, failed = _runtime['run_hook_entries'](entries, hook_input)
+        outputs, failed = _runtime.run_hook_entries(entries, hook_input)
 
-    merged = _runtime['merge_hook_outputs'](claude_event, outputs)
+    merged = _runtime.merge_hook_outputs(claude_event, outputs)
     if merged is not None:
         sys.stdout.buffer.write(json.dumps(merged, ensure_ascii=False, separators=(',', ':')).encode('utf-8') + b'\n')
         sys.stdout.buffer.flush()

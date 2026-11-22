@@ -23,7 +23,7 @@ _STANDARD_STREAM_NEWLINE = None if os.name == 'nt' else '\n'
 
 
 def _resolve_hook_script(argument):
-    # 実行スクリプトは helpers/events または helpers/-repo-events の <イベント名>/<hook名>/<hook名>.py に限る。
+    # 実行スクリプトは helpers/events または helpers/-repo-events の <イベント名>/<hook名>/<hook_name>.py に限る。
     # 実行スクリプトのファイル名は、hook名のハイフンをアンダースコアに変えたものにする（read_hook_input.py など）。
     script_path = os.path.normpath(os.path.join(_repository_root, argument))
     hook_directory = os.path.dirname(script_path)
@@ -54,9 +54,8 @@ def _get_session_id(hook_input_bytes):
     if not isinstance(hook_input, dict):
         return None
     session_id = hook_input.get('sessionId')
-    parse_session_id = runpy.run_path(
-        os.path.join(_helpers_directory, 'utilities', 'get-state-path', 'get_state_path.py')
-    )['parse_session_id']
+    sys.path.insert(0, os.path.join(_helpers_directory, 'utilities', 'get-state-path'))
+    from get_state_path import parse_session_id
     try:
         parse_session_id(session_id)
     except ValueError:
@@ -161,10 +160,11 @@ def main():
     try:
         session_id = _get_session_id(hook_input_bytes)
         if session_id is not None:
-            runpy.run_path(os.path.join(_helpers_directory, 'utilities', 'hook-activity-state', 'hook_activity_state.py'))['record_hook_run'](
-                session_id, event_name, hook_name, started_at_ms, _is_fired(exit_code, output_bytes),
-            )
-    except (OSError, ValueError, sqlite3.Error) as ex:
+            sys.path.insert(0, os.path.join(_helpers_directory, 'utilities', 'hook-activity-state'))
+            from hook_activity_state import record_hook_run
+            record_hook_run(session_id, event_name, hook_name, started_at_ms, _is_fired(exit_code, output_bytes))
+    # 記録に使うutilityを読み込めない場合（ImportError）も、記録の失敗として扱う。
+    except (OSError, ValueError, ImportError, sqlite3.Error) as ex:
         print(f'Failed to record hook run for {hook_name}: {ex}', file=sys.stderr)
     return exit_code
 

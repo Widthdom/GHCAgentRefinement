@@ -1,14 +1,14 @@
 import os
-import runpy
+import sys
 
 # 状態ファイルを開く処理とダイジェストの作成は、共通のutilityで行う。utilityのフォルダーの親がutilitiesである。
 _utilities_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_open_state_database = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-state-path', 'get_state_path.py',
-))['open_state_database']
-_get_path_sha256_digest = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-sha256-digest', 'get_sha256_digest.py',
-))['get_path_sha256_digest']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'get-sha256-digest'),
+]
+from get_state_path import open_state_database as _open_state_database
+from get_sha256_digest import get_path_sha256_digest as _get_path_sha256_digest
 
 # 拒否の候補を、対象ごとにセッションで初めての拒否だけに絞る。拒否は対象ごとに1回だけにし、意図した操作なら再実行で通す。
 # 絞り込みのため、拒否した対象をSQLiteに記録する。拒否hook（preToolUse）が共有する。

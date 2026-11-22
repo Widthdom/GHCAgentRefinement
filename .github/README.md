@@ -398,11 +398,11 @@ flowchart TB
     codex -. "読込" .-> codexSettings
     claude -- "command" --> claudeSh
     claudeSh -- "exec" --> claudeAdapter
-    claudeAdapter -- "プロセス内で実行<br/>（runpy.run_path）" --> runtime
+    claudeAdapter -- "プロセス内で呼出<br/>（import）" --> runtime
     codex -- "command / commandWindows" --> codexAdapter
-    codexAdapter -- "プロセス内で実行<br/>（runpy.run_path）" --> runtime
+    codexAdapter -- "プロセス内で呼出<br/>（import）" --> runtime
     runtime -. "読込" .-> definitions
-    runtime -- "プロセス内で実行<br/>（runpy.run_path）" --> runner
+    runtime -- "プロセス内で呼出<br/>（import）" --> runner
 
     runner -- "プロセス内で実行<br/>（runpy.run_path）" --> hookScript
     runner -- "起動・機能を記録" --> activity
@@ -424,6 +424,7 @@ flowchart TB
 ### テスト
 #### Pylanceの設定
 - hookはWindows・macOS・Linuxのすべてを対象にし、`os.name == 'nt'` などでOSごとに分岐するため、リポジトリ直下の [pyrightconfig.json](../pyrightconfig.json) で `pythonPlatform` を `All` にして、実行中のOS以外向けの分岐も解析させる。
+- hookやutilityは、他のフォルダーのモジュールを、そのフォルダーを実行時に `sys.path` に加えてから `import` する。Pylanceは実行時の `sys.path` の変更を解析しないため、同じフォルダーを `extraPaths` に記載し、`import` したモジュールの解決と定義への移動ができるようにする。他から読み込まれるモジュールを新しいフォルダーに置いた場合は、`extraPaths` にも加える。
 - このファイルがあると、Pylanceは `python.analysis.*` の設定（`typeCheckingMode` など）よりこのファイルを優先するため、ユーザー設定で変えている項目はこのファイルにも記載する。
 
 ### トラブルシューティング

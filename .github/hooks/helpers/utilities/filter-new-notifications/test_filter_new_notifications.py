@@ -1,15 +1,17 @@
 import os
-import runpy
 import sqlite3
+import sys
 import tempfile
 import unittest
 from contextlib import closing
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_filter_new_notifications = runpy.run_path(os.path.join(_script_directory, 'filter_new_notifications.py'))['filter_new_notifications']
+sys.path.insert(0, _script_directory)
+from filter_new_notifications import filter_new_notifications as _filter_new_notifications
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class FilterNewNotificationsTests(unittest.TestCase):

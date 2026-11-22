@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -11,12 +10,20 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate_text.py'))['truncate_text']
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
-_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read_transcript_events.py'))
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'truncate-text'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from truncate_text import truncate_text as _truncate_text
+import parse_tool_calls as _tool_calls
+import read_transcript_events as _transcript_events
+from get_display_path import get_display_path as _get_display_path
 
 
 _VERIFICATION_CLAIM_PATTERNS = (
@@ -47,16 +54,16 @@ _MAX_COMMAND_LENGTH = 200
 def _get_turn_summary(transcript_path, extract_edit_tool_changes):
     # ユーザーの最新の依頼以降の、ファイル編集とシェル実行を完了した順に集め、依頼の範囲のイベントと最終応答も返す。
     # 編集は ('edit', 変更したファイルのパスのリスト)、シェル実行は ('shell', (コマンド, 終了コード)) とする。
-    turn_events = _transcript_events['get_turn_events'](transcript_path)[-1]
+    turn_events = _transcript_events.get_turn_events(transcript_path)[-1]
     events = []
     # 完了していないシェル実行は、終了コードのない実行として最後に加わる。
-    for tool_name, arguments, completion in _transcript_events['get_tool_calls'](turn_events):
+    for tool_name, arguments, completion in _transcript_events.get_tool_calls(turn_events):
         command = _get_shell_command(tool_name, arguments)
         if command is not None:
             # 拒否などで実行されなかった場合は終了コードが記録されないため、成功とみなさない。
             events.append((
                 'shell',
-                (command, _transcript_events['get_shell_exit_code'](completion)),
+                (command, _transcript_events.get_shell_exit_code(completion)),
             ))
         elif completion is not None and completion.get('success') is True:
             changes = extract_edit_tool_changes(tool_name, arguments, include_deleted=True)
@@ -64,13 +71,13 @@ def _get_turn_summary(transcript_path, extract_edit_tool_changes):
                 events.append(('edit', [
                     path for change in changes for path in (change['path'], change['moved_to']) if path is not None
                 ]))
-    return events, turn_events, _transcript_events['get_last_assistant_message'](turn_events)
+    return events, turn_events, _transcript_events.get_last_assistant_message(turn_events)
 
 
 def _get_shell_command(tool_name, arguments):
-    if not _tool_calls['is_shell_tool'](tool_name):
+    if not _tool_calls.is_shell_tool(tool_name):
         return None
-    arguments = _tool_calls['unwrap_tool_args'](arguments)
+    arguments = _tool_calls.unwrap_tool_args(arguments)
     command = arguments.get('command') if isinstance(arguments, dict) else None
     return command if isinstance(command, str) else None
 
@@ -92,7 +99,7 @@ def _get_unverified_reason(events, last_test_index, check_test_runs):
             f"since the user's latest request. {_EVIDENCE_REQUEST}"
         )
     command, exit_code = events[last_test_index][1]
-    if exit_code == 0 and check_test_runs['is_test_result_reported'](command):
+    if exit_code == 0 and check_test_runs.is_test_result_reported(command):
         return None
     if exit_code == 0:
         result = (
@@ -167,7 +174,7 @@ def _get_stale_reason(events, last_test_index, cwd):
 
 def _get_block_reasons(response, events, cwd, check_test_runs):
     # 当てはまる差し戻しを、(理由の書き出し, 理由) の組で検査の順に返す。
-    if not check_test_runs['claims_tests_passed'](response):
+    if not check_test_runs.claims_tests_passed(response):
         # コードブロック内の出力例やコマンドは主張とみなさない。
         text = _FENCED_CODE_PATTERN.sub('', response)
         if any(pattern.search(text) for pattern in _VERIFICATION_CLAIM_PATTERNS) and not any(
@@ -181,7 +188,7 @@ def _get_block_reasons(response, events, cwd, check_test_runs):
 
     last_test_index = next(
         (index for index in range(len(events) - 1, -1, -1)
-         if events[index][0] == 'shell' and check_test_runs['is_test_command'](events[index][1][0])),
+         if events[index][0] == 'shell' and check_test_runs.is_test_command(events[index][1][0])),
         None,
     )
     unverified = _get_unverified_reason(events, last_test_index, check_test_runs)
@@ -202,23 +209,25 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
         if hook_input.get('agentId'):
             return 0
-        cwd = os.path.normpath(_hook_input['get_cwd'](hook_input))
-        transcript_path = _hook_input['get_transcript_path'](hook_input)
+        cwd = os.path.normpath(_hook_input.get_cwd(hook_input))
+        transcript_path = _hook_input.get_transcript_path(hook_input)
 
         # テストの実行かどうかの判定と、編集ツールの引数の解析は、共通utilityで行う。
-        check_test_runs = runpy.run_path(os.path.join(_utilities_directory, 'check-test-runs', 'check_test_runs.py'))
-        extract_edit_tool_changes = runpy.run_path(
-            os.path.join(_utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py')
-        )['extract_edit_tool_changes']
+        sys.path[:0] = [
+            os.path.join(_utilities_directory, 'check-test-runs'),
+            os.path.join(_utilities_directory, 'edit-tool-changes'),
+        ]
+        import check_test_runs
+        from edit_tool_changes import extract_edit_tool_changes
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と最後のツール実行の結果を書き込み済みにする。
-        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events.wait_for_agent_stop_event(transcript_path, hook_input.get('timestamp'))
 
         events, turn_events, last_assistant_msg = _get_turn_summary(transcript_path, extract_edit_tool_changes)
-    except (OSError, UnicodeError, ValueError) as ex:
+    except (OSError, UnicodeError, ValueError, ImportError) as ex:
         print(f'Failed to inspect test pass claims: {ex}', file=sys.stderr)
         return 2
 
@@ -227,8 +236,8 @@ def main():
     # 同じ依頼で差し戻すのは種類ごとに1回だけにし、根拠を示せない場合に停止できなくなるのを防ぐ。
     # 複数の種類が当てはまる場合は1つずつ差し戻し、理由の書き出しで差し戻し済みの種類を判定できるようにする。
     for prefix, reason in _get_block_reasons(last_assistant_msg, events, cwd, check_test_runs):
-        if not _transcript_events['is_already_requested'](turn_events, prefix):
-            _hook_output['write_block_decision'](reason)
+        if not _transcript_events.is_already_requested(turn_events, prefix):
+            _hook_output.write_block_decision(reason)
             break
     return 0
 

@@ -1,15 +1,17 @@
 import json
 import os
-import runpy
 import shutil
+import sys
 import tempfile
 import unittest
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_utility = runpy.run_path(os.path.join(_script_directory, 'check_test_files.py'))
+sys.path.insert(0, _script_directory)
+import check_test_files as _utility
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class CheckTestFilesTests(unittest.TestCase):
@@ -29,7 +31,7 @@ class CheckTestFilesTests(unittest.TestCase):
         self.assertTrue(definitions['testFilePatterns'])
 
     def test_test_files(self):
-        patterns = _utility['load_test_file_patterns']()
+        patterns = _utility.load_test_file_patterns()
         for path in (
             'tests/app.py', 'src/__tests__/app.js', 'spec/app_spec.rb', 'Test/App.cs', 'App.Tests/Calculator.cs',
             'App.UnitTests/Calculator.cs', 'src/CalculatorTests.cs', 'src/CalculatorTest.java', 'src/AppTest.kt',
@@ -37,24 +39,24 @@ class CheckTestFilesTests(unittest.TestCase):
             'app.test.ts', 'app.spec.js', 'app.test.mjs', 'app.spec.tsx',
         ):
             with self.subTest(path=path):
-                self.assertTrue(_utility['is_test_file'](patterns, path))
+                self.assertTrue(_utility.is_test_file(patterns, path))
         for path in (
             'src/app.py', 'src/testing.py', 'src/contest/app.py', 'attest.py', 'src/Testing.cs', 'app.tests.md',
             'src/latest.ts', 'docs/test.md', 'test-file-definitions.json',
         ):
             with self.subTest(path=path):
-                self.assertFalse(_utility['is_test_file'](patterns, path))
+                self.assertFalse(_utility.is_test_file(patterns, path))
 
     def test_case_sensitive_class_suffix(self):
         # .NET・Java・Kotlinのテストクラスは、大文字の `Test` で終わる名前だけをテストファイルとみなす。
-        patterns = _utility['load_test_file_patterns']()
-        self.assertTrue(_utility['is_test_file'](patterns, 'src/AppTests.cs'))
-        self.assertFalse(_utility['is_test_file'](patterns, 'src/Apptests.cs'))
+        patterns = _utility.load_test_file_patterns()
+        self.assertTrue(_utility.is_test_file(patterns, 'src/AppTests.cs'))
+        self.assertFalse(_utility.is_test_file(patterns, 'src/Apptests.cs'))
 
     def test_custom_definitions(self):
-        patterns = _utility['load_test_file_patterns'](self.__write_definitions('﻿{"testFilePatterns": ["^check/"]}'))
-        self.assertTrue(_utility['is_test_file'](patterns, 'check/app.py'))
-        self.assertFalse(_utility['is_test_file'](patterns, 'tests/app.py'))
+        patterns = _utility.load_test_file_patterns(self.__write_definitions('﻿{"testFilePatterns": ["^check/"]}'))
+        self.assertTrue(_utility.is_test_file(patterns, 'check/app.py'))
+        self.assertFalse(_utility.is_test_file(patterns, 'tests/app.py'))
 
     def test_invalid_definitions(self):
         for name, content in (
@@ -67,11 +69,11 @@ class CheckTestFilesTests(unittest.TestCase):
             ('invalid regex', '{"testFilePatterns": ["("]}'),
         ):
             with self.subTest(name=name), self.assertRaises(ValueError):
-                _utility['load_test_file_patterns'](self.__write_definitions(content))
+                _utility.load_test_file_patterns(self.__write_definitions(content))
 
     def test_missing_definitions(self):
         with self.assertRaises(OSError):
-            _utility['load_test_file_patterns'](os.path.join(self.__directory, 'missing.json'))
+            _utility.load_test_file_patterns(os.path.join(self.__directory, 'missing.json'))
 
 
 if __name__ == '__main__':

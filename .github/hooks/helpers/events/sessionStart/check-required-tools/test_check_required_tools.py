@@ -2,7 +2,6 @@ import contextlib
 import io
 import json
 import os
-import runpy
 import subprocess
 import sys
 import tempfile
@@ -12,10 +11,12 @@ from unittest.mock import Mock, patch
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'check_required_tools.py')
 _definitions_path = os.path.join(_script_directory, 'required-tool-definitions.json')
-_hook = runpy.run_path(_hook_path)
+sys.path.insert(0, _script_directory)
+import check_required_tools as _hook
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 _COMMANDS = ('ast-grep', 'jq', 'rg')
 _SATISFIED = {'ast-grep': 'ast-grep 0.39.5\n', 'jq': 'jq-1.7.1\n', 'rg': 'ripgrep 14.1.1\n'}
@@ -59,14 +60,14 @@ def _run_main(platform='linux', results=None, arguments=()):
     stdout = io.StringIO()
     stderr = io.StringIO()
     with (
-        patch.object(_hook['subprocess'], 'run', run),
-        patch.object(_hook['sys'], 'platform', platform),
+        patch.object(_hook.subprocess, 'run', run),
+        patch.object(_hook.sys, 'platform', platform),
         patch.object(stdout, 'reconfigure', create=True),
         patch.object(stderr, 'reconfigure', create=True),
         contextlib.redirect_stdout(stdout),
         contextlib.redirect_stderr(stderr),
     ):
-        exit_code = _hook['main'](list(arguments))
+        exit_code = _hook.main(list(arguments))
     return exit_code, stderr.getvalue(), stdout.getvalue(), run
 
 
@@ -82,7 +83,7 @@ class CheckRequiredToolsTests(unittest.TestCase):
         expected = _expected_message(platform, commands)
         self.assertEqual(exit_code, 0)
         self.assertEqual(stderr, f'{expected}\n')
-        self.assertEqual(json.loads(stdout), {'additionalContext': _hook['_ADDITIONAL_CONTEXT'].format(message=expected)})
+        self.assertEqual(json.loads(stdout), {'additionalContext': _hook._ADDITIONAL_CONTEXT.format(message=expected)})
 
     def test_all_satisfied(self):
         exit_code, stderr, stdout, run = _run_main()

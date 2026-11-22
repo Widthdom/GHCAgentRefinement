@@ -1,20 +1,22 @@
 import io
 import os
-import runpy
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_utility = runpy.run_path(os.path.join(_script_directory, 'read_hook_input.py'))
+sys.path.insert(0, _script_directory)
+import read_hook_input as _utility
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 def _read(raw):
     with patch('sys.stdin', io.TextIOWrapper(io.BytesIO(raw), encoding='utf-8')):
-        return _utility['read_hook_input']()
+        return _utility.read_hook_input()
 
 
 class ReadHookInputTests(unittest.TestCase):
@@ -38,7 +40,7 @@ class ReadHookInputTests(unittest.TestCase):
 
     def test_get_cwd(self):
         cwd = os.path.abspath(tempfile.gettempdir())
-        self.assertEqual(_utility['get_cwd']({'cwd': cwd}), cwd)
+        self.assertEqual(_utility.get_cwd({'cwd': cwd}), cwd)
         for hook_input, message in (
             ({}, 'cwd must be a non-blank string.'),
             ({'cwd': ' '}, 'cwd must be a non-blank string.'),
@@ -47,7 +49,7 @@ class ReadHookInputTests(unittest.TestCase):
         ):
             with self.subTest(hook_input=hook_input):
                 with self.assertRaises(ValueError) as context:
-                    _utility['get_cwd'](hook_input)
+                    _utility.get_cwd(hook_input)
                 self.assertEqual(str(context.exception), message)
 
     def test_get_tool_call(self):
@@ -55,7 +57,7 @@ class ReadHookInputTests(unittest.TestCase):
         for tool_args in ({'command': 'ls'}, '{"command":"ls"}', None):
             with self.subTest(tool_args=tool_args):
                 self.assertEqual(
-                    _utility['get_tool_call']({'toolName': 'bash', 'toolArgs': tool_args}), ('bash', tool_args),
+                    _utility.get_tool_call({'toolName': 'bash', 'toolArgs': tool_args}), ('bash', tool_args),
                 )
         for hook_input, message in (
             ({'toolArgs': {}}, 'toolName must be a non-blank string.'),
@@ -65,7 +67,7 @@ class ReadHookInputTests(unittest.TestCase):
         ):
             with self.subTest(hook_input=hook_input):
                 with self.assertRaises(ValueError) as context:
-                    _utility['get_tool_call'](hook_input)
+                    _utility.get_tool_call(hook_input)
                 self.assertEqual(str(context.exception), message)
 
     def test_get_transcript_path(self):
@@ -74,7 +76,7 @@ class ReadHookInputTests(unittest.TestCase):
         transcript_path = os.path.join(temporary.name, 'events.jsonl')
         with open(transcript_path, 'w', encoding='utf-8', newline='\n'):
             pass
-        self.assertEqual(_utility['get_transcript_path']({'transcriptPath': transcript_path}), transcript_path)
+        self.assertEqual(_utility.get_transcript_path({'transcriptPath': transcript_path}), transcript_path)
         for hook_input, message in (
             ({}, 'transcriptPath must be a non-blank string.'),
             ({'transcriptPath': ' '}, 'transcriptPath must be a non-blank string.'),
@@ -83,7 +85,7 @@ class ReadHookInputTests(unittest.TestCase):
         ):
             with self.subTest(hook_input=hook_input):
                 with self.assertRaises(ValueError) as context:
-                    _utility['get_transcript_path'](hook_input)
+                    _utility.get_transcript_path(hook_input)
                 self.assertIn(message, str(context.exception))
 
 

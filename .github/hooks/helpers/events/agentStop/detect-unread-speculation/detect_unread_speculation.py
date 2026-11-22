@@ -2,7 +2,6 @@ import argparse
 import io
 import os
 import re
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -13,21 +12,28 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read_transcript_events.py'))
-_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run_git.py'))
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect_json_string_values.py',
-))['collect_json_string_values']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+    os.path.join(_utilities_directory, 'run-git'),
+    os.path.join(_utilities_directory, 'collect-json-string-values'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import parse_tool_calls as _tool_calls
+import read_definitions as _definitions
+import read_transcript_events as _transcript_events
+import run_git as _git
+from collect_json_string_values import collect_json_string_values as _collect_json_string_values
 
 
 # 定義ファイルのキー。speculationPatternsは推測とみなす表現の正規表現。
 _SPECULATION_PATTERNS_KEY = 'speculationPatterns'
 # 引数にパスが含まれていれば、そのファイルを読んだとみなすツール。`cat`・`sed -n`・`rg <pattern> <file>` などでの閲覧はrecord-seen-filesが記録しないため。
-_COMMAND_READ_TOOL_NAMES = {*_tool_calls['SHELL_TOOL_NAMES'], 'rg', 'grep'}
+_COMMAND_READ_TOOL_NAMES = {*_tool_calls.SHELL_TOOL_NAMES, 'rg', 'grep'}
 _FENCED_CODE_PATTERN = re.compile(r'^(```|~~~).*?^\1', re.MULTILINE | re.DOTALL)
 _INLINE_CODE_PATTERN = re.compile(r'`([^`\n]+)`')
 _MARKDOWN_LINK_PATTERN = re.compile(r'\]\(([^()\s]+)\)')
@@ -47,24 +53,24 @@ _REASON_PREFIX = 'The final response speculates about files'
 
 def _load_definitions(definitions_path):
     label = 'unread speculation definitions'
-    definitions = _definitions['read_definitions'](definitions_path, label)
-    return tuple(_definitions['get_regex_matchers'](definitions, _SPECULATION_PATTERNS_KEY, label))
+    definitions = _definitions.read_definitions(definitions_path, label)
+    return tuple(_definitions.get_regex_matchers(definitions, _SPECULATION_PATTERNS_KEY, label))
 
 
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の最終応答と本hookによる差し戻し済みか、セッション全体でコマンド・検索ツールに渡した文字列を集める。
-    turns = _transcript_events['get_turn_events'](transcript_path)
+    turns = _transcript_events.get_turn_events(transcript_path)
     command_texts = [
         text
         for events in turns
         for event_type, data in events
         if event_type == 'tool.execution_start' and isinstance(data.get('toolName'), str)
-        and _tool_calls['get_tool_name'](data['toolName']) in _COMMAND_READ_TOOL_NAMES
+        and _tool_calls.get_tool_name(data['toolName']) in _COMMAND_READ_TOOL_NAMES
         for text in _collect_json_string_values(data.get('arguments'))
     ]
     return (
-        _transcript_events['get_last_assistant_message'](turns[-1]),
-        _transcript_events['is_already_requested'](turns[-1], _REASON_PREFIX),
+        _transcript_events.get_last_assistant_message(turns[-1]),
+        _transcript_events.is_already_requested(turns[-1], _REASON_PREFIX),
         command_texts,
     )
 
@@ -119,8 +125,8 @@ def _get_seen_keys(state, state_path):
     # record-seen-filesが閲覧・編集を記録したファイルのキー。状態がなければ何も読んでいない。
     if not os.path.isfile(state_path):
         return set()
-    with state['open_state'](state_path) as connection:
-        return {row[0] for row in connection.execute('SELECT file FROM files WHERE state = ?', (state['SEEN'],))}
+    with state.open_state(state_path) as connection:
+        return {row[0] for row in connection.execute('SELECT file FROM files WHERE state = ?', (state.SEEN,))}
 
 
 def _is_read_by_command(full_path, candidate, cwd, command_texts):
@@ -157,19 +163,20 @@ def main():
         return 2
 
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
         if hook_input.get('agentId'):
             return 0
-        transcript_path = _hook_input['get_transcript_path'](hook_input)
-        cwd = _hook_input['get_cwd'](hook_input)
+        transcript_path = _hook_input.get_transcript_path(hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
 
         # 記録側のpostToolUse hookと状態の形式・保存先を共有する。
-        state = runpy.run_path(os.path.join(_utilities_directory, 'known-files-state', 'known_files_state.py'))
-        state_path = state['get_state_path'](hook_input.get('sessionId'))
+        sys.path.insert(0, os.path.join(_utilities_directory, 'known-files-state'))
+        import known_files_state as state
+        state_path = state.get_state_path(hook_input.get('sessionId'))
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答とツール実行を書き込み済みにする。
-        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events.wait_for_agent_stop_event(transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg, already_requested, command_texts = _get_turn_summary(transcript_path)
         # 同じ依頼で差し戻すのは1回だけにし、確認できない場合に停止できなくなるのを防ぐ。
@@ -180,19 +187,19 @@ def main():
             return 0
 
         # gitがない、またはリポジトリ外の場合は、cwd基準でだけ解決する。
-        repository_root = _git['get_repository_root'](cwd, _GIT_TIMEOUT_SECONDS)
+        repository_root = _git.get_repository_root(cwd, _GIT_TIMEOUT_SECONDS)
         seen_keys = _get_seen_keys(state, state_path)
         unread = []
         for candidate in references:
             full_path = _resolve_file(candidate, cwd, repository_root)
             if full_path is None:
                 continue
-            if state['get_file_key'](state['normalize_path'](cwd, full_path)) in seen_keys:
+            if state.get_file_key(state.normalize_path(cwd, full_path)) in seen_keys:
                 continue
             if _is_read_by_command(full_path, candidate, cwd, command_texts):
                 continue
             unread.append(candidate)
-    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
+    except (OSError, UnicodeError, ValueError, ImportError, sqlite3.Error) as ex:
         print(f'Failed to inspect unread speculation: {ex}', file=sys.stderr)
         return 2
 
@@ -205,7 +212,7 @@ def main():
             'Do not describe file contents from memory or assumptions. View each file and correct the statements '
             'based on its actual content, or state explicitly that the file was not checked.'
         )
-        _hook_output['write_block_decision'](reason)
+        _hook_output.write_block_decision(reason)
     return 0
 
 

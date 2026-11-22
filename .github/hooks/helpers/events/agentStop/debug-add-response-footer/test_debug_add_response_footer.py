@@ -1,12 +1,12 @@
 import io
 import json
 import os
-import runpy
 import subprocess
 import sys
 import tempfile
 import threading
 import time
+import types
 import unittest
 import uuid
 from datetime import datetime
@@ -32,7 +32,8 @@ def _new_session_id():
 
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class DebugResponseFooterTests(unittest.TestCase):
@@ -336,15 +337,15 @@ class DebugResponseFooterTests(unittest.TestCase):
             raise AssertionError(f'Expected repository hook definitions to identify block-commands. Got output: {output}')
 
 
-        current_jst = runpy.run_path(
-            os.path.join(_utilities_directory, 'get-current-jst', 'get_current_jst.py')
-        )['current_jst']
+        sys.path[:0] = [os.path.join(_utilities_directory, 'get-current-jst'), _script_directory]
+        from get_current_jst import get_current_jst
+        from format_response_footer import format_response_footer
 
-        formatted_footer = runpy.run_path(os.path.join(_script_directory, 'format_response_footer.py'))['format_response_footer'](
+        formatted_footer = format_response_footer(
             hooks=['none'],
             fired_hooks=['none'],
             skills=['none'],
-            current_jst=current_jst,
+            current_jst=get_current_jst(),
         )
 
         valid_with_footer_transcript = os.path.join(self.__temp_dir, 'with-footer.jsonl')
@@ -457,9 +458,8 @@ class DebugResponseFooterTests(unittest.TestCase):
             return int(datetime.fromisoformat(timestamp).timestamp() * 1000)
 
         # userPromptSubmittedのhook.startはuser.messageより前に記録されるため、そこからを今回のターンとする。
-        record_hook_run = runpy.run_path(
-            os.path.join(_utilities_directory, 'hook-activity-state', 'hook_activity_state.py')
-        )['record_hook_run']
+        sys.path.insert(0, os.path.join(_utilities_directory, 'hook-activity-state'))
+        from hook_activity_state import record_hook_run
         with patch.object(tempfile, 'tempdir', self.__temp_dir):
             for timestamp, event_name, hook_name, fired in (
                 ('2026-10-21T02:59:58.000Z', 'preToolUse', 'previous-turn', True),
@@ -493,9 +493,10 @@ class DebugResponseFooterTests(unittest.TestCase):
 
         _write_all_text(collection_transcript, '\n'.join(map(_to_compressed_json, events)) + '\n')
 
-        get_hooks = runpy.run_path(os.path.join(_script_directory, 'get_used_hooks.py'))['get_used_hooks']
+        sys.path.insert(0, _script_directory)
+        from get_used_hooks import get_used_hooks as get_hooks
 
-        get_skills = runpy.run_path(os.path.join(_script_directory, 'get_used_skills.py'))['get_used_skills']
+        from get_used_skills import get_used_skills as get_skills
 
         if get_hooks(collection_transcript, hooks_directory) != ['a-first', 'm-repo', 'z-last']:
             raise AssertionError('Expected current-turn hooks in name order, retaining correction history.')
@@ -503,7 +504,7 @@ class DebugResponseFooterTests(unittest.TestCase):
         if get_skills(collection_transcript) != ['first', 'second', 'string-args']:
             raise AssertionError('Expected distinct skill names in invocation order, retaining correction history.')
 
-        get_fired_hooks = runpy.run_path(os.path.join(_script_directory, 'get_fired_hooks.py'))['get_fired_hooks']
+        from get_fired_hooks import get_fired_hooks
 
         with patch.object(tempfile, 'tempdir', self.__temp_dir):
             if get_fired_hooks(collection_transcript, self.__enabled_session_id) != ['deny-hook', 'prompt-hook']:
@@ -568,9 +569,10 @@ class DebugResponseFooterTests(unittest.TestCase):
                         get_fired_hooks(collection_transcript, self.__enabled_session_id)
 
     def test_footer_validation(self):
-        format_footer = runpy.run_path(os.path.join(_script_directory, 'format_response_footer.py'))['format_response_footer']
+        sys.path.insert(0, _script_directory)
+        from format_response_footer import format_response_footer as format_footer
 
-        validate_footer = runpy.run_path(os.path.join(_script_directory, 'check_response_footer.py'))['is_valid_response_footer']
+        from check_response_footer import is_valid_response_footer as validate_footer
 
         current_jst = '2026-10-21 12:00:00 JST'
 
@@ -608,7 +610,8 @@ class DebugResponseFooterTests(unittest.TestCase):
             raise AssertionError('Expected the fired hooks section to state that agentStop hooks are excluded.')
 
     def test_transcript_and_polling_helpers(self):
-        hook = runpy.run_path(os.path.join(_script_directory, 'debug_add_response_footer.py'))
+        sys.path.insert(0, _script_directory)
+        import debug_add_response_footer as hook
 
         last_message_transcript = os.path.join(self.__temp_dir, 'last-message.jsonl')
 
@@ -621,10 +624,11 @@ class DebugResponseFooterTests(unittest.TestCase):
                     {'type': 'user.message', 'data': {'content': 'Not an assistant response'}},
                 ]
                 _write_all_text(last_message_transcript, '\n'.join(map(_to_compressed_json, events)) + '\n')
-                if hook['_get_last_assistant_msg'](last_message_transcript) != '  Latest response  ':
+                if hook._get_last_assistant_msg(last_message_transcript) != '  Latest response  ':
                     raise AssertionError(f'Expected the last non-empty assistant response, preserving whitespace: {content!r}')
 
-        def _run_main(input_json, run_path_mock=None):
+        def _run_main(input_json, helper_modules=None):
+            # helper_modules：読み込ませる代わりのモジュール（{'debug_mode_state': ...}）。Noneを入れると読み込みに失敗させる。
             with (
                 io.TextIOWrapper(io.BytesIO(input_json.encode('utf-8')), encoding='utf-8', newline='\n') as stdin,
                 io.TextIOWrapper(io.BytesIO(), encoding='utf-8', newline='') as stdout,
@@ -633,12 +637,8 @@ class DebugResponseFooterTests(unittest.TestCase):
                 patch.object(sys, 'stdout', stdout),
                 patch.object(sys, 'stderr', stderr),
             ):
-                with patch.object(tempfile, 'tempdir', self.__temp_dir):
-                    if run_path_mock is None:
-                        main_exit_code = hook['main']()
-                    else:
-                        with patch.object(hook['runpy'], 'run_path', run_path_mock):
-                            main_exit_code = hook['main']()
+                with patch.object(tempfile, 'tempdir', self.__temp_dir), patch.dict(sys.modules, helper_modules or {}):
+                    main_exit_code = hook.main()
                 stdout.flush()
                 stderr.flush()
                 return main_exit_code, stdout.buffer.getvalue().decode('utf-8'), stderr.buffer.getvalue().decode('utf-8')
@@ -649,21 +649,28 @@ class DebugResponseFooterTests(unittest.TestCase):
             })
 
         wait_mock = Mock()
-        with patch.dict(hook['_transcript_events'], {'wait_for_agent_stop_event': wait_mock}):
+        with patch.object(hook._transcript_events, 'wait_for_agent_stop_event', wait_mock):
             exit_code, output, error = _run_main(_timestamped_input(123))
         if exit_code != 0 or error or json.loads(output).get('decision') != 'block':
             raise AssertionError(f'Expected footer check after waiting for hook.start: {exit_code}, {output}, {error}')
         wait_mock.assert_called_once_with(self.__valid_transcript, 123)
 
-        for run_path_mock, expected_error in (
-            (Mock(side_effect=OSError('helper missing')), 'Failed to load debug-mode helper: OSError'),
-            (Mock(side_effect=SyntaxError('broken helper')), 'Failed to load debug-mode helper: SyntaxError'),
-            (Mock(return_value={}), "Failed to load debug-mode helper: KeyError('get_debug_mode')"),
-            (Mock(return_value={'get_debug_mode': Mock(side_effect=PermissionError('denied'))}),
-             'Failed to read debug-mode state file: denied'),
+        def _broken_helper_attribute(name):
+            raise SyntaxError('broken helper')
+
+        broken_helper = types.ModuleType('debug_mode_state')
+        setattr(broken_helper, '__getattr__', _broken_helper_attribute)
+        failing_helper = types.ModuleType('debug_mode_state')
+        setattr(failing_helper, 'get_debug_mode', Mock(side_effect=PermissionError('denied')))
+        for helper, expected_error in (
+            # sys.modulesの値がNoneのモジュールは、importがModuleNotFoundError（ImportErrorの派生）になる。
+            (None, 'Failed to load debug-mode helper: ModuleNotFoundError'),
+            (broken_helper, 'Failed to load debug-mode helper: SyntaxError'),
+            (types.ModuleType('debug_mode_state'), "Failed to load debug-mode helper: ImportError(\"cannot import name 'get_debug_mode'"),
+            (failing_helper, 'Failed to read debug-mode state file: denied'),
         ):
-            with self.subTest(run_path_mock=run_path_mock, expected_error=expected_error):
-                exit_code, output, error = _run_main(self.__valid_block_json, run_path_mock)
+            with self.subTest(helper=helper, expected_error=expected_error):
+                exit_code, output, error = _run_main(self.__valid_block_json, {'debug_mode_state': helper})
                 if exit_code != 2 or output or expected_error not in error:
                     raise AssertionError(f'Unexpected debug-mode error handling: {expected_error!r}, {exit_code}, {output}, {error}')
 

@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -11,12 +10,16 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run_git.py'))
-_extract_edit_tool_changes = runpy.run_path(os.path.join(
-    _utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py',
-))['extract_edit_tool_changes']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'run-git'),
+    os.path.join(_utilities_directory, 'edit-tool-changes'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import run_git as _git
+from edit_tool_changes import extract_edit_tool_changes as _extract_edit_tool_changes
 
 
 # 他のファイルから参照される定義。ローカル変数の名前の変更は、他のファイルに参照が残らないため対象外とする。
@@ -43,7 +46,7 @@ _MIN_NAME_LENGTH = 3
 _MAX_LOCATIONS = 10
 _GIT_TIMEOUT_SECONDS = 3
 # gitの実行全体の期限。名前が多くても、hookの `timeoutSec`（10秒）より前に打ち切る。
-_GIT_DEADLINE = _git['create_deadline'](7)
+_GIT_DEADLINE = _git.create_deadline(7)
 _LEFTOVER_CONTEXT = (
     'You renamed {renames}, but the old names still appear in: {locations}. '
     'Update the remaining references, including strings, configuration, and documentation, '
@@ -94,7 +97,7 @@ def _find_renames(removed, written):
 def _find_locations(root, name):
     # git管理下と、無視されていない未追跡のファイルから、単語として一致する行を探す。
     # git grepは一致がなければ終了コード1、エラーなら2以上を返すため、どちらも一致なしとして扱う。
-    output = _git['get_git_output'](
+    output = _git.get_git_output(
         root, ['grep', '-n', '-I', '-w', '-F', '--untracked', '-e', name, '--'], _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE,
     )
     if output is None:
@@ -114,9 +117,9 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        hook_input = _hook_input.read_hook_input()
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
     except (UnicodeError, ValueError) as ex:
         print(f'Failed to detect rename leftovers: {ex}', file=sys.stderr)
         return 2
@@ -130,7 +133,7 @@ def main():
     if not renames:
         return 0
     # gitがない、またはリポジトリ外では探せないため何もしない。
-    root = _git['get_repository_root'](cwd, _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE)
+    root = _git.get_repository_root(cwd, _GIT_TIMEOUT_SECONDS, _GIT_DEADLINE)
     if root is None:
         return 0
 
@@ -147,7 +150,7 @@ def main():
     if len(locations) > _MAX_LOCATIONS:
         shown += f', and {len(locations) - _MAX_LOCATIONS} more'
     # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
-    _hook_output['write_additional_context'](_LEFTOVER_CONTEXT.format(renames=', '.join(found), locations=shown))
+    _hook_output.write_additional_context(_LEFTOVER_CONTEXT.format(renames=', '.join(found), locations=shown))
     return 0
 
 

@@ -1,12 +1,14 @@
 import os
-import runpy
+import sys
 import unittest
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_truncate_text = runpy.run_path(os.path.join(_script_directory, 'truncate_text.py'))['truncate_text']
+sys.path.insert(0, _script_directory)
+from truncate_text import truncate_text as _truncate_text
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class TruncateTextTests(unittest.TestCase):

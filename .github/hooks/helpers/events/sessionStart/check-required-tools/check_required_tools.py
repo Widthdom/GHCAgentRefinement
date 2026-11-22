@@ -2,7 +2,6 @@ import argparse
 import io
 import os
 import re
-import runpy
 import subprocess
 import sys
 from typing import cast
@@ -13,8 +12,12 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+]
+import read_definitions as _definitions
+import write_hook_output as _hook_output
 
 
 _ADDITIONAL_CONTEXT = (
@@ -36,7 +39,7 @@ def _parse_version(text):
 
 def _load_definitions(path):
     # 戻り値は {name, command, version_pattern, minimum_version（Noneなら存在だけを確かめる）, install} のリスト。
-    tools = _definitions['read_definitions'](path, 'required tool definitions').get('tools')
+    tools = _definitions.read_definitions(path, 'required tool definitions').get('tools')
     if not isinstance(tools, list) or not tools:
         raise ValueError('required tool definitions require a non-empty array for tools.')
     loaded = []
@@ -54,7 +57,7 @@ def _load_definitions(path):
         loaded.append({
             'name': tool['name'],
             'command': tool['command'],
-            'version_pattern': _definitions['get_regex_matcher'](tool, 'versionPattern', f'required tool {tool["name"]}'),
+            'version_pattern': _definitions.get_regex_matcher(tool, 'versionPattern', f'required tool {tool["name"]}'),
             'minimum_version': None if minimum_version is None else _parse_version(minimum_version),
             'minimum_version_text': minimum_version,
             'install': install,
@@ -118,7 +121,7 @@ def main(arguments=None):
     print(message, file=sys.stderr)
     # 標準エラーはユーザーに表示されないことがある。sessionStartで解釈される出力はadditionalContextだけで、
     # 標準出力は終了コード0のときだけ読まれるため、エージェントに渡してユーザーへ伝えさせ、正常終了する。
-    _hook_output['write_additional_context'](_ADDITIONAL_CONTEXT.format(message=message))
+    _hook_output.write_additional_context(_ADDITIONAL_CONTEXT.format(message=message))
     return 0
 
 

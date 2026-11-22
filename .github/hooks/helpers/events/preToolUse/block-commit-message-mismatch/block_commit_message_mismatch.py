@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import shlex
 import sqlite3
 import sys
@@ -13,17 +12,22 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
-_get_text_sha256_digest = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-sha256-digest', 'get_sha256_digest.py',
-))['get_text_sha256_digest']
-_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))['get_state_path']
-_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run_git.py'))
-_filter_first_time_denials = runpy.run_path(os.path.join(
-    _utilities_directory, 'filter-first-time-denials', 'filter_first_time_denials.py',
-))['filter_first_time_denials']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'get-sha256-digest'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'run-git'),
+    os.path.join(_utilities_directory, 'filter-first-time-denials'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import parse_tool_calls as _tool_calls
+from get_sha256_digest import get_text_sha256_digest as _get_text_sha256_digest
+from get_state_path import get_state_path as _get_state_path
+import run_git as _git
+from filter_first_time_denials import filter_first_time_denials as _filter_first_time_denials
 
 
 # コマンドの区切り。`2>&1` の `&` は区切りになるが、前後がgitのコマンドにならないため影響しない。
@@ -51,7 +55,8 @@ _BARE_FILE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 # 直後の否定の判定は、テストが通ったという主張と同じ基準（check-test-runs utility）を使う。
-_JAPANESE_NEGATION = runpy.run_path(os.path.join(_utilities_directory, 'check-test-runs', 'check_test_runs.py'))['JAPANESE_NEGATION']
+sys.path.insert(0, os.path.join(_utilities_directory, 'check-test-runs'))
+from check_test_runs import JAPANESE_NEGATION as _JAPANESE_NEGATION
 _TEST_ADDITION_PATTERNS = (
     re.compile(r'テスト[^。\n]{0,10}?(?:追加|作成|新設|書い|書き)' + _JAPANESE_NEGATION),
     re.compile(r'\b(?:add|added|adds|adding|write|wrote|writes|create|created|creates)\s+(?:\w+\s+){0,3}?(?:unit\s+)?(?:tests?|specs?)\b', re.IGNORECASE),
@@ -60,7 +65,7 @@ _TEST_PATH_PATTERN = re.compile(r'test|spec', re.IGNORECASE)
 _MAX_LISTED_TOKENS = 10
 _MAX_UNTRACKED_FILE_BYTES = 1024 * 1024
 # gitの実行全体の期限。hookの `timeoutSec`（10秒）より前に打ち切り、判定できなければコミットを通す。
-_GIT_DEADLINE = _git['create_deadline'](7)
+_GIT_DEADLINE = _git.create_deadline(7)
 _DENY_REASON_PREFIX = 'Commit denied: the commit message describes changes that are not in the commit'
 
 
@@ -223,7 +228,7 @@ def _find_commits(command, cwd):
 
 def _run_git(cwd, *arguments):
     # gitの標準出力を返す。失敗した場合と、期限を過ぎた場合はNone。1回の上限は設けず、期限までの残り時間で打ち切る。
-    return _git['get_git_output'](
+    return _git.get_git_output(
         cwd, ['-c', 'core.quotePath=false', *arguments], float('inf'), _GIT_DEADLINE,
     )
 
@@ -314,12 +319,12 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         state_path = _get_state_path('block-commit-message-mismatch', hook_input.get('sessionId'))
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
-        tool_args = _tool_calls['unwrap_tool_args'](tool_args) if _tool_calls['is_shell_tool'](tool_name) else None
+        tool_args = _tool_calls.unwrap_tool_args(tool_args) if _tool_calls.is_shell_tool(tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
 
         reason = None
@@ -341,7 +346,7 @@ def main():
     if reason is not None:
         print(reason, file=sys.stderr)
         # 正常な拒否なので終了コードは0。
-        _hook_output['write_deny_decision'](reason)
+        _hook_output.write_deny_decision(reason)
     return 0
 
 

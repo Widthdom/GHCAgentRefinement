@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -12,15 +11,21 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate_text.py'))['truncate_text']
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
-_get_text_sha256_digest = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-sha256-digest', 'get_sha256_digest.py',
-))['get_text_sha256_digest']
-_state_path_utility = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))
-_get_state_path = _state_path_utility['get_state_path']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'truncate-text'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'get-sha256-digest'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from truncate_text import truncate_text as _truncate_text
+import parse_tool_calls as _tool_calls
+from get_sha256_digest import get_text_sha256_digest as _get_text_sha256_digest
+import get_state_path as _state_path_utility
+_get_state_path = _state_path_utility.get_state_path
 
 
 _ANSI_ESCAPE_PATTERN = re.compile(r'\x1b\[[0-9;?]*[A-Za-z]')
@@ -162,7 +167,7 @@ def _record_counts(state_path, command, executed, skipped):
     # 同じコマンドの前回の件数を返し、今回の件数で置き換える。コマンドは保存せず、照合用のSHA-256だけを保存する。
     # SQLiteのトランザクションで、並列のツール呼び出しでも状態の更新を取りこぼさない。
     command_key = _get_text_sha256_digest(command)
-    with _state_path_utility['open_state_database'](
+    with _state_path_utility.open_state_database(
         state_path,
         'CREATE TABLE IF NOT EXISTS counts ('
         'command TEXT PRIMARY KEY, executed INTEGER NOT NULL, skipped INTEGER NOT NULL)',
@@ -203,17 +208,16 @@ def main():
 
     try:
         # テストの実行かどうかの判定は、共通utilityで行う。
-        is_test_command = runpy.run_path(os.path.join(
-            _utilities_directory, 'check-test-runs', 'check_test_runs.py',
-        ))['is_test_command']
-        hook_input = _hook_input['read_hook_input']()
+        sys.path.insert(0, os.path.join(_utilities_directory, 'check-test-runs'))
+        from check_test_runs import is_test_command
+        hook_input = _hook_input.read_hook_input()
 
         state_path = _get_state_path('test-counts', hook_input.get('sessionId'))
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
-        if not _tool_calls['is_shell_tool'](tool_name):
+        if not _tool_calls.is_shell_tool(tool_name):
             return 0
-        tool_args = _tool_calls['unwrap_tool_args'](tool_args)
+        tool_args = _tool_calls.unwrap_tool_args(tool_args)
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         if not isinstance(command, str) or not is_test_command(command):
             return 0
@@ -232,13 +236,13 @@ def main():
 
         previous = _record_counts(state_path, command, executed, skipped)
         context = _get_context(command, executed, skipped, previous, no_tests_detail)
-    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
+    except (OSError, UnicodeError, ValueError, ImportError, sqlite3.Error) as ex:
         print(f'Failed to detect vacuous test success: {ex}', file=sys.stderr)
         return 2
 
     if context is not None:
         # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
-        _hook_output['write_additional_context'](context)
+        _hook_output.write_additional_context(context)
     return 0
 
 

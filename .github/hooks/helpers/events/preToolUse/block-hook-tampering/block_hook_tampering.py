@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -11,12 +10,20 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate_text.py'))['truncate_text']
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
-_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py'))['get_edited_paths']
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'truncate-text'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'edit-tool-changes'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from truncate_text import truncate_text as _truncate_text
+import parse_tool_calls as _tool_calls
+from edit_tool_changes import get_edited_paths as _get_edited_paths
+from get_display_path import get_display_path as _get_display_path
 
 
 # 守るパス。hookの定義・実装・テストと、hookが保持する状態（変更の許可の記録を含む）。
@@ -145,7 +152,7 @@ def _is_modifying_command(tool_name, command):
 
 def _get_targets(tool_name, tool_args, cwd):
     # 戻り値は、拒否の理由で示す変更の対象（ファイルのパスまたはコマンド）のリスト。
-    if _tool_calls['is_edit_tool'](tool_name):
+    if _tool_calls.is_edit_tool(tool_name):
         targets = []
         for path in _get_edited_paths(tool_name, tool_args):
             absolute = os.path.normpath(os.path.join(cwd, path))
@@ -155,7 +162,7 @@ def _get_targets(tool_name, tool_args, cwd):
                 if display_path not in targets:
                     targets.append(display_path)
         return targets
-    if _tool_calls['is_shell_tool'](tool_name) and isinstance(tool_args, dict):
+    if _tool_calls.is_shell_tool(tool_name) and isinstance(tool_args, dict):
         command = tool_args.get('command')
         if (isinstance(command, str) and _mentions_protected_path(command)
                 and _is_modifying_command(tool_name, command)):
@@ -170,26 +177,25 @@ def main():
 
     try:
         # 記録側のuserPromptSubmitted hookと状態の形式・保存先を共有する。
-        state = runpy.run_path(os.path.join(
-            _utilities_directory, 'hook-change-request-state', 'hook_change_request_state.py',
-        ))
+        sys.path.insert(0, os.path.join(_utilities_directory, 'hook-change-request-state'))
+        import hook_change_request_state as state
 
-        hook_input = _hook_input['read_hook_input']()
-        state_path = state['get_state_path'](hook_input.get('sessionId'))
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        hook_input = _hook_input.read_hook_input()
+        state_path = state.get_state_path(hook_input.get('sessionId'))
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
-        targets = _get_targets(*_tool_calls['parse_tool_call'](tool_name, tool_args), os.path.normpath(cwd))
-        if not targets or state['is_permitted'](state_path):
+        targets = _get_targets(*_tool_calls.parse_tool_call(tool_name, tool_args), os.path.normpath(cwd))
+        if not targets or state.is_permitted(state_path):
             return 0
-    except (OSError, UnicodeError, ValueError) as ex:
+    except (OSError, UnicodeError, ValueError, ImportError) as ex:
         print(f'Failed to check hook tampering: {ex}', file=sys.stderr)
         return 2
 
     reason = _DENY_REASON.format(targets=', '.join(targets))
     print(reason, file=sys.stderr)
     # 正常な拒否なので終了コードは0。
-    _hook_output['write_deny_decision'](reason)
+    _hook_output.write_deny_decision(reason)
     return 0
 
 

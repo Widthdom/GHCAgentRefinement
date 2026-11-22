@@ -1,6 +1,5 @@
 import json
 import os
-import runpy
 import shutil
 import subprocess
 import sys
@@ -13,7 +12,8 @@ _script_directory = os.path.dirname(os.path.abspath(__file__))
 _helpers_directory = os.path.dirname(_script_directory)
 _hooks_directory = os.path.dirname(_helpers_directory)
 _repository_root = os.path.dirname(os.path.dirname(_hooks_directory))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 _RUNNER_FILES = ('run_hook.py', 'run_claude_hook.py', 'run-claude-hook.sh', 'adapted_hook_runtime.py')
 _COPIED_UTILITIES = (
@@ -347,28 +347,27 @@ class RunClaudeHookTests(unittest.TestCase):
         ])
 
         # 変換したトランスクリプトを、hookが使うutilityで読める。
-        transcript_events = runpy.run_path(os.path.join(
-            _helpers_directory, 'utilities', 'read-transcript-events', 'read_transcript_events.py',
-        ))
+        sys.path.insert(0, os.path.join(_helpers_directory, 'utilities', 'read-transcript-events'))
+        import read_transcript_events as transcript_events
         converted_path = os.path.join(self.__root, 'converted.jsonl')
         with open(converted_path, 'w', encoding='utf-8', newline='\n') as file:
             file.write(''.join(json.dumps(event) + '\n' for event in hook_input['transcript']))
-        self.assertEqual(len(transcript_events['get_turn_events'](converted_path)), 3)
+        self.assertEqual(len(transcript_events.get_turn_events(converted_path)), 3)
         for reason_prefix, expected in (('A:', True), ('C:', True), ('B:', False)):
-            turn_events, already_requested = transcript_events['get_latest_turn'](converted_path, reason_prefix)
+            turn_events, already_requested = transcript_events.get_latest_turn(converted_path, reason_prefix)
             self.assertEqual(already_requested, expected)
-        self.assertEqual(transcript_events['get_request'](turn_events), '依頼')
-        self.assertEqual(transcript_events['get_request_texts'](turn_events), ['依頼'])
-        self.assertEqual(transcript_events['get_last_assistant_message'](turn_events), '最終応答')
+        self.assertEqual(transcript_events.get_request(turn_events), '依頼')
+        self.assertEqual(transcript_events.get_request_texts(turn_events), ['依頼'])
+        self.assertEqual(transcript_events.get_last_assistant_message(turn_events), '最終応答')
         self.assertEqual(
             [
-                (tool_name, transcript_events['get_shell_exit_code'](completion))
-                for tool_name, _, completion in transcript_events['get_tool_calls'](turn_events)
+                (tool_name, transcript_events.get_shell_exit_code(completion))
+                for tool_name, _, completion in transcript_events.get_tool_calls(turn_events)
             ],
             [('bash', 1), ('bash', 0), ('bash', None), ('bash', None), ('edit', None), ('view', None), ('bash', None)],
         )
         # 自身のhook.startが記録済みなので、待たずに戻る。
-        transcript_events['wait_for_agent_stop_event'](converted_path, hook_input['timestamp'], timeout_seconds=0)
+        transcript_events.wait_for_agent_stop_event(converted_path, hook_input['timestamp'], timeout_seconds=0)
         # 変換したトランスクリプトは、hookの実行後に残さない。
         self.assertFalse(os.path.exists(hook_input['transcriptPath']))
 
@@ -451,8 +450,9 @@ class RunClaudeHookTests(unittest.TestCase):
         expected = [{'hooks': [{'type': 'command', 'command': _LAUNCHER_COMMAND}]}]
         self.assertEqual(hooks, {event: expected for event in _CLAUDE_EVENTS})
         # 設定のイベントは、アダプターが対応するイベントと一致する。
-        adapter = runpy.run_path(os.path.join(_script_directory, 'run_claude_hook.py'))
-        self.assertEqual(sorted(adapter['_EVENT_NAMES']), list(_CLAUDE_EVENTS))
+        sys.path.insert(0, _script_directory)
+        import run_claude_hook as adapter
+        self.assertEqual(sorted(adapter._EVENT_NAMES), list(_CLAUDE_EVENTS))
 
 
 if __name__ == '__main__':

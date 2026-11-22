@@ -1,6 +1,5 @@
 import json
 import os
-import runpy
 import subprocess
 import sys
 import tempfile
@@ -13,9 +12,11 @@ _hook_path = os.path.join(_script_directory, 'record_verified_packages.py')
 
 _helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
 _hooks_directory = os.path.dirname(_helpers_directory)
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
-_state = runpy.run_path(os.path.join(_helpers_directory, 'utilities', 'verified-packages-state', 'verified_packages_state.py'))
+sys.path.insert(0, os.path.join(_helpers_directory, 'utilities', 'verified-packages-state'))
+import verified_packages_state as _state
 
 
 class RecordVerifiedPackagesTests(unittest.TestCase):
@@ -32,7 +33,7 @@ class RecordVerifiedPackagesTests(unittest.TestCase):
     def __new_session(self):
         # テストごとに別セッションとし、確認の記録を持ち越さない。
         self.__session_id = str(uuid.uuid4())
-        self.__state_path = _state['get_state_path'](self.__session_id)
+        self.__state_path = _state.get_state_path(self.__session_id)
 
     def __run_hook(self, input_bytes):
         return subprocess.run(
@@ -46,7 +47,7 @@ class RecordVerifiedPackagesTests(unittest.TestCase):
         }
         result = self.__run_hook(json.dumps(hook_input).encode('utf-8'))
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
-        return _state['get_verified'](self.__state_path)
+        return _state.get_verified(self.__state_path)
 
     def test_registry_queries_are_recorded(self):
         cases = [

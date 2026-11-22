@@ -1,7 +1,6 @@
 import hashlib
 import io
 import os
-import runpy
 import sqlite3
 import sys
 import time
@@ -13,16 +12,25 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
-_get_path_sha256_digest = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-sha256-digest', 'get_sha256_digest.py',
-))['get_path_sha256_digest']
-_state_path_utility = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))
-_get_state_path = _state_path_utility['get_state_path']
-_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py'))['get_edited_paths']
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'get-sha256-digest'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import parse_tool_calls as _tool_calls
+from get_sha256_digest import get_path_sha256_digest as _get_path_sha256_digest
+import get_state_path as _state_path_utility
+_get_state_path = _state_path_utility.get_state_path
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'edit-tool-changes'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+]
+from edit_tool_changes import get_edited_paths as _get_edited_paths
+from get_display_path import get_display_path as _get_display_path
 
 
 _WINDOW_SECONDS = 600
@@ -50,7 +58,7 @@ def _record_edits(state_path, edits):
     # 戻り値は、変更を挟んで以前と同じ内容に戻ったファイルパスのリスト。
     oscillated_paths = []
     # SQLiteのトランザクションで、並列に編集しても履歴の更新を取りこぼさない。
-    with _state_path_utility['open_state_database'](
+    with _state_path_utility.open_state_database(
         state_path,
         'CREATE TABLE IF NOT EXISTS contents ('
         'file TEXT NOT NULL, '
@@ -101,14 +109,14 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
 
         state_path = _get_state_path('edit-oscillation', hook_input.get('sessionId'))
 
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
-        if not _tool_calls['is_edit_tool'](tool_name):
+        if not _tool_calls.is_edit_tool(tool_name):
             return 0
         # パッチの削除・移動元も、削除扱いで含める。
         # 相対パスはcwd基準で解決し、同じファイルを別表記でも同一と判定する。normcaseは照合だけに使い、表示には正規化前のパスを使う。
@@ -136,7 +144,7 @@ def main():
         cwd = os.path.realpath(cwd)
         files = ', '.join(_get_display_path(path, cwd) for path in oscillated_paths)
         # SDK形式のトップレベルadditionalContext。正常な介入なので終了コードは0。
-        _hook_output['write_additional_context'](_OSCILLATION_CONTEXT.format(files=files))
+        _hook_output.write_additional_context(_OSCILLATION_CONTEXT.format(files=files))
     return 0
 
 

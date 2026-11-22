@@ -1,6 +1,5 @@
 import io
 import os
-import runpy
 import sys
 from typing import cast
 
@@ -10,8 +9,12 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_debug_mode_state = runpy.run_path(os.path.join(_utilities_directory, 'debug-mode-state', 'debug_mode_state.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'debug-mode-state'),
+]
+import read_hook_input as _hook_input
+import debug_mode_state as _debug_mode_state
 
 
 def main():
@@ -27,14 +30,14 @@ def main():
     # このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
     # 状態ファイルの保存先と形式は、状態を読むhookとdebug-mode-state utilityで共有する。
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         # getはキーが無くてもNoneを返す。
         prompt = hook_input.get('prompt')
         if not isinstance(prompt, str):
             raise ValueError('prompt must be a string.')
         if not prompt.strip():
             raise ValueError('prompt must not be empty or whitespace.')
-        state_path = _debug_mode_state['get_debug_mode_path'](hook_input.get('sessionId'))
+        state_path = _debug_mode_state.get_debug_mode_path(hook_input.get('sessionId'))
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to parse userPromptSubmitted hook input: {ex}', file=sys.stderr)
         return 2
@@ -49,7 +52,7 @@ def main():
     enabled = prompt.startswith('??')
 
     try:
-        _debug_mode_state['save_debug_mode'](state_path, enabled)
+        _debug_mode_state.save_debug_mode(state_path, enabled)
     except OSError as ex:
         print(f'Failed to save debug mode: {ex}', file=sys.stderr)
         return 2

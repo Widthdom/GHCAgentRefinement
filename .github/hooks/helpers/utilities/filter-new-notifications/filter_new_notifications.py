@@ -1,10 +1,9 @@
 import os
-import runpy
+import sys
 
 # 状態ファイルは共通のutilityで開く。utilityのフォルダーの親がutilitiesである。
-_open_state_database = runpy.run_path(os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'get-state-path', 'get_state_path.py',
-))['open_state_database']
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'get-state-path'))
+from get_state_path import open_state_database as _open_state_database
 
 # 検出した問題を、対象ごとにセッションでまだ通知していないものがある場合だけに絞る。
 # 解消した問題は記録を消し、再び現れたときに改めて通知する。通知した問題をSQLiteに記録する。

@@ -1,7 +1,6 @@
 import io
 import json
 import os
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -12,10 +11,16 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_parse_session_id = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))['parse_session_id']
-_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read_transcript_events.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from get_state_path import parse_session_id as _parse_session_id
+import read_transcript_events as _transcript_events
 
 _REASON_PREFIX = 'The final response footer is missing or incorrect.'
 # 同じ依頼で差し戻す上限。フッターの時刻や機能したhookは差し戻しのたびに変わるため、合わせ損ねても止まれるようにする。
@@ -25,50 +30,58 @@ _MAX_CORRECTIONS = 2
 
 def _count_corrections(transcript_path):
     # ユーザーの最新の依頼以降に、本hookが差し戻した回数を返す。
-    return _transcript_events['count_requests_by_hook'](
-        _transcript_events['get_turn_events'](transcript_path)[-1], _REASON_PREFIX,
+    return _transcript_events.count_requests_by_hook(
+        _transcript_events.get_turn_events(transcript_path)[-1], _REASON_PREFIX,
     )
 
 
 def _get_last_assistant_msg(transcript_path):
     # トランスクリプト全体から、空白以外を含む最後の応答の文を返す。なければNone。
-    return _transcript_events['get_last_assistant_message'](
-        [event for events in _transcript_events['get_turn_events'](transcript_path) for event in events]
+    return _transcript_events.get_last_assistant_message(
+        [event for events in _transcript_events.get_turn_events(transcript_path) for event in events]
     )
 
 
 def _get_footer_correction(transcript_path, session_id, last_assistant_msg):
+    # 同じフォルダーの補助モジュールは、デバッグモードのときだけ読み込む。
     # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
-    script_directory = os.path.dirname(os.path.abspath(__file__))
+    sys.path[:0] = [
+        os.path.join(_utilities_directory, 'get-current-jst'),
+        os.path.dirname(os.path.abspath(__file__)),
+    ]
+    from check_response_footer import is_valid_response_footer
+    from format_response_footer import format_response_footer
+    from get_current_jst import get_current_jst
+    from get_fired_hooks import get_fired_hooks
+    from get_used_hooks import get_used_hooks
+    from get_used_skills import get_used_skills
 
-    current_jst = runpy.run_path(
-        os.path.join(_utilities_directory, 'get-current-jst', 'get_current_jst.py')
-    )['current_jst']
+    current_jst = get_current_jst()
 
-    used_hooks = runpy.run_path(os.path.join(script_directory, 'get_used_hooks.py'))['get_used_hooks'](
+    used_hooks = get_used_hooks(
         transcript_path,
         # utilities → helpers → hooks の順に上がった .github/hooks ディレクトリ。
         os.path.dirname(os.path.dirname(_utilities_directory)),
     ) or ['none']
 
     # hookランナーが記録した、実際に機能したhook。同時に動くagentStop hookは含めない。
-    fired_hooks = runpy.run_path(os.path.join(script_directory, 'get_fired_hooks.py'))['get_fired_hooks'](
+    fired_hooks = get_fired_hooks(
         transcript_path,
         session_id,
     ) or ['none']
 
-    used_skills = runpy.run_path(os.path.join(script_directory, 'get_used_skills.py'))['get_used_skills'](
+    used_skills = get_used_skills(
         transcript_path
     ) or ['none']
 
-    formatted_footer = runpy.run_path(os.path.join(script_directory, 'format_response_footer.py'))['format_response_footer'](
+    formatted_footer = format_response_footer(
         used_hooks,
         fired_hooks,
         used_skills,
         current_jst,
     )
 
-    is_footer_valid = runpy.run_path(os.path.join(script_directory, 'check_response_footer.py'))['is_valid_response_footer'](
+    is_footer_valid = is_valid_response_footer(
         last_assistant_msg,
         used_hooks,
         fired_hooks,
@@ -92,7 +105,7 @@ def main():
     # 標準入力パイプにセッションIDやトランスクリプトのパスを含むイベント情報をJSON形式で書き込むので、それを読み込む。
     # このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         parsed_session_id = _parse_session_id(hook_input.get('sessionId'))
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
@@ -103,12 +116,11 @@ def main():
         return 0
 
     try:
-        # C# のdelegateのように、外部スクリプトから関数を取得する。
-        get_debug_mode = runpy.run_path(
-            # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
-            os.path.join(_utilities_directory, 'debug-mode-state', 'debug_mode_state.py')
-        )['get_debug_mode']
-    except (OSError, SyntaxError, KeyError) as ex:
+        # C# のdelegateのように、外部モジュールから関数を取得する。
+        # モジュールがない・関数がない場合はImportError、構文が誤っている場合はSyntaxErrorになる。
+        sys.path.insert(0, os.path.join(_utilities_directory, 'debug-mode-state'))
+        from debug_mode_state import get_debug_mode
+    except (ImportError, SyntaxError) as ex:
         # f'...' は formatted string literalのことでf-stringとも呼ばれる。文字列の中に {式} の値を埋め込める書き方。C#の $"..." に相当する。
         # !r は repr() を使って値を文字列化する指定。例外オブジェクトの型とメッセージを含めて表示する。
         #   print(f'{ex}')    # str(ex)：人が読むためのメッセージ
@@ -138,7 +150,7 @@ def main():
 
     # トランスクリプトのパスは、デバッグモードが有効なときだけ検証する（共通規約の項目9）。
     try:
-        transcript_path = _hook_input['get_transcript_path'](hook_input)
+        transcript_path = _hook_input.get_transcript_path(hook_input)
     except (OSError, ValueError) as ex:
         print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
         return 2
@@ -146,7 +158,7 @@ def main():
     try:
         # GitHub Copilot はトランスクリプトに非同期で追記するため、agentStop hookが起動した直後は、最終応答がまだ書き込まれていない可能性がある。
         # 自身のhook.startが書き込まれるまで最大5秒待ち、それより前に発生した最終応答を書き込み済みにする。
-        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events.wait_for_agent_stop_event(transcript_path, hook_input.get('timestamp'))
 
         last_assistant_msg = _get_last_assistant_msg(transcript_path)
         if last_assistant_msg is None:
@@ -162,7 +174,7 @@ def main():
         return 2
 
     if footer_correction is not None:
-        _hook_output['write_block_decision'](
+        _hook_output.write_block_decision(
             f'{_REASON_PREFIX} Preserve the response body. '
             'Replace any existing footer blocks with the exact block below; if no footer exists, '
             'append it to the end. The corrected response must contain exactly one footer block:\n'

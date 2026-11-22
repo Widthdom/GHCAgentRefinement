@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -12,8 +11,12 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+]
+import read_hook_input as _hook_input
+import parse_tool_calls as _tool_calls
 
 
 # 行頭の装飾（pytestの `E`、差分の `-`・`+`）を許容する。
@@ -86,22 +89,20 @@ def main():
 
     try:
         # テストの実行かどうかの判定は、共通utilityで行う。
-        is_test_command = runpy.run_path(os.path.join(
-            _utilities_directory, 'check-test-runs', 'check_test_runs.py',
-        ))['is_test_command']
+        sys.path.insert(0, os.path.join(_utilities_directory, 'check-test-runs'))
+        from check_test_runs import is_test_command
         # 拒否側のpreToolUse hookと状態の形式・保存先を共有する。
-        state = runpy.run_path(os.path.join(
-            _utilities_directory, 'assertion-failure-values-state', 'assertion_failure_values_state.py',
-        ))
+        sys.path.insert(0, os.path.join(_utilities_directory, 'assertion-failure-values-state'))
+        import assertion_failure_values_state as state
 
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
 
-        state_path = state['get_state_path'](hook_input.get('sessionId'))
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        state_path = state.get_state_path(hook_input.get('sessionId'))
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
-        if not _tool_calls['is_shell_tool'](tool_name):
+        if not _tool_calls.is_shell_tool(tool_name):
             return 0
-        tool_args = _tool_calls['unwrap_tool_args'](tool_args)
+        tool_args = _tool_calls.unwrap_tool_args(tool_args)
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         if not isinstance(command, str) or not is_test_command(command):
             return 0
@@ -110,25 +111,25 @@ def main():
         output = tool_result.get('textResultForLlm') if isinstance(tool_result, dict) else None
         pairs = set()
         for expected, actual in _parse_failure_values(output if isinstance(output, str) else ''):
-            expected, actual = state['normalize_value'](expected), state['normalize_value'](actual)
+            expected, actual = state.normalize_value(expected), state.normalize_value(actual)
             if expected is not None and actual is not None and expected != actual:
                 pairs.add((expected, actual))
         pairs = sorted(pairs)[:_MAX_PAIRS]
-        keys = [state['get_pair_key'](expected, actual) for expected, actual in pairs]
-        expected_keys = {state['get_value_key'](expected) for expected, _ in pairs}
+        keys = [state.get_pair_key(expected, actual) for expected, actual in pairs]
+        expected_keys = {state.get_value_key(expected) for expected, _ in pairs}
 
         # 記録がなく、消す記録もなければ状態ファイルを作らない。
         if not keys and not os.path.isfile(state_path):
             return 0
         # 最新のテスト実行の結果だけを残す。成功した実行や読み取れない出力では、前の失敗の記録を消す。
-        with state['open_state'](state_path) as connection:
+        with state.open_state(state_path) as connection:
             connection.execute('DELETE FROM pairs')
             connection.execute('DELETE FROM expected_values')
             connection.executemany('INSERT OR IGNORE INTO pairs (pair) VALUES (?)', [(key,) for key in keys])
             connection.executemany(
                 'INSERT OR IGNORE INTO expected_values (value) VALUES (?)', [(key,) for key in expected_keys],
             )
-    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
+    except (OSError, UnicodeError, ValueError, ImportError, sqlite3.Error) as ex:
         print(f'Failed to record test failure values: {ex}', file=sys.stderr)
         return 2
     return 0

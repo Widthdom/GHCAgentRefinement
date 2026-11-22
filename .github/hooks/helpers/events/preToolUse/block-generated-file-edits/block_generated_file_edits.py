@@ -1,7 +1,6 @@
 import argparse
 import io
 import os
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -12,18 +11,24 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_get_path_sha256_digest = runpy.run_path(os.path.join(
-    _utilities_directory, 'get-sha256-digest', 'get_sha256_digest.py',
-))['get_path_sha256_digest']
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))['get_state_path']
-_get_edited_paths = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py'))['get_edited_paths']
-_filter_first_time_denials = runpy.run_path(os.path.join(
-    _utilities_directory, 'filter-first-time-denials', 'filter_first_time_denials.py',
-))['filter_first_time_denials']
-_get_display_path = runpy.run_path(os.path.join(_utilities_directory, 'get-display-path', 'get_display_path.py'))['get_display_path']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'get-sha256-digest'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'edit-tool-changes'),
+    os.path.join(_utilities_directory, 'filter-first-time-denials'),
+    os.path.join(_utilities_directory, 'get-display-path'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from get_sha256_digest import get_path_sha256_digest as _get_path_sha256_digest
+import read_definitions as _definitions
+from get_state_path import get_state_path as _get_state_path
+from edit_tool_changes import get_edited_paths as _get_edited_paths
+from filter_first_time_denials import filter_first_time_denials as _filter_first_time_denials
+from get_display_path import get_display_path as _get_display_path
 
 
 # 削除は再生成で失われる手編集ではないため、追加と更新だけを対象とする。
@@ -45,10 +50,10 @@ _DENY_REASON = (
 
 def _load_definitions(path):
     label = 'generated file definitions'
-    definitions = _definitions['read_definitions'](path, label)
+    definitions = _definitions.read_definitions(path, label)
     return (
-        _definitions['get_regex_matchers'](definitions, _GENERATED_PATH_PATTERNS_KEY, label),
-        _definitions['get_regex_matchers'](definitions, _GENERATED_MARKER_PATTERNS_KEY, label),
+        _definitions.get_regex_matchers(definitions, _GENERATED_PATH_PATTERNS_KEY, label),
+        _definitions.get_regex_matchers(definitions, _GENERATED_MARKER_PATTERNS_KEY, label),
     )
 
 
@@ -88,10 +93,10 @@ def main(arguments=None):
     try:
         path_patterns, marker_patterns = _load_definitions(parsed_arguments.definitions_path)
 
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         state_path = _get_state_path('block-generated-file-edits', hook_input.get('sessionId'))
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
         real_cwd = os.path.realpath(cwd)
         candidates = {}
@@ -114,7 +119,7 @@ def main(arguments=None):
         reason = _DENY_REASON.format(evidence=', '.join(evidence))
         print(reason, file=sys.stderr)
         # 正常な拒否なので終了コードは0。
-        _hook_output['write_deny_decision'](reason)
+        _hook_output.write_deny_decision(reason)
     return 0
 
 

@@ -1,6 +1,6 @@
 import json
 import os
-import runpy
+import sys
 import time
 from datetime import datetime
 
@@ -12,9 +12,8 @@ from datetime import datetime
 
 # ツール名の接頭辞を外す処理と、編集ツールの引数の解析は、共通のutilityで行う。utilityのフォルダーの親がutilitiesである。
 _utilities_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_get_tool_name = runpy.run_path(os.path.join(
-    _utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py',
-))['get_tool_name']
+sys.path.insert(0, os.path.join(_utilities_directory, 'parse-tool-calls'))
+from parse_tool_calls import get_tool_name as _get_tool_name
 
 # hook入力のtimestampとトランスクリプトのイベントの時刻は、記録する処理が異なるため前後しうる。その幅（ミリ秒）。
 _CLOCK_TOLERANCE_MS = 1000
@@ -184,9 +183,8 @@ def get_started_edit_tool_changes(events):
     # 呼び出した編集ツールの変更を、呼び出した順に返す。完了したか、成功したかは問わない。
     # 各変更は、edit-tool-changes utilityのextract_edit_tool_changesが返すもの（削除は含まない）。
     # 編集を見ないhookにedit-tool-changesとその依存を読み込ませないよう、呼び出したときに読み込む。
-    extract_edit_tool_changes = runpy.run_path(os.path.join(
-        _utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py',
-    ))['extract_edit_tool_changes']
+    sys.path.insert(0, os.path.join(_utilities_directory, 'edit-tool-changes'))
+    from edit_tool_changes import extract_edit_tool_changes
     return [
         change
         for event_type, data in events

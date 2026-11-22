@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -11,7 +10,8 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
+sys.path.insert(0, os.path.join(_utilities_directory, 'read-hook-input'))
+import read_hook_input as _hook_input
 
 
 # hookの変更に触れたとみなす語。hookの名前（フォルダー名）は別にリポジトリから集める。
@@ -72,16 +72,15 @@ def main():
 
     try:
         # 拒否側のpreToolUse hookと状態の形式・保存先を共有する。
-        state = runpy.run_path(os.path.join(
-            _utilities_directory, 'hook-change-request-state', 'hook_change_request_state.py',
-        ))
+        sys.path.insert(0, os.path.join(_utilities_directory, 'hook-change-request-state'))
+        import hook_change_request_state as state
 
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         prompt = hook_input.get('prompt')
         if not isinstance(prompt, str):
             raise ValueError('prompt must be a string.')
-        state_path = state['get_state_path'](hook_input.get('sessionId'))
-        cwd = _hook_input['get_cwd'](hook_input)
+        state_path = state.get_state_path(hook_input.get('sessionId'))
+        cwd = _hook_input.get_cwd(hook_input)
 
         # サブエージェントへの依頼は親のエージェントが書いたもので、ユーザーの依頼ではないため記録しない。
         # 記録すると、エージェントがサブエージェントへの依頼でhookの変更を自ら許可できてしまう。
@@ -91,8 +90,8 @@ def main():
         # 一度触れたら、このセッションの間は変更を認めたままにする。
         # 「続けて」「1,2の順に対応して」など、hookに触れない後続の依頼で作業を止めないため。
         if _mentions_hooks(prompt, _get_hook_names(cwd)):
-            state['save_permitted'](state_path)
-    except (OSError, UnicodeError, ValueError) as ex:
+            state.save_permitted(state_path)
+    except (OSError, UnicodeError, ValueError, ImportError) as ex:
         print(f'Failed to record hook change request: {ex}', file=sys.stderr)
         return 2
     return 0

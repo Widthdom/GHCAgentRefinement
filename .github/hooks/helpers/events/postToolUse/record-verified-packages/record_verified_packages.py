@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -12,8 +11,12 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+]
+import read_hook_input as _hook_input
+import parse_tool_calls as _tool_calls
 
 
 _WEB_FETCH_TOOL_NAMES = {'web_fetch'}
@@ -96,15 +99,14 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
-        state = runpy.run_path(os.path.join(
-            _utilities_directory, 'verified-packages-state', 'verified_packages_state.py',
-        ))
-        state_path = state['get_state_path'](hook_input.get('sessionId'))
+        hook_input = _hook_input.read_hook_input()
+        sys.path.insert(0, os.path.join(_utilities_directory, 'verified-packages-state'))
+        import verified_packages_state as state
+        state_path = state.get_state_path(hook_input.get('sessionId'))
         # postToolUseには、呼び出したツール1件の名前（toolName）と引数（toolArgs）、結果（toolResult）が渡される。
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
-        tool_name, tool_args = _tool_calls['parse_tool_call'](tool_name, tool_args)
+        tool_name, tool_args = _tool_calls.parse_tool_call(tool_name, tool_args)
         if not isinstance(tool_args, dict):
             return 0
         tool_result = hook_input.get('toolResult')
@@ -112,13 +114,13 @@ def main():
         output = output if isinstance(output, str) else ''
 
         packages = []
-        if _tool_calls['is_shell_tool'](tool_name) and isinstance(tool_args.get('command'), str):
+        if _tool_calls.is_shell_tool(tool_name) and isinstance(tool_args.get('command'), str):
             packages = _get_command_packages(tool_args['command'], output)
         elif tool_name in _WEB_FETCH_TOOL_NAMES and isinstance(tool_args.get('url'), str):
             packages = _get_url_packages(tool_args['url'], output)
         if packages:
-            state['record_verified'](state_path, packages)
-    except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:
+            state.record_verified(state_path, packages)
+    except (OSError, UnicodeError, ValueError, ImportError, sqlite3.Error) as ex:
         print(f'Failed to record verified packages: {ex}', file=sys.stderr)
         return 2
     return 0

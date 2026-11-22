@@ -1,15 +1,17 @@
 import json
 import os
-import runpy
+import sys
 from datetime import datetime, timezone
 
 
 # 状態の保存先と書き込みは共通のutilityで行う。utilityのフォルダーの親がutilitiesである。
 _utilities_directory = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-_state_path_utility = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))
-_write_json_atomically = runpy.run_path(os.path.join(
-    _utilities_directory, 'write-json-atomically', 'write_json_atomically.py',
-))['write_json_atomically']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'write-json-atomically'),
+]
+import get_state_path as _state_path_utility
+from write_json_atomically import write_json_atomically as _write_json_atomically
 
 
 # ユーザーがこのセッションでhookの変更に触れたかの状態。
@@ -20,7 +22,7 @@ _write_json_atomically = runpy.run_path(os.path.join(
 
 def get_state_path(session_id):
     # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
-    return _state_path_utility['get_state_path']('hook-change-requests', session_id, '.json')
+    return _state_path_utility.get_state_path('hook-change-requests', session_id, '.json')
 
 
 def is_permitted(state_path):

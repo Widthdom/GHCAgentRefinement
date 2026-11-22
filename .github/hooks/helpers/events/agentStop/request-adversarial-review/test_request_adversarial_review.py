@@ -1,7 +1,6 @@
 import io
 import json
 import os
-import runpy
 import subprocess
 import sys
 import tempfile
@@ -15,7 +14,8 @@ _hook_path = os.path.join(_script_directory, 'request_adversarial_review.py')
 _helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
 _hooks_directory = os.path.dirname(_helpers_directory)
 _github_directory = os.path.dirname(_hooks_directory)
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 _prompt_hook = os.path.join(
     _helpers_directory, 'events', 'userPromptSubmitted', 'set-adversarial-review-state',
     'set_adversarial_review_state.py',
@@ -179,7 +179,8 @@ class RequestReviewTests(unittest.TestCase):
                 self.assertTrue(result.stderr)
 
     def test_timeout_missing_git_and_state_write_failure(self):
-        namespace = runpy.run_path(_hook_path)
+        sys.path.insert(0, _script_directory)
+        import request_adversarial_review as hook
         for failure in (
             subprocess.TimeoutExpired(['git', 'status'], 10), FileNotFoundError('git'),
         ):
@@ -195,7 +196,7 @@ class RequestReviewTests(unittest.TestCase):
                     patch('sys.stderr', stderr),
                     patch('subprocess.run', side_effect=failure) as run,
                 ):
-                    code = namespace['main']()
+                    code = hook.main()
                     stdout.flush()
                     stderr.flush()
                     self.assertEqual(code, 2)
@@ -216,7 +217,7 @@ class RequestReviewTests(unittest.TestCase):
             patch('sys.stdin', stdin), patch('sys.stdout', stdout), patch('sys.stderr', stderr),
             patch('os.replace', side_effect=PermissionError('denied')),
         ):
-            self.assertEqual(namespace['main'](), 2)
+            self.assertEqual(hook.main(), 2)
             stdout.flush()
             stderr.flush()
             self.assertEqual(stdout.buffer.getvalue(), b'')

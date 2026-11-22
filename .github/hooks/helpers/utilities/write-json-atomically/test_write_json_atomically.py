@@ -1,16 +1,18 @@
 import json
 import os
-import runpy
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_utility = runpy.run_path(os.path.join(_script_directory, 'write_json_atomically.py'))
-_write_json_atomically = _utility['write_json_atomically']
+sys.path.insert(0, _script_directory)
+import write_json_atomically as _utility
+_write_json_atomically = _utility.write_json_atomically
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class WriteJsonAtomicallyTests(unittest.TestCase):
@@ -39,7 +41,7 @@ class WriteJsonAtomicallyTests(unittest.TestCase):
         _write_json_atomically(self.__path, {'value': 1})
         with self.assertRaises(TypeError):
             _write_json_atomically(self.__path, {'value': object()})
-        with patch.object(_utility['os'], 'replace', side_effect=OSError('replace failed')):
+        with patch.object(_utility.os, 'replace', side_effect=OSError('replace failed')):
             with self.assertRaisesRegex(OSError, 'replace failed'):
                 _write_json_atomically(self.__path, {'value': 2})
         self.assertEqual(json.loads(self.__read_bytes()), {'value': 1})

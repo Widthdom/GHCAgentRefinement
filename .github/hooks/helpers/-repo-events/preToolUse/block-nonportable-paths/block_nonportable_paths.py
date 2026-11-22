@@ -1,7 +1,6 @@
 import io
 import os
 import re
-import runpy
 import sys
 import unicodedata
 from typing import cast
@@ -12,13 +11,18 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
-_collect_json_string_values = runpy.run_path(os.path.join(
-    _utilities_directory, 'collect-json-string-values', 'collect_json_string_values.py',
-))['collect_json_string_values']
-_edit_tool_changes = runpy.run_path(os.path.join(_utilities_directory, 'edit-tool-changes', 'edit_tool_changes.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'collect-json-string-values'),
+    os.path.join(_utilities_directory, 'edit-tool-changes'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import parse_tool_calls as _tool_calls
+from collect_json_string_values import collect_json_string_values as _collect_json_string_values
+import edit_tool_changes as _edit_tool_changes
 
 
 # 名前の末尾の空白を検出するため、パスの末尾の空白を除くedit-tool-changes utilityのパッチの解析は使わない。
@@ -67,12 +71,12 @@ def _get_operations(tool_name, tool_args):
     else:
         if not isinstance(tool_args, dict):
             raise ValueError('editing toolArgs must be a JSON object.')
-        if tool_name == 'str_replace_editor' and tool_args.get('command') in _edit_tool_changes['NON_WRITE_COMMANDS']:
+        if tool_name == 'str_replace_editor' and tool_args.get('command') in _edit_tool_changes.NON_WRITE_COMMANDS:
             return [], set()
         # 対象のファイルのパスは `path`、`create` では `file_path` で渡される。引数名はedit-tool-changes utilityと共有する。
-        path = _edit_tool_changes['get_path_argument'](tool_args)
+        path = _edit_tool_changes.get_path_argument(tool_args)
         if path is None:
-            raise ValueError(f"one of {', '.join(_edit_tool_changes['PATH_KEYS'])} must be a non-blank string.")
+            raise ValueError(f"one of {', '.join(_edit_tool_changes.PATH_KEYS)} must be a non-blank string.")
         destinations.append(path)
     if any(not path or '\0' in path for path in [*destinations, *removed]):
         raise ValueError('file paths must be non-empty and must not contain NUL.')
@@ -133,11 +137,11 @@ def main():
     cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
     try:
-        hook_input = _hook_input['read_hook_input']()
-        cwd = _hook_input['get_cwd'](hook_input)
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
-        tool_name, tool_args = _tool_calls['parse_tool_call'](tool_name, tool_args)
-        if not _tool_calls['is_edit_tool'](tool_name):
+        hook_input = _hook_input.read_hook_input()
+        cwd = _hook_input.get_cwd(hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
+        tool_name, tool_args = _tool_calls.parse_tool_call(tool_name, tool_args)
+        if not _tool_calls.is_edit_tool(tool_name):
             return 0
         if tool_name == 'apply_patch' and not isinstance(tool_args, (str, dict)):
             raise ValueError('apply_patch toolArgs must be a patch string or JSON object.')
@@ -147,7 +151,7 @@ def main():
         print(f'Failed to check portable paths: {ex}', file=sys.stderr)
         return 2
     if findings:
-        _hook_output['write_deny_decision'](
+        _hook_output.write_deny_decision(
             'Edit denied: nonportable destination paths: ' + '; '.join(findings[:10]) + '. '
             'Choose names usable on Windows, macOS and Linux, without case or Unicode-normalization '
             'collisions. A case-only file rename is allowed when its source is removed in the same patch.'

@@ -1,6 +1,5 @@
 import json
 import os
-import runpy
 import shutil
 import sqlite3
 import subprocess
@@ -15,7 +14,8 @@ from unittest.mock import patch
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _helpers_directory = os.path.dirname(_script_directory)
 _hooks_directory = os.path.dirname(_helpers_directory)
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 _runner_path = os.path.join(_script_directory, 'run_hook.py')
 _state_helper_path = os.path.join(_helpers_directory, 'utilities', 'hook-activity-state', 'hook_activity_state.py')
@@ -237,9 +237,10 @@ class RunHookTests(unittest.TestCase):
                 self.assertEqual(self.__recorded_runs(), [])
 
     def test_get_fired_hooks_filters_by_time_and_event(self):
-        state = runpy.run_path(_state_helper_path)
+        sys.path.insert(0, os.path.dirname(_state_helper_path))
+        import hook_activity_state as state
         with patch.object(tempfile, 'tempdir', self.__temp_directory):
-            self.assertEqual(state['get_fired_hooks'](self.__session_id, 0, ('agentStop',)), [])
+            self.assertEqual(state.get_fired_hooks(self.__session_id, 0, ('agentStop',)), [])
             for started_at_ms, event_name, hook_name, fired in (
                 (100, 'preToolUse', 'before-turn', True),
                 (200, 'preToolUse', 'z-hook', True),
@@ -248,14 +249,14 @@ class RunHookTests(unittest.TestCase):
                 (400, 'postToolUse', 'passed', False),
                 (500, 'agentStop', 'stop-hook', True),
             ):
-                state['record_hook_run'](self.__session_id, event_name, hook_name, started_at_ms, fired)
-            self.assertEqual(state['get_fired_hooks'](self.__session_id, 200, ('agentStop',)), ['a-hook', 'z-hook'])
+                state.record_hook_run(self.__session_id, event_name, hook_name, started_at_ms, fired)
+            self.assertEqual(state.get_fired_hooks(self.__session_id, 200, ('agentStop',)), ['a-hook', 'z-hook'])
             self.assertEqual(
-                state['get_fired_hooks'](self.__session_id.upper(), 0, ()), ['a-hook', 'before-turn', 'stop-hook', 'z-hook'],
+                state.get_fired_hooks(self.__session_id.upper(), 0, ()), ['a-hook', 'before-turn', 'stop-hook', 'z-hook'],
             )
             for session_id in (None, '', 'not-a-uuid'):
                 with self.subTest(session_id=session_id), self.assertRaises(ValueError):
-                    state['get_fired_hooks'](session_id, 0, ())
+                    state.get_fired_hooks(session_id, 0, ())
 
 
 if __name__ == '__main__':

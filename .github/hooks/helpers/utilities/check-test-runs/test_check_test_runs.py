@@ -1,18 +1,20 @@
 import os
 import re
-import runpy
+import sys
 import unittest
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_utility = runpy.run_path(os.path.join(_script_directory, 'check_test_runs.py'))
+sys.path.insert(0, _script_directory)
+import check_test_runs as _utility
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class CheckTestRunsTests(unittest.TestCase):
     def test_test_commands(self):
-        is_test_command = _utility['is_test_command']
+        is_test_command = _utility.is_test_command
         for command in (
             'python3 .github/hooks/tests/test_all_hooks.py', 'npm test', 'pytest -q', 'python -m unittest',
             'npx jest', 'npx vitest run', 'mocha', 'bundle exec rspec', 'vendor/bin/phpunit', 'ctest',
@@ -34,7 +36,7 @@ class CheckTestRunsTests(unittest.TestCase):
                 self.assertTrue(is_test_command(command))
 
     def test_test_result_reported(self):
-        is_test_result_reported = _utility['is_test_result_reported']
+        is_test_result_reported = _utility.is_test_result_reported
         for command in (
             'pytest', 'cd x; pytest', 'pytest && echo ok', '(cd x && pytest)', 'pytest > /tmp/log 2>&1',
             'set -o pipefail; pytest | tail', 'set -e; pytest; echo done', 'pytest && a | b',
@@ -54,22 +56,22 @@ class CheckTestRunsTests(unittest.TestCase):
 
     def test_custom_pattern_and_runs_command(self):
         pattern = re.compile(r'test-a\.py')
-        self.assertTrue(_utility['is_test_command']('python3 test-a.py; echo', pattern))
-        self.assertFalse(_utility['is_test_command']('pytest', pattern))
-        self.assertFalse(_utility['is_test_result_reported']('python3 test-a.py; echo', pattern))
-        self.assertTrue(_utility['runs_command'](['sudo', 'FOO=1', 'python3', 'test-a.py'], pattern))
-        self.assertFalse(_utility['runs_command'](['grep', 'test-a.py'], pattern))
-        self.assertEqual(_utility['get_command_words'](['timeout', '60', 'env', '-i', 'pytest']), ['pytest'])
+        self.assertTrue(_utility.is_test_command('python3 test-a.py; echo', pattern))
+        self.assertFalse(_utility.is_test_command('pytest', pattern))
+        self.assertFalse(_utility.is_test_result_reported('python3 test-a.py; echo', pattern))
+        self.assertTrue(_utility.runs_command(['sudo', 'FOO=1', 'python3', 'test-a.py'], pattern))
+        self.assertFalse(_utility.runs_command(['grep', 'test-a.py'], pattern))
+        self.assertEqual(_utility.get_command_words(['timeout', '60', 'env', '-i', 'pytest']), ['pytest'])
 
     def test_compile_command_pattern(self):
-        pattern = _utility['compile_command_pattern']((*_utility['TEST_COMMAND_WORDS'], 'build', 'lint'))
+        pattern = _utility.compile_command_pattern((*_utility.TEST_COMMAND_WORDS, 'build', 'lint'))
         for command, expected in (('npm run build', True), ('eslint .', False), ('npm run lint', True),
                                   ('pytest', True), ('rebuild', False)):
             with self.subTest(command=command):
                 self.assertEqual(pattern.search(command) is not None, expected)
 
     def test_test_pass_claims(self):
-        claims_tests_passed = _utility['claims_tests_passed']
+        claims_tests_passed = _utility.claims_tests_passed
         for response in (
             'テストが通りました。', 'すべてのテストに成功した。', 'テストはパスしています。', 'テスト通過',
             'All tests passed.', 'Tests are now passing.', 'tests succeeded', 'The test passes.',

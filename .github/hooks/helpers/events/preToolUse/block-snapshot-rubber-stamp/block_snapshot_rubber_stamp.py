@@ -2,7 +2,6 @@ import argparse
 import io
 import os
 import re
-import runpy
 import sqlite3
 import sys
 from typing import cast
@@ -13,14 +12,20 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))['get_state_path']
-_filter_first_time_denials = runpy.run_path(os.path.join(
-    _utilities_directory, 'filter-first-time-denials', 'filter_first_time_denials.py',
-))['filter_first_time_denials']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'filter-first-time-denials'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import parse_tool_calls as _tool_calls
+import read_definitions as _definitions
+from get_state_path import get_state_path as _get_state_path
+from filter_first_time_denials import filter_first_time_denials as _filter_first_time_denials
 
 
 _UPDATE_COMMANDS_KEY = 'updateCommands'
@@ -41,7 +46,7 @@ _DENY_REASON = (
 def _load_update_commands(path):
     # 戻り値は (名前, コンパイル済みの正規表現) のリスト。
     label = 'snapshot update definitions'
-    return _definitions['get_named_regex_matchers'](_definitions['read_definitions'](path, label), _UPDATE_COMMANDS_KEY, label)
+    return _definitions.get_named_regex_matchers(_definitions.read_definitions(path, label), _UPDATE_COMMANDS_KEY, label)
 
 
 def _get_update_kinds(update_commands, command):
@@ -69,11 +74,11 @@ def main(arguments=None):
     try:
         update_commands = _load_update_commands(parsed_arguments.definitions_path)
 
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         state_path = _get_state_path('block-snapshot-rubber-stamp', hook_input.get('sessionId'))
-        tool_name, tool_args = _hook_input['get_tool_call'](hook_input)
+        tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
-        tool_args = _tool_calls['unwrap_tool_args'](tool_args) if _tool_calls['is_shell_tool'](tool_name) else None
+        tool_args = _tool_calls.unwrap_tool_args(tool_args) if _tool_calls.is_shell_tool(tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
         kinds = _get_update_kinds(update_commands, command) if isinstance(command, str) else []
 
@@ -90,7 +95,7 @@ def main(arguments=None):
         reason = _DENY_REASON.format(kinds='; '.join(denied_kinds))
         print(reason, file=sys.stderr)
         # 正常な拒否なので終了コードは0。
-        _hook_output['write_deny_decision'](reason)
+        _hook_output.write_deny_decision(reason)
     return 0
 
 

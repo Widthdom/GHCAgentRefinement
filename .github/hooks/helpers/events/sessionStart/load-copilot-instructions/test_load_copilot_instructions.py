@@ -1,6 +1,5 @@
 import json
 import os
-import runpy
 import shutil
 import subprocess
 import sys
@@ -11,7 +10,8 @@ _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'load_copilot_instructions.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
 _real_instructions_path = os.path.join(os.path.dirname(_hooks_directory), 'copilot-instructions.md')
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 def _invoke_hook(script_path, cwd=None, env=None):

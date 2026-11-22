@@ -2,7 +2,6 @@ import argparse
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -12,11 +11,18 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_truncate_text = runpy.run_path(os.path.join(_utilities_directory, 'truncate-text', 'truncate_text.py'))['truncate_text']
-_transcript_events = runpy.run_path(os.path.join(_utilities_directory, 'read-transcript-events', 'read_transcript_events.py'))
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'truncate-text'),
+    os.path.join(_utilities_directory, 'read-transcript-events'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from truncate_text import truncate_text as _truncate_text
+import read_transcript_events as _transcript_events
+import read_definitions as _definitions
 
 
 _EXCLUDED_FILE_PATTERNS_KEY = 'excludedFilePatterns'
@@ -44,23 +50,23 @@ _MAX_SNIPPET_LENGTH = 80
 
 def _load_definitions(path):
     label = 'temporary code definitions'
-    definitions = _definitions['read_definitions'](path, label)
+    definitions = _definitions.read_definitions(path, label)
     # 行全体に一致させる定義（`debugger` 文など）のため、行頭・行末は各行に一致させる。
     return (
-        _definitions['get_regex_matchers'](definitions, _EXCLUDED_FILE_PATTERNS_KEY, label, allow_empty_list=True),
-        _definitions['get_named_regex_matchers'](definitions, _DEBUG_PATTERNS_KEY, label, flags=re.MULTILINE),
-        _definitions['get_named_regex_matchers'](definitions, _PLACEHOLDER_PATTERNS_KEY, label, flags=re.MULTILINE),
-        _definitions['get_regex_matchers'](definitions, _PLACEHOLDER_DISCLOSURE_PATTERNS_KEY, label),
+        _definitions.get_regex_matchers(definitions, _EXCLUDED_FILE_PATTERNS_KEY, label, allow_empty_list=True),
+        _definitions.get_named_regex_matchers(definitions, _DEBUG_PATTERNS_KEY, label, flags=re.MULTILINE),
+        _definitions.get_named_regex_matchers(definitions, _PLACEHOLDER_PATTERNS_KEY, label, flags=re.MULTILINE),
+        _definitions.get_regex_matchers(definitions, _PLACEHOLDER_DISCLOSURE_PATTERNS_KEY, label),
     )
 
 
 def _get_turn_summary(transcript_path):
     # ユーザーの最新の依頼以降の、依頼の範囲のイベント・最終応答・編集を集める。
-    events = _transcript_events['get_turn_events'](transcript_path)[-1]
+    events = _transcript_events.get_turn_events(transcript_path)[-1]
     return (
         events,
-        _transcript_events['get_last_assistant_message'](events),
-        _transcript_events['get_started_edit_tool_changes'](events),
+        _transcript_events.get_last_assistant_message(events),
+        _transcript_events.get_started_edit_tool_changes(events),
     )
 
 
@@ -86,17 +92,17 @@ def main(arguments=None):
         excluded_file_patterns, debug_patterns, placeholder_patterns, disclosure_patterns = _load_definitions(
             parsed_arguments.definitions_path
         )
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
 
         # サブエージェントの停止は対象外。最終応答として報告されるのは親の応答のため。
         if hook_input.get('agentId'):
             return 0
 
-        cwd = _hook_input['get_cwd'](hook_input)
-        transcript_path = _hook_input['get_transcript_path'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
+        transcript_path = _hook_input.get_transcript_path(hook_input)
 
         # 自身のhook.startが書き込まれるまで最大5秒待ち、最終応答と編集を書き込み済みにする。
-        _transcript_events['wait_for_agent_stop_event'](transcript_path, hook_input.get('timestamp'))
+        _transcript_events.wait_for_agent_stop_event(transcript_path, hook_input.get('timestamp'))
 
         events, last_assistant_msg, changes = _get_turn_summary(transcript_path)
         if last_assistant_msg is None or not changes:
@@ -107,14 +113,13 @@ def main(arguments=None):
         if not any(pattern.search(last_assistant_msg) for pattern in disclosure_patterns):
             kinds.append((_PLACEHOLDER_PREFIX, _PLACEHOLDER_REASON, placeholder_patterns))
         # 新たに持ち込んだ行の照合は、共通utilityで行う。
-        find_introduced_lines_by_regex = runpy.run_path(os.path.join(
-            _utilities_directory, 'find-introduced-lines-by-regex', 'find_introduced_lines_by_regex.py',
-        ))['find_introduced_lines_by_regex']
+        sys.path.insert(0, os.path.join(_utilities_directory, 'find-introduced-lines-by-regex'))
+        from find_introduced_lines_by_regex import find_introduced_lines_by_regex
         # 同じ依頼で差し戻すのは種類ごとに1回だけにし、意図して残す場合に停止できなくなるのを防ぐ。
         # 複数の種類が当てはまる場合は1つずつ差し戻し、理由の書き出しで差し戻し済みの種類を判定できるようにする。
         reason = None
         for prefix, reason_format, patterns in kinds:
-            if _transcript_events['is_already_requested'](events, prefix):
+            if _transcript_events.is_already_requested(events, prefix):
                 continue
             findings = find_introduced_lines_by_regex(changes, cwd, excluded_file_patterns, patterns)
             if findings:
@@ -122,12 +127,12 @@ def main(arguments=None):
                     findings='\n'.join(_format_finding(finding) for finding in findings[:_MAX_FINDINGS]),
                 )
                 break
-    except (OSError, UnicodeError, ValueError) as ex:
+    except (OSError, UnicodeError, ValueError, ImportError) as ex:
         print(f'Failed to detect temporary code: {ex}', file=sys.stderr)
         return 2
 
     if reason is not None:
-        _hook_output['write_block_decision'](reason)
+        _hook_output.write_block_decision(reason)
     return 0
 
 

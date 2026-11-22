@@ -1,6 +1,5 @@
 import json
 import os
-import runpy
 import shutil
 import subprocess
 import sys
@@ -13,9 +12,10 @@ _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'check_cross_agent_skill_wrappers.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
 _repository_root = os.path.dirname(os.path.dirname(_hooks_directory))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
-_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_entry.py'))['get_hook_entry']
+from hook_entry import get_hook_entry as _get_hook_entry
 
 _WRAPPER_BODY = (
     '[正本のskill](../../../.github/skills/{name}/SKILL.md) を読み、その手順に従う。'

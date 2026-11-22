@@ -1,16 +1,18 @@
 import json
 import os
-import runpy
+import sys
 import tempfile
 import unittest
 import uuid
 from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_utility = runpy.run_path(os.path.join(_script_directory, 'hook_change_request_state.py'))
+sys.path.insert(0, _script_directory)
+import hook_change_request_state as _utility
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class HookChangeRequestStateTests(unittest.TestCase):
@@ -21,7 +23,7 @@ class HookChangeRequestStateTests(unittest.TestCase):
         tempdir.start()
         self.addCleanup(tempdir.stop)
         self.__temp_directory = temporary.name
-        self.__state_path = _utility['get_state_path'](str(uuid.uuid4()))
+        self.__state_path = _utility.get_state_path(str(uuid.uuid4()))
 
     def __write_state(self, content):
         os.makedirs(os.path.dirname(self.__state_path), exist_ok=True)
@@ -31,18 +33,18 @@ class HookChangeRequestStateTests(unittest.TestCase):
     def test_state_path(self):
         session_id = uuid.uuid4()
         self.assertEqual(
-            _utility['get_state_path'](f' {str(session_id).upper()} '),
+            _utility.get_state_path(f' {str(session_id).upper()} '),
             os.path.join(self.__temp_directory, 'ghc-agent-refinement', 'hook-states', 'hook-change-requests',
                          f'{session_id}.json'),
         )
         for invalid in (None, '', '  ', 'not-a-uuid'):
             with self.subTest(session_id=invalid), self.assertRaises(ValueError):
-                _utility['get_state_path'](invalid)
+                _utility.get_state_path(invalid)
 
     def test_save_and_read_permission(self):
-        self.assertIs(_utility['is_permitted'](self.__state_path), False)
-        _utility['save_permitted'](self.__state_path)
-        self.assertIs(_utility['is_permitted'](self.__state_path), True)
+        self.assertIs(_utility.is_permitted(self.__state_path), False)
+        _utility.save_permitted(self.__state_path)
+        self.assertIs(_utility.is_permitted(self.__state_path), True)
         # プロンプトの内容は保存せず、更新時刻と許可だけを保存する。
         with open(self.__state_path, encoding='utf-8') as file:
             self.assertEqual(sorted(json.load(file)), ['permitted', 'updatedAt'])
@@ -51,14 +53,14 @@ class HookChangeRequestStateTests(unittest.TestCase):
         for content in ('{"permitted":false}', '{"permitted":"true"}', '{}'):
             with self.subTest(content=content):
                 self.__write_state(content)
-                self.assertIs(_utility['is_permitted'](self.__state_path), False)
+                self.assertIs(_utility.is_permitted(self.__state_path), False)
 
     def test_rejects_invalid_state(self):
         for content in ('[]', '{'):
             with self.subTest(content=content):
                 self.__write_state(content)
                 with self.assertRaises(ValueError):
-                    _utility['is_permitted'](self.__state_path)
+                    _utility.is_permitted(self.__state_path)
 
 
 if __name__ == '__main__':

@@ -1,12 +1,11 @@
 import os
 import re
-import runpy
+import sys
 
 
 # 状態の保存先は共通のutilityで決める。utilityのフォルダーの親がutilitiesである。
-_state_path_utility = runpy.run_path(os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'get-state-path', 'get_state_path.py',
-))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'get-state-path'))
+import get_state_path as _state_path_utility
 
 
 # レジストリなどで実在を確かめた依存パッケージの状態。
@@ -25,7 +24,7 @@ _PYTHON_MODULE = 'python-module'
 
 def get_state_path(session_id):
     # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
-    return _state_path_utility['get_state_path']('verified-packages', session_id)
+    return _state_path_utility.get_state_path('verified-packages', session_id)
 
 
 def normalize_name(ecosystem, name):
@@ -39,7 +38,7 @@ def normalize_name(ecosystem, name):
 
 def record_verified(state_path, packages):
     # packages：(エコシステム, 名前) のリスト。
-    with _state_path_utility['open_state_database'](
+    with _state_path_utility.open_state_database(
         state_path,
         'CREATE TABLE IF NOT EXISTS verified (ecosystem TEXT NOT NULL, name TEXT NOT NULL, PRIMARY KEY (ecosystem, name))',
     ) as connection:
@@ -51,4 +50,4 @@ def record_verified(state_path, packages):
 
 def get_verified(state_path):
     # 戻り値は (エコシステム, 正規化した名前) の集合。状態ファイルがなければ空。
-    return set(_state_path_utility['read_state_database'](state_path, 'SELECT ecosystem, name FROM verified'))
+    return set(_state_path_utility.read_state_database(state_path, 'SELECT ecosystem, name FROM verified'))

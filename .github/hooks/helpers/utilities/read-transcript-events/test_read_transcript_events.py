@@ -1,19 +1,21 @@
 import json
 import os
 import re
-import runpy
+import sys
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_utility = runpy.run_path(os.path.join(_script_directory, 'read_transcript_events.py'))
-_read_transcript_events = _utility['read_transcript_events']
-_wait_for_agent_stop_event = _utility['wait_for_agent_stop_event']
-_get_turn_events = _utility['get_turn_events']
+sys.path.insert(0, _script_directory)
+import read_transcript_events as _utility
+_read_transcript_events = _utility.read_transcript_events
+_wait_for_agent_stop_event = _utility.wait_for_agent_stop_event
+_get_turn_events = _utility.get_turn_events
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 _REASON_PREFIX = 'Hook reason'
 
@@ -101,15 +103,15 @@ class ReadTranscriptEventsTests(_TranscriptTestCase):
             (None, None),
         ):
             with self.subTest(timestamp=timestamp):
-                self.assertEqual(_utility['get_event_time_ms']({'timestamp': timestamp}), expected)
+                self.assertEqual(_utility.get_event_time_ms({'timestamp': timestamp}), expected)
 
 
 class WaitForAgentStopEventTests(_TranscriptTestCase):
     def __wait(self, timestamp, sleep=None, monotonic=None):
         sleep = sleep or Mock()
         with (
-            patch.object(_utility['time'], 'sleep', sleep),
-            patch.object(_utility['time'], 'monotonic', monotonic or Mock(side_effect=range(1000))),
+            patch.object(_utility.time, 'sleep', sleep),
+            patch.object(_utility.time, 'monotonic', monotonic or Mock(side_effect=range(1000))),
         ):
             _wait_for_agent_stop_event(self.path, timestamp, timeout_seconds=5.0)
         return sleep
@@ -212,9 +214,9 @@ class GetTurnEventsTests(_TranscriptTestCase):
         ):
             with self.subTest(name=name):
                 self.write(*events)
-                turn, already_requested = _utility['get_latest_turn'](self.path, _REASON_PREFIX)
+                turn, already_requested = _utility.get_latest_turn(self.path, _REASON_PREFIX)
                 self.assertEqual(turn, _get_turn_events(self.path)[-1])
-                self.assertEqual(_utility['count_requests_by_hook'](turn, _REASON_PREFIX), expected)
+                self.assertEqual(_utility.count_requests_by_hook(turn, _REASON_PREFIX), expected)
                 self.assertIs(already_requested, expected > 0)
 
     def test_get_request(self):
@@ -225,7 +227,7 @@ class GetTurnEventsTests(_TranscriptTestCase):
             ('empty', [], None),
         ):
             with self.subTest(name=name):
-                self.assertEqual(_utility['get_request'](events), expected)
+                self.assertEqual(_utility.get_request(events), expected)
 
     def test_get_request_texts_excludes_hook_feedback(self):
         def hook_end(reason, hook_type='agentStop', decision='block'):
@@ -244,7 +246,7 @@ class GetTurnEventsTests(_TranscriptTestCase):
             ('hook.end', {'hookType': 'agentStop', 'output': 'Hook feedback'}),
         ]
         self.assertEqual(
-            _utility['get_request_texts'](events),
+            _utility.get_request_texts(events),
             ['request', 'interrupt', 'Other feedback', 'Allowed feedback'],
         )
 
@@ -256,8 +258,8 @@ class GetTurnEventsTests(_TranscriptTestCase):
             ('assistant.message', {'content': None}),
             ('user.message', {'content': 'queued', 'delivery': 'queued'}),
         ]
-        self.assertEqual(_utility['get_last_assistant_message'](events), 'last')
-        self.assertIsNone(_utility['get_last_assistant_message']([('user.message', {'content': 'request'})]))
+        self.assertEqual(_utility.get_last_assistant_message(events), 'last')
+        self.assertIsNone(_utility.get_last_assistant_message([('user.message', {'content': 'request'})]))
 
     def test_tool_calls_in_completion_order(self):
         events = [
@@ -270,7 +272,7 @@ class GetTurnEventsTests(_TranscriptTestCase):
             ('tool.execution_complete', {'toolCallId': 'a', 'success': False}),
         ]
         # 完了していない呼び出しは最後に加え、toolCallIdが文字列でない開始は対応づけられないため除く。
-        self.assertEqual(_utility['get_tool_calls'](events), [
+        self.assertEqual(_utility.get_tool_calls(events), [
             ('edit', {'path': 'p'}, {'toolCallId': 'b', 'success': True}),
             ('bash', '{"command":"x"}', {'toolCallId': 'a', 'success': False}),
             ('view', None, None),
@@ -288,12 +290,12 @@ class GetTurnEventsTests(_TranscriptTestCase):
             ('user.message', {'content': 'not a tool call'}),
         ]
         # 完了したか、成功したかは問わない。編集ツール以外と、ツール名が文字列でない呼び出しからは何も取り出さない。
-        changes = _utility['get_started_edit_tool_changes'](events)
+        changes = _utility.get_started_edit_tool_changes(events)
         self.assertEqual([(change['path'], change['written'], change['removed']) for change in changes], [
             ('a.py', 'new', 'old'),
             ('b.py', 'text', ''),
         ])
-        self.assertEqual(_utility['get_started_edit_tool_changes']([]), [])
+        self.assertEqual(_utility.get_started_edit_tool_changes([]), [])
 
     def test_shell_exit_code(self):
         for completion, expected in (
@@ -306,7 +308,7 @@ class GetTurnEventsTests(_TranscriptTestCase):
             (None, None),
         ):
             with self.subTest(completion=completion):
-                self.assertEqual(_utility['get_shell_exit_code'](completion), expected)
+                self.assertEqual(_utility.get_shell_exit_code(completion), expected)
 
 
 if __name__ == '__main__':

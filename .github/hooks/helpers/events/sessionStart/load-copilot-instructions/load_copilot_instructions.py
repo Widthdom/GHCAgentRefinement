@@ -1,6 +1,5 @@
 import io
 import os
-import runpy
 import sys
 from typing import cast
 
@@ -10,7 +9,8 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
+sys.path.insert(0, os.path.join(_utilities_directory, 'write-hook-output'))
+import write_hook_output as _hook_output
 
 def main():
     # 型定義上の `sys.stdout`・`sys.stderr` はreconfigureを持たないTextIOのため、静的型チェック向けに実体のTextIOWrapperとしてcastする。castは実行時に何もしない。
@@ -52,7 +52,7 @@ def main():
         return 2
 
     # 共通指示を、エージェントへのadditionalContextとして標準出力する。
-    _hook_output['write_additional_context'](instructions)
+    _hook_output.write_additional_context(instructions)
 
     return 0
 

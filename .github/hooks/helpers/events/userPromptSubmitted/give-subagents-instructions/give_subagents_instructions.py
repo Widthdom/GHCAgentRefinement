@@ -1,6 +1,5 @@
 import io
 import os
-import runpy
 import sys
 from typing import cast
 
@@ -10,8 +9,12 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
 
 
 def main():
@@ -20,7 +23,7 @@ def main():
     cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='backslashreplace', newline='\n')
 
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         # サブエージェントへの依頼のときだけ、入力にagentIdが含まれる。
         # 親のセッションにはsessionStartのload-copilot-instructions hookが指示を渡すため、ここでは何もしない。
         agent_id = hook_input.get('agentId')
@@ -54,7 +57,7 @@ def main():
         return 2
 
     # SDK形式のトップレベルadditionalContext。依頼文に添えてサブエージェントへ渡される。
-    _hook_output['write_additional_context'](instructions)
+    _hook_output.write_additional_context(instructions)
     return 0
 
 

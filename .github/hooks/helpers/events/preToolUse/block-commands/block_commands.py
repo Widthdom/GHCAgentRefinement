@@ -2,7 +2,6 @@ import argparse
 import io
 import os
 import re
-import runpy
 import sys
 from typing import cast
 
@@ -12,10 +11,16 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_definitions = runpy.run_path(os.path.join(_utilities_directory, 'read-definitions', 'read_definitions.py'))
-_tool_calls = runpy.run_path(os.path.join(_utilities_directory, 'parse-tool-calls', 'parse_tool_calls.py'))
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'read-definitions'),
+    os.path.join(_utilities_directory, 'parse-tool-calls'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+import read_definitions as _definitions
+import parse_tool_calls as _tool_calls
 
 
 def _is_non_blank_string(value):
@@ -35,7 +40,7 @@ def _is_non_blank_string(value):
 # 引数を標準エラー出力するとともに、拒否理由として標準出力する。
 def _write_stderr_msg_and_deny(msg):
     print(msg, file=sys.stderr)
-    _hook_output['write_deny_decision'](msg)
+    _hook_output.write_deny_decision(msg)
 
 
 def _load_definitions(path):
@@ -43,8 +48,8 @@ def _load_definitions(path):
     # 戻り値は (コンパイル済みの正規表現, 拒否理由) のリスト。
     # 定義ファイルがなければOSError、形式や正規表現が不正ならValueErrorを送出する。
     label = 'blocked command definitions'
-    definitions = _definitions['read_definitions'](path, label, list)
-    named_patterns = _definitions['build_named_regex_matchers'](definitions, label)
+    definitions = _definitions.read_definitions(path, label, list)
+    named_patterns = _definitions.build_named_regex_matchers(definitions, label)
     # name・patternの検証で、各定義がJSONオブジェクトであることは確かめ済み。
     if not all(_is_non_blank_string(definition.get('reason')) for definition in definitions):
         raise ValueError(f'each item of {label} requires a non-blank string for reason.')
@@ -91,7 +96,7 @@ def main(arguments=None):
     # このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
     #   空、JSONとして解析できない、JSONオブジェクト（最外側が{}）でない入力は異常終了。
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
     except (OSError, UnicodeError, ValueError) as ex:
         _write_stderr_msg_and_deny(f'Failed to parse preToolUse hook input: {ex}')
         return 2
@@ -118,7 +123,7 @@ def main(arguments=None):
 
     # toolArgsはJSON文字列に包まれて渡される場合もあるため、包みを外してから取り出す。
     # JSONとして解析できない文字列だけを、生のコマンドとして扱う。
-    tool_args = _tool_calls['unwrap_tool_args'](hook_input.get('toolArgs'))
+    tool_args = _tool_calls.unwrap_tool_args(hook_input.get('toolArgs'))
     if isinstance(tool_args, str):
         command = tool_args
     elif isinstance(tool_args, dict):
@@ -134,7 +139,7 @@ def main(arguments=None):
     for compiled_pattern, reason in compiled_definitions:
         if compiled_pattern.search(command):
             # 拒否とその理由をJSON形式に変換して返却する。
-            _hook_output['write_deny_decision'](reason)
+            _hook_output.write_deny_decision(reason)
             return 0
 
     # 標準出力へ空のJSONオブジェクトを返すことで、「拒否する判断はない」ことを呼び出し元に伝える。

@@ -1,17 +1,19 @@
 import hashlib
 import os
-import runpy
 import sqlite3
+import sys
 import tempfile
 import unittest
 import uuid
 from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_utility = runpy.run_path(os.path.join(_script_directory, 'known_files_state.py'))
+sys.path.insert(0, _script_directory)
+import known_files_state as _utility
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class KnownFilesStateTests(unittest.TestCase):
@@ -26,16 +28,16 @@ class KnownFilesStateTests(unittest.TestCase):
     def test_state_path(self):
         session_id = uuid.uuid4()
         self.assertEqual(
-            _utility['get_state_path'](f' {str(session_id).upper()} '),
+            _utility.get_state_path(f' {str(session_id).upper()} '),
             os.path.join(self.__temp_directory, 'ghc-agent-refinement', 'hook-states', 'known-files',
                          f'{session_id}.sqlite3'),
         )
         for invalid in (None, '', '  ', 'not-a-uuid'):
             with self.subTest(session_id=invalid), self.assertRaises(ValueError):
-                _utility['get_state_path'](invalid)
+                _utility.get_state_path(invalid)
 
     def test_normalize_path_and_key(self):
-        normalize_path = _utility['normalize_path']
+        normalize_path = _utility.normalize_path
         # normalize_pathは実体のパスを返すため、Windowsの短縮名（RUNNER~1など）を解決した一時フォルダーを基準にする。
         cwd = os.path.join(os.path.realpath(self.__temp_directory), 'repository')
         expected = os.path.normcase(os.path.join(cwd, 'src', 'a.py'))
@@ -43,17 +45,17 @@ class KnownFilesStateTests(unittest.TestCase):
         for path in ('src/a.py', os.path.join('src', '..', 'src', 'a.py'), os.path.join(cwd, 'src', 'a.py')):
             with self.subTest(path=path):
                 self.assertEqual(normalize_path(cwd, path), expected)
-        self.assertEqual(_utility['get_file_key'](expected), hashlib.sha256(expected.encode('utf-8')).hexdigest())
+        self.assertEqual(_utility.get_file_key(expected), hashlib.sha256(expected.encode('utf-8')).hexdigest())
 
     def test_open_state(self):
-        state_path = _utility['get_state_path'](str(uuid.uuid4()))
-        with _utility['open_state'](state_path) as connection:
-            connection.execute('INSERT INTO files (file, state) VALUES (?, ?)', ('k1', _utility['SEEN']))
-            connection.execute('INSERT INTO files (file, state) VALUES (?, ?)', ('k2', _utility['DENIED']))
+        state_path = _utility.get_state_path(str(uuid.uuid4()))
+        with _utility.open_state(state_path) as connection:
+            connection.execute('INSERT INTO files (file, state) VALUES (?, ?)', ('k1', _utility.SEEN))
+            connection.execute('INSERT INTO files (file, state) VALUES (?, ?)', ('k2', _utility.DENIED))
         # 状態はseen・deniedのどちらかに限る。
-        with self.assertRaises(sqlite3.IntegrityError), _utility['open_state'](state_path) as connection:
+        with self.assertRaises(sqlite3.IntegrityError), _utility.open_state(state_path) as connection:
             connection.execute('INSERT INTO files (file, state) VALUES (?, ?)', ('k3', 'unknown'))
-        with _utility['open_state'](state_path) as connection:
+        with _utility.open_state(state_path) as connection:
             rows = connection.execute('SELECT file, state FROM files ORDER BY file').fetchall()
         self.assertEqual(rows, [('k1', 'seen'), ('k2', 'denied')])
 

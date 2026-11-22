@@ -1,6 +1,5 @@
 import json
 import os
-import runpy
 import subprocess
 import sys
 import tempfile
@@ -15,9 +14,10 @@ _recorder_path = os.path.join(
     'record_test_failure_values.py',
 )
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
-_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_entry.py'))['get_hook_entry']
+from hook_entry import get_hook_entry as _get_hook_entry
 
 _IMPLEMENTATION = 'def add(a, b):\n    return a - b\n'
 _SPECIAL_CASE = 'def add(a, b):\n    if a == 1 and b == 2:\n        return 4\n    return a - b\n'

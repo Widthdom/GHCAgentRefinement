@@ -1,16 +1,18 @@
 import os
-import runpy
 import sqlite3
+import sys
 import tempfile
 import unittest
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
-_utility = runpy.run_path(os.path.join(_script_directory, 'filter_first_time_denials.py'))
-_filter_first_time_denials = _utility['filter_first_time_denials']
-_is_first_time_file_denial = _utility['is_first_time_file_denial']
+sys.path.insert(0, _script_directory)
+import filter_first_time_denials as _utility
+_filter_first_time_denials = _utility.filter_first_time_denials
+_is_first_time_file_denial = _utility.is_first_time_file_denial
 
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class FilterFirstTimeDenialsTests(unittest.TestCase):

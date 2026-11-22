@@ -1,7 +1,6 @@
 import io
 import json
 import os
-import runpy
 import sys
 from datetime import datetime, timezone
 from typing import cast
@@ -12,13 +11,18 @@ from typing import cast
 _utilities_directory = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), 'utilities',
 )
-_hook_input = runpy.run_path(os.path.join(_utilities_directory, 'read-hook-input', 'read_hook_input.py'))
-_hook_output = runpy.run_path(os.path.join(_utilities_directory, 'write-hook-output', 'write_hook_output.py'))
-_get_state_path = runpy.run_path(os.path.join(_utilities_directory, 'get-state-path', 'get_state_path.py'))['get_state_path']
-_git = runpy.run_path(os.path.join(_utilities_directory, 'run-git', 'run_git.py'))
-_write_json_atomically = runpy.run_path(os.path.join(
-    _utilities_directory, 'write-json-atomically', 'write_json_atomically.py',
-))['write_json_atomically']
+sys.path[:0] = [
+    os.path.join(_utilities_directory, 'read-hook-input'),
+    os.path.join(_utilities_directory, 'write-hook-output'),
+    os.path.join(_utilities_directory, 'get-state-path'),
+    os.path.join(_utilities_directory, 'run-git'),
+    os.path.join(_utilities_directory, 'write-json-atomically'),
+]
+import read_hook_input as _hook_input
+import write_hook_output as _hook_output
+from get_state_path import get_state_path as _get_state_path
+import run_git as _git
+from write_json_atomically import write_json_atomically as _write_json_atomically
 
 
 _REVIEW_REASON = (
@@ -47,7 +51,7 @@ def main():
     # このように呼び出し元が渡してくるデータのことをpayloadと呼ぶ。
     # 状態ファイルの保存先は、状態を設定するuserPromptSubmitted hookと共有する。
     try:
-        hook_input = _hook_input['read_hook_input']()
+        hook_input = _hook_input.read_hook_input()
         state_path = _get_state_path('adversarial-review', hook_input.get('sessionId'), '.json')
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
@@ -110,7 +114,7 @@ def main():
 
     # cwd：Current Working Directory。絶対パスで指定される。
     try:
-        cwd = _hook_input['get_cwd'](hook_input)
+        cwd = _hook_input.get_cwd(hook_input)
     except ValueError as ex:
         print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
         return 2
@@ -119,7 +123,7 @@ def main():
     #   cwdやファイル名に空白・記号が含まれてもシェル用の引用処理が不要で、入力がシェルコマンドとして解釈される危険も避けられる。
     # -z：ファイル名に空白や改行が含まれていても正しく判定できるようにする。
     # --untracked-files=all：未追跡の新規ディレクトリをディレクトリ単位でまとめず、配下の新規ファイルを個別に列挙する。
-    status = _git['run_git'](cwd, ['status', '--porcelain=v1', '--untracked-files=all', '-z'], 10)
+    status = _git.run_git(cwd, ['status', '--porcelain=v1', '--untracked-files=all', '-z'], 10)
     if status is None:
         print('Failed to run git status: git is not available or timed out.', file=sys.stderr)
         return 2
@@ -151,7 +155,7 @@ def main():
 
     # この標準出力を受け取ったhook呼び出し元は、decision:blockに従って停止したのち、
     # reasonに従って敵対的レビューエージェントを呼び出すことになる。
-    _hook_output['write_block_decision'](_REVIEW_REASON)
+    _hook_output.write_block_decision(_REVIEW_REASON)
 
     return 0
 

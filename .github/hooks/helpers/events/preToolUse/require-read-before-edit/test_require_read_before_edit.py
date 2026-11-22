@@ -1,6 +1,5 @@
 import json
 import os
-import runpy
 import subprocess
 import sys
 import tempfile
@@ -13,9 +12,10 @@ _hook_path = os.path.join(_script_directory, 'require_read_before_edit.py')
 _events_directory = os.path.dirname(os.path.dirname(_script_directory))
 _record_hook_path = os.path.join(_events_directory, 'postToolUse', 'record-seen-files', 'record_seen_files.py')
 _hooks_directory = os.path.dirname(os.path.dirname(_events_directory))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
-_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_entry.py'))['get_hook_entry']
+from hook_entry import get_hook_entry as _get_hook_entry
 
 
 class RequireReadBeforeEditTests(unittest.TestCase):

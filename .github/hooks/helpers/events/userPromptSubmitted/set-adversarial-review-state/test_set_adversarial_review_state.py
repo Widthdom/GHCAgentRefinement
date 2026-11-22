@@ -1,6 +1,5 @@
 import json
 import os
-import runpy
 import subprocess
 import sys
 import tempfile
@@ -13,7 +12,8 @@ _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'set_adversarial_review_state.py')
 _helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
 _hooks_directory = os.path.dirname(_helpers_directory)
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
 
 class ReviewModeTests(unittest.TestCase):

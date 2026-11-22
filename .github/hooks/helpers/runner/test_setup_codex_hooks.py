@@ -1,7 +1,6 @@
 import io
 import json
 import os
-import runpy
 import shutil
 import subprocess
 import sys
@@ -15,8 +14,12 @@ _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hooks_directory = os.path.dirname(os.path.dirname(_script_directory))
 _repository_root = os.path.dirname(os.path.dirname(_hooks_directory))
 _script = os.path.join(_repository_root, '.codex', 'setup_codex_hooks.py')
-_setup = runpy.run_path(_script)
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path[:0] = [
+    os.path.dirname(_script),
+    os.path.join(_hooks_directory, 'tests', 'helpers'),
+]
+import setup_codex_hooks as _setup
+from hook_test_output import run_tests as _run_tests
 _FAKE_SERVER = '''import hashlib, json, os, sys, time
 base = os.path.dirname(__file__)
 state_path = os.path.join(base, 'state.json')
@@ -143,7 +146,7 @@ class SetupCodexHooksTests(unittest.TestCase):
     def __run(self, check=False):
         output = io.StringIO()
         with redirect_stdout(output):
-            _setup['_setup'](self.__root, [sys.executable, self.__fake], check=check)
+            _setup._setup(self.__root, [sys.executable, self.__fake], check=check)
         return output.getvalue()
 
     def test_setup_persists_only_checkout_trust_and_preserves_settings(self):
@@ -219,7 +222,7 @@ class SetupCodexHooksTests(unittest.TestCase):
             with self.subTest(mode=mode):
                 self.__mode(mode)
                 with self.assertRaisesRegex(RuntimeError, expected):
-                    with _setup['_server'](self.__root, [sys.executable, self.__fake], timeout=0.2):
+                    with _setup._server(self.__root, [sys.executable, self.__fake], timeout=0.2):
                         self.fail('initialization should fail')
 
     def test_cli_help_does_not_require_codex(self):
@@ -231,7 +234,7 @@ class SetupCodexHooksTests(unittest.TestCase):
     def test_windows_project_key_matches_codex_external_format(self):
         # これは表示パスではなくCodexがネイティブ表記で要求する不透明な設定キー。
         with patch.object(os, 'name', 'nt'):
-            self.assertEqual(_setup['_project_trust_key']('C:/Users/Üser/Repo'), r'c:\users\Üser\repo')
+            self.assertEqual(_setup._project_trust_key('C:/Users/Üser/Repo'), r'c:\users\Üser\repo')
 
 
 if __name__ == '__main__':

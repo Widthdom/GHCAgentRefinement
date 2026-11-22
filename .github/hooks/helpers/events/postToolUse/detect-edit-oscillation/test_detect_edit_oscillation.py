@@ -1,6 +1,5 @@
 import json
 import os
-import runpy
 import sqlite3
 import subprocess
 import sys
@@ -14,9 +13,10 @@ from unittest.mock import patch
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'detect_edit_oscillation.py')
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(_script_directory))))
-_run_tests = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_test_output.py'))['run_tests']
+sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
+from hook_test_output import run_tests as _run_tests
 
-_get_hook_entry = runpy.run_path(os.path.join(_hooks_directory, 'tests', 'helpers', 'hook_entry.py'))['get_hook_entry']
+from hook_entry import get_hook_entry as _get_hook_entry
 
 
 class DetectEditOscillationTests(unittest.TestCase):
@@ -167,8 +167,8 @@ class DetectEditOscillationTests(unittest.TestCase):
         self.__assert_notification(self.__edit('A', normalized), '対象.py')
 
     def test_window_and_clock_rollback_reset_history(self):
-        module = runpy.run_path(_hook_path)
-        record = module['_record_edits']
+        sys.path.insert(0, _script_directory)
+        from detect_edit_oscillation import _record_edits as record
         os.makedirs(self.__state_directory)
         # テスト時だけ時計を差し替え、10分ちょうどと期限超過を待たずに確認する。
         for first_seen, current, expected in ((1000, 1600, ['p']), (2000, 2601, []), (3000, 2999, [])):
