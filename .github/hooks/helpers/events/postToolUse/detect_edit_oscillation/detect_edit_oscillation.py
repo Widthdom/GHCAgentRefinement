@@ -1,10 +1,8 @@
 import hashlib
-import io
 import os
 import sqlite3
 import sys
 import time
-from typing import cast
 
 
 # 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
@@ -104,9 +102,7 @@ def _record_edits(state_path, edits):
 
 
 def main():
-    # 型定義上の `sys.stdout`・`sys.stderr` はreconfigureを持たないTextIOのため、静的型チェック向けに実体のTextIOWrapperとしてcastする。castは実行時に何もしない。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
-    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    _hook_output.configure_output_streams()
 
     try:
         hook_input = _hook_input.read_hook_input()
@@ -133,7 +129,6 @@ def main():
             for normalized_path, path in sorted(paths.items())
         ]
 
-        # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
         # 期限切れレコードは次回編集時に削除する。DBファイル自体は自動削除しない。
         oscillated_paths = _record_edits(state_path, edits)
     except (OSError, UnicodeError, ValueError, sqlite3.Error) as ex:

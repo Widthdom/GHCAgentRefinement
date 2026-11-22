@@ -14,10 +14,7 @@ hookの実行スクリプトをPythonに統一すると、Windows、macOS、Linu
 
 ### Copilot・Claude Code・Codexでの起動のされ方
 - Copilotは、Windowsではhook定義の `powershell` のコマンドをPowerShellで実行し、macOS・Linuxでは `bash` のコマンドを実行する。
-- Claude Codeのhook設定（[.claude/settings.json](../../../.claude/settings.json)）は、1つのhookにコマンドを1つしか持てず、OSで出し分けられない。そのため、どのOSでも `sh` で起動スクリプト [run_claude_hook.sh](../../hooks/helpers/runner/run_claude_hook.sh) を実行し、アダプターがhook定義を読んで各hookを実行する。Windowsでは、Claude CodeがGit for Windowsに含まれるGit Bashを探してhookのコマンドを実行する。
-- アダプターは、ランナーを通さないこの2つのhookを、Windowsでは定義の `powershell` のコマンドのまま子プロセスで実行する。そのため、Claude Codeでも、Windowsでは `.cmd` が、それ以外では `.sh` が実行される。
-- アダプター自体がPythonで動くため、Claude CodeではPythonがない環境でこの2つのhookは働かない（[.claude/README.md](../../../.claude/README.md) を参照）。
-- Codexの [hooks.json](../../../.codex/hooks.json) はOS別の `commandWindows` を持てるため、WindowsではPowerShellから `python`、macOS/Linuxでは `python3` で直接アダプターを起動する。Git Bashを探す起動スクリプトは使わない。アダプター内の実行方式とPythonがない場合の制約はClaude Codeと同じ。
+- Claude Code・Codexでは、アダプターがこの2つのhookを、Windowsでは定義の `powershell` のコマンドのまま、それ以外では `bash` のコマンドのまま子プロセスで実行する。アダプター自体はPythonで動くため、Pythonがない環境ではこの2つのhookも働かない（[hookランナーのREADME](../../hooks/helpers/runner/README.md#共通の実行)）。Claude Codeでは、Windowsでも起動スクリプトをGit Bashで実行する（[.claude/README.md](../../../.claude/README.md)）。
 
 ### Gitを前提としても `.cmd` を `.sh` に統一しない理由
 Gitのインストールを前提とし、WindowsではGit for Windows（Git Bashを含む）があるとみなしている。それでも、`powershell` のコマンドを `bash .../xxx.sh` にして `.cmd` を廃止することはしない。

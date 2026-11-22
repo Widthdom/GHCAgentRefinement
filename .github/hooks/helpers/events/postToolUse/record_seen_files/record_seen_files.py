@@ -1,8 +1,6 @@
-import io
 import os
 import sqlite3
 import sys
-from typing import cast
 
 
 # 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
@@ -12,10 +10,12 @@ _utilities_directory = os.path.join(
 )
 sys.path[:0] = [
     os.path.join(_utilities_directory, 'read_hook_input'),
+    os.path.join(_utilities_directory, 'write_hook_output'),
     os.path.join(_utilities_directory, 'parse_tool_calls'),
     os.path.join(_utilities_directory, 'edit_tool_changes'),
 ]
 import read_hook_input as _hook_input
+import write_hook_output as _hook_output
 import parse_tool_calls as _tool_calls
 import edit_tool_changes as _edit_tool_changes
 
@@ -37,9 +37,7 @@ def _get_read_paths(tool_name, tool_args):
 
 
 def main():
-    # 型定義上の `sys.stdout`・`sys.stderr` はreconfigureを持たないTextIOのため、静的型チェック向けに実体のTextIOWrapperとしてcastする。castは実行時に何もしない。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
-    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    _hook_output.configure_output_streams()
 
     try:
         # 拒否側のpreToolUse hookと状態の形式・保存先を共有する。

@@ -1,9 +1,7 @@
-import io
 import os
 import re
 import sys
 import unicodedata
-from typing import cast
 
 
 # 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
@@ -133,9 +131,7 @@ def _check_paths(cwd, destinations, removed):
 
 
 def main():
-    # 型定義上の `sys.stdout`・`sys.stderr` はreconfigureを持たないTextIOのため、静的型チェック向けに実体のTextIOWrapperとしてcastする。castは実行時に何もしない。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
-    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    _hook_output.configure_output_streams()
     try:
         hook_input = _hook_input.read_hook_input()
         cwd = _hook_input.get_cwd(hook_input)

@@ -21,6 +21,18 @@ def _capture(name, text):
 
 
 class WriteHookOutputTests(unittest.TestCase):
+    def test_configures_output_streams_as_utf8_with_lf(self):
+        # OSに依存するエンコーディング・改行コード変換・エラー処理のストリームが、設定で揃うことを確かめる。
+        buffers = (io.BytesIO(), io.BytesIO())
+        streams = tuple(io.TextIOWrapper(buffer, encoding='cp1252', errors='strict', newline='\r\n') for buffer in buffers)
+        with contextlib.redirect_stdout(streams[0]), contextlib.redirect_stderr(streams[1]):
+            _utility.configure_output_streams()
+        for index, (stream, buffer) in enumerate(zip(streams, buffers)):
+            with self.subTest(stream=index):
+                stream.write('あ\n\udc80')
+                stream.flush()
+                self.assertEqual(buffer.getvalue(), 'あ\n?'.encode('utf-8'))
+
     def test_writes_each_output_as_one_compact_json_line(self):
         for name, expected in (
             ('write_deny_decision', '{"permissionDecision":"deny","permissionDecisionReason":"理由: a"}\n'),

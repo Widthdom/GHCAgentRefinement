@@ -1,9 +1,7 @@
 import argparse
-import io
 import os
 import re
 import sys
-from typing import cast
 
 
 # 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
@@ -199,9 +197,7 @@ def _find_orphans(candidates, repository_root, ignored_reference_file_patterns, 
 
 
 def main(arguments=None):
-    # 型定義上の `sys.stdout`・`sys.stderr` はreconfigureを持たないTextIOのため、静的型チェック向けに実体のTextIOWrapperとしてcastする。castは実行時に何もしない。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
-    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    _hook_output.configure_output_streams()
 
     # テスト用に定義ファイルを差し替えられるようにする。
     script_directory = os.path.dirname(os.path.abspath(__file__))

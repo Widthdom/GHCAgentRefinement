@@ -181,7 +181,7 @@ class DebugShowPromptLogPathsTests(unittest.TestCase):
             shutil.copyfile(os.path.join(_script_directory, name), os.path.join(reporter_directory, name))
         for name in (
             'debug_mode_state', 'get_state_path', 'parse_tool_calls', 'read_hook_input', 'read_transcript_events',
-            'write_json_atomically',
+            'write_hook_output', 'write_json_atomically',
         ):
             os.makedirs(os.path.join(utilities, name))
             shutil.copyfile(os.path.join(_hooks_directory, 'helpers', 'utilities', name, f'{name}.py'),

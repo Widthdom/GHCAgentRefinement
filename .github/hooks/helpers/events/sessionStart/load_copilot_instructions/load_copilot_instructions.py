@@ -1,7 +1,5 @@
-import io
 import os
 import sys
-from typing import cast
 
 
 # 複数のhookで共有する処理は、utilitiesのスクリプトから読み込む。
@@ -13,13 +11,7 @@ sys.path.insert(0, os.path.join(_utilities_directory, 'write_hook_output'))
 import write_hook_output as _hook_output
 
 def main():
-    # 型定義上の `sys.stdout`・`sys.stderr` はreconfigureを持たないTextIOのため、静的型チェック向けに実体のTextIOWrapperとしてcastする。castは実行時に何もしない。
-    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', newline='\n')
-    # backslashreplace：変換できない文字があったら、例外を出さずに \uXXXX の形式で置き換える。
-    #   strict(既定)：UnicodeEncodeError を発生させる。
-    #   replace：? に置き換える。
-    #   ignore：その文字を捨てる。
-    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='backslashreplace', newline='\n')
+    _hook_output.configure_output_streams()
 
     # __file__：このスクリプト自身の絶対パスが設定されている組み込み変数。
     # os.path.abspath：絶対パス化（シンボリックリンクは解決しない）
