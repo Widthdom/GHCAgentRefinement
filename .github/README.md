@@ -349,23 +349,7 @@ flowchart LR
 </table>
 
 ### hookの起動方式
-hook定義JSON（`.github/hooks/<イベント名>.json`・`.github/hooks/-repo-<イベント名>.json`）では、各hookの実行スクリプトを直接起動せず、[hook runner](./hooks/helpers/runner/README.md)（[run_hook.py](./hooks/helpers/runner/run_hook.py)）の引数に渡して起動する。
-
-```json
-{
-  "type": "command",
-  "bash": "python3 .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check_git_state/check_git_state.py",
-  "powershell": "python .github/hooks/helpers/runner/run_hook.py .github/hooks/helpers/events/sessionStart/check_git_state/check_git_state.py",
-  "timeoutSec": 10
-}
-```
-
-- **ランナーを挟む理由**：Copilotのトランスクリプトには、`hook.start`・`hook.end` がイベント種別ごとに1組しか記録されず、どのhookが起動・出力したかを区別できない。ランナーがhookごとに起動したか・機能したかを一時フォルダーのSQLiteに記録し、[debug_add_response_footer](./hooks/helpers/events/agentStop/debug_add_response_footer/README.md) の「Hooks fired」がそれを読む。
-- **引数の制約**：実行スクリプトはリポジトリルートからの相対パスで、`helpers/events/<イベント名>/<hook名>/<hook名>.py`（共通hook）または `helpers/-repo-events/<イベント名>/<hook名>/<hook名>.py`（このリポジトリ専用hook）に限る。
-- **プロセス内で実行**：hookを子プロセスにせず、`runpy.run_path` でランナーのプロセス内で実行する。`timeoutSec` 超過でCopilotがランナーを終了させたとき、hookも一緒に止まり、副作用だけが残らないようにするため。
-- **Claude Code・Codex**：各ホストの設定にはイベントごとにアダプターを1つだけ登録し、アダプターがhook定義JSONを読んで、各hookを本ランナー経由で定義順に実行する。そのため、hookの追加・削除はhook定義JSONだけで済む。
-  - Claude Codeのhook設定は、1つのhookにコマンドを1つしか持てず、OS別にコマンドを出し分けられない。そのため、`sh`（WindowsではGit for Windowsに含まれるGit Bashの `sh`）で [run_claude_hook.sh](./hooks/helpers/runner/run_claude_hook.sh) を起動し、OSに合わせたPythonのコマンド名でアダプターを起動する。Codexの設定はOS別のコマンド（`command`・`commandWindows`）を持てるため、[run_codex_hook.py](./hooks/helpers/runner/run_codex_hook.py) を直接起動する。詳細は [.claude/README.md](../.claude/README.md#前提条件) を参照。
-- **例外**：[check_python](./hooks/helpers/events/sessionStart/check_python/README.md) と [block_commands](./hooks/helpers/events/preToolUse/block_commands/README.md) は、Pythonがない・古い環境でも動く必要があるため、ランナーを通さずシェルスクリプトを直接起動する。この2つは記録されない。
+hook定義JSON（`.github/hooks/<イベント名>.json`・`.github/hooks/-repo-<イベント名>.json`）では、各hookの実行スクリプトを直接起動せず、[hook runner](./hooks/helpers/runner/README.md)（[run_hook.py](./hooks/helpers/runner/run_hook.py)）の引数に渡して起動する。ランナーはhookを自身のプロセス内で実行し、どのhookが起動・機能したかを記録する。Claude Code・Codexでは、イベントごとに1つだけ登録したアダプターがhook定義JSONを読み、各hookをランナー経由で定義順に実行する。[check_python](./hooks/helpers/events/sessionStart/check_python/README.md) と [block_commands](./hooks/helpers/events/preToolUse/block_commands/README.md) だけは、Pythonがない・古い環境でも動く必要があるため、ランナーを通さずシェルスクリプトを直接起動する。
 
 ```mermaid
 flowchart TB
@@ -408,7 +392,7 @@ flowchart TB
     runner -- "起動・機能を記録" --> activity
 ```
 
-詳細は [hook runner README](./hooks/helpers/runner/README.md) を参照。
+ランナーを挟む理由、起動の引数、プロセス内で実行する理由、アダプターの構成は [hook runner README](./hooks/helpers/runner/README.md) を参照。
 
 ### デバッグモード
 先頭 `??` のプロンプトを入力するとデバッグモードになり、 `debug_` 接頭辞付きのhookのデバッグ処理が有効になる。詳細は[set_debug_mode hook README](./hooks/helpers/events/userPromptSubmitted/set_debug_mode/README.md)を参照。
