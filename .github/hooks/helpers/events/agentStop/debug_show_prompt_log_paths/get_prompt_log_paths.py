@@ -49,7 +49,7 @@ def get_prompt_log_paths(transcript_path, session_id):
             if type(timestamp) is int and timestamp >= 0:
                 timestamps.add(timestamp)
 
-    log_directory = _get_debug_log_directory('prompt-transformations', str(session_id))
+    log_directory = _get_debug_log_directory('prompt_transformations', str(session_id))
     paths = []
     for timestamp in sorted(timestamps):
         # 現在の依頼で実際に発動したイベントと照合し、過去のログを表示しない。

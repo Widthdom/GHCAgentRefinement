@@ -23,7 +23,7 @@ DENIED = 'denied'
 
 def get_state_path(session_id):
     # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
-    return _state_path_utility.get_state_path('known-files', session_id)
+    return _state_path_utility.get_state_path('known_files', session_id)
 
 
 def normalize_path(cwd, path):

@@ -35,5 +35,5 @@ OS依存の区切り（Windowsでは `\`）で相対パスを返すAPIの呼び�
 
 ## 備考
 - 相対パスを返すAPIは、Windowsでは `\`、それ以外では `/` で区切ったパスを返す。そのパスを表示・保存・文字列比較すると、開発したOSではテストが通り、別のOSで失敗する。この事故を、書き込む前に防ぐためのhook。相対パスは表示や照合に使われることが多いため、これを返すAPIを対象にする。
-- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block_native_path_separators/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
+- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc_agent_refinement/hook_states/block_native_path_separators/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。

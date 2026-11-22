@@ -212,7 +212,7 @@ def main():
         from check_test_runs import is_test_command
         hook_input = _hook_input.read_hook_input()
 
-        state_path = _get_state_path('test-counts', hook_input.get('sessionId'))
+        state_path = _get_state_path('test_counts', hook_input.get('sessionId'))
         tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
         if not _tool_calls.is_shell_tool(tool_name):

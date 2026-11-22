@@ -45,7 +45,7 @@ class BlockHardcodingForTestsTests(unittest.TestCase):
     def __new_session(self):
         self.__session_id = str(uuid.uuid4())
         self.__state_path = os.path.join(
-            self.__root, 'ghc-agent-refinement', 'hook-states', 'test-failure-values', f'{self.__session_id}.sqlite3',
+            self.__root, 'ghc_agent_refinement', 'hook_states', 'test_failure_values', f'{self.__session_id}.sqlite3',
         )
 
     def __run_process(self, path, hook_input):

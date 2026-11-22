@@ -36,5 +36,5 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - 日本語で指示や文章を書くと、全角スペースがコードやYAMLのインデントに紛れ込みやすい。
 - 意図した文字は、`chr(0x3000)`（Python）や `String.fromCodePoint(0x3000)`（JavaScript）のようにコード値で書くよう求める。エスケープシーケンスを使う場合は、書き込んだ後にファイルを読み直して確認するよう求める。
 - 既存の行と照合するとき、前後から除くのはASCIIの空白（スペース・タブ・CR）だけとする。`str.strip()` は全角スペースやノーブレークスペースも除くため、既存の行の行頭に全角スペースを加える編集を見逃す。
-- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block_invisible_characters/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
+- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc_agent_refinement/hook_states/block_invisible_characters/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。

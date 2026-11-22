@@ -24,8 +24,8 @@ class DebugLogTransformedPromptTests(unittest.TestCase):
         self.__environment = os.environ.copy()
         self.__environment.update({'TMPDIR': self.__root, 'TEMP': self.__root, 'TMP': self.__root})
         self.__session_id = str(uuid.uuid4())
-        self.__debug_directory = os.path.join(self.__root, 'ghc-agent-refinement', 'hook-states', 'debug-mode')
-        self.__log_root = os.path.join(self.__root, 'ghc-agent-refinement', 'debug-logs', 'prompt-transformations')
+        self.__debug_directory = os.path.join(self.__root, 'ghc_agent_refinement', 'hook_states', 'debug_mode')
+        self.__log_root = os.path.join(self.__root, 'ghc_agent_refinement', 'debug_logs', 'prompt_transformations')
         self.__log_directory = os.path.join(self.__log_root, self.__session_id)
         self.__known_paths = set()
         self.__payload = {

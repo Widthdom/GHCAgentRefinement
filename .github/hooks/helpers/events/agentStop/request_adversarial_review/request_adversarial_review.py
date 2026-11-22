@@ -52,7 +52,7 @@ def main():
     # 状態ファイルの保存先は、状態を設定するuserPromptSubmitted hookと共有する。
     try:
         hook_input = _hook_input.read_hook_input()
-        state_path = _get_state_path('adversarial-review', hook_input.get('sessionId'), '.json')
+        state_path = _get_state_path('adversarial_review', hook_input.get('sessionId'), '.json')
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to parse agentStop hook input: {ex}', file=sys.stderr)
         return 2

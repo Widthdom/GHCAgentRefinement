@@ -38,7 +38,7 @@ def main():
         prompt = hook_input.get('prompt')
         if not isinstance(prompt, str):
             raise ValueError('prompt must be a string.')
-        state_path = _get_state_path('adversarial-review', hook_input.get('sessionId'), '.json')
+        state_path = _get_state_path('adversarial_review', hook_input.get('sessionId'), '.json')
     except (OSError, UnicodeError, ValueError) as ex:
         print(f'Failed to parse userPromptSubmitted hook input: {ex}', file=sys.stderr)
         return 2

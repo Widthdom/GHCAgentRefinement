@@ -58,7 +58,7 @@ class BlockExclusionEscapesTests(unittest.TestCase):
     def __new_session(self):
         self.__session_id = str(uuid.uuid4())
         self.__state_path = os.path.join(
-            self.__root, 'ghc-agent-refinement', 'hook-states', 'block_exclusion_escapes', f'{self.__session_id}.sqlite3',
+            self.__root, 'ghc_agent_refinement', 'hook_states', 'block_exclusion_escapes', f'{self.__session_id}.sqlite3',
         )
 
     def __run_hook(self, hook_input, *arguments):

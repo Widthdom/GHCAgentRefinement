@@ -23,7 +23,7 @@ class _TemporaryDirectoryTestCase(unittest.TestCase):
         tempdir = patch.object(tempfile, 'tempdir', temporary.name)
         tempdir.start()
         self.addCleanup(tempdir.stop)
-        self.root = os.path.join(temporary.name, 'ghc-agent-refinement')
+        self.root = os.path.join(temporary.name, 'ghc_agent_refinement')
         self.session_id = str(uuid.uuid4())
 
 
@@ -37,7 +37,7 @@ class DebugModeTests(_TemporaryDirectoryTestCase):
     def test_state_path(self):
         self.assertEqual(
             _utility.get_debug_mode_path(uuid.UUID(self.session_id)),
-            os.path.join(self.root, 'hook-states', 'debug-mode', f'{self.session_id}.json'),
+            os.path.join(self.root, 'hook_states', 'debug_mode', f'{self.session_id}.json'),
         )
         # 不正な値は、文字列にせずにセッションIDの検証へ渡す。
         for session_id, message in (
@@ -92,10 +92,10 @@ class DebugModeTests(_TemporaryDirectoryTestCase):
 class DebugLogDirectoryTests(_TemporaryDirectoryTestCase):
     def test_returns_session_directory_without_creating_it(self):
         # 前後の空白と大文字小文字が違っても、同じセッションは同じ保存先になる。
-        expected = os.path.join(self.root, 'debug-logs', 'prompt-transformations', self.session_id)
+        expected = os.path.join(self.root, 'debug_logs', 'prompt_transformations', self.session_id)
         for spelling in (self.session_id, f' {self.session_id.upper()} '):
             with self.subTest(spelling=spelling):
-                self.assertEqual(_utility.get_debug_log_directory('prompt-transformations', spelling), expected)
+                self.assertEqual(_utility.get_debug_log_directory('prompt_transformations', spelling), expected)
         self.assertFalse(os.path.exists(self.root))
 
     def test_rejects_invalid_session_id(self):
@@ -103,7 +103,7 @@ class DebugLogDirectoryTests(_TemporaryDirectoryTestCase):
         for session_id in (None, '', 'not-a-uuid', '../escape'):
             with self.subTest(session_id=session_id):
                 with self.assertRaises(ValueError):
-                    _utility.get_debug_log_directory('prompt-transformations', session_id)
+                    _utility.get_debug_log_directory('prompt_transformations', session_id)
 
 
 if __name__ == '__main__':

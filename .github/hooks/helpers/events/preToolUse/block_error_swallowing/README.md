@@ -39,5 +39,5 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 ## 備考
 - エラーや警告が出たとき、エージェントが原因を直さずに、例外を握りつぶしたり、コマンドの失敗や診断を黙らせたりして「動くようにした」とする事故を、書き込む前に防ぐためのhook。テストを弱めて成功させる抜け道を塞ぐ [block_test_weakening](../block_test_weakening/README.md) hookと同じ考え方を、実装側に広げたもの。
 - 置換を適用した後のファイル全体と比べるのは、`except OSError:` の次の行の `raise` だけを `pass` に置き換える編集のように、書き込む内容だけでは握りつぶしと分からない編集を検出するため。インデントの変更や周囲の編集で、既存の握りつぶしを新たなものとみなさない。
-- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block_error_swallowing/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
+- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc_agent_refinement/hook_states/block_error_swallowing/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。

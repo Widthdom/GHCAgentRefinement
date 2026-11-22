@@ -7,11 +7,11 @@ sessionStart（セッション開始時）
 一時フォルダーに溜まった古いhookの状態ファイルとデバッグログを数え、多ければ削除用のskillをエージェント経由でユーザーに案内させる。
 
 ## 処理詳細
-1. 一時フォルダー配下の `ghc-agent-refinement/hook-states/` と `ghc-agent-refinement/debug-logs/` にあるファイルのうち、48時間を超えて更新されていないものを数える。
+1. 一時フォルダー配下の `ghc_agent_refinement/hook_states/` と `ghc_agent_refinement/debug_logs/` にあるファイルのうち、48時間を超えて更新されていないものを数える。
 2. 500件以上あれば、件数と、最初の応答の冒頭で削除用のskill（`/clean-hook-temp-files`）をユーザーに案内するよう求める英語の指示を、`additionalContext` としてエージェントに渡す。
 
 ## 例外
-- `ghc-agent-refinement/` の直下や、`hook-states/`・`debug-logs/` 以外に残る古い形式のファイルは数えない。
+- `ghc_agent_refinement/` の直下や、`hook_states/`・`debug_logs/` 以外に残る古い形式のファイルは数えない。
 - 数えている間に削除されたファイルや、読めないディレクトリは数えない。
 
 ## 制約と限界

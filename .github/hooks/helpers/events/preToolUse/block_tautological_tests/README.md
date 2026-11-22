@@ -38,5 +38,5 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 備考
 - テストが失敗したとき、エージェントが期待値をテスト対象自身に計算させたり、テスト対象をモックで置き換えたりして、実装によらず成功するテストにする事故を、書き込む前に防ぐためのhook。常に成功するリテラルのアサーション（`Assert.True(true)` など）は [block_test_weakening](../block_test_weakening/README.md) hookが扱い、本hookは見た目は検証していても実際には何も検証しないテストを扱う。
-- 状態にはファイルパスを保存せず、照合用のSHA-256と拒否の種類だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block_tautological_tests/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
+- 状態にはファイルパスを保存せず、照合用のSHA-256と拒否の種類だけを `<一時フォルダー>/ghc_agent_refinement/hook_states/block_tautological_tests/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。

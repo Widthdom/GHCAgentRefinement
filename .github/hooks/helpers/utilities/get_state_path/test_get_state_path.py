@@ -22,22 +22,22 @@ class GetStatePathTests(unittest.TestCase):
         tempdir = patch.object(tempfile, 'tempdir', temporary.name)
         tempdir.start()
         self.addCleanup(tempdir.stop)
-        self.__states_directory = os.path.join(temporary.name, 'ghc-agent-refinement', 'hook-states')
+        self.__states_directory = os.path.join(temporary.name, 'ghc_agent_refinement', 'hook_states')
 
     def test_normalizes_session_id(self):
         # 前後の空白と大文字小文字が違っても、同じセッションは同じ保存先になる。
         session_id = uuid.uuid4()
         self.assertEqual(_utility.parse_session_id(f' {str(session_id).upper()} '), session_id)
         self.assertEqual(
-            _utility.get_state_path('known-files', f' {str(session_id).upper()} '),
-            os.path.join(self.__states_directory, 'known-files', f'{session_id}.sqlite3'),
+            _utility.get_state_path('known_files', f' {str(session_id).upper()} '),
+            os.path.join(self.__states_directory, 'known_files', f'{session_id}.sqlite3'),
         )
 
     def test_extension(self):
         session_id = str(uuid.uuid4())
         self.assertEqual(
-            _utility.get_state_path('debug-mode', session_id, '.json'),
-            os.path.join(self.__states_directory, 'debug-mode', f'{session_id}.json'),
+            _utility.get_state_path('debug_mode', session_id, '.json'),
+            os.path.join(self.__states_directory, 'debug_mode', f'{session_id}.json'),
         )
 
     def test_rejects_invalid_session_id(self):
@@ -53,7 +53,7 @@ class GetStatePathTests(unittest.TestCase):
             with self.subTest(session_id=session_id):
                 for call in (
                     lambda: _utility.parse_session_id(session_id),
-                    lambda: _utility.get_state_path('known-files', session_id),
+                    lambda: _utility.get_state_path('known_files', session_id),
                 ):
                     with self.assertRaises(ValueError) as context:
                         call()

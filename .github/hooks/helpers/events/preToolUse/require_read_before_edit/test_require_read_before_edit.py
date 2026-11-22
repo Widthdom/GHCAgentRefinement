@@ -26,7 +26,7 @@ class RequireReadBeforeEditTests(unittest.TestCase):
         self.__environment = os.environ.copy()
         self.__environment.update({'TMPDIR': self.__root, 'TEMP': self.__root, 'TMP': self.__root})
         self.__session_id = str(uuid.uuid4())
-        self.__state_directory = os.path.join(self.__root, 'ghc-agent-refinement', 'hook-states', 'known-files')
+        self.__state_directory = os.path.join(self.__root, 'ghc_agent_refinement', 'hook_states', 'known_files')
         self.__state_path = os.path.join(self.__state_directory, f'{self.__session_id}.sqlite3')
         self.__workspace = os.path.join(self.__root, 'workspace')
         os.makedirs(os.path.join(self.__workspace, 'sub'))

@@ -35,5 +35,5 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 備考
 - エージェントがファイルを書き直すとき、変えない部分を `// ... existing code ...` のような省略記号で済ませると、元の実装がそのコメントに置き換わって消える。この事故を書き込む前に防ぐためのhook。
-- 状態にはファイルパスを保存せず、照合用のSHA-256と拒否の種類だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block_elided_rewrites/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
+- 状態にはファイルパスを保存せず、照合用のSHA-256と拒否の種類だけを `<一時フォルダー>/ghc_agent_refinement/hook_states/block_elided_rewrites/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。

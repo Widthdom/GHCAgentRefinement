@@ -35,5 +35,5 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 - 文字コードを取り違えて読んだ文章を、そのままファイルへ書き戻す事故を書き込む前に防ぐためのhook。Windows PowerShell 5.1のパイプや、ANSIコードページのコンソールを通した出力、Shift_JISやLatin-1として読んだファイルの内容で起きやすい。気付かないままコミットすると、元の文章を復元できなくなる。
 - 文字化けを意図したテストデータなどは、`text.encode("utf-8").decode("cp932")` のようにコードで生成するか、コード値で書くよう求める。
 - 定義のJSONでは、文字化けの文字をそのまま書かず `\uXXXX` で書く。このファイル自体の編集が拒否されないようにするため。
-- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block_mojibake_writes/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
+- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc_agent_refinement/hook_states/block_mojibake_writes/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。

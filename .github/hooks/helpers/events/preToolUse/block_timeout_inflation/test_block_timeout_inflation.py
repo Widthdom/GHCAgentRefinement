@@ -146,7 +146,7 @@ class BlockTimeoutInflationTests(unittest.TestCase):
         ]:
             with self.subTest(name=name):
                 self.__assert_allowed(self.__run_call(tool_call))
-        self.assertFalse(os.path.exists(os.path.join(self.__root, 'ghc-agent-refinement')))
+        self.assertFalse(os.path.exists(os.path.join(self.__root, 'ghc_agent_refinement')))
 
     def test_denies_only_once_per_file(self):
         call = _edit('a.py', 'time.sleep(1)', 'time.sleep(5)')

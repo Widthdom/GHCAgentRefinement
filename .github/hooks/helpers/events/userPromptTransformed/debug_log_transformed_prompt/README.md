@@ -15,6 +15,6 @@ userPromptTransformed（モデルへ渡すプロンプトの変換直後）
 - デバッグモード（[set_debug_mode](../../userPromptSubmitted/set_debug_mode/README.md) hookで有効化）が有効なときだけ動く。
 
 ## 備考
-- 保存先は一時フォルダー配下の `ghc-agent-refinement/debug-logs/prompt-transformations/<session-uuid>/`。イベントごとにファイルを作成する。
+- 保存先は一時フォルダー配下の `ghc_agent_refinement/debug_logs/prompt_transformations/<session-uuid>/`。イベントごとにファイルを作成する。
 - プロンプト全文を保存する。差分がない場合も記録する。
 - 差分は `diff` コードブロックで表示する（`+` が追加行、`-` が削除行）。

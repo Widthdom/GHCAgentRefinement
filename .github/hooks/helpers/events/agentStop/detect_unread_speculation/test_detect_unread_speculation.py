@@ -50,7 +50,7 @@ class DetectUnreadSpeculationTests(unittest.TestCase):
         self.__environment.update({'TMPDIR': self.__root, 'TEMP': self.__root, 'TMP': self.__root})
         self.__session_id = str(uuid.uuid4())
         self.__state_path = os.path.join(
-            self.__root, 'ghc-agent-refinement', 'hook-states', 'known-files', f'{self.__session_id}.sqlite3',
+            self.__root, 'ghc_agent_refinement', 'hook_states', 'known_files', f'{self.__session_id}.sqlite3',
         )
         self.__workspace = os.path.join(self.__root, 'workspace')
         os.makedirs(os.path.join(self.__workspace, 'src'))

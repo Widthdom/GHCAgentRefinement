@@ -20,4 +20,4 @@ postToolUse（ツール `bash`・`powershell` が成功した直後）
 - 出力を `head` などで途中まで表示しても、見出し行があれば読んだとみなす。
 
 ## 備考
-- 状態は `<一時フォルダー>/ghc-agent-refinement/hook-states/viewed-commits/<セッションID>.sqlite3` に保存する。
+- 状態は `<一時フォルダー>/ghc_agent_refinement/hook_states/viewed_commits/<セッションID>.sqlite3` に保存する。

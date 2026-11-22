@@ -54,6 +54,6 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 エージェントは、コードの見た目だけを手がかりに「不要な分岐」「冗長なチェック」を消しがちになる。しかし、その行は過去にバグを直すために足されたものかもしれない。リポジトリの履歴はその理由を知っているので、git blameで行の由来を調べ、巻き戻す前に経緯を読ませる。
 
 ## 備考
-- 状態は読むだけで、書き込まない。読んだコミットの記録は `<一時フォルダー>/ghc-agent-refinement/hook-states/viewed-commits/<セッションID>.sqlite3` にある。
+- 状態は読むだけで、書き込まない。読んだコミットの記録は `<一時フォルダー>/ghc_agent_refinement/hook_states/viewed_commits/<セッションID>.sqlite3` にある。
 - 正規表現はPythonの `re` 構文で書き、大文字小文字を区別しない場合は `(?i)` を先頭に付ける。テスト用に `--definitions-path` で定義ファイルを差し替えられる。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。

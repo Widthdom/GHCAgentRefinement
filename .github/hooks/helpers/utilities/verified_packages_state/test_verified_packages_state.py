@@ -28,7 +28,7 @@ class VerifiedPackagesStateTests(unittest.TestCase):
         session_id = uuid.uuid4()
         self.assertEqual(
             _utility.get_state_path(f' {str(session_id).upper()} '),
-            os.path.join(self.__temp_directory, 'ghc-agent-refinement', 'hook-states', 'verified-packages',
+            os.path.join(self.__temp_directory, 'ghc_agent_refinement', 'hook_states', 'verified_packages',
                          f'{session_id}.sqlite3'),
         )
         for invalid in (None, '', '  ', 'not-a-uuid'):

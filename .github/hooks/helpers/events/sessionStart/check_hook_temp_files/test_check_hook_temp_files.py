@@ -36,7 +36,7 @@ class CheckHookTempFilesTests(unittest.TestCase):
         self.__temp = os.path.realpath(temporary.name)
         self.__environment = os.environ.copy()
         self.__environment.update({'TMPDIR': self.__temp, 'TEMP': self.__temp, 'TMP': self.__temp})
-        self.__root = os.path.join(self.__temp, 'ghc-agent-refinement')
+        self.__root = os.path.join(self.__temp, 'ghc_agent_refinement')
         self.__sequence = 0
 
     @staticmethod
@@ -60,20 +60,20 @@ class CheckHookTempFilesTests(unittest.TestCase):
     def __create_layout(self):
         # 48時間を超えて更新のないファイルと、それ以外のファイルを、分類の内外に配置する。
         stale = [
-            self.__create_file(os.path.join('hook-states', 'edit-oscillation', 'a.sqlite3'), _STALE_SECONDS),
-            self.__create_file(os.path.join('hook-states', 'debug-mode', 'b.json'), _STALE_SECONDS),
-            self.__create_file(os.path.join('debug-logs', 'prompt-transformations', 'session', 'c.txt'), _STALE_SECONDS),
+            self.__create_file(os.path.join('hook_states', 'edit_oscillation', 'a.sqlite3'), _STALE_SECONDS),
+            self.__create_file(os.path.join('hook_states', 'debug_mode', 'b.json'), _STALE_SECONDS),
+            self.__create_file(os.path.join('debug_logs', 'prompt_transformations', 'session', 'c.txt'), _STALE_SECONDS),
         ]
         kept = [
-            self.__create_file(os.path.join('hook-states', 'edit-oscillation', 'fresh.sqlite3'), _FRESH_SECONDS),
-            self.__create_file(os.path.join('debug-mode', 'legacy.json'), _STALE_SECONDS),
+            self.__create_file(os.path.join('hook_states', 'edit_oscillation', 'fresh.sqlite3'), _FRESH_SECONDS),
+            self.__create_file(os.path.join('debug_mode', 'legacy.json'), _STALE_SECONDS),
             self.__create_file('root.txt', _STALE_SECONDS),
         ]
         # ファイルを作るとディレクトリの更新時刻も変わるため、最後に古くする。
         for directory in (
-            os.path.join('debug-logs', 'prompt-transformations', 'session'),
-            os.path.join('debug-logs', 'prompt-transformations'),
-            os.path.join('hook-states', 'debug-mode'),
+            os.path.join('debug_logs', 'prompt_transformations', 'session'),
+            os.path.join('debug_logs', 'prompt_transformations'),
+            os.path.join('hook_states', 'debug_mode'),
         ):
             self.__set_age(os.path.join(self.__root, directory), _STALE_SECONDS)
         return stale, kept
@@ -106,27 +106,27 @@ class CheckHookTempFilesTests(unittest.TestCase):
     # 警告hook
 
     def test_warns_at_threshold_across_categories(self):
-        self.__create_files(os.path.join('hook-states', 'edit-oscillation'), 200)
-        self.__create_files(os.path.join('hook-states', 'debug-mode'), 100)
-        self.__create_files(os.path.join('debug-logs', 'prompt-transformations', 'session'), 199)
+        self.__create_files(os.path.join('hook_states', 'edit_oscillation'), 200)
+        self.__create_files(os.path.join('hook_states', 'debug_mode'), 100)
+        self.__create_files(os.path.join('debug_logs', 'prompt_transformations', 'session'), 199)
         self.__assert_silent(self.__invoke_hook())
-        self.__create_files(os.path.join('debug-logs', 'prompt-transformations', 'other-session'), 1)
+        self.__create_files(os.path.join('debug_logs', 'prompt_transformations', 'other-session'), 1)
         self.__assert_warning(self.__invoke_hook(), 500)
 
     def test_counts_only_stale_files_in_categories(self):
-        self.__create_files(os.path.join('hook-states', 'known-files'), 499)
+        self.__create_files(os.path.join('hook_states', 'known_files'), 499)
         # 48時間以内に更新されたファイルと、分類外のファイルは数えない。
-        self.__create_files(os.path.join('hook-states', 'known-files'), 50, age_seconds=_FRESH_SECONDS)
-        self.__create_files('debug-mode', 50)
+        self.__create_files(os.path.join('hook_states', 'known_files'), 50, age_seconds=_FRESH_SECONDS)
+        self.__create_files('debug_mode', 50)
         self.__create_files('', 50)
         self.__create_files(os.path.join('..', 'other-tool'), 50)
         self.__assert_silent(self.__invoke_hook())
-        self.__create_files(os.path.join('hook-states', 'known-files'), 1)
+        self.__create_files(os.path.join('hook_states', 'known_files'), 1)
         self.__assert_warning(self.__invoke_hook(), 500)
 
     def test_missing_directories_are_silent(self):
         self.__assert_silent(self.__invoke_hook())
-        os.makedirs(os.path.join(self.__root, 'hook-states'))
+        os.makedirs(os.path.join(self.__root, 'hook_states'))
         self.__assert_silent(self.__invoke_hook())
 
     # 判定基準（hook_temp_files.py）
@@ -137,9 +137,9 @@ class CheckHookTempFilesTests(unittest.TestCase):
         self.assertEqual(sorted(path for _, path, _ in found), sorted(stale))
         # 分類は、OSによらず `/` 区切りで示される。
         self.assertEqual({group for group, _, _ in found}, {
-            'hook-states/edit-oscillation',
-            'hook-states/debug-mode',
-            'debug-logs/prompt-transformations/session',
+            'hook_states/edit_oscillation',
+            'hook_states/debug_mode',
+            'debug_logs/prompt_transformations/session',
         })
         self.assertTrue(all(size == 10 for _, _, size in found))
         self.assertEqual(_helper.find_stale_files(os.path.join(self.__temp, 'missing'), time.time()), [])
@@ -173,8 +173,8 @@ class CheckHookTempFilesTests(unittest.TestCase):
         output = result.stdout.decode('utf-8')
         self.assertIn(f'Temporary directory: {self.__root}', output)
         self.assertIn('Files not updated for more than 48 hours: 3 (30 B)', output)
-        self.assertIn('  hook-states/edit-oscillation: 1', output)
-        self.assertIn('  debug-logs/prompt-transformations/session: 1', output)
+        self.assertIn('  hook_states/edit_oscillation: 1', output)
+        self.assertIn('  debug_logs/prompt_transformations/session: 1', output)
         self.assertTrue(all(os.path.exists(path) for path in stale + kept))
 
     def test_deletes_stale_files_and_directories(self):
@@ -186,20 +186,20 @@ class CheckHookTempFilesTests(unittest.TestCase):
         self.assertIn('Deleted 3 files (30 B) and 3 empty directories.', result.stdout.decode('utf-8'))
         self.assertFalse(any(os.path.exists(path) for path in stale))
         self.assertTrue(all(os.path.exists(path) for path in kept))
-        self.assertFalse(os.path.exists(os.path.join(self.__root, 'debug-logs', 'prompt-transformations')))
-        self.assertFalse(os.path.exists(os.path.join(self.__root, 'hook-states', 'debug-mode')))
-        for directory in ('hook-states', 'debug-logs', os.path.join('hook-states', 'edit-oscillation')):
+        self.assertFalse(os.path.exists(os.path.join(self.__root, 'debug_logs', 'prompt_transformations')))
+        self.assertFalse(os.path.exists(os.path.join(self.__root, 'hook_states', 'debug_mode')))
+        for directory in ('hook_states', 'debug_logs', os.path.join('hook_states', 'edit_oscillation')):
             self.assertTrue(os.path.isdir(os.path.join(self.__root, directory)))
         # 削除後は警告の対象もなくなる。
         self.__assert_silent(self.__invoke_hook())
 
     def test_recent_empty_directory_is_kept(self):
         # hookが作成した直後の空ディレクトリを消すと、その後の書き込みが失敗するため残す。
-        os.makedirs(os.path.join(self.__root, 'hook-states', 'known-files'))
+        os.makedirs(os.path.join(self.__root, 'hook_states', 'known_files'))
         result = self.__run_clean()
         self.assertEqual(result.returncode, 0)
         self.assertIn('Deleted 0 files (0 B) and 0 empty directories.', result.stdout.decode('utf-8'))
-        self.assertTrue(os.path.isdir(os.path.join(self.__root, 'hook-states', 'known-files')))
+        self.assertTrue(os.path.isdir(os.path.join(self.__root, 'hook_states', 'known_files')))
 
     def test_missing_temp_root(self):
         for arguments in (('--dry-run',), ()):

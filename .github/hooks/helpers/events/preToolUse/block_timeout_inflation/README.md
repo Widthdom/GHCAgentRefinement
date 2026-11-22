@@ -58,5 +58,5 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 備考
 - 遅い・不安定な処理やテストを、待ち時間・再試行回数を延ばすだけで「直した」ことにする事故を、書き込む前に防ぐためのhook。競合状態、`await` の漏れ、誤った待機条件などの原因が残り、テストやCIが遅くなる。
-- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block_timeout_inflation/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
+- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc_agent_refinement/hook_states/block_timeout_inflation/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。

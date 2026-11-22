@@ -27,7 +27,7 @@ class DetectVacuousTestSuccessTests(unittest.TestCase):
         self.__environment.update({'TMPDIR': self.__root, 'TEMP': self.__root, 'TMP': self.__root})
         self.__session_id = str(uuid.uuid4())
         self.__state_path = os.path.join(
-            self.__root, 'ghc-agent-refinement', 'hook-states', 'test-counts', f'{self.__session_id}.sqlite3',
+            self.__root, 'ghc_agent_refinement', 'hook_states', 'test_counts', f'{self.__session_id}.sqlite3',
         )
 
     def __payload(self, command, output, tool_name='bash', session_id=None):

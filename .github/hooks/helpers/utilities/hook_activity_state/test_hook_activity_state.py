@@ -28,7 +28,7 @@ class HookActivityStateTests(unittest.TestCase):
         session_id = uuid.uuid4()
         self.assertEqual(
             _utility._get_state_path(f' {str(session_id).upper()} '),
-            os.path.join(self.__temp_directory, 'ghc-agent-refinement', 'hook-states', 'hook-activity',
+            os.path.join(self.__temp_directory, 'ghc_agent_refinement', 'hook_states', 'hook_activity',
                          f'{session_id}.sqlite3'),
         )
         for invalid in (None, '', '  ', 'not-a-uuid'):

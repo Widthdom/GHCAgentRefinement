@@ -19,7 +19,7 @@ class FilterNewNotificationsTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-filter-new-notifications-test-')
         self.addCleanup(temporary.cleanup)
         # 親ディレクトリがなくても作る。
-        self.__state_path = os.path.join(temporary.name, 'hook-states', 'hook', 'session.sqlite3')
+        self.__state_path = os.path.join(temporary.name, 'hook_states', 'hook', 'session.sqlite3')
 
     def __filter(self, results):
         return _filter_new_notifications(self.__state_path, results)

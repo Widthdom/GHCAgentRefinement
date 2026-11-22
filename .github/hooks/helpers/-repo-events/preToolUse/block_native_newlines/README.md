@@ -38,6 +38,6 @@ Pythonで、改行を `\n` に固定せずにテキストを書き出す呼び�
 - 正規表現で検出するため、定義にない書き方（`codecs.open`、モードを変数で渡す `open` など）は見逃す。読み込み用の `TextIOWrapper` も、読み書きを区別できないため対象にする。
 
 ## 備考
-- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block_native_newlines/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
+- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc_agent_refinement/hook_states/block_native_newlines/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。
 - 規約は [hookの共通規約](../../../../../skills/create-hook/references/hook-conventions.md) の項目8に記載している。

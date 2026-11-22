@@ -27,10 +27,10 @@ from get_display_path import get_display_path as _get_display_path
 
 
 # 守るパス。hookの定義・実装・テストと、hookが保持する状態（変更の許可の記録を含む）。
-_PROTECTED_PATH_PATTERN = re.compile(r'(?:^|[/\\])(?:\.github[/\\]hooks|ghc-agent-refinement[/\\]hook-states)(?:[/\\]|$)', re.IGNORECASE)
-_PROTECTED_PATH_IN_COMMAND_PATTERN = re.compile(r'\.github[/\\]+hooks\b|ghc-agent-refinement[/\\]+hook-states\b', re.IGNORECASE)
+_PROTECTED_PATH_PATTERN = re.compile(r'(?:^|[/\\])(?:\.github[/\\]hooks|ghc_agent_refinement[/\\]hook_states)(?:[/\\]|$)', re.IGNORECASE)
+_PROTECTED_PATH_IN_COMMAND_PATTERN = re.compile(r'\.github[/\\]+hooks\b|ghc_agent_refinement[/\\]+hook_states\b', re.IGNORECASE)
 # 守るパスを含むフォルダーそのもの（`.github`・`.github/*` など）。丸ごと削除・移動すると守るパスも変わる。
-_PARENT_PATH_IN_COMMAND_PATTERN = re.compile(r'(?<![\w.-])(?:\.github|ghc-agent-refinement)[/\\]*\*?(?![\w./\\-])', re.IGNORECASE)
+_PARENT_PATH_IN_COMMAND_PATTERN = re.compile(r'(?<![\w.-])(?:\.github|ghc_agent_refinement)[/\\]*\*?(?![\w./\\-])', re.IGNORECASE)
 # シェルのコマンドの区切り。`2>&1`・`&>` などのリダイレクトの `&` は区切りとみなさない。
 _LIST_SEPARATOR_PATTERN = re.compile(r'&&|\|\||(?<![<>])&(?!>)|[;\n]')
 _PIPE_SEPARATOR_PATTERN = re.compile(r'\|')
@@ -86,7 +86,7 @@ _RELATIVE_REDIRECT_PATTERN = re.compile(
 _COMMAND_MODIFYING_PATTERNS = (
     # 守るパスへのリダイレクト。hookのテストの出力を一時ファイルへ書く場合などは除く。
     re.compile(
-        r'>{1,2}\|?\s*["\']?[^\s|;&<>]*(?:\.github[/\\]+hooks|ghc-agent-refinement[/\\]+hook-states)', re.IGNORECASE,
+        r'>{1,2}\|?\s*["\']?[^\s|;&<>]*(?:\.github[/\\]+hooks|ghc_agent_refinement[/\\]+hook_states)', re.IGNORECASE,
     ),
     # スクリプト内部での書き込み（`python -c`・`node -e`・PowerShellの.NET API）
     # `open` は、2番目の引数か `mode=` が書き込みを含むモードの場合だけ書き込みとみなす（`Path.open` はモードが最初の引数）。

@@ -14,7 +14,7 @@ import get_state_path as _state_path_utility
 
 def _get_state_path(session_id):
     # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
-    return _state_path_utility.get_state_path('hook-activity', session_id)
+    return _state_path_utility.get_state_path('hook_activity', session_id)
 
 
 def record_hook_run(session_id, event_name, hook_name, started_at_ms, fired):

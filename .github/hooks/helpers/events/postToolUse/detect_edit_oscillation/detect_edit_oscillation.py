@@ -111,7 +111,7 @@ def main():
     try:
         hook_input = _hook_input.read_hook_input()
 
-        state_path = _get_state_path('edit-oscillation', hook_input.get('sessionId'))
+        state_path = _get_state_path('edit_oscillation', hook_input.get('sessionId'))
 
         cwd = _hook_input.get_cwd(hook_input)
         tool_name, tool_args = _hook_input.get_tool_call(hook_input)

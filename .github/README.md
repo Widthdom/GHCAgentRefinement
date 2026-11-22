@@ -389,7 +389,7 @@ flowchart TB
     codexSettings[/"<b><i><u>hooks定義</u></i></b><br/>.codex/hooks.json"/]
     runner["<b><i><u>ランナー</u></i></b><br/>run_hook.py"]
     hookScript["<div style='text-align: left; width: 320px; font-size: 12px'>・.github/hooks/helpers/events/<br/>      &lt;イベント名&gt;/&lt;hook名&gt;/&lt;hook名&gt;.py<br/>・.github/hooks/helpers/-repo-events/<br/>      &lt;イベント名&gt;/&lt;hook名&gt;/&lt;hook名&gt;.py</div>"]
-    activity[("<b><i><u>hooks実行記録DB</u></i></b><div style='text-align: left; width: 176px; font-size: 12px'>&lt;一時フォルダー&gt;/<br/>  ghc-agent-refinement/<br/>    hook-states/<br/>      hook-activity/<br/>        &lt;セッションID&gt;.sqlite3</div>")]
+    activity[("<b><i><u>hooks実行記録DB</u></i></b><div style='text-align: left; width: 176px; font-size: 12px'>&lt;一時フォルダー&gt;/<br/>  ghc_agent_refinement/<br/>    hook_states/<br/>      hook_activity/<br/>        &lt;セッションID&gt;.sqlite3</div>")]
 
     ghc -. "読込" .-> definitions
     ghc -- "bash / powershell" --> runner

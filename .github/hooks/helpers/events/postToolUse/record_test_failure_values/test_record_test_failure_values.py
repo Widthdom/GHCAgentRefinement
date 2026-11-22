@@ -40,7 +40,7 @@ class RecordTestFailureValuesTests(unittest.TestCase):
     def __new_session(self):
         self.__session_id = str(uuid.uuid4())
         self.__state_path = os.path.join(
-            self.__root, 'ghc-agent-refinement', 'hook-states', 'test-failure-values', f'{self.__session_id}.sqlite3',
+            self.__root, 'ghc_agent_refinement', 'hook_states', 'test_failure_values', f'{self.__session_id}.sqlite3',
         )
 
     def __invoke(self, output, command='python3 -m pytest', tool_name='bash', payload=None, raw=None):

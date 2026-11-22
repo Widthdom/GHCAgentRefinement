@@ -33,7 +33,7 @@ class RecordHookChangeRequestsTests(unittest.TestCase):
             file.write('not a hook directory')
         self.__session_id = str(uuid.uuid4())
         self.__state_path = os.path.join(
-            self.__root, 'ghc-agent-refinement', 'hook-states', 'hook-change-requests', f'{self.__session_id}.json',
+            self.__root, 'ghc_agent_refinement', 'hook_states', 'hook_change_requests', f'{self.__session_id}.json',
         )
 
     def __run_hook(self, hook_input):

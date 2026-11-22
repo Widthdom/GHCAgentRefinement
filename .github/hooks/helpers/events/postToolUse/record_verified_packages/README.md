@@ -29,4 +29,4 @@ postToolUse（ツール `bash`・`powershell`・`web_fetch` が成功した直�
 - オプションの値と名前は、`-` で始まる語の直後の語をオプションの値とみなせる限りそうみなして区別する。値を取らないオプションの直後に名前があり、さらに後ろに別の語が続く書き方では、名前を取り違える場合がある。
 
 ## 備考
-- 状態は `<一時フォルダー>/ghc-agent-refinement/hook-states/verified-packages/<セッションID>.sqlite3` に保存する。DBファイル自体は自動削除しない。
+- 状態は `<一時フォルダー>/ghc_agent_refinement/hook_states/verified_packages/<セッションID>.sqlite3` に保存する。DBファイル自体は自動削除しない。

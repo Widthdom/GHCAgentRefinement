@@ -22,7 +22,7 @@ from write_json_atomically import write_json_atomically as _write_json_atomicall
 
 def get_state_path(session_id):
     # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。
-    return _state_path_utility.get_state_path('hook-change-requests', session_id, '.json')
+    return _state_path_utility.get_state_path('hook_change_requests', session_id, '.json')
 
 
 def is_permitted(state_path):

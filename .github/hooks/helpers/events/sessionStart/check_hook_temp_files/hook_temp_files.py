@@ -6,8 +6,8 @@ import tempfile
 # 両者で基準がずれないよう、対象の分類と保持期間はここだけで定める。
 # hookが一時フォルダー配下に書き込む分類。どちらも48時間更新がなければ削除してよい。
 # 使用中のセッションの状態は直近に更新されるため、更新時刻だけで削除対象から外れる。
-_TEMP_ROOT_NAME = 'ghc-agent-refinement'
-_TEMP_CATEGORIES = ('hook-states', 'debug-logs')
+_TEMP_ROOT_NAME = 'ghc_agent_refinement'
+_TEMP_CATEGORIES = ('hook_states', 'debug_logs')
 _RETENTION_SECONDS = 48 * 60 * 60
 
 

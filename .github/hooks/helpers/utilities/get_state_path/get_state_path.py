@@ -23,7 +23,7 @@ def parse_session_id(session_id):
 def get_state_path(state_name, session_id, extension='.sqlite3'):
     # hookは呼び出しごとに別プロセスなので、状態をセッションUUID別に保存する。状態ファイル自体は自動削除しない。
     return os.path.join(
-        tempfile.gettempdir(), 'ghc-agent-refinement', 'hook-states', state_name,
+        tempfile.gettempdir(), 'ghc_agent_refinement', 'hook_states', state_name,
         f'{parse_session_id(session_id)}{extension}',
     )
 

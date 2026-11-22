@@ -27,7 +27,7 @@ class BlockHookTamperingTests(unittest.TestCase):
         os.makedirs(self.__directory)
         self.__session_id = str(uuid.uuid4())
         self.__state_path = os.path.join(
-            self.__root, 'ghc-agent-refinement', 'hook-states', 'hook-change-requests', f'{self.__session_id}.json',
+            self.__root, 'ghc_agent_refinement', 'hook_states', 'hook_change_requests', f'{self.__session_id}.json',
         )
 
     def __write_state(self, content):
@@ -85,8 +85,8 @@ class BlockHookTamperingTests(unittest.TestCase):
              '.github/hooks/helpers/-repo-events/p/q/q.py'),
             ('apply_patch', '*** Begin Patch\n*** Delete File: .github/hooks/preToolUse.json\n*** End Patch\n', '.github/hooks/preToolUse.json'),
             ('apply_patch', '*** Begin Patch\n*** Update File: src/a.py\n*** Move to: .github/hooks/b.py\n*** End Patch\n', '.github/hooks/b.py'),
-            ('create', {'path': os.path.join(self.__root, 'ghc-agent-refinement', 'hook-states', 'hook-change-requests', 'x.json'), 'file_text': '{}'},
-             'ghc-agent-refinement/hook-states/hook-change-requests/x.json'),
+            ('create', {'path': os.path.join(self.__root, 'ghc_agent_refinement', 'hook_states', 'hook_change_requests', 'x.json'), 'file_text': '{}'},
+             'ghc_agent_refinement/hook_states/hook_change_requests/x.json'),
         )
         for tool_name, tool_args, target in cases:
             with self.subTest(tool_name=tool_name, target=target):
@@ -110,7 +110,7 @@ class BlockHookTamperingTests(unittest.TestCase):
             'mv .github/hooks/agentStop.json /tmp/x',
             "sed -i 's/deny/allow/' .github/hooks/helpers/events/preToolUse/x/x.py",
             'echo {} > .github/hooks/preToolUse.json',
-            'echo "{\\"permitted\\":true}" >> "$TMPDIR/ghc-agent-refinement/hook-states/hook-change-requests/a.json"',
+            'echo "{\\"permitted\\":true}" >> "$TMPDIR/ghc_agent_refinement/hook_states/hook_change_requests/a.json"',
             'Remove-Item -Recurse .github\\hooks\\helpers',
             'Set-Content -Path .github/hooks/x.json -Value "{}"',
             "python -c \"open('.github/hooks/x.json', 'w').write('{}')\"",

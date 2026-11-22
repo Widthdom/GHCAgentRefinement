@@ -37,5 +37,5 @@ preToolUse（ファイル編集ツール `edit`・`create`・`insert`・`str_rep
 
 ## 備考
 - エージェントがDesigner.csやEF Coreのモデルスナップショット、ロックファイルなどを手で書き換えると、次の再生成で変更が黙って消えるか、生成元との食い違いが残る。この事故を書き込む前に防ぎ、生成元（`.resx`・`.edmx`・`.proto`・スキーマ・パッケージのマニフェストなど）の編集と再生成に誘導するためのhook。
-- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block_generated_file_edits/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
+- 状態にはファイルパスを保存せず、照合用のSHA-256だけを `<一時フォルダー>/ghc_agent_refinement/hook_states/block_generated_file_edits/<セッションID>.sqlite3` に保存する。拒否しない編集では状態ファイルを作らない。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotが編集の拒否として扱う。

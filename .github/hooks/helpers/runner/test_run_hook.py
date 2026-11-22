@@ -101,7 +101,7 @@ class RunHookTests(unittest.TestCase):
 
     def __recorded_runs(self):
         state_path = os.path.join(
-            self.__temp_directory, 'ghc-agent-refinement', 'hook-states', 'hook-activity', f'{self.__session_id}.sqlite3',
+            self.__temp_directory, 'ghc_agent_refinement', 'hook_states', 'hook_activity', f'{self.__session_id}.sqlite3',
         )
         if not os.path.isfile(state_path):
             return []
@@ -203,9 +203,9 @@ class RunHookTests(unittest.TestCase):
 
     def test_recording_failure_keeps_hook_result(self):
         # 記録の保存先のフォルダーと同じ名前のファイルを置き、記録を失敗させる。
-        states_directory = os.path.join(self.__temp_directory, 'ghc-agent-refinement', 'hook-states')
+        states_directory = os.path.join(self.__temp_directory, 'ghc_agent_refinement', 'hook_states')
         os.makedirs(states_directory)
-        with open(os.path.join(states_directory, 'hook-activity'), 'w', encoding='utf-8', newline='\n') as file:
+        with open(os.path.join(states_directory, 'hook_activity'), 'w', encoding='utf-8', newline='\n') as file:
             file.write('not a directory')
         result = self.__run_hook(self.__payload(), FAKE_STDOUT='{"decision":"block"}')
         self.assertEqual(result.returncode, 0)

@@ -23,4 +23,4 @@ userPromptSubmitted（メインエージェントへの依頼時）
 
 ## 備考
 - [block_hook_tampering](../../preToolUse/block_hook_tampering/README.md) hookが使う記録。単独では何も出力しない。preToolUseの入力にはユーザーの依頼もトランスクリプトのパスも含まれないため、依頼の時点で記録しておく。
-- 状態は [hook_change_request_state.py](../../../utilities/hook_change_request_state/hook_change_request_state.py) でblock_hook_tampering hookと共有する。プロンプトの内容は保存せず、`{"updatedAt":"...","permitted":true}` だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/hook-change-requests/<セッションID>.json` に保存する。hookに触れない依頼では状態ファイルを作らない。保存は [write_json_atomically](../../../utilities/write_json_atomically/README.md) で一時ファイルに書いてから置き換え、block_hook_tampering hookに書き込み途中の内容を読ませない。
+- 状態は [hook_change_request_state.py](../../../utilities/hook_change_request_state/hook_change_request_state.py) でblock_hook_tampering hookと共有する。プロンプトの内容は保存せず、`{"updatedAt":"...","permitted":true}` だけを `<一時フォルダー>/ghc_agent_refinement/hook_states/hook_change_requests/<セッションID>.json` に保存する。hookに触れない依頼では状態ファイルを作らない。保存は [write_json_atomically](../../../utilities/write_json_atomically/README.md) で一時ファイルに書いてから置き換え、block_hook_tampering hookに書き込み途中の内容を読ませない。

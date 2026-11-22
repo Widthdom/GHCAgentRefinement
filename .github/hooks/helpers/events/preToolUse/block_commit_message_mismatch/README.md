@@ -44,5 +44,5 @@ git commit -m '`parse` と `render` を直し、docs/guide.md を更新した'
 - メッセージのファイル（`-F`）を同じコマンドの中で作る場合は、実行前に読めないため対象外になる。
 
 ## 備考
-- 状態には拒否したメッセージのSHA-256だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block_commit_message_mismatch/<セッションID>.sqlite3` に保存する。拒否しないコミットでは状態ファイルを作らない。
+- 状態には拒否したメッセージのSHA-256だけを `<一時フォルダー>/ghc_agent_refinement/hook_states/block_commit_message_mismatch/<セッションID>.sqlite3` に保存する。拒否しないコミットでは状態ファイルを作らない。
 - hookの異常終了（不正な入力）は、Copilotがツール実行の拒否として扱う。

@@ -80,7 +80,7 @@ def main():
     try:
         hook_input = _hook_input.read_hook_input()
 
-        state_path = _get_state_path('repeated-failures', hook_input.get('sessionId'))
+        state_path = _get_state_path('repeated_failures', hook_input.get('sessionId'))
 
         # サブエージェントの失敗を親の失敗として数えない。
         if hook_input.get('agentId'):

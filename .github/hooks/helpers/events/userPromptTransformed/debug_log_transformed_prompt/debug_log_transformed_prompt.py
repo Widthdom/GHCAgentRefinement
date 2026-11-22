@@ -61,7 +61,7 @@ def _format_log(hook_input, session_id):
 
 
 def _save_log(content, session_id, timestamp):
-    log_directory = _debug_mode_state.get_debug_log_directory('prompt-transformations', str(session_id))
+    log_directory = _debug_mode_state.get_debug_log_directory('prompt_transformations', str(session_id))
     os.makedirs(log_directory, exist_ok=True)
     temporary_path = None
     try:

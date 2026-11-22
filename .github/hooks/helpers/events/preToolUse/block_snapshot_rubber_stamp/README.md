@@ -36,6 +36,6 @@ preToolUse（ツール `bash`・`powershell` の実行前）
 テストの失敗を、出力を承認して「直す」のは、期待値を実際の値に書き換える [block_goalpost_moving](../block_goalpost_moving/README.md) hookの対象と同じ骨抜きを、コマンド1つで全テストにまとめて行うことになる。編集ではなくコマンドで行われるため、編集を見るhookでは防げない抜け道を塞ぐ。
 
 ## 備考
-- 状態には種類の名前だけを `<一時フォルダー>/ghc-agent-refinement/hook-states/block_snapshot_rubber_stamp/<セッションID>.sqlite3` に保存する。拒否しないコマンドでは状態ファイルを作らない。
+- 状態には種類の名前だけを `<一時フォルダー>/ghc_agent_refinement/hook_states/block_snapshot_rubber_stamp/<セッションID>.sqlite3` に保存する。拒否しないコマンドでは状態ファイルを作らない。
 - 正規表現はPythonの `re` 構文で書き、大文字小文字を区別しない場合は `(?i)` を先頭に付ける。テスト用に `--definitions-path` で定義ファイルを差し替えられる。
 - hookの異常終了（不正な入力や定義ファイル）は、Copilotがツール実行の拒否として扱う。

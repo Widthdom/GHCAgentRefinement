@@ -125,7 +125,7 @@ class BlockMaskedExitCodesTests(unittest.TestCase):
         self.__assert_allowed(self.__invoke('pytest | tail'))
         self.__assert_denied(self.__invoke('pytest -x | tail'))
         self.__assert_denied(self.__invoke('pytest | tail', session_id='11111111-1111-4111-8111-111111111111'))
-        state_directory = os.path.join(self.__root, 'ghc-agent-refinement', 'hook-states', 'block_masked_exit_codes')
+        state_directory = os.path.join(self.__root, 'ghc_agent_refinement', 'hook_states', 'block_masked_exit_codes')
         self.assertEqual(
             sorted(os.listdir(state_directory)),
             ['00000000-0000-4000-8000-000000000000.sqlite3', '11111111-1111-4111-8111-111111111111.sqlite3'],
@@ -133,7 +133,7 @@ class BlockMaskedExitCodesTests(unittest.TestCase):
 
     def test_allowed_commands_create_no_state(self):
         self.__assert_allowed(self.__invoke('dotnet test'))
-        self.assertFalse(os.path.exists(os.path.join(self.__root, 'ghc-agent-refinement')))
+        self.assertFalse(os.path.exists(os.path.join(self.__root, 'ghc_agent_refinement')))
 
     def test_invalid_input(self):
         def encode(value):

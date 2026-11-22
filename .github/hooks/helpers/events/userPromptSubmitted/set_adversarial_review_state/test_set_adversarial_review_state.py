@@ -24,7 +24,7 @@ class ReviewModeTests(unittest.TestCase):
         self.__environment = os.environ.copy()
         self.__environment.update(dict.fromkeys(('TMPDIR', 'TMP', 'TEMP'), self.__temporary.name))
         self.__state_directory = os.path.join(
-            self.__temporary.name, 'ghc-agent-refinement', 'hook-states', 'adversarial-review',
+            self.__temporary.name, 'ghc_agent_refinement', 'hook_states', 'adversarial_review',
         )
 
     def __invoke(self, payload):
@@ -74,7 +74,7 @@ class ReviewModeTests(unittest.TestCase):
         self.assertEqual(self.__invoke({'sessionId': self.__session_id, 'prompt': 'rearm;;'}).returncode, 0)
         self.assertTrue(self.__state()['pending'])
         self.assertFalse(os.path.exists(os.path.join(
-            self.__temporary.name, 'ghc-agent-refinement', 'hook-states', 'debug-mode',
+            self.__temporary.name, 'ghc_agent_refinement', 'hook_states', 'debug_mode',
         )))
 
     def test_subagent_does_not_overwrite_parent_mode(self):
@@ -92,7 +92,7 @@ class ReviewModeTests(unittest.TestCase):
             'set_debug_mode.py',
         )
         debug_path = os.path.join(
-            self.__temporary.name, 'ghc-agent-refinement', 'hook-states', 'debug-mode',
+            self.__temporary.name, 'ghc_agent_refinement', 'hook_states', 'debug_mode',
             f'{self.__session_id}.json',
         )
         for prompt, debug_enabled, review_enabled in (
@@ -128,8 +128,8 @@ class ReviewModeTests(unittest.TestCase):
                 self.assertTrue(result.stderr)
 
     def test_write_failure_exit_code(self):
-        os.makedirs(os.path.join(self.__temporary.name, 'ghc-agent-refinement', 'hook-states'))
-        with open(os.path.join(self.__temporary.name, 'ghc-agent-refinement', 'hook-states', 'adversarial-review'), 'w', encoding='utf-8', newline='\n'):
+        os.makedirs(os.path.join(self.__temporary.name, 'ghc_agent_refinement', 'hook_states'))
+        with open(os.path.join(self.__temporary.name, 'ghc_agent_refinement', 'hook_states', 'adversarial_review'), 'w', encoding='utf-8', newline='\n'):
             pass
         result = self.__invoke({'sessionId': self.__session_id, 'prompt': ';;'})
         self.assertEqual(result.returncode, 2)

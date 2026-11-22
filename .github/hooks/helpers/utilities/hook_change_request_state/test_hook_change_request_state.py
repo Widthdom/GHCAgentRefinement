@@ -34,7 +34,7 @@ class HookChangeRequestStateTests(unittest.TestCase):
         session_id = uuid.uuid4()
         self.assertEqual(
             _utility.get_state_path(f' {str(session_id).upper()} '),
-            os.path.join(self.__temp_directory, 'ghc-agent-refinement', 'hook-states', 'hook-change-requests',
+            os.path.join(self.__temp_directory, 'ghc_agent_refinement', 'hook_states', 'hook_change_requests',
                          f'{session_id}.json'),
         )
         for invalid in (None, '', '  ', 'not-a-uuid'):

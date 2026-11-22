@@ -20,7 +20,7 @@ class FilterFirstTimeDenialsTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory(prefix='ghc-filter-first-time-denials-test-')
         self.addCleanup(temporary.cleanup)
         # 親ディレクトリがなくても作る。
-        self.__state_path = os.path.join(temporary.name, 'hook-states', 'hook', 'session.sqlite3')
+        self.__state_path = os.path.join(temporary.name, 'hook_states', 'hook', 'session.sqlite3')
 
     def test_returns_only_first_time_denials(self):
         self.assertEqual(_filter_first_time_denials(self.__state_path, [('a', 'reason a'), ('b', 'reason b')]),
