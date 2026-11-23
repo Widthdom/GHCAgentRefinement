@@ -18,5 +18,140 @@
     "name": "git commit amend",
     "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+commit(?:[^\\r\\n;&|]*\\s)--amend(?=[\\s;&|)`]|$)",
     "reason": "Amending commits with git commit --amend is blocked by the repository command policy."
+  },
+  {
+    "name": "git clean force",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+clean(?=[\\s;&|)`]|$)(?=[^\\r\\n;&|]*\\s(?:-[A-Za-z]*f[A-Za-z]*|--force)(?=[\\s;&|)`]|$))",
+    "reason": "Deleting untracked files with git clean -f is blocked by the repository command policy."
+  },
+  {
+    "name": "git checkout discard",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+checkout(?=[\\s;&|)`]|$)(?=[^\\r\\n;&|]*\\s(?:-[A-Za-z]*f[A-Za-z]*|--force|--|\\.)(?=[\\s;&|)`]|$))",
+    "reason": "Discarding working tree changes with git checkout (-f, --, .) is blocked by the repository command policy."
+  },
+  {
+    "name": "git switch discard",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+switch(?=[\\s;&|)`]|$)(?=[^\\r\\n;&|]*\\s(?:-[A-Za-z]*f[A-Za-z]*|--force|--discard-changes)(?=[\\s;&|)`]|$))",
+    "reason": "Discarding working tree changes with git switch --force or --discard-changes is blocked by the repository command policy."
+  },
+  {
+    "name": "git restore worktree",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+restore(?=[\\s;&|)`]|$)(?:(?![^\\r\\n;&|]*\\s(?-i:--staged|-[A-Za-z]*S[A-Za-z]*)(?=[\\s;&|)`]|$))|(?=[^\\r\\n;&|]*\\s(?:(?-i:--worktree|-[A-Za-z]*W[A-Za-z]*))(?=[\\s;&|)`]|$)))",
+    "reason": "Discarding working tree changes with git restore is blocked by the repository command policy. Use git restore --staged to unstage only."
+  },
+  {
+    "name": "git branch force",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+branch(?=[\\s;&|)`]|$)(?=[^\\r\\n;&|]*\\s(?:(?-i:-[A-Za-z]*[Df][A-Za-z]*)|--force)(?=[\\s;&|)`]|$))",
+    "reason": "Force-deleting or force-moving branches with git branch -D or -f is blocked by the repository command policy."
+  },
+  {
+    "name": "git push delete",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+push(?=[\\s;&|)`]|$)(?=[^\\r\\n;&|]*\\s(?:(?-i:-[A-Za-z]*d[A-Za-z]*)|--delete|--mirror|--prune|:[^\\s;&|]+)(?=[\\s;&|)`]|$))",
+    "reason": "Deleting remote refs with git push (--delete, --mirror, --prune, :ref) is blocked by the repository command policy."
+  },
+  {
+    "name": "git stash drop",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+stash\\s+(?:drop|clear)(?=[\\s;&|)`]|$)",
+    "reason": "Discarding stashes with git stash drop or clear is blocked by the repository command policy."
+  },
+  {
+    "name": "git history rewrite",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+(?:filter-branch|filter-repo)(?=[\\s;&|)`]|$)",
+    "reason": "Rewriting history with git filter-branch or filter-repo is blocked by the repository command policy."
+  },
+  {
+    "name": "git reflog delete",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+reflog\\s+(?:expire|delete)(?=[\\s;&|)`]|$)",
+    "reason": "Deleting reflog entries with git reflog expire or delete is blocked by the repository command policy."
+  },
+  {
+    "name": "git update-ref delete",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+update-ref(?=[\\s;&|)`]|$)(?=[^\\r\\n;&|]*\\s(?:-d|--stdin)(?=[\\s;&|)`]|$))",
+    "reason": "Deleting or rewriting refs with git update-ref is blocked by the repository command policy."
+  },
+  {
+    "name": "git gc prune now",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*git(?:\\.exe)?(?:\\s+(?:(?:-C|-c|--git-dir|--work-tree|--namespace|--config-env)\\s+(?:\"[^\"]*\"|'[^']*'|\\S+)|--(?:git-dir|work-tree|namespace|config-env)=(?:\"[^\"]*\"|'[^']*'|\\S+)|--exec-path(?:=(?:\"[^\"]*\"|'[^']*'|\\S+))?|-[^\\s]+|--[^\\s=]+(?:=[^\\s]+)?))*\\s+gc(?=[\\s;&|)`]|$)(?=[^\\r\\n;&|]*\\s(?:--prune=(?:now|all))(?=[\\s;&|)`]|$))",
+    "reason": "Pruning unreachable objects immediately with git gc --prune=now is blocked by the repository command policy."
+  },
+  {
+    "name": "recursive delete",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*(?:[^\\s;&|()`]*[/\\\\])?(?:rm|rmdir|Remove-Item|ri|rd|del|erase)(?:\\.exe)?(?=[\\s;&|)`]|$)(?=[^\\r\\n;&|]*\\s(?:-[dfiIPRrvWx]*[rR][dfiIPRrvWx]*|--recursive|-r(?:e(?:c(?:u(?:r(?:s(?:e)?)?)?)?)?)?(?::\\S*)?)(?=[\\s;&|)`]|$))",
+    "reason": "Recursive deletion with rm -r or Remove-Item -Recurse is blocked by the repository command policy."
+  },
+  {
+    "name": "find or xargs delete",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*(?:[^\\s;&|()`]*[/\\\\])?(?:find(?=[\\s;&|)`]|$)(?=[^\\r\\n;&|]*\\s(?:-delete|-exec(?:dir)?\\s+(?:\\S*/)?(?:rm|shred))(?=[\\s;&|)`]|$))|xargs(?=[\\s;&|)`]|$)[^\\r\\n;&|]*\\s(?:\\S*/)?(?:rm|shred)(?=[\\s;&|)`]|$))",
+    "reason": "Bulk deletion with find -delete, find -exec rm, or xargs rm is blocked by the repository command policy."
+  },
+  {
+    "name": "secure erase",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*(?:[^\\s;&|()`]*[/\\\\])?(?:shred|srm|wipe)(?=[\\s;&|)`]|$)",
+    "reason": "Irrecoverably erasing files with shred, srm, or wipe is blocked by the repository command policy."
+  },
+  {
+    "name": "disk format",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*(?:[^\\s;&|()`]*[/\\\\])?(?:mkfs(?:\\.[A-Za-z0-9]+)?|fdisk|sfdisk|gdisk|parted|wipefs|diskpart|Format-Volume|Clear-Disk|Initialize-Disk|diskutil\\s+(?:erase[A-Za-z]*|zeroDisk|randomDisk|secureErase|partitionDisk|reformat))(?=[\\s;&|)`]|$)",
+    "reason": "Formatting or partitioning disks is blocked by the repository command policy."
+  },
+  {
+    "name": "raw disk write",
+    "pattern": "(?im)(?:(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*(?:[^\\s;&|()`]*[/\\\\])?dd(?=[\\s;&|)`]|$)(?=[^\\r\\n;&|]*\\s(?:of=/dev/[^\\s;&|]+)(?=[\\s;&|)`]|$))|>\\s*/dev/(?:sd[a-z]|hd[a-z]|vd[a-z]|xvd[a-z]|nvme\\d|mmcblk\\d|r?disk\\d))",
+    "reason": "Writing directly to a disk device is blocked by the repository command policy."
+  },
+  {
+    "name": "recursive permission change",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*(?:[^\\s;&|()`]*[/\\\\])?(?:chmod|chown|chgrp)(?=[\\s;&|)`]|$)(?=[^\\r\\n;&|]*\\s(?:(?-i:-[HLPRcfhv]*R[HLPRcfhv]*)|--recursive)(?=[\\s;&|)`]|$))",
+    "reason": "Recursively changing permissions or ownership with chmod, chown, or chgrp -R is blocked by the repository command policy."
+  },
+  {
+    "name": "fork bomb",
+    "pattern": "(?im):\\s*\\(\\s*\\)\\s*\\{\\s*:\\s*\\|\\s*:\\s*&",
+    "reason": "Fork bombs are blocked by the repository command policy."
+  },
+  {
+    "name": "system shutdown",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*(?:[^\\s;&|()`]*[/\\\\])?(?:shutdown|reboot|halt|poweroff|init\\s+[06]|systemctl\\s+(?:poweroff|reboot|halt|kexec)|Stop-Computer|Restart-Computer)(?=[\\s;&|)`]|$)",
+    "reason": "Shutting down or restarting the system is blocked by the repository command policy."
+  },
+  {
+    "name": "kill all processes",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*(?:[^\\s;&|()`]*[/\\\\])?(?:kill(?:\\s+[^\\s;&|]+)*?\\s+-1(?=\\s*(?:[;&|)`\\r\\n]|$))|killall5(?=[\\s;&|)`]|$))",
+    "reason": "Killing all processes with kill -1 or killall5 is blocked by the repository command policy."
+  },
+  {
+    "name": "crontab remove",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*(?:[^\\s;&|()`]*[/\\\\])?crontab(?=[\\s;&|)`]|$)(?=[^\\r\\n;&|]*\\s(?:-[A-Za-z]*r[A-Za-z]*)(?=[\\s;&|)`]|$))",
+    "reason": "Removing all cron jobs with crontab -r is blocked by the repository command policy."
+  },
+  {
+    "name": "remote script execution",
+    "pattern": "(?im)(?:(?:curl|wget|iwr|irm|Invoke-WebRequest|Invoke-RestMethod)(?=[\\s;&|)`]|$)[^\\r\\n;&]*\\|\\s*(?:sudo\\s+)?(?:[^\\s;&|()`]*[/\\\\])?(?:sh|bash|zsh|ksh|dash|fish|python[0-9.]*|perl|ruby|node|iex|Invoke-Expression|pwsh|powershell)(?=[\\s;&|)`]|$)|(?:sh|bash|zsh|ksh|dash)\\s+(?:-[^\\s;&|]+\\s+)*(?:<\\(\\s*|-c\\s+[\"']?\\$\\(\\s*)(?:curl|wget)(?=[\\s;&|)`]|$)|(?:iex|Invoke-Expression)\\s*[\\(\\s]\\s*(?:\\$\\(\\s*|\\(\\s*)?(?:iwr|irm|Invoke-WebRequest|Invoke-RestMethod|New-Object\\s+(?:System\\.)?Net\\.WebClient)(?=[\\s;&|)`]|$))",
+    "reason": "Executing scripts downloaded from the network is blocked by the repository command policy."
+  },
+  {
+    "name": "GitHub delete",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*(?:[^\\s;&|()`]*[/\\\\])?gh(?:\\.exe)?\\s+(?:(?:repo|release)\\s+delete(?=[\\s;&|)`]|$)|api(?=[\\s;&|)`]|$)(?=[^\\r\\n;&|]*\\s(?:(?:-X|--method)(?:\\s+|=)?DELETE)(?=[\\s;&|)`]|$)))",
+    "reason": "Deleting GitHub repositories, releases, or resources through gh is blocked by the repository command policy."
+  },
+  {
+    "name": "package publish",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*(?:[^\\s;&|()`]*[/\\\\])?(?:(?:npm|pnpm|yarn|cargo|poetry)(?:\\.exe|\\.cmd)?\\s+publish|twine\\s+upload|gem\\s+push|(?:dotnet\\s+)?nuget\\s+push)(?=[\\s;&|)`]|$)",
+    "reason": "Publishing packages to a registry is blocked by the repository command policy."
+  },
+  {
+    "name": "container prune",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*(?:[^\\s;&|()`]*[/\\\\])?(?:docker|podman)(?:\\.exe)?\\s+(?:(?:system|volume|image|container|network|builder)\\s+)?prune(?=[\\s;&|)`]|$)",
+    "reason": "Pruning container resources with docker or podman prune is blocked by the repository command policy."
+  },
+  {
+    "name": "infrastructure destroy",
+    "pattern": "(?im)(?:^|[;&|(){}`\\n])\\s*(?:(?:then|do|else|elif|if|while|until|!|time|env|sudo|command|exec|nohup|nice|builtin)(?:\\s+-[^\\s;&|]+)*\\s+|[A-Za-z_][A-Za-z0-9_]*=(?:\"[^\"]*\"|'[^']*'|[^\\s;&|]*)\\s+)*(?:[^\\s;&|()`]*[/\\\\])?(?:terraform\\s+destroy|kubectl\\s+delete)(?=[\\s;&|)`]|$)",
+    "reason": "Destroying infrastructure with terraform destroy or kubectl delete is blocked by the repository command policy."
+  },
+  {
+    "name": "SQL destructive statement",
+    "pattern": "(?im)\\b(?:drop\\s+(?:database|schema|table)|truncate\\s+table)\\b",
+    "reason": "Destructive SQL statements (DROP DATABASE, DROP SCHEMA, DROP TABLE, TRUNCATE TABLE) are blocked by the repository command policy."
   }
 ]
