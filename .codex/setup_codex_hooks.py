@@ -1,4 +1,5 @@
 import argparse
+import io
 import json
 import ntpath
 import os
@@ -11,6 +12,7 @@ import threading
 import time
 from collections import Counter
 from contextlib import contextmanager
+from typing import cast
 
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
@@ -189,8 +191,9 @@ def _setup(root, codex, check=False):
 
 
 def main(argv=None):
-    sys.stdout.reconfigure(encoding='utf-8', errors='replace', newline='\n')
-    sys.stderr.reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    # 型定義上の `sys.stdout`・`sys.stderr` はreconfigureを持たないTextIOのため、静的型チェック向けに実体のTextIOWrapperとしてcastする。castは実行時に何もしない。
+    cast(io.TextIOWrapper, sys.stdout).reconfigure(encoding='utf-8', errors='replace', newline='\n')
+    cast(io.TextIOWrapper, sys.stderr).reconfigure(encoding='utf-8', errors='replace', newline='\n')
     parser = argparse.ArgumentParser(description='Trust this checkout and its current Codex hooks in your user config.')
     parser.add_argument('--check', action='store_true', help='check persisted hook trust without changing settings')
     args = parser.parse_args(argv)
