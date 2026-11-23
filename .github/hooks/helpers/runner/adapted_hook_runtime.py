@@ -107,22 +107,37 @@ def merge_hook_outputs(host_event, outputs):
     return merged or None
 
 
-def complete_transcript_events(events, last_assistant_message, timestamp_ms):
-    # 変換したCopilotのイベントのリストの末尾に、agentStop hookが読むイベントを加えて返す。
-    # Stopの時点で、最終応答がトランスクリプトにまだ書き込まれていない場合がある。入力の最終応答で補う。
-    if isinstance(last_assistant_message, str) and last_assistant_message.strip():
-        last_content = next((
-            event['data']['content'] for event in reversed(events) if event['type'] == 'assistant.message'
-        ), '')
-        if last_content.strip() != last_assistant_message.strip():
-            events.append({'type': 'assistant.message', 'timestamp': None, 'data': {'content': last_assistant_message}})
-    # hookは、自身のhook.startが記録されるまでトランスクリプトの追記を待つ。待たせないよう末尾に加える。
-    events.append({
-        'type': 'hook.start',
-        'timestamp': datetime.fromtimestamp(timestamp_ms / 1000, timezone.utc).isoformat(),
-        'data': {'hookType': 'agentStop', 'input': {'timestamp': timestamp_ms}},
-    })
-    return events
+class TranscriptEvents:
+    # ホストのトランスクリプトから変換した、read_transcript_events.py が読むCopilotのイベントのリスト。
+    # 各アダプターはトランスクリプトを読みながらイベントを加え、最後にcompleteで仕上げたリストを受け取る。
+    def __init__(self):
+        self.__events = []
+
+    def add(self, event_type, data, timestamp):
+        self.__events.append({'type': event_type, 'timestamp': timestamp, 'data': data})
+
+    def add_stop_blocks(self, reason, timestamp):
+        # merge_hook_outputsが1つにまとめたagentStop hookの差し戻しを、hookごとの差し戻しと、
+        # 差し戻しとして送られたユーザーのメッセージに戻して加える。
+        for part in reason.split(BLOCK_REASON_SEPARATOR):
+            self.add('hook.end', {'hookType': 'agentStop', 'output': {'decision': 'block', 'reason': part}}, timestamp)
+            self.add('user.message', {'content': part, 'delivery': 'queued'}, timestamp)
+
+    def complete(self, last_assistant_message, timestamp_ms):
+        # イベントのリストの末尾に、agentStop hookが読むイベントを加えて返す。
+        # Stopの時点で、最終応答がトランスクリプトにまだ書き込まれていない場合がある。入力の最終応答で補う。
+        if isinstance(last_assistant_message, str) and last_assistant_message.strip():
+            last_content = next((
+                event['data']['content'] for event in reversed(self.__events) if event['type'] == 'assistant.message'
+            ), '')
+            if last_content.strip() != last_assistant_message.strip():
+                self.add('assistant.message', {'content': last_assistant_message}, None)
+        # hookは、自身のhook.startが記録されるまでトランスクリプトの追記を待つ。待たせないよう末尾に加える。
+        self.add(
+            'hook.start', {'hookType': 'agentStop', 'input': {'timestamp': timestamp_ms}},
+            datetime.fromtimestamp(timestamp_ms / 1000, timezone.utc).isoformat(),
+        )
+        return self.__events
 
 
 def write_transcript_events(directory, events):
