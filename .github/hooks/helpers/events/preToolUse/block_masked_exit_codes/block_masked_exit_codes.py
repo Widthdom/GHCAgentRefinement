@@ -37,11 +37,22 @@ _BUILD_AND_LINT_COMMAND_WORDS = ('build', 'msbuild', 'make', 'tsc', 'lint', 'esl
 _PIPE_OPERATORS = {'|', '|&'}
 _REDIRECT_OPERATORS = {'>', '>>', '>|', '&>', '&>>', '<', '<<', '<<-', '<<<', '<&', '>&', '<>'}
 _MAX_COMMAND_LENGTH = 120
-_DENY_REASON = (
-    'Shell command denied: a pipe hides the exit status of {commands}. '
+_PIPE_DENY_REASON = (
+    'A pipe hides the exit status of {commands}. '
     'Without pipefail, a pipeline exits with the status of its last command (tail, grep, tee, etc.), '
     'so a failing test or build is reported as a success, and the result cannot be used as evidence. '
-    'Prepend "set -o pipefail; " to the command, or write the output to a file and inspect it in a separate step. '
+    'Prepend "set -o pipefail; " to the command, or write the output to a file and inspect it in a separate tool call.'
+)
+_FOLLOWING_COMMAND_DENY_REASON = (
+    'A following ";", "||", or "&" hides the exit status of {commands}. '
+    'The shell then exits with the status of the command that follows (echo, true, etc.), '
+    'or does not wait for a command run in the background, '
+    'so a failing test or build is reported as a success, and the result cannot be used as evidence. '
+    'Run the test or build by itself (redirecting its output to a file is fine) '
+    'and inspect the output or exit status in a separate tool call, '
+    'or use "&&" to run a following command only on success.'
+)
+_DENY_REASON_SUFFIX = (
     'If the exit status really does not matter here, run the same command again; '
     'this check denies the same command only once per session.'
 )
@@ -113,15 +124,20 @@ def main():
         state_path = _get_state_path('block_masked_exit_codes', hook_input.get('sessionId'))
         tool_name, tool_args = _hook_input.get_tool_call(hook_input)
 
-        masked = []
+        masked_by_pipe = []
+        masked_by_following_command = []
         command_keys = []
         tool_args = _tool_calls.unwrap_tool_args(tool_args) if _SHELL_TOOL_PATTERN.match(tool_name) else None
         command = tool_args.get('command') if isinstance(tool_args, dict) else None
-        commands = _get_masked_commands(
-            command, runs_checked_command, check_test_runs.update_pipefail,
-        ) if isinstance(command, str) else []
-        if commands:
-            masked.extend(commands)
+        if isinstance(command, str):
+            masked_by_pipe = _get_masked_commands(command, runs_checked_command, check_test_runs.update_pipefail)
+            # 後に `;`・`||`・`&` が続いて終了コードが隠れるものは、終了時に成功の主張を検証するhookと同じ
+            # check_test_runs utilityの判定を使う。パイプで隠れるものは上で判定済みのため、ここでは数えない。
+            masked_by_following_command = [
+                ' '.join(words) for words, reason in check_test_runs.get_masked_test_runs(command, checked_command_pattern)
+                if reason == check_test_runs.MASKED_BY_FOLLOWING_COMMAND
+            ]
+        if masked_by_pipe or masked_by_following_command:
             # 状態にはコマンドを保存せず、照合用のSHA-256だけを保存する。
             command_keys.append(_get_text_sha256_digest(command))
 
@@ -135,9 +151,16 @@ def main():
         return 2
 
     if denied:
-        commands = ', '.join(_format_command(command) for command in dict.fromkeys(masked))
+        reasons = [
+            template.format(commands=', '.join(_format_command(command) for command in dict.fromkeys(commands)))
+            for template, commands in (
+                (_PIPE_DENY_REASON, masked_by_pipe),
+                (_FOLLOWING_COMMAND_DENY_REASON, masked_by_following_command),
+            )
+            if commands
+        ]
         # 正常な拒否なので終了コードは0。
-        _hook_output.write_deny_decision(_DENY_REASON.format(commands=commands))
+        _hook_output.write_deny_decision(' '.join(['Shell command denied:', *reasons, _DENY_REASON_SUFFIX]))
     return 0
 
 
