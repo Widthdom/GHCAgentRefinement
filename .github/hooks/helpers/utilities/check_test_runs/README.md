@@ -6,8 +6,9 @@
 ## テストの実行の判定
 - コマンドを [split_bash_lines](../split_bash_lines/split_bash_lines.py) で字句に分け、`;`・`&&`・`||`・`|`・`&`・改行・括弧で単純コマンドに区切る。PowerShellのパスの区切りの `\` は、英数字などの前にあれば `/` とみなす。
 - 単純コマンドごとに、環境変数の代入（`FOO=1`）と前置きのコマンド（`sudo`・`env`・`time`・`timeout <時間>`・`xargs` など）とオプションを読み飛ばし、実際に実行するコマンド以降の語を取り出す（`get_command_words`）。
-- 取り出したコマンドが読むだけのコマンド・移動するだけのコマンドなら、テストの実行とみなさない。`grep test`・`ls tests`・`cat test-x.py`・`git add test-x.py`・`cd tests` などが該当する。
-  - 対象：`ag`・`awk`・`cat`・`cd`・`cut`・`diff`・`du`・`echo`・`egrep`・`fd`・`fgrep`・`file`・`find`・`git`・`grep`・`head`・`jq`・`less`・`ls`・`more`・`printf`・`pushd`・`rg`・`sed`・`sort`・`stat`・`tail`・`tr`・`tree`・`uniq`・`wc`・`which`・`yq`、PowerShellの `Get-ChildItem`・`Get-Content`・`Select-String`・`Set-Location`・`Write-Host`・`Write-Output`（大文字小文字を区別しない）
+- 取り出したコマンドが読むだけのコマンド・移動するだけのコマンド・ファイルを操作するだけのコマンドなら、テストの実行とみなさない。`grep test`・`ls tests`・`cat test-x.py`・`git add test-x.py`・`cd tests`・`mkdir tests` などが該当する。
+  - 対象：`ag`・`awk`・`cat`・`cd`・`chmod`・`cp`・`cut`・`diff`・`du`・`echo`・`egrep`・`fd`・`fgrep`・`file`・`find`・`git`・`grep`・`head`・`jq`・`less`・`ln`・`ls`・`mkdir`・`more`・`mv`・`printf`・`pushd`・`rg`・`rm`・`rmdir`・`sed`・`sort`・`stat`・`tail`・`tee`・`touch`・`tr`・`tree`・`uniq`・`wc`・`which`・`yq`、PowerShellの `Get-ChildItem`・`Get-Content`・`Select-String`・`Set-Location`・`Write-Host`・`Write-Output`（大文字小文字を区別しない）
+- 取り出したコマンドが条件を判定する組み込みコマンド（`test`・`[`・`[[`）なら、テストの実行とみなさない（`test -f a.txt`・`[ -d tests ]`）。パスを付けた `./test` はテストのスクリプトの実行とみなす。
 - それ以外で、語のいずれかに `test`・`tests`・`pytest`・`unittest`・`jest`・`vitest`・`mocha`・`rspec`・`phpunit`・`ctest`・`tox`・`pester`（`TEST_COMMAND_WORDS`）を含めばテストの実行とみなす（`is_test_command`）。`latest`・`attest` などの語中は除く。hookは、テストファイル名など別の正規表現を指定して判定することもできる。
 
 ## 終了コードがテストの結果を表すかの判定
@@ -21,6 +22,7 @@
 |pipefailなしでパイプの途中にある（それより前の `set -o pipefail` で有効にした場合と、`PIPESTATUS` を参照する場合を除く）|`npm test \| tail -5`・`set +o pipefail; npm test \| tail -5`|
 
 - `pytest && echo ok`・`cd x; pytest`・`pytest > /tmp/log 2>&1` のように、テストの後が `&&` だけで続くか、テストで終わる場合は結果を表すとみなす。
+- `get_masked_test_runs` は、結果を表さないテストの実行ごとに、単純コマンドの語のリストと理由を返す。理由は、表の最後の行（パイプ）に当たれば `MASKED_BY_PIPE`、それ以外の行（後続のコマンド・バックグラウンド）に当たれば `MASKED_BY_FOLLOWING_COMMAND`。両方に当たる場合は `MASKED_BY_PIPE` とする。
 - pipefailは、単純コマンドを順に見て `set -o pipefail`・`set -euo pipefail` で有効、`set +o pipefail` で無効とする（`update_pipefail`）。パイプの中の `set` はサブシェルで実行されるため数えない。`echo pipefail` のように、語として書いただけでは有効にならない。
 
 ## テストが通ったという主張の判定

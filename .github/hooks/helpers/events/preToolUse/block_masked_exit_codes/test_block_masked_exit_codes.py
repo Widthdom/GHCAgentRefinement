@@ -47,14 +47,19 @@ class BlockMaskedExitCodesTests(unittest.TestCase):
     def __assert_allowed(self, result):
         self.assertEqual((result.returncode, result.stdout, result.stderr), (0, b'', b''))
 
-    def __assert_denied(self, result, *fragments):
+    def __assert_denied(self, result, *fragments, by_pipe=True, by_following_command=False):
+        # by_pipe・by_following_commandは、拒否理由にパイプ・後続のコマンドについての説明を含むかどうか。
         self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8'))
         self.assertEqual(result.stderr, b'')
         self.assertFalse(result.stdout.startswith(b'\xef\xbb\xbf'))
         output = json.loads(result.stdout.decode('utf-8'))
         self.assertEqual(set(output), {'permissionDecision', 'permissionDecisionReason'})
         self.assertEqual(output['permissionDecision'], 'deny')
-        self.assertIn('set -o pipefail', output['permissionDecisionReason'])
+        reason = output['permissionDecisionReason']
+        self.assertTrue(reason.startswith('Shell command denied: '), reason)
+        self.assertTrue(reason.endswith('this check denies the same command only once per session.'), reason)
+        self.assertEqual(('set -o pipefail' in reason, 'A pipe hides' in reason), (by_pipe, by_pipe), reason)
+        self.assertEqual('A following ";", "||", or "&" hides' in reason, by_following_command, reason)
         for fragment in fragments:
             self.assertIn(fragment, output['permissionDecisionReason'])
         return output['permissionDecisionReason']
@@ -86,14 +91,44 @@ class BlockMaskedExitCodesTests(unittest.TestCase):
                 # 同じコマンドの拒否はセッションにつき1回だけなので、検証ごとにセッションを分ける。
                 self.__assert_denied(self.__invoke(command, session_id=str(uuid.uuid4())), fragment)
 
+    def test_checks_followed_by_other_commands_are_denied(self):
+        for command, fragment in [
+            ('python3 .github/hooks/tests/test_all_hooks.py > all.log 2>&1; echo "all=$?"', 'test_all_hooks.py'),
+            ('dotnet test > test.log 2>&1; tail -20 test.log', '"dotnet test"'),
+            ('pytest || true', '"pytest"'),
+            ('npm run build; echo done', '"npm run build"'),
+            ('pytest &', '"pytest"'),
+            ('pytest\necho done', '"pytest"'),
+            ('pytest -k a; pytest -k b', '"pytest -k a"'),
+            ('pytest | tail; echo "${PIPESTATUS[0]}"', '"pytest"'),
+            ('set -o pipefail; pytest | tail; echo done', '"pytest"'),
+        ]:
+            with self.subTest(command=command):
+                self.__assert_denied(
+                    self.__invoke(command, session_id=str(uuid.uuid4())), fragment,
+                    by_pipe=False, by_following_command=True,
+                )
+
+    def test_pipe_and_following_command_are_both_explained(self):
+        reason = self.__assert_denied(
+            self.__invoke('pytest | tail; make; echo done'), '"pytest"', '"make"', by_following_command=True,
+        )
+        # パイプで隠れるpytestは、後続のコマンドの説明には含めない。
+        self.assertNotIn('"pytest"', reason[reason.index('A following'):])
+
     def test_unmasked_commands_are_allowed(self):
         for command in [
             'set -o pipefail; dotnet test | tail -20',
             'set -euo pipefail\npytest | tail',
             'set -eo pipefail && make | tee log',
-            'pytest | tail; echo "${PIPESTATUS[0]}"',
             'dotnet test',
-            'dotnet test > test.log 2>&1; tail -20 test.log',
+            'dotnet test > test.log 2>&1',
+            'pytest && echo ok',
+            'cd tests; pytest',
+            'set -e; pytest; echo done',
+            'mkdir -p tests; cp a.py tests/',
+            'test -f a.txt || echo missing',
+            '[ -d tests ] && pytest',
             'grep -rn test . | head',
             'ls build | wc -l',
             'cat test.log | tail',
@@ -102,7 +137,6 @@ class BlockMaskedExitCodesTests(unittest.TestCase):
             'cat input.txt | pytest',
             'echo "pytest | tail"',
             'python3 - <<\'EOF\'\nimport os  # pytest | tail\nEOF',
-            'pytest || true',
             'latest | tail',
             "printf 'make | tail'",
         ]:

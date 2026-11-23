@@ -23,15 +23,20 @@ class CheckTestRunsTests(unittest.TestCase):
         ):
             with self.subTest(command=command):
                 self.assertTrue(is_test_command(command))
-        # 語中に含まれる場合や、読むだけのコマンド・移動の引数にある場合はテストとみなさない。
+        # 語中に含まれる場合や、読むだけのコマンド・移動・ファイル操作の引数にある場合、条件判定の組み込みコマンドはテストとみなさない。
         for command in (
             'npm install latest', 'git status', 'echo attest', 'contest', 'testing',
             'ls tests', 'git log --oneline | grep test', 'cat .github/hooks/test-x.py', 'git add test-x.py',
-            'cd tests', 'Get-Content tests\\a.ps1',
+            'cd tests', 'Get-Content tests\\a.ps1', 'mkdir -p tests', 'cp a.py tests/', 'mv test_a.py b.py',
+            'rm tests/a.py', 'touch test_a.py', 'chmod +x tests/run.sh', 'ln -s tests t', 'x | tee test.log',
+            'test -f a.txt', '[ -d tests ]', '[[ -d tests ]]',
         ):
             with self.subTest(command=command):
                 self.assertFalse(is_test_command(command))
-        for command in ('cd tests && pytest', 'FOO=1 timeout 60 npm test', 'python .github\\hooks\\tests\\test_all_hooks.py'):
+        for command in (
+            'cd tests && pytest', 'FOO=1 timeout 60 npm test', 'python .github\\hooks\\tests\\test_all_hooks.py',
+            './test', '[ -d tests ] && pytest',
+        ):
             with self.subTest(command=command):
                 self.assertTrue(is_test_command(command))
 
@@ -53,6 +58,31 @@ class CheckTestRunsTests(unittest.TestCase):
         ):
             with self.subTest(command=command):
                 self.assertFalse(is_test_result_reported(command))
+
+    def test_masked_test_runs(self):
+        pipe = _utility.MASKED_BY_PIPE
+        following = _utility.MASKED_BY_FOLLOWING_COMMAND
+        for command, expected in (
+            ('pytest', []),
+            ('pytest && echo ok', []),
+            ('set -e; pytest; echo done', []),
+            ('pytest | tail', [(['pytest'], pipe)]),
+            ('pytest; echo done', [(['pytest'], following)]),
+            ('pytest || true', [(['pytest'], following)]),
+            ('pytest &', [(['pytest'], following)]),
+            ('python3 test_a.py > a.log 2>&1; echo "a=$?"', [(['python3', 'test_a.py'], following)]),
+            # パイプでも後続のコマンドでも隠れる場合は、パイプを理由とする。
+            ('pytest | tail; echo done', [(['pytest'], pipe)]),
+            ('pytest | tail; echo "${PIPESTATUS[0]}"', [(['pytest'], following)]),
+            ('npm test; pytest | tail', [(['npm', 'test'], following), (['pytest'], pipe)]),
+        ):
+            with self.subTest(command=command):
+                self.assertEqual(_utility.get_masked_test_runs(command), expected)
+        pattern = re.compile(r'test-a\.py')
+        self.assertEqual(
+            _utility.get_masked_test_runs('pytest; python3 test-a.py; echo', pattern),
+            [(['python3', 'test-a.py'], following)],
+        )
 
     def test_custom_pattern_and_runs_command(self):
         pattern = re.compile(r'test-a\.py')

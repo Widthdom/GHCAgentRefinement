@@ -12,13 +12,18 @@ from split_bash_lines import split_bash_lines as _split_bash_lines
 
 # テストの実行とみなすコマンドの語（正規表現）。`test_all_hooks.py`・`npm test`・`pytest` などを含む。
 TEST_COMMAND_WORDS = ('tests?', 'pytest', 'unittest', 'jest', 'vitest', 'mocha', 'rspec', 'phpunit', 'ctest', 'tox', 'pester')
-# 出力やファイルを読むだけのコマンドと、移動するだけのコマンド。`grep test`・`ls tests`・`cd tests` をテストの実行とみなさない。
+# 出力やファイルを読むだけのコマンド、移動するだけのコマンド、ファイルを作成・コピー・移動・削除するだけのコマンド。
+# `grep test`・`ls tests`・`cd tests`・`mkdir tests` をテストの実行とみなさない。
 # PowerShellのコマンドレットは大文字小文字を区別せずに照合するため、小文字で書く。
 _READER_COMMANDS = {
-    'ag', 'awk', 'cat', 'cd', 'cut', 'diff', 'du', 'echo', 'egrep', 'fd', 'fgrep', 'file', 'find', 'git', 'grep',
-    'head', 'jq', 'less', 'ls', 'more', 'printf', 'pushd', 'rg', 'sed', 'sort', 'stat', 'tail', 'tr', 'tree', 'uniq',
-    'wc', 'which', 'yq', 'get-childitem', 'get-content', 'select-string', 'set-location', 'write-host', 'write-output',
+    'ag', 'awk', 'cat', 'cd', 'chmod', 'cp', 'cut', 'diff', 'du', 'echo', 'egrep', 'fd', 'fgrep', 'file', 'find',
+    'git', 'grep', 'head', 'jq', 'less', 'ln', 'ls', 'mkdir', 'more', 'mv', 'printf', 'pushd', 'rg', 'rm', 'rmdir',
+    'sed', 'sort', 'stat', 'tail', 'tee', 'touch', 'tr', 'tree', 'uniq', 'wc', 'which', 'yq',
+    'get-childitem', 'get-content', 'select-string', 'set-location', 'write-host', 'write-output',
 }
+# 条件を判定する組み込みコマンド。`test -f x`・`[ -d tests ]` をテストの実行とみなさない。
+# パスを付けた `./test` は、テストのスクリプトの実行とみなすため、語そのものだけを照合する。
+_CONDITION_COMMANDS = {'test', '[', '[['}
 # 後続の語が実際のコマンドになるもの。`timeout` は次の時間指定も読み飛ばす。
 _WRAPPER_COMMANDS = {'builtin', 'command', 'env', 'exec', 'nice', 'nohup', 'sudo', 'time', 'xargs'}
 _ASSIGNMENT_PATTERN = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=')
@@ -69,7 +74,8 @@ def get_command_words(words):
 def runs_command(words, pattern):
     # 単純コマンドの語が、読むだけのコマンドでなく、patternに一致するコマンドを実行するか。
     command_words = get_command_words(words)
-    if not command_words or os.path.basename(command_words[0]).lower() in _READER_COMMANDS:
+    if (not command_words or command_words[0] in _CONDITION_COMMANDS or
+            os.path.basename(command_words[0]).lower() in _READER_COMMANDS):
         return False
     return bool(pattern.search(' '.join(command_words)))
 
@@ -122,10 +128,16 @@ def update_pipefail(words, current):
     return current
 
 
+# 終了コードが結果を表さない理由。
+MASKED_BY_PIPE = 'pipe'
+MASKED_BY_FOLLOWING_COMMAND = 'following command'
+
+
 def _get_test_runs(command, pattern):
-    # patternに一致するコマンドの実行ごとに、コマンド全体の終了コードがその結果を表すかを返す。
-    # 後に `;`・`||` で別のコマンドが続く場合、バックグラウンドで実行する場合、pipefailなしでパイプの途中にある場合は、
-    # 終了コードが結果を表さない。pipefailは、それより前の `set -o pipefail`・`set +o pipefail` を順に追って判定する。
+    # patternに一致するコマンドの実行ごとに、(単純コマンドの語のリスト, 終了コードが結果を表さない理由) を返す。
+    # 理由は、pipefailなしでパイプの途中にある場合は `MASKED_BY_PIPE`、
+    # 後に `;`・`||` で別のコマンドが続く場合とバックグラウンドで実行する場合は `MASKED_BY_FOLLOWING_COMMAND`、結果を表す場合はNone。
+    # pipefailは、それより前の `set -o pipefail`・`set +o pipefail` を順に追って判定する。
     # `PIPESTATUS` を参照している場合は、各段の終了コードを確かめているとみなす。
     commands = _get_simple_commands(command)
     errexit = bool(_ERREXIT_PATTERN.search(command))
@@ -134,12 +146,13 @@ def _get_test_runs(command, pattern):
     results = []
     for index, (words, operator) in enumerate(commands):
         if runs_command(words, pattern):
-            reported = not (operator == '|' and not pipefail and not uses_pipestatus)
-            for _, following in commands[index:]:
-                if following in ('||', '&') or (following == ';' and not errexit):
-                    reported = False
-                    break
-            results.append(reported)
+            reason = MASKED_BY_PIPE if operator == '|' and not pipefail and not uses_pipestatus else None
+            if reason is None:
+                for _, following in commands[index:]:
+                    if following in ('||', '&') or (following == ';' and not errexit):
+                        reason = MASKED_BY_FOLLOWING_COMMAND
+                        break
+            results.append((words, reason))
         # パイプの中の `set` はサブシェルで実行されるため、後続のコマンドに効かない。
         if operator != '|' and (index == 0 or commands[index - 1][1] != '|'):
             pipefail = update_pipefail(words, pipefail)
@@ -154,7 +167,13 @@ def is_test_command(command, pattern=None):
 def is_test_result_reported(command, pattern=None):
     # コマンドがテストを実行し、コマンド全体の終了コードがすべてのテストの結果を表すか。
     results = _get_test_runs(command, pattern or _TEST_COMMAND_PATTERN)
-    return bool(results) and all(results)
+    return bool(results) and all(reason is None for _, reason in results)
+
+
+def get_masked_test_runs(command, pattern=None):
+    # 終了コードが結果を表さないテスト（patternを指定した場合はそれに一致するコマンド）の実行ごとに、
+    # (単純コマンドの語のリスト, 理由) を返す。理由は `MASKED_BY_PIPE` か `MASKED_BY_FOLLOWING_COMMAND`。
+    return [(words, reason) for words, reason in _get_test_runs(command, pattern or _TEST_COMMAND_PATTERN) if reason]
 
 
 def claims_tests_passed(response):
