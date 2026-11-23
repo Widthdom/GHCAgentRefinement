@@ -15,6 +15,12 @@
 - フォルダーの照合ではgitの管理対象かどうかを見ない。ただし、hookのフォルダーに `__pycache__` 以外の項目がない場合は照合から除く。削除・改名したhookのフォルダーにキャッシュだけが残っていても、定義漏れとして検出しない。未追跡の新規hookは、実ファイルがあれば引き続き検出する。
 - 個別hookのテストは、[hook_entry.py](./helpers/hook_entry.py) を `import` で読み込み、`get_hook_entry()` で自身の定義の要素を取得して、`matcher` などhook固有の設定だけを検証する。
 
+## 一時フォルダーを使うテスト
+- [temporary_state_test_case.py](./helpers/temporary_state_test_case.py) の `TemporaryStateTestCase` は、テストごとの一時フォルダーを作り、テストのプロセスの `tempfile.gettempdir()` がそのフォルダーを返すよう差し替える `unittest.TestCase` の基底クラス。状態を読み書きするテストはこれを継承し、`setUp` を上書きする場合は最初に `super().setUp()` を呼ぶ。
+  - `temp_directory`：テストごとの一時フォルダー（実体のパス）。
+  - `temp_environment`：子プロセスで起動するhookにも同じ一時フォルダーを使わせる環境変数（`TMPDIR`・`TEMP`・`TMP`）。
+  - `assert_state_path(get_state_path, state_name, extension='.sqlite3')`：状態の保存先が `<一時フォルダー>/ghc_agent_refinement/hook_states/<状態名>/<セッションUUID><拡張子>` になり、セッションIDの表記揺れを同じ保存先にし、UUIDでない値を `ValueError` にすることを検証する。
+
 ## unittestの出力
 - [hook_test_output.py](./helpers/hook_test_output.py) の `run_tests()` は `unittest.main()` の代わりに使う。各テストは `import` で読み込む。標準の進捗・実行時間・`OK`・失敗詳細を維持し、失敗時は `FAILED (...)` に続けて `NG` を出力する。成功時は終了コード0、失敗時は1を返す。
 - `Ran` の件数はテストメソッド数（スキップを含む）を表す。複数入力や連続した状態変化は同じメソッド内で検証し、`subTest` は件数に加算しない。

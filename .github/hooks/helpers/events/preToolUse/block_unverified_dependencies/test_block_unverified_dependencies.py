@@ -3,10 +3,7 @@ import os
 import shutil
 import subprocess
 import sys
-import tempfile
-import unittest
 import uuid
-from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'block_unverified_dependencies.py')
@@ -15,6 +12,7 @@ _helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_dir
 _hooks_directory = os.path.dirname(_helpers_directory)
 sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests as _run_tests
+from temporary_state_test_case import TemporaryStateTestCase as _TemporaryStateTestCase
 
 sys.path.insert(0, os.path.join(_helpers_directory, 'utilities', 'verified_packages_state'))
 import verified_packages_state as _state
@@ -28,17 +26,11 @@ _CSPROJ = (
 )
 
 
-class BlockUnverifiedDependenciesTests(unittest.TestCase):
+class BlockUnverifiedDependenciesTests(_TemporaryStateTestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc_block_unverified_dependencies_test_')
-        self.addCleanup(temporary.cleanup)
-        root = os.path.realpath(temporary.name)
         # 確認の記録を実際の一時フォルダーに残さないよう、hookとテストの両方で一時フォルダーを差し替える。
-        self.__environment = dict(os.environ, TMPDIR=root, TEMP=root, TMP=root)
-        tempdir = patch.object(tempfile, 'tempdir', root)
-        tempdir.start()
-        self.addCleanup(tempdir.stop)
-        self.__directory = os.path.join(root, 'workspace')
+        super().setUp()
+        self.__directory = os.path.join(self.temp_directory, 'workspace')
         os.makedirs(self.__directory)
         if shutil.which('git') is not None:
             subprocess.run(['git', 'init', '-q', self.__directory], check=True, timeout=30)
@@ -62,7 +54,7 @@ class BlockUnverifiedDependenciesTests(unittest.TestCase):
             file.write(content)
 
     def __run_raw(self, input_bytes):
-        environment = dict(self.__environment, NUGET_PACKAGES=self.__nuget_directory)
+        environment = dict(self.temp_environment, NUGET_PACKAGES=self.__nuget_directory)
         return subprocess.run([sys.executable, _hook_path], input=input_bytes, capture_output=True, env=environment, timeout=30)
 
     def __run_call(self, tool_name, tool_args):

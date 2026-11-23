@@ -1,10 +1,7 @@
 import json
 import os
 import sys
-import tempfile
-import unittest
 import uuid
-from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _script_directory)
@@ -13,16 +10,12 @@ import hook_change_request_state as _utility
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
 sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests as _run_tests
+from temporary_state_test_case import TemporaryStateTestCase as _TemporaryStateTestCase
 
 
-class HookChangeRequestStateTests(unittest.TestCase):
+class HookChangeRequestStateTests(_TemporaryStateTestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc_hook_change_request_state_test_')
-        self.addCleanup(temporary.cleanup)
-        tempdir = patch.object(tempfile, 'tempdir', temporary.name)
-        tempdir.start()
-        self.addCleanup(tempdir.stop)
-        self.__temp_directory = temporary.name
+        super().setUp()
         self.__state_path = _utility.get_state_path(str(uuid.uuid4()))
 
     def __write_state(self, content):
@@ -31,15 +24,7 @@ class HookChangeRequestStateTests(unittest.TestCase):
             file.write(content)
 
     def test_state_path(self):
-        session_id = uuid.uuid4()
-        self.assertEqual(
-            _utility.get_state_path(f' {str(session_id).upper()} '),
-            os.path.join(self.__temp_directory, 'ghc_agent_refinement', 'hook_states', 'hook_change_requests',
-                         f'{session_id}.json'),
-        )
-        for invalid in (None, '', '  ', 'not-a-uuid'):
-            with self.subTest(session_id=invalid), self.assertRaises(ValueError):
-                _utility.get_state_path(invalid)
+        self.assert_state_path(_utility.get_state_path, 'hook_change_requests', '.json')
 
     def test_save_and_read_permission(self):
         self.assertIs(_utility.is_permitted(self.__state_path), False)

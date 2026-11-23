@@ -1,10 +1,7 @@
 import hashlib
 import os
 import sys
-import tempfile
-import unittest
 import uuid
-from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _script_directory)
@@ -13,27 +10,12 @@ import assertion_failure_values_state as _utility
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
 sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests as _run_tests
+from temporary_state_test_case import TemporaryStateTestCase as _TemporaryStateTestCase
 
 
-class AssertionFailureValuesStateTests(unittest.TestCase):
-    def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc_assertion_failure_values_state_test_')
-        self.addCleanup(temporary.cleanup)
-        tempdir = patch.object(tempfile, 'tempdir', temporary.name)
-        tempdir.start()
-        self.addCleanup(tempdir.stop)
-        self.__temp_directory = temporary.name
-
+class AssertionFailureValuesStateTests(_TemporaryStateTestCase):
     def test_state_path(self):
-        session_id = uuid.uuid4()
-        self.assertEqual(
-            _utility.get_state_path(f' {str(session_id).upper()} '),
-            os.path.join(self.__temp_directory, 'ghc_agent_refinement', 'hook_states', 'test_failure_values',
-                         f'{session_id}.sqlite3'),
-        )
-        for invalid in (None, '', '  ', 'not-a-uuid'):
-            with self.subTest(session_id=invalid), self.assertRaises(ValueError):
-                _utility.get_state_path(invalid)
+        self.assert_state_path(_utility.get_state_path, 'test_failure_values')
 
     def test_normalize_value(self):
         normalize_value = _utility.normalize_value
@@ -59,7 +41,7 @@ class AssertionFailureValuesStateTests(unittest.TestCase):
         # 期待値と実際の値の順序を区別する。
         self.assertNotEqual(get_pair_key('1', '2'), get_pair_key('2', '1'))
         self.assertEqual(_utility.get_value_key('値'), hashlib.sha256('値'.encode('utf-8')).hexdigest())
-        path = os.path.join(self.__temp_directory, 'Test.py')
+        path = os.path.join(self.temp_directory, 'Test.py')
         self.assertEqual(
             _utility.get_file_key(path), hashlib.sha256(os.path.normcase(path).encode('utf-8')).hexdigest(),
         )
