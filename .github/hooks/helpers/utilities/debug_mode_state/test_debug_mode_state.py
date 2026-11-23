@@ -1,10 +1,7 @@
 import json
 import os
 import sys
-import tempfile
-import unittest
 import uuid
-from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _script_directory)
@@ -14,16 +11,13 @@ _get_debug_mode = _utility.get_debug_mode
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
 sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests as _run_tests
+from temporary_state_test_case import TemporaryStateTestCase as _TemporaryStateTestCase
 
 
-class _TemporaryDirectoryTestCase(unittest.TestCase):
+class _TemporaryDirectoryTestCase(_TemporaryStateTestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc_debug_mode_state_test_')
-        self.addCleanup(temporary.cleanup)
-        tempdir = patch.object(tempfile, 'tempdir', temporary.name)
-        tempdir.start()
-        self.addCleanup(tempdir.stop)
-        self.root = os.path.join(temporary.name, 'ghc_agent_refinement')
+        super().setUp()
+        self.root = os.path.join(self.temp_directory, 'ghc_agent_refinement')
         self.session_id = str(uuid.uuid4())
 
 

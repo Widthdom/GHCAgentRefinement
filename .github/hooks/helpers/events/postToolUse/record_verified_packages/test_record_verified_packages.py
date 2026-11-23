@@ -2,10 +2,7 @@ import json
 import os
 import subprocess
 import sys
-import tempfile
-import unittest
 import uuid
-from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 _hook_path = os.path.join(_script_directory, 'record_verified_packages.py')
@@ -14,20 +11,16 @@ _helpers_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_dir
 _hooks_directory = os.path.dirname(_helpers_directory)
 sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests as _run_tests
+from temporary_state_test_case import TemporaryStateTestCase as _TemporaryStateTestCase
 
 sys.path.insert(0, os.path.join(_helpers_directory, 'utilities', 'verified_packages_state'))
 import verified_packages_state as _state
 
 
-class RecordVerifiedPackagesTests(unittest.TestCase):
+class RecordVerifiedPackagesTests(_TemporaryStateTestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc_record_verified_packages_test_')
-        self.addCleanup(temporary.cleanup)
         # 確認の記録を実際の一時フォルダーに残さないよう、hookとテストの両方で一時フォルダーを差し替える。
-        self.__environment = dict(os.environ, TMPDIR=temporary.name, TEMP=temporary.name, TMP=temporary.name)
-        tempdir = patch.object(tempfile, 'tempdir', temporary.name)
-        tempdir.start()
-        self.addCleanup(tempdir.stop)
+        super().setUp()
         self.__new_session()
 
     def __new_session(self):
@@ -37,7 +30,7 @@ class RecordVerifiedPackagesTests(unittest.TestCase):
 
     def __run_hook(self, input_bytes):
         return subprocess.run(
-            [sys.executable, _hook_path], input=input_bytes, capture_output=True, env=self.__environment, timeout=30,
+            [sys.executable, _hook_path], input=input_bytes, capture_output=True, env=self.temp_environment, timeout=30,
         )
 
     def __run_call(self, tool_name, tool_args, output):

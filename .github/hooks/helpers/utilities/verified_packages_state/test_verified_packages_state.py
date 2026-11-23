@@ -1,9 +1,6 @@
 import os
 import sys
-import tempfile
-import unittest
 import uuid
-from unittest.mock import patch
 
 _script_directory = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _script_directory)
@@ -12,28 +9,16 @@ import verified_packages_state as _utility
 _hooks_directory = os.path.dirname(os.path.dirname(os.path.dirname(_script_directory)))
 sys.path.insert(0, os.path.join(_hooks_directory, 'tests', 'helpers'))
 from hook_test_output import run_tests as _run_tests
+from temporary_state_test_case import TemporaryStateTestCase as _TemporaryStateTestCase
 
 
-class VerifiedPackagesStateTests(unittest.TestCase):
+class VerifiedPackagesStateTests(_TemporaryStateTestCase):
     def setUp(self):
-        temporary = tempfile.TemporaryDirectory(prefix='ghc_verified_packages_state_test_')
-        self.addCleanup(temporary.cleanup)
-        tempdir = patch.object(tempfile, 'tempdir', temporary.name)
-        tempdir.start()
-        self.addCleanup(tempdir.stop)
-        self.__temp_directory = temporary.name
+        super().setUp()
         self.__state_path = _utility.get_state_path(str(uuid.uuid4()))
 
     def test_state_path(self):
-        session_id = uuid.uuid4()
-        self.assertEqual(
-            _utility.get_state_path(f' {str(session_id).upper()} '),
-            os.path.join(self.__temp_directory, 'ghc_agent_refinement', 'hook_states', 'verified_packages',
-                         f'{session_id}.sqlite3'),
-        )
-        for invalid in (None, '', '  ', 'not-a-uuid'):
-            with self.subTest(session_id=invalid), self.assertRaises(ValueError):
-                _utility.get_state_path(invalid)
+        self.assert_state_path(_utility.get_state_path, 'verified_packages')
 
     def test_normalize_name(self):
         normalize_name = _utility.normalize_name

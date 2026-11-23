@@ -118,11 +118,9 @@ def _get_text(content):
 
 def _convert_transcript(transcript_path, last_assistant_message, timestamp_ms):
     # Claude Codeのトランスクリプトを、read_transcript_events.py が読むCopilotのイベントのリストに変換する。
-    events = []
+    events = _runtime.TranscriptEvents()
+    add = events.add
     shell_call_ids = set()
-
-    def add(event_type, data, timestamp):
-        events.append({'type': event_type, 'timestamp': timestamp, 'data': data})
 
     def add_hook_start(event, timestamp):
         # Claude Codeは、出力のないhookの起動を記録しない。起動したはずのイベントを、やり取りから補う。
@@ -151,9 +149,7 @@ def _convert_transcript(transcript_path, last_assistant_message, timestamp_ms):
                 reason = blocking_error.get('blockingError') if isinstance(blocking_error, dict) else None
                 if attachment.get('hookEvent') != 'Stop' or not isinstance(reason, str):
                     continue
-                for part in reason.split(_runtime.BLOCK_REASON_SEPARATOR):
-                    add('hook.end', {'hookType': 'agentStop', 'output': {'decision': 'block', 'reason': part}}, timestamp)
-                    add('user.message', {'content': part, 'delivery': 'queued'}, timestamp)
+                events.add_stop_blocks(reason, timestamp)
             elif entry_type == 'assistant' and isinstance(content, list):
                 for block in content:
                     if not isinstance(block, dict):
@@ -197,7 +193,7 @@ def _convert_transcript(transcript_path, last_assistant_message, timestamp_ms):
                     add_hook_start('userPromptSubmitted', timestamp)
                     add('user.message', {'content': text}, timestamp)
 
-    return _runtime.complete_transcript_events(events, last_assistant_message, timestamp_ms)
+    return events.complete(last_assistant_message, timestamp_ms)
 
 
 def main():

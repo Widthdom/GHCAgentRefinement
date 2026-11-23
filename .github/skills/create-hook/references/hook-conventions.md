@@ -26,6 +26,7 @@
 10. 個別hookのテストは、hookのフォルダーに `test_<hook_name>.py` として置く。通常実行、条件を満たさない場合のスキップ、不正入力時の動作と終了コードを検証する。拒否hookでは許可と拒否の両方を検証する。
     - hook定義の構文、起動コマンド、並び順、hookのフォルダーとの対応は [test_hook_configurations.py](../../../hooks/tests/test_hook_configurations.py) で一括して検証する。個別のテストでは、`matcher`・`timeoutSec` などhook固有の設定だけを、[hook_entry.py](../../../hooks/tests/helpers/hook_entry.py) を `import` で読み込み、`get_hook_entry(<実行スクリプトのパス>)` で取得した定義の要素で検証する。
     - hookが状態やログを書く場合は、テストごとの一時フォルダーを `TMPDIR`・`TEMP`・`TMP` に指定してhookを起動し、実際の一時フォルダーに書かせない。
+    - テストのプロセス内でも状態を読み書きする場合（状態を扱うutilityのテストなど）は、[temporary_state_test_case.py](../../../hooks/tests/helpers/temporary_state_test_case.py) の `TemporaryStateTestCase` を継承し、一時フォルダーの作成と `tempfile.tempdir` の差し替えを繰り返し書かない。子プロセスのhookには同じクラスの `temp_environment` を渡し、状態の保存先は `assert_state_path` で検証する。
     - テストから起動するプロセス（hook・`git` など）には、`subprocess.run(..., timeout=...)` や `communicate(timeout=...)` で上限を指定する。止まったプロセスで、テストや一括実行が止まらないようにする。
     - `unittest.TestCase` のテストメソッドとして記述する。[hook_test_output.py](../../../hooks/tests/helpers/hook_test_output.py) を `import` で読み込み、`__main__` 内で `run_tests()` を呼ぶ。import時にはテストを実行せず、一時領域は `setUp` と `addCleanup` などで管理する。
     - 一時領域に作るパスには、大文字小文字だけが違う名前（`App/` と `app/` など）を混ぜない。大文字小文字を区別しないファイルシステム（Windows・macOSの既定）では同じパスになり、OSによって結果が変わる。

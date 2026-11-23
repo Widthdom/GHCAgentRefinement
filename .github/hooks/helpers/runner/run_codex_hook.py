@@ -110,13 +110,11 @@ def _shell_exit(output):
 
 def _convert_transcript(path, last_message, timestamp_ms):
     # 公開ソースのrollout JSONLに限定する。指示・要約をユーザー依頼として補完しない。
-    events = []
+    events = _runtime.TranscriptEvents()
+    add = events.add
     calls = {}
     completed = set()
     recognized = False
-
-    def add(kind, data, timestamp):
-        events.append({'type': kind, 'data': data, 'timestamp': timestamp})
 
     def start(call_id, name, arguments, timestamp):
         if not isinstance(call_id, str) or not call_id or call_id in calls:
@@ -167,11 +165,7 @@ def _convert_transcript(path, last_message, timestamp_ms):
                         for fragment in item.get('fragments', []):
                             if not isinstance(fragment, dict) or not isinstance(fragment.get('text'), str):
                                 continue
-                            for reason in fragment['text'].split(_runtime.BLOCK_REASON_SEPARATOR):
-                                add('hook.end', {'hookType': 'agentStop', 'output': {
-                                    'decision': 'block', 'reason': reason,
-                                }}, timestamp)
-                                add('user.message', {'content': reason, 'delivery': 'queued'}, timestamp)
+                            events.add_stop_blocks(fragment['text'], timestamp)
                     elif item_type == 'CommandExecution':
                         call_id, command = item.get('id'), item.get('command')
                         # コードモード内の呼び出しにはresponse_itemがない場合がある。
@@ -200,7 +194,7 @@ def _convert_transcript(path, last_message, timestamp_ms):
                         complete(call_id, exit_code, timestamp)
     if not recognized:
         raise ValueError('unsupported or empty Codex transcript format.')
-    return _runtime.complete_transcript_events(events, last_message, timestamp_ms)
+    return events.complete(last_message, timestamp_ms)
 
 
 def main():
